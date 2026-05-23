@@ -1,0 +1,88 @@
+#cloud-config
+
+## Set your hostname here, the manage_etc_hosts will update the hosts file entries as well
+hostname: arm64-400
+manage_etc_hosts: true
+
+## Set the locale of the system
+locale: 'en_US.utf8'
+
+## Set the timezone
+## Value of 'timezone' must exist in /usr/share/zoneinfo
+timezone: 'America/New_York'
+
+packages:
+  - open-iscsi
+  - nfs-common
+
+apt_preserve_sources_list: true
+apt_update: true
+apt_upgrade: true
+
+users:
+  - name: pi
+    primary-group: users
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: users
+    ssh_import_id: None
+    ## To enable SSH password log in
+    ## mkpasswd --method=SHA-512 --rounds=4096
+    # passwd: ""
+    # lock_passwd: false
+    # ssh_pwauth: true
+    lock_passwd: true
+    ssh_pwauth: false
+    ssh_authorized_keys:
+      - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCft3wmZVTlcGwUvg5SYRYUcpifwpV+lBX6gOV3qmn5Bj2tAHT03QtZe4qsxwMShiNkUihsULzMwtHZ1U07MPHOG+QOi17QsHM2V1il47AGTaI59GQhf07q0wi2dOONt+hyzbTSlej3S0W78tvIhLgXLcGXRJc76RUzL96Y2t3/0wcCo7XnZUNp3q2+Vwlgg3TtfF3y5/IZ7+1Uu8rqQgrmKyTRV58LKh8ChhClRBAY9wlxcoJByg0s1teOWMOoO0JDHeSXkLCV+YO1OUYs1z/L/w7nghf3Ap8Ghz0jrl2q1WkMfR625ptXnoowvtdDp3fziv9ry3TEJ+Yf2Yd5Q4YEj8KviF3zK1YWhIZLylIJRmhv33VYMKFAkCIz2AiBcpSGCzJZoMdWFxEG3n6tru451AoXtAyeVFSvXzBKOKdXZMtRGz6JaCX8XEy4soIHWlf/7xVqmsbrFTcAmy/UoQcqW/rlAv8NhXd6pHMZ+DMTLVIzUJ2BXUs+H5+2BAkWUCmhDfvOiQjWPxic5DgHGjHg66uJ4fknRGf228/3sIRUZNaehxXRoSYwhaXu0Gw57vMh7NsEyCNmBbAC/ZSLCU4j0TiCVa1VSf3YTtJlw+YTZroXe73r9qLKyVplBRhK1hMxgV5EsXXmMPxHtJqLWd1J66NyeYhn445h+/yVGvPeLw== donbuddenbaum@donbs-iMac'
+  - name: dbuddenbaum
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_import_id: None
+    passwd: "changeme"
+    inactive: "0"
+    lock_passwd: false
+    ssh_pwauth: true
+
+write_files:
+  - path: /etc/netplan/50-cloud-init.yaml
+    permissions: '0644'
+    content: |
+      network:
+        version: 2
+        ethernets:
+          eth0:
+            dhcp4: false
+            addresses: [192.168.2.8/16]
+            gateway4: 192.168.2.253
+            nameservers:
+              addresses: [192.168.2.253, 8.8.8.8, 8.8.4.4]
+    ## To enable WiFi network connection
+    ## Note: IP allocation is dynamic and won't match the defined state a
+    ##       This will require manually configuring the Ansible inventory file with
+    ##       the assigned IP values.
+    #     wifis:
+    #       wlan0:
+    #         optional: true
+    #         dhcp4: true
+    #         access-points:
+    #           'YOUR-SSID-NAME':
+    #             password: 'YOUR-NETWORK-PASSWORD'
+
+runcmd:
+  - [sudo, netplan, apply]
+  - [
+      sudo,
+      sed,
+      -i,
+      's/PasswordAuthentication no/PasswordAuthentication yes/g',
+      /etc/ssh/sshd_config,
+    ]
+  - [
+    sudo,
+    sed,
+    -i,
+    's/fixrtc/fixrtc cgroup_enable=memory cgroup_memory=1/',
+    /boot/firmware/cmdline.txt,
+  ]
+  - [sudo, systemctl, restart, sshd]

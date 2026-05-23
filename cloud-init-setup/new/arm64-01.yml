@@ -1,0 +1,256 @@
+#cloud-config
+hostname: arm64-01
+manage_etc_hosts: true
+locale: en_US.UTF-8
+timezone: America/Chicago
+
+package_update: true
+package_upgrade: true
+package_reboot_if_required: false
+
+packages:
+  - open-iscsi
+  - nfs-common
+  - parted
+  - xfsprogs
+
+ssh_pwauth: false
+disable_root: true
+
+users:
+  - name: pi
+    primary_group: users
+    groups: [users, sudo]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+      - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCft3wmZVTlcGwUvg5SYRYUcpifwpV+lBX6gOV3qmn5Bj2tAHT03QtZe4qsxwMShiNkUihsULzMwtHZ1U07MPHOG+QOi17QsHM2V1il47AGTaI59GQhf07q0wi2dOONt+hyzbTSlej3S0W78tvIhLgXLcGXRJc76RUzL96Y2t3/0wcCo7XnZUNp3q2+Vwlgg3TtfF3y5/IZ7+1Uu8rqQgrmKyTRV58LKh8ChhClRBAY9wlxcoJByg0s1teOWMOoO0JDHeSXkLCV+YO1OUYs1z/L/w7nghf3Ap8Ghz0jrl2q1WkMfR625ptXnoowvtdDp3fziv9ry3TEJ+Yf2Yd5Q4YEj8KviF3zK1YWhIZLylIJRmhv33VYMKFAkCIz2AiBcpSGCzJZoMdWFxEG3n6tru451AoXtAyeVFSvXzBKOKdXZMtRGz6JaCX8XEy4soIHWlf/7xVqmsbrFTcAmy/UoQcqW/rlAv8NhXd6pHMZ+DMTLVIzUJ2BXUs+H5+2BAkWUCmhDfvOiQjWPxic5DgHGjHg66uJ4fknRGf228/3sIRUZNaehxXRoSYwhaXu0Gw57vMh7NsEyCNmBbAC/ZSLCU4j0TiCVa1VSf3YTtJlw+YTZroXe73r9qLKyVplBRhK1hMxgV5EsXXmMPxHtJqLWd1J66NyeYhn445h+/yVGvPeLw== donbuddenbaum@donbs-iMac"
+  - name: dbuddenbaum
+    primary_group: users
+    groups: [users, sudo]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+      - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCft3wmZVTlcGwUvg5SYRYUcpifwpV+lBX6gOV3qmn5Bj2tAHT03QtZe4qsxwMShiNkUihsULzMwtHZ1U07MPHOG+QOi17QsHM2V1il47AGTaI59GQhf07q0wi2dOONt+hyzbTSlej3S0W78tvIhLgXLcGXRJc76RUzL96Y2t3/0wcCo7XnZUNp3q2+Vwlgg3TtfF3y5/IZ7+1Uu8rqQgrmKyTRV58LKh8ChhClRBAY9wlxcoJByg0s1teOWMOoO0JDHeSXkLCV+YO1OUYs1z/L/w7nghf3Ap8Ghz0jrl2q1WkMfR625ptXnoowvtdDp3fziv9ry3TEJ+Yf2Yd5Q4YEj8KviF3zK1YWhIZLylIJRmhv33VYMKFAkCIz2AiBcpSGCzJZoMdWFxEG3n6tru451AoXtAyeVFSvXzBKOKdXZMtRGz6JaCX8XEy4soIHWlf/7xVqmsbrFTcAmy/UoQcqW/rlAv8NhXd6pHMZ+DMTLVIzUJ2BXUs+H5+2BAkWUCmhDfvOiQjWPxic5DgHGjHg66uJ4fknRGf228/3sIRUZNaehxXRoSYwhaXu0Gw57vMh7NsEyCNmBbAC/ZSLCU4j0TiCVa1VSf3YTtJlw+YTZroXe73r9qLKyVplBRhK1hMxgV5EsXXmMPxHtJqLWd1J66NyeYhn445h+/yVGvPeLw== donbuddenbaum@donbs-iMac"
+
+write_files:
+  - path: /etc/netplan/50-cloud-init.yaml
+    permissions: '0644'
+    owner: root:root
+    content: |
+      network:
+        version: 2
+        ethernets:
+          eth0:
+            dhcp4: false
+            addresses:
+              - 192.168.2.51/24
+            routes:
+              - to: default
+                via: 192.168.2.1
+            nameservers:
+              addresses:
+                - 192.168.2.1
+                - 1.1.1.1
+                - 8.8.8.8
+
+  - path: /etc/hosts
+    permissions: '0644'
+    owner: root:root
+    content: |
+          127.0.0.1 localhost
+          127.0.1.1 arm64-01
+
+          192.168.2.7 nfs-server
+          192.168.2.51 arm64-01
+          192.168.2.52 arm64-02
+          192.168.2.53 arm64-03
+          192.168.2.54 arm64-04
+          192.168.2.55 arm64-05
+          192.168.2.61 amd64-01
+          192.168.2.62 amd64-02
+          192.168.2.63 amd64-03
+
+          ::1 localhost ip6-localhost ip6-loopback
+          ff02::1 ip6-allnodes
+          ff02::2 ip6-allrouters
+
+  - path: /usr/local/sbin/prepare-minio-disk.sh
+    permissions: '0755'
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      MOUNT_POINT="/mnt/minio"
+      MIN_DATA_BYTES=800000000000
+
+      log() {
+        echo "[prepare-minio-disk] $1"
+      }
+
+      get_root_disk() {
+        local root_source
+        local parent_name
+
+        root_source="$(findmnt -n -o SOURCE /)"
+
+        if [[ -z "${root_source}" ]]; then
+          echo "Unable to determine root source" >&2
+          exit 1
+        fi
+
+        parent_name="$(lsblk -no PKNAME "${root_source}" 2>/dev/null | head -n 1 || true)"
+
+        if [[ -n "${parent_name}" ]]; then
+          echo "/dev/${parent_name}"
+          return
+        fi
+
+        if [[ -b "${root_source}" ]]; then
+          echo "${root_source}"
+          return
+        fi
+
+        echo "Unable to resolve root disk from ${root_source}" >&2
+        exit 1
+      }
+
+      get_minio_disk() {
+        local root_disk
+        local disk
+        local size_bytes
+        local removable
+
+        root_disk="$(get_root_disk)"
+        log "Detected root disk: ${root_disk}"
+
+        while read -r disk; do
+          [[ -z "${disk}" ]] && continue
+          [[ "${disk}" == "${root_disk}" ]] && continue
+
+          removable="$(cat "/sys/class/block/$(basename "${disk}")/removable" 2>/dev/null || echo 1)"
+          [[ "${removable}" == "1" ]] && continue
+
+          size_bytes="$(lsblk -bdno SIZE "${disk}" 2>/dev/null || echo 0)"
+          [[ "${size_bytes}" -lt "${MIN_DATA_BYTES}" ]] && continue
+
+          echo "${disk}"
+          return
+        done < <(lsblk -dn -o NAME,TYPE | awk '$2 == "disk" {print "/dev/" $1}')
+
+        echo "No non-root disk >= ${MIN_DATA_BYTES} bytes found for MinIO" >&2
+        exit 1
+      }
+
+      partition_suffix() {
+        local disk="$1"
+
+        if [[ "${disk}" =~ nvme|mmcblk ]]; then
+          echo "p1"
+          return
+        fi
+
+        echo "1"
+      }
+
+      ensure_partition_table() {
+        local disk="$1"
+
+        if ! parted -s "${disk}" print >/dev/null 2>&1; then
+          parted -s "${disk}" mklabel gpt
+          return
+        fi
+
+        if ! parted -s "${disk}" print | grep -q '^ 1'; then
+          parted -s "${disk}" mklabel gpt
+        fi
+      }
+
+      create_partition_if_missing() {
+        local disk="$1"
+        local part="$2"
+
+        if [[ -b "${part}" ]]; then
+          return
+        fi
+
+        parted -s "${disk}" mkpart primary xfs 1MiB 100%
+        partprobe "${disk}"
+        udevadm settle || true
+        sleep 2
+      }
+
+      format_partition_if_missing() {
+        local part="$1"
+
+        if blkid "${part}" >/dev/null 2>&1; then
+          return
+        fi
+
+        mkfs.xfs -f "${part}"
+      }
+
+      mount_partition() {
+        local part="$1"
+        local uuid
+
+        mkdir -p "${MOUNT_POINT}"
+        uuid="$(blkid -s UUID -o value "${part}")"
+
+        if [[ -z "${uuid}" ]]; then
+          echo "Unable to determine UUID for ${part}" >&2
+          exit 1
+        fi
+
+        grep -q "${uuid}" /etc/fstab || \
+          echo "UUID=${uuid} ${MOUNT_POINT} xfs defaults,nofail 0 2" >> /etc/fstab
+
+        mount -a
+      }
+
+      main() {
+        local disk
+        local part
+
+        disk="$(get_minio_disk)"
+        part="${disk}$(partition_suffix "${disk}")"
+
+        log "Using MinIO disk: ${disk}"
+        ensure_partition_table "${disk}"
+        create_partition_if_missing "${disk}" "${part}"
+        format_partition_if_missing "${part}"
+        mount_partition "${part}"
+        log "MinIO disk prepared and mounted at ${MOUNT_POINT}"
+      }
+
+      main "$@"
+
+  - path: /usr/local/sbin/configure-cgroups-pi.sh
+    permissions: '0755'
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      FILE="/boot/firmware/cmdline.txt"
+
+      if [[ ! -f "${FILE}" ]]; then
+        exit 0
+      fi
+
+      if ! grep -q 'cgroup_enable=memory' "${FILE}"; then
+        sed -i '1 s/$/ cgroup_enable=memory cgroup_memory=1/' "${FILE}"
+      fi
+
+
+runcmd:
+  - [bash, -lc, "netplan generate"]
+  - [bash, -lc, "netplan apply"]
+  - [bash, -lc, "systemctl enable --now iscsid"]
+  - [bash, -lc, "/usr/local/sbin/prepare-minio-disk.sh"]
+  - [bash, -lc, "/usr/local/sbin/configure-cgroups-pi.sh"]
+
+final_message: "cloud-init completed for arm64-01"
