@@ -1,0 +1,17 @@
+network:
+  version: 2
+  ethernets:
+    uplink0:
+      match:
+        name: "{{ ethernet_match_name }}"
+      dhcp4: false
+      addresses:
+        - {{ node_ip }}/24
+      routes:
+        - to: default
+          via: {{ node_gateway }}
+      nameservers:
+        addresses:
+{% for server in node_dns %}
+          - {{ server }}
+{% endfor %}

@@ -1,0 +1,139 @@
+---
+- name: Configure Intel amd64 nodes for the k3s cluster
+  hosts: amd64_nodes
+  become: true
+  gather_facts: true
+  serial: 1
+
+  tasks:
+    - name: Confirm this playbook is only running on amd64 hosts
+      ansible.builtin.assert:
+        that:
+          - ansible_architecture in ['x86_64', 'amd64']
+        fail_msg: "This host is not amd64/x86_64. Stop before applying Intel node settings."
+
+    - name: Set hostname
+      ansible.builtin.hostname:
+        name: "{{ node_hostname }}"
+
+    - name: Set timezone
+      ansible.builtin.command: timedatectl set-timezone America/Chicago
+      changed_when: false
+
+    - name: Ensure locale exists
+      ansible.builtin.command: locale-gen en_US.UTF-8
+      changed_when: false
+
+    - name: Update apt cache and upgrade packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+        cache_valid_time: 3600
+
+    - name: Install base cluster packages
+      ansible.builtin.apt:
+        name:
+          - open-iscsi
+          - nfs-common
+          - parted
+          - xfsprogs
+          - python3
+          - sudo
+          - openssh-server
+        state: present
+
+    - name: Ensure local users exist
+      ansible.builtin.user:
+        name: "{{ item }}"
+        groups:
+          - users
+          - sudo
+        append: true
+        shell: /bin/bash
+        password_lock: true
+        create_home: true
+      loop: "{{ k3s_users }}"
+
+    - name: Install authorized SSH keys
+      ansible.posix.authorized_key:
+        user: "{{ item.0 }}"
+        key: "{{ item.1 }}"
+        state: present
+      loop: "{{ k3s_users | product(k3s_ssh_authorized_keys) | list }}"
+
+    - name: Allow passwordless sudo for cluster users
+      ansible.builtin.copy:
+        dest: "/etc/sudoers.d/90-k3s-users"
+        owner: root
+        group: root
+        mode: '0440'
+        validate: 'visudo -cf %s'
+        content: |
+          pi ALL=(ALL) NOPASSWD:ALL
+          dbuddenbaum ALL=(ALL) NOPASSWD:ALL
+
+    - name: Disable SSH password login and root login
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/99-k3s-hardening.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          PasswordAuthentication no
+          PermitRootLogin no
+      notify: Restart ssh
+
+    - name: Write cluster hosts file
+      ansible.builtin.template:
+        src: hosts.j2
+        dest: /etc/hosts
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Write static netplan configuration
+      ansible.builtin.template:
+        src: 50-k3s-uplink.yaml.j2
+        dest: /etc/netplan/50-k3s-uplink.yaml
+        owner: root
+        group: root
+        mode: '0600'
+      notify: Apply netplan
+
+    - name: Enable and start iSCSI service
+      ansible.builtin.service:
+        name: iscsid
+        enabled: true
+        state: started
+
+    - name: Install safe MinIO disk preparation script
+      ansible.builtin.copy:
+        src: prepare-minio-disk.sh
+        dest: /usr/local/sbin/prepare-minio-disk.sh
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Prepare MinIO disk when enabled
+      ansible.builtin.command: /usr/local/sbin/prepare-minio-disk.sh
+      register: minio_prepare
+      changed_when: "'Formatting' in minio_prepare.stderr or 'Creating XFS partition' in minio_prepare.stderr"
+      when: prepare_minio_disk | bool
+
+    - name: Show final validation summary
+      ansible.builtin.debug:
+        msg:
+          - "Configured {{ node_hostname }} at {{ node_ip }}"
+          - "Run: ssh dbuddenbaum@{{ node_ip }} 'hostnamectl && lsblk -o NAME,SIZE,ROTA,TYPE,FSTYPE,MOUNTPOINT,MODEL,SERIAL'"
+
+  handlers:
+    - name: Restart ssh
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
+
+    - name: Apply netplan
+      ansible.builtin.command: netplan apply
+      async: 45
+      poll: 0
+      changed_when: true
