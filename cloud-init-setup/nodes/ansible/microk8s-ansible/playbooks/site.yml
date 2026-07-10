@@ -1,0 +1,22 @@
+---
+- name: Bootstrap all MicroK8s nodes
+  hosts: microk8s_cluster
+  serial: 20
+  roles:
+    - role: common
+    - role: storage
+    - role: microk8s
+      microk8s_phase: install
+
+- name: Form the MicroK8s cluster
+  hosts: microk8s_cluster
+  serial: 1
+  roles:
+    - role: microk8s
+      microk8s_phase: cluster
+
+- name: Configure addons, labels, taints, and kubeconfig
+  hosts: "{{ microk8s_primary_control_plane }}"
+  roles:
+    - role: microk8s
+      microk8s_phase: finalize

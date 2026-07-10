@@ -185,8 +185,8 @@ grep -E "hostname|192\.168\.2|ssh_authorized_keys" setup/cloud-config-arm64-01.y
 
 ```bash
 flash \
-  --userdata setup/cloud-config-arm64-01.yml \
-  ~/Downloads/ubuntu-rpi/ubuntu-24.04.4-preinstalled-server-arm64+raspi.img.xz
+  --userdata ~/dvlp/Kalaxy3/cloud-init-setup/nodes/arm64-01.yml \
+  ~/Downloads/ubuntu-24.04.4-preinstalled-server-arm64+raspi.img.xz
 ```
 
 Only answer `y` when the displayed target disk is definitely the Pi boot device.
@@ -197,8 +197,8 @@ Only answer `y` when the displayed target disk is definitely the Pi boot device.
 
 ```bash
 flash \
-  --userdata setup/cloud-config-arm64-02.yml \
-  ~/Downloads/ubuntu-rpi/ubuntu-24.04.4-preinstalled-server-arm64+raspi.img.xz
+  --userdata ~/dvlp/Kalaxy3/cloud-init-setup/nodes/arm64-02.yml \
+  ~/Downloads/ubuntu-24.04.4-preinstalled-server-arm64+raspi.img.xz
 ```
 
 ---
@@ -207,8 +207,8 @@ flash \
 
 ```bash
 flash \
-  --userdata setup/cloud-config-arm64-03.yml \
-  ~/Downloads/ubuntu-rpi/ubuntu-24.04.4-preinstalled-server-arm64+raspi.img.xz
+  --userdata ~/dvlp/Kalaxy3/cloud-init-setup/nodes/arm64-03.yml \
+  ~/Downloads/ubuntu-24.04.4-preinstalled-server-arm64+raspi.img.xz
 ```
 
 ---
@@ -217,8 +217,8 @@ flash \
 
 ```bash
 flash \
-  --userdata setup/cloud-config-arm64-04.yml \
-  ~/Downloads/ubuntu-rpi/ubuntu-24.04.4-preinstalled-server-arm64+raspi.img.xz
+  --userdata ~/dvlp/Kalaxy3/cloud-init-setup/nodes/arm64-04.yml \
+  ~/Downloads/ubuntu-24.04.4-preinstalled-server-arm64+raspi.img.xz
 ```
 
 ---
@@ -227,8 +227,8 @@ flash \
 
 ```bash
 flash \
-  --userdata setup/cloud-config-arm64-05.yml \
-  ~/Downloads/ubuntu-rpi/ubuntu-24.04.4-preinstalled-server-arm64+raspi.img.xz
+  --userdata ~/dvlp/Kalaxy3/cloud-init-setup/nodes/arm65-01.yml \
+  ~/Downloads/ubuntu-24.04.4-preinstalled-server-arm64+raspi.img.xz
 ```
 
 ---

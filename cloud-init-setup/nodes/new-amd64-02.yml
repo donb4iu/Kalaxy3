@@ -1,5 +1,5 @@
 #cloud-config
-hostname: arm64-04
+hostname: amd64-02
 manage_etc_hosts: true
 locale: en_US.UTF-8
 timezone: America/Chicago
@@ -39,10 +39,12 @@ write_files:
       network:
         version: 2
         ethernets:
-          eth0:
+          uplink0:
+            match:
+              name: "e*"
             dhcp4: false
             addresses:
-              - 192.168.2.54/24
+              - 192.168.2.62/24
             routes:
               - to: default
                 via: 192.168.2.1
@@ -57,7 +59,7 @@ write_files:
     owner: root:root
     content: |
       127.0.0.1 localhost
-      127.0.1.1 arm64-04
+      127.0.1.1 amd64-02
 
       192.168.2.7 nfs-server
       192.168.2.51 arm64-01
@@ -320,24 +322,6 @@ write_files:
 
       main "$@"
 
-  - path: /usr/local/sbin/configure-cgroups-pi.sh
-    permissions: '0755'
-    owner: root:root
-    content: |
-      #!/usr/bin/env bash
-      set -euo pipefail
-
-      FILE="/boot/firmware/cmdline.txt"
-
-      if [[ ! -f "${FILE}" ]]; then
-        exit 0
-      fi
-
-      if ! grep -q 'cgroup_enable=memory' "${FILE}"; then
-        sed -i '1 s/$/ cgroup_enable=memory cgroup_memory=1/' "${FILE}"
-      fi
-
-
   - path: /etc/ssh/sshd_config.d/99-user-auth.conf
     permissions: '0644'
     owner: root:root
@@ -377,7 +361,7 @@ runcmd:
   -   - bash
       - -lc
       - /usr/sbin/sshd -t && systemctl restart ssh
-final_message: "cloud-init completed for arm64-04"
+final_message: "cloud-init completed for amd64-02"
 chpasswd:
   expire: true
   list: |

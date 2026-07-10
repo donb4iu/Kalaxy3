@@ -1,0 +1,12 @@
+---
+- name: Include install phase
+  ansible.builtin.include_tasks: install.yml
+  when: microk8s_phase == 'install'
+
+- name: Include cluster phase
+  ansible.builtin.include_tasks: cluster.yml
+  when: microk8s_phase == 'cluster'
+
+- name: Include finalize phase
+  ansible.builtin.include_tasks: finalize.yml
+  when: microk8s_phase == 'finalize'

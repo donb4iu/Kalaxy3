@@ -1,0 +1,55 @@
+---
+- name: Skip storage preparation when disabled
+  ansible.builtin.meta: end_host
+  when: not microk8s_prepare_data_disk | bool
+
+- name: Ensure stable disk path is configured
+  ansible.builtin.assert:
+    that:
+      - data_disk_by_id is defined
+      - data_disk_by_id | length > 0
+    fail_msg: >-
+      Set data_disk_by_id for {{ inventory_hostname }}. Using /dev/sdb from the
+      notes is brittle; a /dev/disk/by-id path is safer and survives device
+      reordering.
+
+- name: Ensure mount directory exists
+  ansible.builtin.file:
+    path: "{{ microk8s_data_mount_path }}"
+    state: directory
+    mode: '0755'
+
+- name: Check existing filesystem
+  ansible.builtin.command: blkid -o value -s TYPE {{ data_disk_by_id }}
+  register: storage_blkid
+  changed_when: false
+  failed_when: false
+
+- name: Fail if disk is blank and formatting is not allowed
+  ansible.builtin.assert:
+    that:
+      - storage_blkid.rc == 0 or microk8s_format_data_disk | bool
+    fail_msg: >-
+      {{ data_disk_by_id }} has no filesystem. Set microk8s_format_data_disk=true
+      only after confirming the correct HDD is selected.
+
+- name: Create filesystem when explicitly allowed
+  ansible.builtin.filesystem:
+    dev: "{{ data_disk_by_id }}"
+    fstype: "{{ microk8s_data_fs_type }}"
+  when:
+    - storage_blkid.rc != 0
+    - microk8s_format_data_disk | bool
+
+- name: Read disk UUID
+  ansible.builtin.command: blkid -o value -s UUID {{ data_disk_by_id }}
+  register: storage_uuid
+  changed_when: false
+
+- name: Mount data disk by UUID
+  ansible.posix.mount:
+    path: "{{ microk8s_data_mount_path }}"
+    src: "UUID={{ storage_uuid.stdout }}"
+    fstype: "{{ microk8s_data_fs_type }}"
+    opts: noatime,nofail
+    state: mounted

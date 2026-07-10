@@ -1,5 +1,5 @@
 #cloud-config
-hostname: arm64-04
+hostname: amd64-01
 manage_etc_hosts: true
 locale: en_US.UTF-8
 timezone: America/Chicago
@@ -21,7 +21,7 @@ users:
     lock_passwd: true
     ssh_authorized_keys:
       - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCft3wmZVTlcGwUvg5SYRYUcpifwpV+lBX6gOV3qmn5Bj2tAHT03QtZe4qsxwMShiNkUihsULzMwtHZ1U07MPHOG+QOi17QsHM2V1il47AGTaI59GQhf07q0wi2dOONt+hyzbTSlej3S0W78tvIhLgXLcGXRJc76RUzL96Y2t3/0wcCo7XnZUNp3q2+Vwlgg3TtfF3y5/IZ7+1Uu8rqQgrmKyTRV58LKh8ChhClRBAY9wlxcoJByg0s1teOWMOoO0JDHeSXkLCV+YO1OUYs1z/L/w7nghf3Ap8Ghz0jrl2q1WkMfR625ptXnoowvtdDp3fziv9ry3TEJ+Yf2Yd5Q4YEj8KviF3zK1YWhIZLylIJRmhv33VYMKFAkCIz2AiBcpSGCzJZoMdWFxEG3n6tru451AoXtAyeVFSvXzBKOKdXZMtRGz6JaCX8XEy4soIHWlf/7xVqmsbrFTcAmy/UoQcqW/rlAv8NhXd6pHMZ+DMTLVIzUJ2BXUs+H5+2BAkWUCmhDfvOiQjWPxic5DgHGjHg66uJ4fknRGf228/3sIRUZNaehxXRoSYwhaXu0Gw57vMh7NsEyCNmBbAC/ZSLCU4j0TiCVa1VSf3YTtJlw+YTZroXe73r9qLKyVplBRhK1hMxgV5EsXXmMPxHtJqLWd1J66NyeYhn445h+/yVGvPeLw== donbuddenbaum@donbs-iMac"
-      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBPaaoAAmImR6hzULpGxF/Bq5ZfpERsYRHa1IJWQyGKN your_github_email@example.com
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBPaaoAAmImR6hzULpGxF/Bq5ZfpERsYRHa1IJWQyGKN your_github_email@example.com"
   - name: dbuddenbaum
     primary_group: users
     groups: [users, sudo]
@@ -30,7 +30,7 @@ users:
     lock_passwd: false
     ssh_authorized_keys:
       - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCft3wmZVTlcGwUvg5SYRYUcpifwpV+lBX6gOV3qmn5Bj2tAHT03QtZe4qsxwMShiNkUihsULzMwtHZ1U07MPHOG+QOi17QsHM2V1il47AGTaI59GQhf07q0wi2dOONt+hyzbTSlej3S0W78tvIhLgXLcGXRJc76RUzL96Y2t3/0wcCo7XnZUNp3q2+Vwlgg3TtfF3y5/IZ7+1Uu8rqQgrmKyTRV58LKh8ChhClRBAY9wlxcoJByg0s1teOWMOoO0JDHeSXkLCV+YO1OUYs1z/L/w7nghf3Ap8Ghz0jrl2q1WkMfR625ptXnoowvtdDp3fziv9ry3TEJ+Yf2Yd5Q4YEj8KviF3zK1YWhIZLylIJRmhv33VYMKFAkCIz2AiBcpSGCzJZoMdWFxEG3n6tru451AoXtAyeVFSvXzBKOKdXZMtRGz6JaCX8XEy4soIHWlf/7xVqmsbrFTcAmy/UoQcqW/rlAv8NhXd6pHMZ+DMTLVIzUJ2BXUs+H5+2BAkWUCmhDfvOiQjWPxic5DgHGjHg66uJ4fknRGf228/3sIRUZNaehxXRoSYwhaXu0Gw57vMh7NsEyCNmBbAC/ZSLCU4j0TiCVa1VSf3YTtJlw+YTZroXe73r9qLKyVplBRhK1hMxgV5EsXXmMPxHtJqLWd1J66NyeYhn445h+/yVGvPeLw== donbuddenbaum@donbs-iMac"
-      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBPaaoAAmImR6hzULpGxF/Bq5ZfpERsYRHa1IJWQyGKN your_github_email@example.com
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBPaaoAAmImR6hzULpGxF/Bq5ZfpERsYRHa1IJWQyGKN your_github_email@example.com"
 write_files:
   - path: /etc/netplan/50-cloud-init.yaml
     permissions: '0644'
@@ -39,10 +39,12 @@ write_files:
       network:
         version: 2
         ethernets:
-          eth0:
+          uplink0:
+            match:
+              name: "e*"
             dhcp4: false
             addresses:
-              - 192.168.2.54/24
+              - 192.168.2.61/24
             routes:
               - to: default
                 via: 192.168.2.1
@@ -57,7 +59,7 @@ write_files:
     owner: root:root
     content: |
       127.0.0.1 localhost
-      127.0.1.1 arm64-04
+      127.0.1.1 amd64-01
 
       192.168.2.7 nfs-server
       192.168.2.51 arm64-01
@@ -320,24 +322,6 @@ write_files:
 
       main "$@"
 
-  - path: /usr/local/sbin/configure-cgroups-pi.sh
-    permissions: '0755'
-    owner: root:root
-    content: |
-      #!/usr/bin/env bash
-      set -euo pipefail
-
-      FILE="/boot/firmware/cmdline.txt"
-
-      if [[ ! -f "${FILE}" ]]; then
-        exit 0
-      fi
-
-      if ! grep -q 'cgroup_enable=memory' "${FILE}"; then
-        sed -i '1 s/$/ cgroup_enable=memory cgroup_memory=1/' "${FILE}"
-      fi
-
-
   - path: /etc/ssh/sshd_config.d/99-user-auth.conf
     permissions: '0644'
     owner: root:root
@@ -377,7 +361,7 @@ runcmd:
   -   - bash
       - -lc
       - /usr/sbin/sshd -t && systemctl restart ssh
-final_message: "cloud-init completed for arm64-04"
+final_message: "cloud-init completed for amd64-01"
 chpasswd:
   expire: true
   list: |

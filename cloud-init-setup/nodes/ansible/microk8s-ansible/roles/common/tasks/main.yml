@@ -1,0 +1,45 @@
+---
+- name: Install base packages
+  ansible.builtin.apt:
+    name: "{{ microk8s_base_packages }}"
+    state: present
+    update_cache: true
+
+- name: Ensure chrony is enabled
+  ansible.builtin.service:
+    name: chrony
+    state: started
+    enabled: true
+
+- name: Disable swap immediately
+  ansible.builtin.command: swapoff -a
+  changed_when: false
+
+- name: Disable swap in fstab
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^(?!#)(.+\s+swap\s+.+)$'
+    replace: '# \1'
+
+- name: Load required kernel modules
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ microk8s_kernel_modules }}"
+
+- name: Persist kernel modules
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/microk8s.conf
+    content: |
+      {% for module_name in microk8s_kernel_modules %}
+      {{ module_name }}
+      {% endfor %}
+    mode: '0644'
+
+- name: Persist sysctl settings
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
+  loop: "{{ microk8s_sysctl | dict2items }}"

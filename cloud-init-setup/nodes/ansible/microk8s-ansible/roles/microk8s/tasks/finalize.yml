@@ -1,0 +1,122 @@
+---
+- name: Wait for all nodes to register
+  ansible.builtin.command: microk8s kubectl get nodes -o name
+  register: microk8s_nodes
+  changed_when: false
+  retries: 40
+  delay: 15
+  until: microk8s_nodes.stdout_lines | length == groups['microk8s_cluster'] | length
+
+- name: Enable dns
+  ansible.builtin.command: microk8s enable dns
+  changed_when: "'is already enabled' not in dns_enable.stdout"
+  register: dns_enable
+  when: microk8s_enable_dns | bool
+
+- name: Enable ingress
+  ansible.builtin.command: microk8s enable ingress
+  changed_when: "'is already enabled' not in ingress_enable.stdout"
+  register: ingress_enable
+  when: microk8s_enable_ingress | bool
+
+- name: Enable metrics server
+  ansible.builtin.command: microk8s enable metrics-server
+  changed_when: "'is already enabled' not in metrics_enable.stdout"
+  register: metrics_enable
+  when: microk8s_enable_metrics_server | bool
+
+- name: Enable OpenEBS
+  ansible.builtin.command: microk8s enable openebs
+  changed_when: "'is already enabled' not in openebs_enable.stdout"
+  register: openebs_enable
+  when: microk8s_enable_openebs | bool
+
+- name: Enable hostpath storage
+  ansible.builtin.command: microk8s enable hostpath-storage
+  changed_when: "'is already enabled' not in hostpath_enable.stdout"
+  register: hostpath_enable
+  when: microk8s_enable_hostpath_storage | bool
+
+- name: Enable dashboard
+  ansible.builtin.command: microk8s enable dashboard
+  changed_when: "'is already enabled' not in dashboard_enable.stdout"
+  register: dashboard_enable
+  when: microk8s_enable_dashboard | bool
+
+- name: Enable observability
+  ansible.builtin.command: microk8s enable observability
+  changed_when: "'is already enabled' not in observability_enable.stdout"
+  register: observability_enable
+  when: microk8s_enable_observability | bool
+
+- name: Enable MetalLB
+  ansible.builtin.command: >-
+    microk8s enable metallb:{{ microk8s_metallb_ranges | join(',') }}
+  changed_when: "'is already enabled' not in metallb_enable.stdout"
+  register: metallb_enable
+  when: microk8s_enable_metallb | bool
+
+- name: Enable NVIDIA addon on GPU nodes only
+  ansible.builtin.command: microk8s enable gpu
+  delegate_to: "{{ item }}"
+  changed_when: "'is already enabled' not in gpu_enable.results[loop_index0].stdout"
+  loop: "{{ groups['microk8s_cluster'] }}"
+  loop_control:
+    label: "{{ item }}"
+    extended: true
+  register: gpu_enable
+  when:
+    - microk8s_enable_gpu | bool
+    - hostvars[item].node_labels is defined
+    - hostvars[item].node_labels['node.kalaxy2/gpu'] | default('false') == 'true'
+
+- name: Apply common node labels
+  ansible.builtin.command: >-
+    microk8s kubectl label node {{ item.0 }} {{ item.1.key }}={{ item.1.value }} --overwrite
+  loop: >-
+    {{ groups['microk8s_cluster'] |
+    product((microk8s_node_labels_common | dict2items)) | list }}
+  changed_when: false
+
+- name: Apply host-specific node labels
+  ansible.builtin.command: >-
+    microk8s kubectl label node {{ item }}
+    {% for kv in (hostvars[item].node_labels | default({}) | dict2items) %}
+    {{ kv.key }}={{ kv.value }}
+    {% endfor %}
+    --overwrite
+  loop: "{{ groups['microk8s_cluster'] }}"
+  when: (hostvars[item].node_labels | default({})) | length > 0
+  changed_when: false
+
+- name: Apply node taints
+  ansible.builtin.command: >-
+    microk8s kubectl taint node {{ item }}
+    {% for taint in (hostvars[item].node_taints | default([])) %}
+    {{ taint.key }}={{ taint.value }}:{{ taint.effect }}
+    {% endfor %}
+    --overwrite
+  loop: "{{ groups['microk8s_cluster'] }}"
+  when: (hostvars[item].node_taints | default([])) | length > 0
+  changed_when: false
+
+- name: Export kubeconfig
+  ansible.builtin.command: microk8s config
+  register: microk8s_kubeconfig
+  changed_when: false
+
+- name: Ensure local artifact directory exists
+  ansible.builtin.file:
+    path: "{{ microk8s_kubeconfig_local_path | dirname }}"
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+  become: false
+
+- name: Write kubeconfig locally
+  ansible.builtin.copy:
+    dest: "{{ microk8s_kubeconfig_local_path }}"
+    content: "{{ microk8s_kubeconfig.stdout }}"
+    mode: '0600'
+  delegate_to: localhost
+  become: false

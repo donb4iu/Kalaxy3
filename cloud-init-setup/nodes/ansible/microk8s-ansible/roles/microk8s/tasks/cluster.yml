@@ -1,0 +1,76 @@
+---
+- name: Ensure state directory exists
+  ansible.builtin.file:
+    path: /var/lib/microk8s-ansible
+    state: directory
+    mode: '0755'
+
+- name: Check whether this node was already joined by Ansible
+  ansible.builtin.stat:
+    path: /var/lib/microk8s-ansible/joined
+  register: microk8s_joined_marker
+
+- name: Create one-time control-plane join token
+  ansible.builtin.command: >-
+    microk8s add-node --token-ttl {{ microk8s_join_token_ttl }}
+  delegate_to: "{{ microk8s_primary_control_plane }}"
+  register: microk8s_add_node_control
+  changed_when: false
+  when:
+    - inventory_hostname != microk8s_primary_control_plane
+    - inventory_hostname in groups['microk8s_control_plane']
+    - not microk8s_joined_marker.stat.exists
+
+- name: Create one-time worker join token
+  ansible.builtin.command: >-
+    microk8s add-node --token-ttl {{ microk8s_join_token_ttl }}
+  delegate_to: "{{ microk8s_primary_control_plane }}"
+  register: microk8s_add_node_worker
+  changed_when: false
+  when:
+    - inventory_hostname in groups['microk8s_workers']
+    - not microk8s_joined_marker.stat.exists
+
+- name: Derive control-plane join command
+  ansible.builtin.set_fact:
+    microk8s_join_command: >-
+      {{ (microk8s_add_node_control.stdout_lines |
+      select('match', '^microk8s join ') | list | first) }}
+  when:
+    - inventory_hostname != microk8s_primary_control_plane
+    - inventory_hostname in groups['microk8s_control_plane']
+    - not microk8s_joined_marker.stat.exists
+
+- name: Derive worker join command
+  ansible.builtin.set_fact:
+    microk8s_join_command: >-
+      {{ ((microk8s_add_node_worker.stdout_lines |
+      select('search', '--worker') | list | first) |
+      regex_replace('^\s*', '')) }}
+  when:
+    - inventory_hostname in groups['microk8s_workers']
+    - not microk8s_joined_marker.stat.exists
+
+- name: Join non-primary nodes to the cluster
+  ansible.builtin.command: "{{ microk8s_join_command }}"
+  register: microk8s_join_result
+  changed_when: microk8s_join_result.rc == 0
+  when:
+    - inventory_hostname != microk8s_primary_control_plane
+    - not microk8s_joined_marker.stat.exists
+
+- name: Mark node as joined by Ansible
+  ansible.builtin.copy:
+    dest: /var/lib/microk8s-ansible/joined
+    content: joined=true
+    mode: '0644'
+  when:
+    - inventory_hostname != microk8s_primary_control_plane
+    - not microk8s_joined_marker.stat.exists
+
+- name: Mark primary control plane as initialized
+  ansible.builtin.copy:
+    dest: /var/lib/microk8s-ansible/joined
+    content: primary=true
+    mode: '0644'
+  when: inventory_hostname == microk8s_primary_control_plane

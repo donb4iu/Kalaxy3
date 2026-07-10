@@ -1,0 +1,26 @@
+---
+- name: Ensure snap core is present
+  community.general.snap:
+    name: core
+    state: present
+
+- name: Install MicroK8s
+  community.general.snap:
+    name: microk8s
+    classic: true
+    channel: "{{ microk8s_channel }}"
+    state: present
+
+- name: Wait for MicroK8s to become ready
+  ansible.builtin.command: microk8s status --wait-ready
+  register: microk8s_ready
+  changed_when: false
+  retries: 30
+  delay: 15
+  until: microk8s_ready.rc == 0
+
+- name: Ensure root can access MicroK8s kubeconfig directory
+  ansible.builtin.file:
+    path: /root/.kube
+    state: directory
+    mode: '0700'

@@ -1,0 +1,54 @@
+microk8s_channel: 1.30/stable
+microk8s_primary_control_plane: arm64-01
+microk8s_join_token_ttl: -1
+microk8s_wait_ready_timeout: 900
+microk8s_kubeconfig_local_path: ./artifacts/kubeconfig
+
+microk8s_enable_dns: true
+microk8s_enable_ingress: true
+microk8s_enable_metallb: true
+microk8s_metallb_ranges:
+  - 192.168.2.240-192.168.2.250
+microk8s_enable_metrics_server: true
+microk8s_enable_dashboard: false
+microk8s_enable_observability: false
+microk8s_enable_openebs: false
+microk8s_enable_hostpath_storage: false
+microk8s_enable_gpu: true
+
+microk8s_prepare_data_disk: true
+microk8s_data_mount_path: /mnt/minio
+microk8s_data_fs_type: ext4
+microk8s_format_data_disk: false
+
+microk8s_base_packages:
+  - apt-transport-https
+  - ca-certificates
+  - chrony
+  - curl
+  - jq
+  - nfs-common
+  - open-iscsi
+  - python3
+  - python3-apt
+  - snapd
+  - socat
+
+microk8s_kernel_modules:
+  - overlay
+  - br_netfilter
+
+microk8s_sysctl:
+  net.bridge.bridge-nf-call-iptables: 1
+  net.bridge.bridge-nf-call-ip6tables: 1
+  net.ipv4.ip_forward: 1
+
+microk8s_node_labels_common:
+  kubernetes.io/os: linux
+
+microk8s_minio_deploy: false
+microk8s_minio_note: >-
+  The uploaded notes enable the MicroK8s minio addon with a single server and a
+  single volume. That is not a resilient design for an 8-node cluster, so this
+  project prepares the HDD mount points and node labels for a later distributed
+  MinIO deployment instead of enabling that addon by default.
