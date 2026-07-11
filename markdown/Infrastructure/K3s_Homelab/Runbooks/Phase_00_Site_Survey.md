@@ -22,5 +22,5 @@ Review each host report for:
 - both NFS exports visible;
 - firewall state understood.
 
-Record the decision in `docs/phase-notes.md`. Phase 0 makes no intentional remote
+Record the decision in `markdown/Infrastructure/K3s_Homelab/Phase_Notes.md`. Phase 0 makes no intentional remote
 changes, although it writes local report files on the Mac.

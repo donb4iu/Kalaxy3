@@ -19,7 +19,7 @@ make phase-0
 ```
 
 Phase 0 performs a non-modifying site survey and writes local reports under
-`artifacts/site-survey/`. Review `docs/runbooks/phase-00-site-survey.md` before running
+`artifacts/site-survey/`. Review `markdown/Infrastructure/K3s_Homelab/Runbooks/Phase_00_Site_Survey.md` before running
 Phase 1.
 
 ## Phases
@@ -44,13 +44,13 @@ adds future Intel nodes.
 
 ## Documentation
 
-- `docs/architecture/README.md`
-- `docs/architecture/ip-address-plan.md`
-- `docs/architecture/deployment-order.md`
-- `docs/adr/`
-- `docs/runbooks/`
-- `docs/PHASED-DEPLOYMENT.md`
-- `docs/phase-notes.md`
+- `markdown/Infrastructure/K3s_Homelab/01_Architecture.md`
+- `markdown/Infrastructure/K3s_Homelab/02_IP_Address_Plan.md`
+- `markdown/Infrastructure/K3s_Homelab/03_Deployment_Order.md`
+- `markdown/Infrastructure/K3s_Homelab/Architecture_Decisions/`
+- `markdown/Infrastructure/K3s_Homelab/Runbooks/`
+- `markdown/Infrastructure/K3s_Homelab/04_Phased_Deployment.md`
+- `markdown/Infrastructure/K3s_Homelab/Phase_Notes.md`
 
 Never expose management services using router port forwarding. Do not commit
 kubeconfigs, plaintext secrets, Vault passwords, Cloudflare credentials, or generated

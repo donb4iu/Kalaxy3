@@ -39,7 +39,7 @@ phase-6:
 	$(ANSIBLE) playbooks/phases/phase-06-minio.yml $(VAULT)
 
 phase-7:
-	@echo "Complete docs/phase-notes.md security, DNS, TLS, backup, and Cloudflare decisions."
+	@echo "Complete markdown/Infrastructure/K3s_Homelab/Phase_Notes.md security, DNS, TLS, backup, and Cloudflare decisions."
 	@echo "Do not expose management services with router port forwarding."
 
 phase-8:

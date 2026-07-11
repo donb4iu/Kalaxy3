@@ -22,7 +22,7 @@ make phase-0
 - Both NFS exports mount successfully from every node.
 - `192.168.2.20-49` is excluded from DHCP.
 
-Record decisions in `docs/phase-notes.md` before proceeding.
+Record decisions in `markdown/Infrastructure/K3s_Homelab/Phase_Notes.md` before proceeding.
 
 ## Phase 1 — Operating-system prerequisites
 
@@ -155,7 +155,7 @@ or other heavy workloads. Do not add all Intel systems as extra etcd members.
 ## Refinement rule
 
 At every gate, update `group_vars/all.yml`, inventory, Helm values, and
-`docs/phase-notes.md`. Commit the working state before proceeding:
+`markdown/Infrastructure/K3s_Homelab/Phase_Notes.md`. Commit the working state before proceeding:
 
 ```bash
 git add .
