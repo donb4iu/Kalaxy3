@@ -1,8 +1,2 @@
-.venv/
-*.retry
-kubeconfig-*.yaml
-group_vars/all/vault.yml
-*.vault
-.env
-.DS_Store
-ansible.cfg.bak
+artifacts/site-survey/*.yml
+artifacts/site-survey/*.json

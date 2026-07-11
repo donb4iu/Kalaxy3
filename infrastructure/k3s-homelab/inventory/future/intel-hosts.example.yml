@@ -1,0 +1,10 @@
+---
+# Merge these hosts into inventory/hosts.yml only when they are online.
+future_intel_agents:
+  hosts:
+    amd64-01:
+      ansible_host: 192.168.2.61
+    amd64-02:
+      ansible_host: 192.168.2.62
+    amd64-03:
+      ansible_host: 192.168.2.63

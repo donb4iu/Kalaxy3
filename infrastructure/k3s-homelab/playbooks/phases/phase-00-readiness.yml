@@ -1,35 +1,225 @@
 ---
-- name: Validate homelab readiness without changing hosts
-  hosts: all
+- name: Validate Ansible controller readiness
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Verify required controller commands
+      ansible.builtin.command: "command -v {{ item }}"
+      args:
+        executable: /bin/bash
+      loop:
+        - ssh
+        - scp
+        - python3
+      changed_when: false
+
+    - name: Create site-survey output directory
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../../artifacts/site-survey"
+        state: directory
+        mode: "0750"
+
+- name: Survey K3s homelab hosts without changing them
+  hosts: k3s_cluster
   gather_facts: true
   become: true
+  any_errors_fatal: false
+  vars:
+    minimum_memory_mb: 7000
+    minimum_root_free_gb: 20
+    minimum_minio_free_gb: 800
   tasks:
-    - name: Verify expected architecture
+    - name: Verify supported operating system and architecture
       ansible.builtin.assert:
         that:
+          - ansible_distribution == 'Ubuntu'
+          - ansible_distribution_major_version | int >= 24
           - ansible_architecture in ['aarch64', 'x86_64']
-        fail_msg: "Unsupported architecture: {{ ansible_architecture }}"
+        fail_msg: >-
+          Unsupported host {{ inventory_hostname }}: {{ ansible_distribution }}
+          {{ ansible_distribution_version }} on {{ ansible_architecture }}.
 
-    - name: Check MinIO mount
-      ansible.builtin.command: findmnt --json /mnt/minio
+    - name: Verify minimum memory
+      ansible.builtin.assert:
+        that:
+          - ansible_memtotal_mb | int >= minimum_memory_mb
+        fail_msg: >-
+          {{ inventory_hostname }} has {{ ansible_memtotal_mb }} MB RAM;
+          at least {{ minimum_memory_mb }} MB is expected.
+
+    - name: Read root filesystem capacity
+      ansible.builtin.shell: |
+        set -o pipefail
+        df -BG --output=avail / | tail -1 | tr -dc '0-9'
+      args:
+        executable: /bin/bash
+      register: root_free_gb
+      changed_when: false
+
+    - name: Verify root filesystem free space
+      ansible.builtin.assert:
+        that:
+          - root_free_gb.stdout | int >= minimum_root_free_gb
+        fail_msg: >-
+          {{ inventory_hostname }} has only {{ root_free_gb.stdout }} GB free on /.
+
+    - name: Verify passwordless or configured sudo works
+      ansible.builtin.command: id -u
+      register: sudo_identity
+      changed_when: false
+      failed_when: sudo_identity.stdout != '0'
+
+    - name: Read time synchronization state
+      ansible.builtin.command: timedatectl show --property=NTPSynchronized --value
+      register: ntp_synchronized
+      changed_when: false
+
+    - name: Verify time synchronization
+      ansible.builtin.assert:
+        that:
+          - ntp_synchronized.stdout | trim == 'yes'
+        fail_msg: "NTP is not synchronized on {{ inventory_hostname }}."
+
+    - name: Verify DNS resolution
+      ansible.builtin.command: getent ahostsv4 github.com
+      register: dns_check
+      changed_when: false
+
+    - name: Verify outbound HTTPS connectivity
+      ansible.builtin.uri:
+        url: https://get.k3s.io
+        method: HEAD
+        status_code: [200, 301, 302, 405]
+        timeout: 15
+      register: internet_check
+      changed_when: false
+
+    - name: Collect block-device identity
+      ansible.builtin.command: >-
+        lsblk --json --bytes
+        --output NAME,PATH,SIZE,TYPE,FSTYPE,LABEL,UUID,MOUNTPOINTS,MODEL,SERIAL,TRAN,ROTA
+      register: block_devices
+      changed_when: false
+
+    - name: Check for existing Kubernetes installations
+      ansible.builtin.shell: |
+        set -o pipefail
+        for unit in k3s k3s-agent snap.microk8s.daemon-kubelite; do
+          state=$(systemctl is-active "$unit" 2>/dev/null || true)
+          printf '%s=%s\n' "$unit" "$state"
+        done
+        command -v microk8s >/dev/null 2>&1 && echo microk8s_command=present || true
+        command -v kubeadm >/dev/null 2>&1 && echo kubeadm_command=present || true
+      args:
+        executable: /bin/bash
+      register: existing_kubernetes
+      changed_when: false
+
+    - name: Inspect ports required by K3s and etcd
+      ansible.builtin.shell: |
+        set -o pipefail
+        ss -lntup | grep -E ':(6443|2379|2380|10250|8472)\b' || true
+      args:
+        executable: /bin/bash
+      register: occupied_k3s_ports
+      changed_when: false
+
+    - name: Read UFW status
+      ansible.builtin.command: ufw status verbose
+      register: ufw_status
+      changed_when: false
+      failed_when: false
+
+    - name: Verify MinIO mount is a distinct filesystem
+      ansible.builtin.command: findmnt --json --target "{{ minio_mount_path }}"
       register: minio_mount
       changed_when: false
-      failed_when: minio_mount.rc != 0
       when: inventory_hostname in groups['minio_nodes'] | default([])
 
-    - name: Check MinIO capacity
-      ansible.builtin.command: df -BG --output=avail /mnt/minio
+    - name: Read MinIO filesystem capacity
+      ansible.builtin.shell: |
+        set -o pipefail
+        df -BG --output=source,size,avail,target "{{ minio_mount_path }}" | tail -1
+      args:
+        executable: /bin/bash
       register: minio_capacity
       changed_when: false
       when: inventory_hostname in groups['minio_nodes'] | default([])
 
-    - name: Verify NFS exports are visible
+    - name: Verify MinIO free capacity
+      ansible.builtin.shell: |
+        set -o pipefail
+        df -BG --output=avail "{{ minio_mount_path }}" | tail -1 | tr -dc '0-9'
+      args:
+        executable: /bin/bash
+      register: minio_free_gb
+      changed_when: false
+      when: inventory_hostname in groups['minio_nodes'] | default([])
+
+    - name: Assert MinIO free capacity
+      ansible.builtin.assert:
+        that:
+          - minio_free_gb.stdout | int >= minimum_minio_free_gb
+        fail_msg: >-
+          {{ inventory_hostname }} has only {{ minio_free_gb.stdout }} GB free at
+          {{ minio_mount_path }}.
+      when: inventory_hostname in groups['minio_nodes'] | default([])
+
+    - name: Verify NFS client discovery command exists
+      ansible.builtin.command: command -v showmount
+      args:
+        executable: /bin/bash
+      register: showmount_command
+      changed_when: false
+      failed_when: false
+
+    - name: Read NFS exports when showmount is available
       ansible.builtin.command: "showmount -e {{ nfs_server }}"
       register: nfs_exports
       changed_when: false
+      when: showmount_command.rc == 0
 
-    - name: Assert both required NFS exports exist
+    - name: Assert required NFS exports are visible
       ansible.builtin.assert:
         that:
           - nfs_hdd_path in nfs_exports.stdout
           - nfs_ssd_path in nfs_exports.stdout
+        fail_msg: >-
+          Required exports {{ nfs_hdd_path }} and {{ nfs_ssd_path }} were not both
+          advertised by {{ nfs_server }}.
+      when: showmount_command.rc == 0
+
+    - name: Create host survey report on the Ansible controller
+      ansible.builtin.copy:
+        dest: >-
+          {{ playbook_dir }}/../../artifacts/site-survey/{{ inventory_hostname }}.yml
+        mode: "0640"
+        content: |
+          ---
+          generated_at: "{{ ansible_date_time.iso8601 }}"
+          inventory_hostname: "{{ inventory_hostname }}"
+          ansible_host: "{{ ansible_host }}"
+          hostname: "{{ ansible_hostname }}"
+          architecture: "{{ ansible_architecture }}"
+          distribution: "{{ ansible_distribution }}"
+          distribution_version: "{{ ansible_distribution_version }}"
+          kernel: "{{ ansible_kernel }}"
+          processor_vcpus: {{ ansible_processor_vcpus }}
+          memory_mb: {{ ansible_memtotal_mb }}
+          root_free_gb: {{ root_free_gb.stdout | int }}
+          ntp_synchronized: "{{ ntp_synchronized.stdout | trim }}"
+          default_ipv4: {{ ansible_default_ipv4 | to_nice_yaml(indent=2) | indent(2) }}
+          existing_kubernetes: |
+          {{ existing_kubernetes.stdout | indent(2, true) }}
+          occupied_k3s_ports: |
+          {{ occupied_k3s_ports.stdout | default('') | indent(2, true) }}
+          ufw_status: |
+          {{ ufw_status.stdout | default('unavailable') | indent(2, true) }}
+          block_devices: {{ block_devices.stdout | from_json | to_nice_yaml(indent=2) | indent(2) }}
+          minio_mount: {{ (minio_mount.stdout | default('{}') | from_json) | to_nice_yaml(indent=2) | indent(2) }}
+          minio_capacity: "{{ minio_capacity.stdout | default('not-applicable') }}"
+          nfs_exports: |
+          {{ nfs_exports.stdout | default('showmount unavailable') | indent(2, true) }}
+      delegate_to: localhost
+      become: false

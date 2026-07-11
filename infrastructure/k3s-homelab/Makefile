@@ -3,7 +3,7 @@ ANSIBLE := $(VENV)/bin/ansible-playbook
 VAULT := --ask-vault-pass
 
 .PHONY: install ping phase-0 phase-1 phase-2 phase-3 phase-4 phase-5 \
-        phase-6 phase-7 phase-8 validate-1 validate-2 validate-3 \
+        phase-6 phase-7 phase-8 survey-clean validate-1 validate-2 validate-3 \
         validate-4 validate-5 validate-6 deploy uninstall syntax
 
 install:
@@ -16,6 +16,9 @@ ping:
 
 phase-0:
 	$(ANSIBLE) playbooks/phases/phase-00-readiness.yml
+
+survey-clean:
+	rm -f artifacts/site-survey/*.yml artifacts/site-survey/*.json
 
 phase-1:
 	$(ANSIBLE) playbooks/phases/phase-01-prerequisites.yml
