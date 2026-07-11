@@ -1,0 +1,8 @@
+.venv/
+*.retry
+kubeconfig-*.yaml
+group_vars/all/vault.yml
+*.vault
+.env
+.DS_Store
+ansible.cfg.bak

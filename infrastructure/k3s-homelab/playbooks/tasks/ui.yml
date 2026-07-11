@@ -1,0 +1,27 @@
+---
+- name: Install Headlamp
+  ansible.builtin.command: >-
+    helm upgrade --install headlamp headlamp/headlamp
+    --namespace headlamp --create-namespace
+    --set service.type=LoadBalancer
+    --set service.loadBalancerIP={{ headlamp_load_balancer_ip }}
+    --wait --timeout 10m
+  when: install_headlamp
+  changed_when: true
+
+- name: Install Kubernetes Dashboard
+  ansible.builtin.command: >-
+    helm upgrade --install kubernetes-dashboard
+    kubernetes-dashboard/kubernetes-dashboard
+    --namespace kubernetes-dashboard --create-namespace
+    --set kong.proxy.type=LoadBalancer
+    --set kong.proxy.loadBalancerIP={{ dashboard_load_balancer_ip }}
+    --wait --timeout 10m
+  when: install_dashboard
+  changed_when: true
+
+- name: Create Dashboard administrator service account
+  ansible.builtin.command: >-
+    k3s kubectl apply -f {{ playbook_dir }}/../manifests/dashboard-admin.yml
+  when: install_dashboard
+  changed_when: true

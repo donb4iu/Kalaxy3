@@ -1,0 +1,50 @@
+---
+- name: Install MetalLB
+  ansible.builtin.command: >-
+    helm upgrade --install metallb metallb/metallb
+    --namespace metallb-system --create-namespace --wait --timeout 10m
+  changed_when: true
+
+- name: Render MetalLB configuration
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../manifests/metallb.yml.j2"
+    dest: /tmp/metallb.yml
+    mode: '0600'
+
+- name: Apply MetalLB configuration
+  ansible.builtin.command: k3s kubectl apply -f /tmp/metallb.yml
+  changed_when: true
+
+- name: Render Traefik HelmChartConfig
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../manifests/traefik-config.yml.j2"
+    dest: /tmp/traefik-config.yml
+    mode: '0600'
+
+- name: Configure bundled Traefik
+  ansible.builtin.command: k3s kubectl apply -f /tmp/traefik-config.yml
+  changed_when: true
+
+- name: Install HDD NFS dynamic provisioner
+  ansible.builtin.command: >-
+    helm upgrade --install nfs-hdd nfs/nfs-subdir-external-provisioner
+    --namespace storage --create-namespace
+    --set nfs.server={{ nfs_server }}
+    --set nfs.path={{ nfs_hdd_path }}
+    --set storageClass.name={{ nfs_hdd_storage_class }}
+    --set storageClass.defaultClass=false
+    --set storageClass.reclaimPolicy=Retain
+    --wait --timeout 10m
+  changed_when: true
+
+- name: Install SSD NFS dynamic provisioner
+  ansible.builtin.command: >-
+    helm upgrade --install nfs-ssd nfs/nfs-subdir-external-provisioner
+    --namespace storage --create-namespace
+    --set nfs.server={{ nfs_server }}
+    --set nfs.path={{ nfs_ssd_path }}
+    --set storageClass.name={{ nfs_ssd_storage_class }}
+    --set storageClass.defaultClass=false
+    --set storageClass.reclaimPolicy=Retain
+    --wait --timeout 10m
+  changed_when: true

@@ -1,0 +1,3 @@
+server: "https://{{ k3s_api_endpoint }}:6443"
+token: "{{ hostvars[groups['k3s_servers'][0]].k3s_cluster_token }}"
+node-ip: "{{ ansible_host }}"

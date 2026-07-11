@@ -1,0 +1,12 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    service:
+      spec:
+        loadBalancerIP: {{ traefik_load_balancer_ip }}
+      annotations:
+        metallb.io/address-pool: {{ metallb_pool_name }}

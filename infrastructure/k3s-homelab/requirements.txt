@@ -1,0 +1,2 @@
+ansible-core==2.18.7
+jmespath==1.0.1

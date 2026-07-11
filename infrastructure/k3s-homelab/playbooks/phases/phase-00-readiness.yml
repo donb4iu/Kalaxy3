@@ -1,0 +1,35 @@
+---
+- name: Validate homelab readiness without changing hosts
+  hosts: all
+  gather_facts: true
+  become: true
+  tasks:
+    - name: Verify expected architecture
+      ansible.builtin.assert:
+        that:
+          - ansible_architecture in ['aarch64', 'x86_64']
+        fail_msg: "Unsupported architecture: {{ ansible_architecture }}"
+
+    - name: Check MinIO mount
+      ansible.builtin.command: findmnt --json /mnt/minio
+      register: minio_mount
+      changed_when: false
+      failed_when: minio_mount.rc != 0
+      when: inventory_hostname in groups['minio_nodes'] | default([])
+
+    - name: Check MinIO capacity
+      ansible.builtin.command: df -BG --output=avail /mnt/minio
+      register: minio_capacity
+      changed_when: false
+      when: inventory_hostname in groups['minio_nodes'] | default([])
+
+    - name: Verify NFS exports are visible
+      ansible.builtin.command: "showmount -e {{ nfs_server }}"
+      register: nfs_exports
+      changed_when: false
+
+    - name: Assert both required NFS exports exist
+      ansible.builtin.assert:
+        that:
+          - nfs_hdd_path in nfs_exports.stdout
+          - nfs_ssd_path in nfs_exports.stdout

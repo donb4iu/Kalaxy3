@@ -1,0 +1,21 @@
+---
+- name: Verify MinIO password was changed
+  ansible.builtin.assert:
+    that:
+      - minio_root_password != 'CHANGE_ME_WITH_ANSIBLE_VAULT'
+    fail_msg: Set minio_root_password in an Ansible Vault encrypted vars file.
+  when: install_minio
+
+- name: Render MinIO resources
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../manifests/minio.yml.j2"
+    dest: /tmp/minio.yml
+    mode: '0600'
+  when: install_minio
+  no_log: true
+
+- name: Install distributed MinIO
+  ansible.builtin.command: k3s kubectl apply -f /tmp/minio.yml
+  when: install_minio
+  changed_when: true
+  no_log: true

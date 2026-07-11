@@ -1,0 +1,50 @@
+---
+- name: Install a selected cluster platform phase
+  hosts: k3s_servers[0]
+  become: true
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  vars:
+    platform_phase: "{{ platform_phase | default('all') }}"
+  pre_tasks:
+    - name: Install Helm
+      ansible.builtin.shell: |
+        set -o pipefail
+        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      args:
+        executable: /bin/bash
+        creates: /usr/local/bin/helm
+
+    - name: Add Helm repositories
+      ansible.builtin.command: >-
+        helm repo add {{ item.name }} {{ item.url }} --force-update
+      loop:
+        - {name: metallb, url: https://metallb.github.io/metallb}
+        - {name: nfs, url: https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner}
+        - {name: prometheus-community, url: https://prometheus-community.github.io/helm-charts}
+        - {name: grafana, url: https://grafana.github.io/helm-charts}
+        - {name: kubecost, url: https://kubecost.github.io/cost-analyzer/}
+        - {name: kubernetes-dashboard, url: https://kubernetes.github.io/dashboard/}
+        - {name: headlamp, url: https://kubernetes-sigs.github.io/headlamp/}
+      changed_when: false
+
+    - name: Update Helm repositories
+      ansible.builtin.command: helm repo update
+      changed_when: false
+
+  tasks:
+    - name: Run networking and storage phase
+      ansible.builtin.include_tasks: tasks/network-storage.yml
+      when: platform_phase in ['all', 'network_storage']
+
+    - name: Run administrative UI phase
+      ansible.builtin.include_tasks: tasks/ui.yml
+      when: platform_phase in ['all', 'ui']
+
+    - name: Run observability phase
+      ansible.builtin.include_tasks: tasks/observability.yml
+      when: platform_phase in ['all', 'observability']
+
+    - name: Run MinIO phase
+      ansible.builtin.include_tasks: tasks/minio.yml
+      when: platform_phase in ['all', 'minio']

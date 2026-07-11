@@ -1,0 +1,19 @@
+---
+- name: Remove K3s agents
+  hosts: k3s_agents
+  become: true
+  tasks:
+    - name: Run K3s agent uninstall script
+      ansible.builtin.command: /usr/local/bin/k3s-agent-uninstall.sh
+      args:
+        removes: /usr/local/bin/k3s-agent-uninstall.sh
+
+- name: Remove K3s servers
+  hosts: k3s_servers
+  become: true
+  serial: 1
+  tasks:
+    - name: Run K3s server uninstall script
+      ansible.builtin.command: /usr/local/bin/k3s-uninstall.sh
+      args:
+        removes: /usr/local/bin/k3s-uninstall.sh

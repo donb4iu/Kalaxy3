@@ -1,0 +1,51 @@
+---
+cluster_name: kalaxy3
+k3s_channel: stable
+k3s_version: ""
+k3s_api_endpoint: 192.168.2.51
+k3s_token_file: /var/lib/rancher/k3s/server/node-token
+k3s_cluster_cidr: 10.42.0.0/16
+k3s_service_cidr: 10.43.0.0/16
+k3s_cluster_dns: 10.43.0.10
+k3s_disable:
+  - servicelb
+
+metallb_pool_name: lan-pool
+metallb_address_range: 192.168.2.20-192.168.2.49
+traefik_load_balancer_ip: 192.168.2.20
+dashboard_load_balancer_ip: 192.168.2.21
+headlamp_load_balancer_ip: 192.168.2.22
+minio_api_load_balancer_ip: 192.168.2.23
+minio_console_load_balancer_ip: 192.168.2.24
+
+nfs_server: 192.168.2.7
+nfs_hdd_path: /export/nfs-hdd
+nfs_ssd_path: /export/nfs-ssd
+nfs_hdd_storage_class: nfs-hdd
+nfs_ssd_storage_class: nfs-ssd
+
+minio_mount_path: /mnt/minio
+minio_storage_class: minio-local
+minio_volume_size: 900Gi
+minio_root_user: minioadmin
+# Store the real value with Ansible Vault before running platform.yml.
+minio_root_password: CHANGE_ME_WITH_ANSIBLE_VAULT
+minio_image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+
+install_dashboard: true
+install_headlamp: true
+install_observability: true
+install_loki: false
+install_kubecost: true
+install_minio: true
+
+prometheus_retention: 7d
+prometheus_storage_size: 40Gi
+grafana_storage_size: 10Gi
+loki_storage_size: 40Gi
+kubecost_storage_size: 10Gi
+
+local_domain: home.donb4iu.com
+grafana_host: grafana.home.donb4iu.com
+headlamp_host: k8s.home.donb4iu.com
+minio_console_host: minio.home.donb4iu.com

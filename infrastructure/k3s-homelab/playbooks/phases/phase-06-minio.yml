@@ -1,0 +1,4 @@
+---
+- import_playbook: ../platform.yml
+  vars:
+    platform_phase: minio
