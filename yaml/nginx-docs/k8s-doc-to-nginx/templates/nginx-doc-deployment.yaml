@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    application: documentation
+  name: nginx
+  namespace: documentation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+      application: documentation
+  template:
+    metadata:
+      labels:
+        app: nginx
+        application: documentation
+    spec:
+      containers:
+      - name: nginx
+        image: donb4iu/mynginx_docs:{{ .Values.env.APP_VERSION }}
+        imagePullPolicy: Always
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "250m"
+        ports:
+        - containerPort: 80
+## Not necessary with multi arc image
+#      nodeSelector:
+#        kubernetes.io/arch: arm64
+

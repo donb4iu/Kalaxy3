@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    application: documentation
+  name: nginx
+  namespace: documentation
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx
+    application: documentation
+  ports:
+    - port: 3001
+      targetPort: 80
+

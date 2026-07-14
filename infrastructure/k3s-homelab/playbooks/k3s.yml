@@ -129,4 +129,6 @@
         mode: '0600'
       delegate_to: localhost
       become: false
+      vars:
+        ansible_become: false
       no_log: true
