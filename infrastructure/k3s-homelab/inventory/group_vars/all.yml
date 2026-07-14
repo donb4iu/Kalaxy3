@@ -38,7 +38,7 @@ minio_root_password: !vault |
           3930
 minio_image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
 
-install_dashboard: true
+install_dashboard: false
 install_headlamp: true
 install_observability: true
 install_loki: false
