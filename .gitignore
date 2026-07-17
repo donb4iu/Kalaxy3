@@ -221,3 +221,5 @@ __marimo__/
 # Local Kubernetes credentials
 infrastructure/k3s-homelab/kubeconfig-kalaxy3.yaml
 /backups/
+
+/infrastructure/k3s-homelab/kubeconfig-kalaxy3.yaml
