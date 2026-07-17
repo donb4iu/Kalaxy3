@@ -108,6 +108,8 @@
 - name: Join K3s agents
   hosts: k3s_agents
   become: true
+  serial: 1
+
   tasks:
     - name: Create K3s configuration directory
       ansible.builtin.file:
@@ -121,6 +123,7 @@
         dest: /etc/rancher/k3s/config.yaml
         mode: '0600'
       no_log: true
+      notify: Restart K3s agent
 
     - name: Install and join K3s agent
       ansible.builtin.shell: |
@@ -132,6 +135,21 @@
       args:
         executable: /bin/bash
         creates: /usr/local/bin/k3s-agent
+
+    - name: Apply pending K3s agent restart
+      ansible.builtin.meta: flush_handlers
+
+    - name: Wait for K3s agent service
+      ansible.builtin.systemd:
+        name: k3s-agent
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Restart K3s agent
+      ansible.builtin.systemd:
+        name: k3s-agent
+        state: restarted
 
 - name: Export kubeconfig to the Mac
   hosts: k3s_servers[0]
