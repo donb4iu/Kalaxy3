@@ -663,3 +663,154 @@ This page intentionally excludes:
 
 The addresses shown are private RFC 1918 LAN addresses and do not expose the
 cluster directly to the public Internet.
+## Final API Endpoint Cutover
+
+After kube-vip was verified at `192.168.2.50`, the repository API endpoint was changed from the first control-plane node to the floating VIP:
+
+```yaml
+k3s_api_endpoint: 192.168.2.50
+```
+
+The original node address remains in the TLS SAN list for transitional and direct-node administrative access:
+
+```yaml
+k3s_tls_sans:
+  - 192.168.2.51
+  - 192.168.2.50
+```
+
+The full K3s playbook was then reconciled so that the control-plane nodes, agents, and generated kubeconfig use the HA API endpoint.
+
+### Agent Restart Handling
+
+The K3s agent play was updated so configuration changes restart each agent automatically:
+
+```yaml
+- name: Write K3s agent configuration
+  ansible.builtin.template:
+    src: ../templates/k3s-agent-config.yml.j2
+    dest: /etc/rancher/k3s/config.yaml
+    mode: '0600'
+  no_log: true
+  notify: Restart K3s agent
+```
+
+The agent play now includes:
+
+```yaml
+- name: Apply pending K3s agent restart
+  ansible.builtin.meta: flush_handlers
+```
+
+and:
+
+```yaml
+handlers:
+  - name: Restart K3s agent
+    ansible.builtin.systemd:
+      name: k3s-agent
+      state: restarted
+```
+
+The agent play uses `serial: 1`, ensuring that agent nodes are updated one at a time.
+
+### Agent Endpoint Verification
+
+The live configuration on both agents was verified:
+
+```text
+arm64-04:
+server: "https://192.168.2.50:6443"
+
+arm64-05:
+server: "https://192.168.2.50:6443"
+```
+
+This confirms that the agents no longer depend on `arm64-01` as their configured registration endpoint.
+
+### Generated Kubeconfig Protection
+
+The generated administrative kubeconfig contains cluster credentials and must not be stored in Git.
+
+The following ignore rule was added:
+
+```gitignore
+/infrastructure/k3s-homelab/kubeconfig-kalaxy3.yaml
+```
+
+The existing tracked copy was removed from the Git index while remaining available locally:
+
+```bash
+git rm --cached \
+  infrastructure/k3s-homelab/kubeconfig-kalaxy3.yaml
+```
+
+Git exclusion was verified:
+
+```text
+.gitignore:/infrastructure/k3s-homelab/kubeconfig-kalaxy3.yaml
+```
+
+The repository working tree was clean after the kubeconfig protection change.
+
+### Repository State
+
+The kube-vip implementation and documentation were committed and pushed to the Kalaxy3 `main` branch.
+
+The implementation includes:
+
+```text
+inventory/group_vars/all.yml
+templates/k3s-server-config.yml.j2
+playbooks/k3s.yml
+manifests/kube-vip/kube-vip-rbac.yaml
+manifests/kube-vip/kube-vip-daemonset.yaml
+markdown/k3s-api-ha-kube-vip.md
+```
+
+The later agent restart-handler update was committed separately.
+
+### Current K3s Foundation Status
+
+```text
+Three-member embedded-etcd cluster:    Complete
+Three-member control plane:            Complete
+kube-vip DaemonSet:                    3/3 Ready
+Floating API VIP:                      192.168.2.50
+Control-plane certificates include VIP: Yes
+Server endpoint migration:             Complete
+Agent endpoint migration:              Complete
+Generated kubeconfig protection:       Complete
+MetalLB service handling:              Unchanged
+Observability deployment:              Not started
+MinIO deployment:                      Not started
+```
+
+### Remaining kube-vip Validation
+
+A controlled failover test should still be performed before declaring API failover fully proven.
+
+The test should:
+
+1. Identify the current VIP owner.
+2. Delete the kube-vip pod on that node or perform a controlled node restart.
+3. Confirm another control-plane node acquires `192.168.2.50`.
+4. Confirm the API remains available through the VIP.
+
+```bash
+ping -c 3 192.168.2.50
+
+kubectl \
+  --server=https://192.168.2.50:6443 \
+  get --raw=/readyz
+
+kubectl get nodes
+```
+
+Expected result:
+
+```text
+API readiness: ok
+All remaining nodes: Ready
+VIP owned by another control-plane node
+```
