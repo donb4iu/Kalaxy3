@@ -1,0 +1,61 @@
+---
+global:
+  clusterId: kalaxy3
+
+frontend:
+  nodeSelector:
+    kubernetes.io/arch: amd64
+    kalaxy3.io/kubecost: "true"
+
+  service:
+    type: LoadBalancer
+    annotations:
+      metallb.io/loadBalancerIPs: "192.168.2.26"
+
+aggregator:
+  nodeSelector:
+    kubernetes.io/arch: amd64
+    kalaxy3.io/kubecost: "true"
+
+  persistentConfigsStorage:
+    storageClass: local-path
+    storageRequest: 1Gi
+
+  aggregatorDbStorage:
+    storageClass: local-path
+    storageRequest: 128Gi
+
+localStore:
+  nodeSelector:
+    kubernetes.io/arch: amd64
+    kalaxy3.io/kubecost: "true"
+
+  persistentVolume:
+    enabled: true
+    storageClass: local-path
+    size: 32Gi
+
+forecasting:
+  nodeSelector:
+    kubernetes.io/arch: amd64
+    kalaxy3.io/kubecost: "true"
+
+cloudCost:
+  nodeSelector:
+    kubernetes.io/arch: amd64
+    kalaxy3.io/kubecost: "true"
+
+clusterController:
+  nodeSelector:
+    kubernetes.io/arch: amd64
+    kalaxy3.io/kubecost: "true"
+
+finopsagent:
+  nodeSelector:
+    kubernetes.io/arch: amd64
+    kalaxy3.io/kubecost: "true"
+
+networkCosts:
+  nodeSelector:
+    kubernetes.io/arch: amd64
+    kalaxy3.io/kubecost: "true"

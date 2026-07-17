@@ -3,32 +3,91 @@
   ansible.builtin.command: >-
     helm upgrade --install kube-prometheus-stack
     prometheus-community/kube-prometheus-stack
-    --namespace observability --create-namespace
-    --set prometheus.prometheusSpec.retention={{ prometheus_retention }}
-    --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.storageClassName={{ nfs_ssd_storage_class }}
-    --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage={{ prometheus_storage_size }}
+    --namespace observability
+    --create-namespace
+    --set prometheus.prometheusSpec.retention={{
+      prometheus_retention
+    }}
+    --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.storageClassName={{
+      nfs_ssd_storage_class
+    }}
+    --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage={{
+      prometheus_storage_size
+    }}
     --set grafana.persistence.enabled=true
-    --set grafana.persistence.storageClassName={{ nfs_ssd_storage_class }}
-    --set grafana.persistence.size={{ grafana_storage_size }}
+    --set grafana.persistence.storageClassName={{
+      nfs_ssd_storage_class
+    }}
+    --set grafana.persistence.size={{
+      grafana_storage_size
+    }}
     --set grafana.service.type=LoadBalancer
     --set grafana.service.loadBalancerIP=192.168.2.25
-    --set alertmanager.alertmanagerSpec.storage.volumeClaimTemplate.spec.storageClassName={{ nfs_ssd_storage_class }}
+    --set alertmanager.alertmanagerSpec.storage.volumeClaimTemplate.spec.storageClassName={{
+      nfs_ssd_storage_class
+    }}
     --set alertmanager.alertmanagerSpec.storage.volumeClaimTemplate.spec.resources.requests.storage=5Gi
-    --wait --timeout 20m
-  when: install_observability
+    --wait
+    --timeout 20m
+  when: install_observability | bool
   changed_when: true
 
+- name: Find eligible Kubecost Intel nodes
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - get
+      - nodes
+      - --selector=kubernetes.io/arch=amd64,kalaxy3.io/kubecost=true
+      - --output=name
+  register: kubecost_eligible_nodes
+  changed_when: false
+  when:
+    - install_observability | bool
+    - install_kubecost | bool
+
+- name: Write Kubecost Helm values
+  ansible.builtin.template:
+    src: kubecost-values.yml.j2
+    dest: /tmp/kubecost-values.yml
+    mode: "0644"
+  when:
+    - install_observability | bool
+    - install_kubecost | bool
+    - kubecost_eligible_nodes.stdout | trim | length > 0
+
 - name: Install Kubecost
-  ansible.builtin.command: >-
-    helm upgrade --install kubecost kubecost/cost-analyzer
-    --namespace kubecost --create-namespace
-    --set global.prometheus.enabled=false
-    --set global.prometheus.fqdn=http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090
-    --set persistentVolume.enabled=true
-    --set persistentVolume.storageClass={{ nfs_ssd_storage_class }}
-    --set persistentVolume.size={{ kubecost_storage_size }}
-    --set service.type=LoadBalancer
-    --set service.loadBalancerIP=192.168.2.26
-    --wait --timeout 20m
-  when: install_kubecost
+  ansible.builtin.command:
+    argv:
+      - helm
+      - upgrade
+      - --install
+      - kubecost
+      - kubecost/kubecost
+      - --version
+      - "3.2.1"
+      - --namespace
+      - kubecost
+      - --create-namespace
+      - --values
+      - /tmp/kubecost-values.yml
+      - --wait
+      - --timeout
+      - 30m
   changed_when: true
+  when:
+    - install_observability | bool
+    - install_kubecost | bool
+    - kubecost_eligible_nodes.stdout | trim | length > 0
+
+- name: Report that Kubecost is waiting for an Intel node
+  ansible.builtin.debug:
+    msg: >-
+      Kubecost was skipped because no labeled amd64 node is currently
+      available. Label an Intel node with kalaxy3.io/kubecost=true and
+      rerun the observability phase.
+  when:
+    - install_observability | bool
+    - install_kubecost | bool
+    - kubecost_eligible_nodes.stdout | trim | length == 0
