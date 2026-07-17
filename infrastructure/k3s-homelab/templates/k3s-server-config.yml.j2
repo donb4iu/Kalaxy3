@@ -5,7 +5,9 @@ cluster-cidr: "{{ k3s_cluster_cidr }}"
 service-cidr: "{{ k3s_service_cidr }}"
 cluster-dns: "{{ k3s_cluster_dns }}"
 tls-san:
-  - "{{ k3s_api_endpoint }}"
+{% for san in k3s_tls_sans %}
+  - "{{ san }}"
+{% endfor %}
 disable:
 {% for component in k3s_disable %}
   - "{{ component }}"

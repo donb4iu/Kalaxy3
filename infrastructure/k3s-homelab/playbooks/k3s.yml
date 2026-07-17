@@ -15,6 +15,7 @@
         src: ../templates/k3s-server-config.yml.j2
         dest: /etc/rancher/k3s/config.yaml
         mode: '0600'
+      notify: Restart K3s
 
     - name: Install first K3s server
       ansible.builtin.shell: |
@@ -26,6 +27,9 @@
       args:
         executable: /bin/bash
         creates: /usr/local/bin/k3s
+
+    - name: Apply pending K3s restart
+      ansible.builtin.meta: flush_handlers
 
     - name: Wait for the Kubernetes API
       ansible.builtin.command: k3s kubectl get nodes
@@ -45,6 +49,11 @@
       ansible.builtin.set_fact:
         k3s_cluster_token: "{{ token_data.content | b64decode | trim }}"
       no_log: true
+  handlers:
+    - name: Restart K3s
+      ansible.builtin.systemd:
+        name: k3s
+        state: restarted
 
 - name: Join the remaining K3s servers
   hosts: k3s_servers[1:]
@@ -63,6 +72,7 @@
         dest: /etc/rancher/k3s/config.yaml
         mode: '0600'
       no_log: true
+      notify: Restart K3s
 
     - name: Install and join K3s server
       ansible.builtin.shell: |
@@ -75,11 +85,25 @@
         executable: /bin/bash
         creates: /usr/local/bin/k3s
 
-    - name: Wait for server service
+    - name: Apply pending K3s restart
+      ansible.builtin.meta: flush_handlers
+
+    - name: Wait for the Kubernetes API
+      ansible.builtin.command:
+        cmd: k3s kubectl get --raw=/readyz
+      register: server_ready
+      retries: 30
+      delay: 5
+      until:
+        - server_ready.rc == 0
+        - server_ready.stdout == "ok"
+      changed_when: false
+
+  handlers:
+    - name: Restart K3s
       ansible.builtin.systemd:
         name: k3s
-        state: started
-        enabled: true
+        state: restarted
 
 - name: Join K3s agents
   hosts: k3s_agents
