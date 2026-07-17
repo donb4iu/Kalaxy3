@@ -23,7 +23,7 @@
         - {name: nfs, url: https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner}
         - {name: prometheus-community, url: https://prometheus-community.github.io/helm-charts}
         - {name: grafana, url: https://grafana.github.io/helm-charts}
-        - {name: kubecost, url: https://kubecost.github.io/cost-analyzer/}
+        - {name: kubecost, url: https://kubecost.github.io/kubecost/}
         - {name: headlamp, url: https://kubernetes-sigs.github.io/headlamp/}
       changed_when: false
 
