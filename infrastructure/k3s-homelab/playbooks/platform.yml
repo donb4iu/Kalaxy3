@@ -5,7 +5,7 @@
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   vars:
-    platform_phase: "{{ platform_phase | default('all') }}"
+    selected_platform_phase: "{{ platform_phase | default('all') }}"
   pre_tasks:
     - name: Install Helm
       ansible.builtin.shell: |
@@ -34,11 +34,11 @@
   tasks:
     - name: Run networking and storage phase
       ansible.builtin.include_tasks: tasks/network-storage.yml
-      when: platform_phase in ['all', 'network_storage']
+      when: selected_platform_phase in ['all', 'network_storage']
 
     - name: Run administrative UI phase
       ansible.builtin.include_tasks: tasks/ui.yml
-      when: platform_phase in ['all', 'ui']
+      when: selected_platform_phase in ['all', 'ui']
 
     - name: Run Longhorn storage phase
       ansible.builtin.include_tasks: tasks/longhorn.yml
@@ -46,8 +46,8 @@
 
     - name: Run observability phase
       ansible.builtin.include_tasks: tasks/observability.yml
-      when: platform_phase in ['all', 'observability']
+      when: selected_platform_phase in ['all', 'observability']
 
     - name: Run MinIO phase
       ansible.builtin.include_tasks: tasks/minio.yml
-      when: platform_phase in ['all', 'minio']
+      when: selected_platform_phase in ['all', 'minio']

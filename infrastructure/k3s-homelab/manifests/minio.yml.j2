@@ -109,7 +109,7 @@ spec:
       labels:
         app: minio
     spec:
-      nodelSelectors:
+      nodeSelector:
         kubernetes.io/arch: arm64
         kalaxy3.io/minio: "true"
       affinity:
