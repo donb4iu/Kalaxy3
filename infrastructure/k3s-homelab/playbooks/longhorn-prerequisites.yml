@@ -1,0 +1,28 @@
+---
+- name: Prepare AMD64 nodes for Longhorn
+  hosts: all
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Install Longhorn host prerequisites
+      ansible.builtin.apt:
+        name:
+          - open-iscsi
+          - nfs-common
+          - cryptsetup
+          - dmsetup
+        state: present
+        update_cache: true
+      when:
+        - install_longhorn | default(true) | bool
+        - ansible_architecture == "x86_64"
+
+    - name: Enable the iSCSI daemon
+      ansible.builtin.service:
+        name: iscsid
+        state: started
+        enabled: true
+      when:
+        - install_longhorn | default(true) | bool
+        - ansible_architecture == "x86_64"

@@ -109,6 +109,9 @@ spec:
       labels:
         app: minio
     spec:
+      nodelSelectors:
+        kubernetes.io/arch: arm64
+        kalaxy3.io/minio: "true"
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

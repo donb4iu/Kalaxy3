@@ -2,6 +2,9 @@
 global:
   clusterId: kalaxy3
 
+  federatedStorage:
+    existingSecret: kubecost-federated-store
+
 frontend:
   nodeSelector:
     kubernetes.io/arch: amd64
@@ -18,22 +21,15 @@ aggregator:
     kalaxy3.io/kubecost: "true"
 
   persistentConfigsStorage:
-    storageClass: local-path
+    storageClass: longhorn
     storageRequest: 1Gi
 
   aggregatorDbStorage:
-    storageClass: local-path
+    storageClass: longhorn
     storageRequest: 128Gi
 
 localStore:
-  nodeSelector:
-    kubernetes.io/arch: amd64
-    kalaxy3.io/kubecost: "true"
-
-  persistentVolume:
-    enabled: true
-    storageClass: local-path
-    size: 32Gi
+  enabled: false
 
 forecasting:
   nodeSelector:

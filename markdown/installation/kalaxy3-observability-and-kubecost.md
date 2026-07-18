@@ -14,7 +14,7 @@ The final design is:
 - Their persistent data uses the `nfs-ssd` StorageClass.
 - Kubecost is skipped until a suitable Intel node joins the cluster.
 - Every Kubecost workload is constrained to a labeled `amd64` node.
-- Kubecost's embedded ClickHouse database uses `local-path`, not NFS.
+- Kubecost’s embedded ClickHouse database uses a Longhorn-backed ReadWriteOnce block volume. MinIO provides S3-compatible federated storage for Kubecost ETL and long-term cost data; it does not replace the ClickHouse database volume.
 - MetalLB assigns Kubecost the fixed address `192.168.2.26`.
 
 ## Initial observability deployment

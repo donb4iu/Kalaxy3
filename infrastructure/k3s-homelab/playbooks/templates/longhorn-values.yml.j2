@@ -1,0 +1,24 @@
+---
+global:
+  nodeSelector:
+    kalaxy3.io/longhorn: "true"
+
+defaultSettings:
+  createDefaultDiskLabeledNodes: true
+  defaultDataPath: "{{ longhorn_data_path }}"
+  systemManagedComponentsNodeSelector: "kalaxy3.io/longhorn:true"
+  defaultReplicaCount: "{{ longhorn_replica_count }}"
+
+persistence:
+  createStorageClass: true
+  defaultClass: false
+  defaultClassReplicaCount: "{{ longhorn_replica_count }}"
+  reclaimPolicy: Retain
+  volumeBindingMode: Immediate
+
+csi:
+  kubeletRootDir: /var/lib/kubelet
+
+service:
+  ui:
+    type: ClusterIP

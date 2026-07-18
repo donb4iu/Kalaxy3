@@ -1,4 +1,7 @@
 ---
+- name: Prepare Longhorn hosts
+  ansible.builtin.import_playbook: longhorn-prerequisites.yml
+
 - name: Install the first K3s server
   hosts: k3s_servers[0]
   become: true

@@ -1,21 +1,75 @@
 ---
+---
 - name: Verify MinIO password was changed
   ansible.builtin.assert:
     that:
+      - minio_root_password is defined
+      - minio_root_password | length >= 12
       - minio_root_password != 'CHANGE_ME_WITH_ANSIBLE_VAULT'
-    fail_msg: Set minio_root_password in an Ansible Vault encrypted vars file.
-  when: install_minio
+    fail_msg: >-
+      Set minio_root_password in an Ansible Vault encrypted vars file.
+  when: install_minio | bool
+  no_log: true
+
+- name: Verify MinIO inventory group contains five nodes
+  ansible.builtin.assert:
+    that:
+      - groups['minio_nodes'] is defined
+      - groups['minio_nodes'] | length == 5
+    fail_msg: >-
+      The minio_nodes inventory group must contain exactly five Raspberry
+      Pi nodes.
+  when: install_minio | bool
+
+- name: Verify MinIO nodes joined Kubernetes
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - get
+      - node
+      - "{{ item }}"
+      - --output=name
+  loop: "{{ groups['minio_nodes'] }}"
+  changed_when: false
+  when: install_minio | bool
+
+- name: Label MinIO nodes
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - label
+      - node
+      - "{{ item }}"
+      - kalaxy3.io/minio=true
+      - --overwrite
+  loop: "{{ groups['minio_nodes'] }}"
+  register: minio_node_labels
+  changed_when: >-
+    'labeled' in minio_node_labels.stdout and
+    'not labeled' not in minio_node_labels.stdout
+  when: install_minio | bool
 
 - name: Render MinIO resources
   ansible.builtin.template:
     src: "{{ playbook_dir }}/../manifests/minio.yml.j2"
     dest: /tmp/minio.yml
     mode: '0600'
-  when: install_minio
+  when: install_minio | bool
   no_log: true
 
 - name: Install distributed MinIO
-  ansible.builtin.command: k3s kubectl apply -f /tmp/minio.yml
-  when: install_minio
-  changed_when: true
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - apply
+      - --filename
+      - /tmp/minio.yml
+  register: minio_apply
+  changed_when: >-
+    'created' in minio_apply.stdout or
+    'configured' in minio_apply.stdout
+  when: install_minio | bool
   no_log: true

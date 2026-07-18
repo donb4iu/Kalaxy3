@@ -1,0 +1,110 @@
+---
+- name: Find AMD64 Kubernetes nodes
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - get
+      - nodes
+      - --selector=kubernetes.io/arch=amd64
+      - --output=name
+  register: longhorn_amd64_nodes
+  changed_when: false
+  when: install_longhorn | bool
+
+- name: Label AMD64 nodes for Longhorn and Kubecost
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - label
+      - nodes
+      - --selector=kubernetes.io/arch=amd64
+      - kalaxy3.io/longhorn=true
+      - kalaxy3.io/kubecost=true
+      - node.longhorn.io/create-default-disk=true
+      - --overwrite
+  changed_when: true
+  when:
+    - install_longhorn | bool
+    - longhorn_amd64_nodes.stdout | default('') | trim | length > 0
+
+- name: Add the Longhorn Helm repository
+  ansible.builtin.command:
+    argv:
+      - helm
+      - repo
+      - add
+      - longhorn
+      - https://charts.longhorn.io
+      - --force-update
+  changed_when: false
+  when:
+    - install_longhorn | bool
+    - longhorn_amd64_nodes.stdout | default('') | trim | length > 0
+
+- name: Update the Longhorn Helm repository
+  ansible.builtin.command:
+    argv:
+      - helm
+      - repo
+      - update
+      - longhorn
+  changed_when: false
+  when:
+    - install_longhorn | bool
+    - longhorn_amd64_nodes.stdout | default('') | trim | length > 0
+
+- name: Write Longhorn Helm values
+  ansible.builtin.template:
+    src: longhorn-values.yml.j2
+    dest: /tmp/longhorn-values.yml
+    mode: "0644"
+  when:
+    - install_longhorn | bool
+    - longhorn_amd64_nodes.stdout | default('') | trim | length > 0
+
+- name: Install Longhorn
+  ansible.builtin.command:
+    argv:
+      - helm
+      - upgrade
+      - --install
+      - longhorn
+      - longhorn/longhorn
+      - --version
+      - "{{ longhorn_version }}"
+      - --namespace
+      - longhorn-system
+      - --create-namespace
+      - --values
+      - /tmp/longhorn-values.yml
+      - --wait
+      - --timeout
+      - 30m
+  changed_when: true
+  when:
+    - install_longhorn | bool
+    - longhorn_amd64_nodes.stdout | default('') | trim | length > 0
+
+- name: Verify the Longhorn StorageClass
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - get
+      - storageclass
+      - longhorn
+  changed_when: false
+  when:
+    - install_longhorn | bool
+    - longhorn_amd64_nodes.stdout | default('') | trim | length > 0
+
+- name: Report that Longhorn is waiting for an AMD64 node
+  ansible.builtin.debug:
+    msg: >-
+      Longhorn was skipped because no AMD64 Kubernetes node is currently
+      available. It will be installed after an Intel node joins.
+  when:
+    - install_longhorn | bool
+    - longhorn_amd64_nodes.stdout | default('') | trim | length == 0
