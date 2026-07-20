@@ -1,10 +1,17 @@
 ---
-- name: Prepare AMD64 nodes for Longhorn
-  hosts: all
+- name: Prepare dedicated AMD64 Longhorn disks
+  hosts: longhorn_nodes
   become: true
   gather_facts: true
 
   tasks:
+    - name: Confirm Longhorn nodes use the AMD64 architecture
+      ansible.builtin.assert:
+        that:
+          - ansible_facts["architecture"] == "x86_64"
+        fail_msg: >-
+          {{ inventory_hostname }} is {{ ansible_facts["architecture"] }}, not x86_64.
+
     - name: Install Longhorn host prerequisites
       ansible.builtin.apt:
         name:
@@ -14,15 +21,186 @@
           - dmsetup
         state: present
         update_cache: true
-      when:
-        - install_longhorn | default(true) | bool
-        - ansible_architecture == "x86_64"
 
     - name: Enable the iSCSI daemon
       ansible.builtin.service:
         name: iscsid
         state: started
         enabled: true
-      when:
-        - install_longhorn | default(true) | bool
-        - ansible_architecture == "x86_64"
+
+    - name: Read block-device inventory
+      ansible.builtin.command:
+        argv:
+          - lsblk
+          - --json
+          - --bytes
+          - --output
+          - NAME,PATH,SIZE,ROTA,RM,TYPE,FSTYPE,MOUNTPOINTS,MODEL,SERIAL
+      register: longhorn_lsblk
+      changed_when: false
+      check_mode: false
+
+    - name: Parse block-device inventory
+      ansible.builtin.set_fact:
+        longhorn_block_devices: >-
+          {{ (longhorn_lsblk.stdout | from_json).blockdevices }}
+
+    - name: Select safe rotational Longhorn disk candidates
+      ansible.builtin.set_fact:
+        longhorn_disk_candidates: >-
+          {{
+            longhorn_block_devices
+            | selectattr('type', 'equalto', 'disk')
+            | selectattr('rota', 'equalto', true)
+            | selectattr('rm', 'equalto', false)
+            | selectattr('size', 'ge', longhorn_disk_min_bytes | int)
+            | selectattr('size', 'le', longhorn_disk_max_bytes | int)
+            | list
+          }}
+
+    - name: Require exactly one safe Longhorn disk candidate
+      ansible.builtin.assert:
+        that:
+          - longhorn_disk_candidates | length == 1
+        fail_msg: >-
+          Expected exactly one non-removable rotational disk between
+          {{ longhorn_disk_min_bytes }} and {{ longhorn_disk_max_bytes }}
+          bytes on {{ inventory_hostname }}. Found
+          {{ longhorn_disk_candidates | to_nice_json }}. No disk was changed.
+
+    - name: Record the selected Longhorn disk
+      ansible.builtin.set_fact:
+        longhorn_selected_disk: "{{ longhorn_disk_candidates | first }}"
+        longhorn_disk_path: "{{ (longhorn_disk_candidates | first).path }}"
+
+    - name: Verify the selected disk model
+      ansible.builtin.assert:
+        that:
+          - >-
+            (longhorn_selected_disk.model | default('') | trim) ==
+            longhorn_disk_expected_model
+        fail_msg: >-
+          Refusing {{ longhorn_disk_path }} because its model is
+          '{{ longhorn_selected_disk.model | default('unknown') | trim }}',
+          not '{{ longhorn_disk_expected_model }}'.
+
+    - name: Find the physical disk backing the root filesystem
+      ansible.builtin.shell: |
+        set -o pipefail
+        root_source="$(findmnt --noheadings --output SOURCE /)"
+        lsblk --inverse --noheadings --output TYPE,PATH "${root_source}" |
+          awk '$1 == "disk" {print $2; exit}'
+      args:
+        executable: /bin/bash
+      register: longhorn_root_disk
+      changed_when: false
+      check_mode: false
+
+    - name: Protect the operating-system disk
+      ansible.builtin.assert:
+        that:
+          - longhorn_root_disk.stdout | trim | length > 0
+          - longhorn_disk_path != (longhorn_root_disk.stdout | trim)
+        fail_msg: >-
+          Refusing to use the root backing disk
+          {{ longhorn_root_disk.stdout | trim }} for Longhorn.
+
+    - name: Check whether the selected disk is mounted already
+      ansible.builtin.command:
+        argv:
+          - findmnt
+          - --noheadings
+          - --output
+          - TARGET
+          - --source
+          - "{{ longhorn_disk_path }}"
+      register: longhorn_existing_mount
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Refuse a disk mounted at another path
+      ansible.builtin.assert:
+        that:
+          - >-
+            longhorn_existing_mount.rc != 0 or
+            (longhorn_existing_mount.stdout | trim) == longhorn_data_path
+        fail_msg: >-
+          {{ longhorn_disk_path }} is already mounted at
+          {{ longhorn_existing_mount.stdout | trim }}, not
+          {{ longhorn_data_path }}.
+
+    - name: Read the selected disk filesystem type
+      ansible.builtin.command:
+        argv:
+          - blkid
+          - --output
+          - value
+          - --match-tag
+          - TYPE
+          - "{{ longhorn_disk_path }}"
+      register: longhorn_disk_fstype
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read the selected disk UUID
+      ansible.builtin.command:
+        argv:
+          - blkid
+          - --output
+          - value
+          - --match-tag
+          - UUID
+          - "{{ longhorn_disk_path }}"
+      register: longhorn_disk_uuid
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Require an existing supported filesystem
+      ansible.builtin.assert:
+        that:
+          - longhorn_disk_fstype.rc == 0
+          - >-
+            (longhorn_disk_fstype.stdout | trim) in
+            longhorn_allowed_filesystems
+          - longhorn_disk_uuid.rc == 0
+          - longhorn_disk_uuid.stdout | trim | length > 0
+        fail_msg: >-
+          {{ longhorn_disk_path }} must already contain ext4 or XFS.
+          This playbook deliberately refuses to format disks.
+
+    - name: Create the Longhorn mount point
+      ansible.builtin.file:
+        path: "{{ longhorn_data_path }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Mount the dedicated Longhorn disk by UUID
+      ansible.posix.mount:
+        path: "{{ longhorn_data_path }}"
+        src: "UUID={{ longhorn_disk_uuid.stdout | trim }}"
+        fstype: "{{ longhorn_disk_fstype.stdout | trim }}"
+        opts: defaults,noatime
+        state: mounted
+
+    - name: Verify the Longhorn mount
+      ansible.builtin.command:
+        argv:
+          - findmnt
+          - --mountpoint
+          - "{{ longhorn_data_path }}"
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Show selected Longhorn storage
+      ansible.builtin.debug:
+        msg:
+          - "Node: {{ inventory_hostname }}"
+          - "Device: {{ longhorn_disk_path }}"
+          - "Model: {{ longhorn_selected_disk.model | trim }}"
+          - "Filesystem: {{ longhorn_disk_fstype.stdout | trim }}"
+          - "Mount: {{ longhorn_data_path }}"

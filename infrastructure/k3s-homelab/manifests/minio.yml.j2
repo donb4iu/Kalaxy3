@@ -67,6 +67,9 @@ kind: Service
 metadata:
   name: minio-api
   namespace: minio
+  labels:
+    app: minio
+    prometheus-job: minio-job
 spec:
   type: LoadBalancer
   loadBalancerIP: {{ minio_api_load_balancer_ip }}
@@ -139,6 +142,17 @@ spec:
                 secretKeyRef:
                   name: minio-root
                   key: rootPassword
+
+            - name: MINIO_PROMETHEUS_AUTH_TYPE
+              value: public
+
+            - name: MINIO_PROMETHEUS_URL
+              value: >-
+                http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090
+
+            - name: MINIO_PROMETHEUS_JOB_ID
+              value: minio-job
+
           ports:
             - name: api
               containerPort: 9000
@@ -163,3 +177,22 @@ spec:
         resources:
           requests:
             storage: {{ minio_volume_size }}
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: minio
+  namespace: minio
+  labels:
+    release: kube-prometheus-stack
+spec:
+  jobLabel: prometheus-job
+  selector:
+    matchLabels:
+      app: minio
+  endpoints:
+    - port: api
+      path: /minio/v2/metrics/cluster
+      scheme: http
+      interval: 60s

@@ -1,0 +1,9 @@
+---
+longhorn_disk_expected_model: ST1000VM002-1SD1
+longhorn_disk_min_bytes: 800000000000
+longhorn_disk_max_bytes: 1200000000000
+longhorn_allowed_filesystems:
+  - ext4
+  - xfs
+
+# Both NVMe devices are intentionally excluded by rotational-disk discovery.

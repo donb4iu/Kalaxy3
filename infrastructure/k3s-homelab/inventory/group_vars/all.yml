@@ -37,10 +37,12 @@ minio_root_password: !vault |
           3930
 minio_image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
 
-install_longhorn: false
+install_longhorn: true
 longhorn_version: "1.12.0"
 longhorn_data_path: /mnt/longhorn
-longhorn_replica_count: 2
+# Use one replica until amd64-02 joins. Increase this to 2 afterward and
+# update existing Longhorn volumes to two replicas.
+longhorn_replica_count: 1
 
 install_dashboard: false
 install_headlamp: true
