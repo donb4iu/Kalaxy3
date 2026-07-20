@@ -18,6 +18,7 @@ records, architecture documents, and operational runbooks.
 
 - [K3s Installation Evidence](Infrastructure/K3s_Homelab/k3s_install_evidence.md)
 - [MinIO Installation Evidence and Rebuild Guide](installation/kalaxy3-minio-installation-evidence.md)
+- [AMD64 Node and Longhorn Installation Evidence](installation/kalaxy3-amd64-node-and-longhorn-installation-evidence.md)
 - [Observability and Kubecost Installation](installation/kalaxy3-observability-and-kubecost.md)
 - [Longhorn, Kubecost, and Intel Node Preparation](installation/longhorn-kubecost-intel-node-preparation.md)
 
