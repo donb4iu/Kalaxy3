@@ -1,11 +1,10 @@
 ---
 global:
   clusterId: kalaxy3
-
-  federatedStorage:
-    existingSecret: kubecost-federated-store
+  defaultStorageClass: longhorn
 
 frontend:
+  enabled: true
   nodeSelector:
     kubernetes.io/arch: amd64
     kalaxy3.io/kubecost: "true"
@@ -16,6 +15,7 @@ frontend:
       metallb.io/loadBalancerIPs: "192.168.2.26"
 
 aggregator:
+  enabled: true
   nodeSelector:
     kubernetes.io/arch: amd64
     kalaxy3.io/kubecost: "true"
@@ -28,30 +28,34 @@ aggregator:
     storageClass: longhorn
     storageRequest: 128Gi
 
-localStore:
-  enabled: false
-
-forecasting:
-  nodeSelector:
-    kubernetes.io/arch: amd64
-    kalaxy3.io/kubecost: "true"
-
-cloudCost:
-  nodeSelector:
-    kubernetes.io/arch: amd64
-    kalaxy3.io/kubecost: "true"
-
-clusterController:
-  nodeSelector:
-    kubernetes.io/arch: amd64
-    kalaxy3.io/kubecost: "true"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 3Gi
 
 finopsagent:
+  enabled: true
   nodeSelector:
     kubernetes.io/arch: amd64
     kalaxy3.io/kubecost: "true"
 
+localStore:
+  enabled: true
+  persistentVolume:
+    enabled: true
+    storageClass: longhorn
+    size: "{{ kubecost_storage_size }}"
+    annotations:
+      helm.sh/resource-policy: keep
+
+forecasting:
+  enabled: false
+
+cloudCost:
+  enabled: false
+
+clusterController:
+  enabled: false
+
 networkCosts:
-  nodeSelector:
-    kubernetes.io/arch: amd64
-    kalaxy3.io/kubecost: "true"
+  enabled: false

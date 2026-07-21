@@ -58,7 +58,7 @@ prometheus_retention: 7d
 prometheus_storage_size: 40Gi
 grafana_storage_size: 10Gi
 loki_storage_size: 40Gi
-kubecost_storage_size: 10Gi
+kubecost_storage_size: 32Gi
 
 local_domain: home.donb4iu.com
 grafana_host: grafana.home.donb4iu.com

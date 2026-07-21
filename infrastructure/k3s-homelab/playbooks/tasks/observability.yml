@@ -64,7 +64,7 @@
       - upgrade
       - --install
       - kubecost
-      - kubecost/kubecost
+      - oci://public.ecr.aws/kubecost/kubecost
       - --version
       - "3.2.1"
       - --namespace
