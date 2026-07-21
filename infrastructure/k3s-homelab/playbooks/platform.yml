@@ -51,6 +51,12 @@
       ansible.builtin.include_tasks: tasks/observability.yml
       when: selected_platform_phase in ['all', 'observability']
 
+    - name: Run protected UI phase
+      ansible.builtin.include_tasks: tasks/protected-ui.yml
+      when: selected_platform_phase in ['all', 'protected_ui']
+      tags:
+        - protected-ui
+
     - name: Run MinIO phase
       ansible.builtin.include_tasks: tasks/minio.yml
       when: selected_platform_phase in ['all', 'minio']

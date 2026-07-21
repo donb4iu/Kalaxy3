@@ -1,0 +1,11 @@
+---
+- name: Copy protected UI routes
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../manifests/protected-ui-routes.yml"
+    dest: /tmp/protected-ui-routes.yml
+    mode: '0600'
+
+- name: Apply protected UI routes
+  ansible.builtin.command:
+    cmd: k3s kubectl apply -f /tmp/protected-ui-routes.yml
+  changed_when: true
