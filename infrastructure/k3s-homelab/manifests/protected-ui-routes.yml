@@ -79,3 +79,46 @@ spec:
       services:
         - name: kube-prometheus-stack-prometheus
           port: 9090
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: lan-only
+  namespace: kube-system
+spec:
+  ipAllowList:
+    sourceRange:
+      - 192.168.2.0/24
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: basic-auth
+  namespace: kube-system
+spec:
+  basicAuth:
+    secret: ui-basic-auth
+    removeHeader: true
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: traefik-dashboard
+  namespace: kube-system
+spec:
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: >-
+        Host(`traefik.kalaxy3.home.arpa`) &&
+        (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
+      middlewares:
+        - name: lan-only
+        - name: basic-auth
+      services:
+        - name: api@internal
+          kind: TraefikService

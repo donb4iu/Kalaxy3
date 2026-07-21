@@ -6,6 +6,14 @@ metadata:
 spec:
   failurePolicy: reinstall
   valuesContent: |-
+    api:
+      dashboard: true
+      insecure: false
+
+    ingressRoute:
+      dashboard:
+        enabled: false
+
     service:
       spec:
         loadBalancerIP: {{ traefik_load_balancer_ip }}
