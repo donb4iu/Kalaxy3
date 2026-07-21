@@ -20,10 +20,15 @@
     src: "{{ playbook_dir }}/../manifests/traefik-config.yml.j2"
     dest: /tmp/traefik-config.yml
     mode: '0600'
+  tags:
+    - traefik-config
 
 - name: Configure bundled Traefik
-  ansible.builtin.command: k3s kubectl apply -f /tmp/traefik-config.yml
+  ansible.builtin.command: 
+    cmd: k3s kubectl apply -f /tmp/traefik-config.yml
   changed_when: true
+  tags:
+    - traefik-config
 
 - name: Install HDD NFS dynamic provisioner
   ansible.builtin.command: >-

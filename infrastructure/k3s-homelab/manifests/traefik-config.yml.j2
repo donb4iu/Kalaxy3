@@ -4,9 +4,11 @@ metadata:
   name: traefik
   namespace: kube-system
 spec:
+  failurePolicy: reinstall
   valuesContent: |-
     service:
       spec:
         loadBalancerIP: {{ traefik_load_balancer_ip }}
+        externalTrafficPolicy: Local
       annotations:
         metallb.io/address-pool: {{ metallb_pool_name }}

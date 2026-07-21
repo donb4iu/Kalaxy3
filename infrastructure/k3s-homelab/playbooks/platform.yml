@@ -35,7 +35,10 @@
     - name: Run networking and storage phase
       ansible.builtin.include_tasks: tasks/network-storage.yml
       when: selected_platform_phase in ['all', 'network_storage']
-
+      tags:
+        - network-storage
+        - traefik-config
+        
     - name: Run administrative UI phase
       ansible.builtin.include_tasks: tasks/ui.yml
       when: selected_platform_phase in ['all', 'ui']
