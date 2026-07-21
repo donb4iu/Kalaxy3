@@ -44,8 +44,16 @@
       when: selected_platform_phase in ['all', 'ui']
 
     - name: Run Longhorn storage phase
-      ansible.builtin.include_tasks: tasks/longhorn.yml
-      when: install_longhorn | bool
+      ansible.builtin.include_tasks:
+        file: tasks/longhorn.yml
+        apply:
+          tags:
+            - longhorn
+      when:
+        - install_longhorn | bool
+        - selected_platform_phase in ['all', 'longhorn']
+      tags:
+        - longhorn
 
     - name: Run observability phase
       ansible.builtin.include_tasks: tasks/observability.yml

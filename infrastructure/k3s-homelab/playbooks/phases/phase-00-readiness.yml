@@ -223,3 +223,5 @@
           {{ nfs_exports.stdout | default('showmount unavailable') | indent(2, true) }}
       delegate_to: localhost
       become: false
+      vars:
+        ansible_become: false
