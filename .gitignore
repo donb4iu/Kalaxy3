@@ -223,3 +223,4 @@ infrastructure/k3s-homelab/kubeconfig-kalaxy3.yaml
 /backups/
 
 /infrastructure/k3s-homelab/kubeconfig-kalaxy3.yaml
+infrastructure/k3s-homelab/playbooks/files/pi-admin-ed25519.pub
