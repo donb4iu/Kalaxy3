@@ -12,7 +12,7 @@
   changed_when: false
   when: install_longhorn | bool
 
-- name: Label AMD64 nodes for Longhorn and Kubecost
+- name: Label AMD64 nodes for Longhorn
   ansible.builtin.command:
     argv:
       - k3s
@@ -21,13 +21,26 @@
       - nodes
       - --selector=kubernetes.io/arch=amd64
       - kalaxy3.io/longhorn=true
-      - kalaxy3.io/kubecost=true
       - node.longhorn.io/create-default-disk=true
       - --overwrite
   changed_when: true
   when:
     - install_longhorn | bool
     - longhorn_amd64_nodes.stdout | default('') | trim | length > 0
+
+- name: Label configured Kubecost nodes
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - label
+      - node
+      - "{{ item }}"
+      - kalaxy3.io/kubecost=true
+      - --overwrite
+  loop: "{{ groups['kubecost_nodes'] | default([]) }}"
+  changed_when: true
+  when: install_longhorn | bool
 
 - name: Add the Longhorn Helm repository
   ansible.builtin.command:

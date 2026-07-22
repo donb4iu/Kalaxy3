@@ -35,12 +35,21 @@ aggregator:
 
 finopsagent:
   enabled: true
+
+  image:
+    registry: icr.io
+    repository: ibm-finops/agent
+    tag: v1.0.20
+
   nodeSelector:
     kubernetes.io/arch: amd64
     kalaxy3.io/kubecost: "true"
 
 localStore:
   enabled: true
+  nodeSelector:
+    kubernetes.io/arch: amd64
+    kalaxy3.io/kubecost: "true"
   persistentVolume:
     enabled: true
     storageClass: longhorn
