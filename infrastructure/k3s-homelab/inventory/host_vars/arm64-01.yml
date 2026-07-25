@@ -1,0 +1,13 @@
+kalaxy3_cost:
+  purchase_price_usd: null
+  residual_value_usd: 0.0
+  useful_life_months: 60
+  average_watts: null
+  cpu_cores: 4
+  memory_gib: 8
+kalaxy3_node_labels:
+  kalaxy3.io/hardware-class: raspberry-pi-4-8gb
+  kalaxy3.io/cost-profile: arm64-low-power
+  kalaxy3.io/node-role: control-plane
+  kalaxy3.io/power-class: low-power
+  kalaxy3.io/storage-role: minio

@@ -1,0 +1,22 @@
+---
+- name: Apply Kalaxy3 labels to {{ kubecost_node_name }}
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - label
+      - node
+      - "{{ kubecost_node_name }}"
+      - "{{ item.key }}={{ item.value }}"
+      - --overwrite
+  environment:
+    KUBECONFIG: "{{ kalaxy3_kubeconfig }}"
+  loop: >-
+    {{
+      hostvars[kubecost_node_name].kalaxy3_node_labels
+      | dict2items
+    }}
+  loop_control:
+    label: "{{ item.key }}"
+  register: kubecost_label_command
+  changed_when: >-
+    'not labeled' not in kubecost_label_command.stdout

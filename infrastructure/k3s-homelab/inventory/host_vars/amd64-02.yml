@@ -2,3 +2,35 @@
 longhorn_disk_expected_model: ST1000VM002-1ET1
 longhorn_disk_min_bytes: 800000000000
 longhorn_disk_max_bytes: 1200000000000
+
+
+kalaxy3_cost:
+  purchase_price_usd: null
+  residual_value_usd: 0.00
+  useful_life_months: 60
+  average_watts: null
+  cpu_cores: 12
+  memory_gib: 64
+
+  gpu:
+    enabled: true
+    kubernetes_schedulable: false
+    vendor: nvidia
+    model: rtx-3060-ti
+    memory_gib: 8
+    count: 1
+    purchase_price_usd: null
+    residual_value_usd: 0.00
+    useful_life_months: 60
+    average_incremental_watts: null
+
+kalaxy3_node_labels:
+  kalaxy3.io/hardware-class: intel-i5-11600-64gb
+  kalaxy3.io/cost-profile: amd64-standard
+  kalaxy3.io/node-role: worker
+  kalaxy3.io/power-class: high-capacity
+  kalaxy3.io/storage-role: longhorn
+  kalaxy3.io/gpu-capable: "true"
+  kalaxy3.io/gpu-vendor: nvidia
+  kalaxy3.io/gpu-model: rtx-3060-ti
+  kalaxy3.io/gpu-memory-gib: "8"

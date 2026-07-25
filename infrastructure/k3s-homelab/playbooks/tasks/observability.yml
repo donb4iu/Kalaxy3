@@ -57,6 +57,21 @@
     - install_kubecost | bool
     - kubecost_eligible_nodes.stdout | trim | length > 0
 
+- name: Prepare calibrated Kubecost pricing
+  ansible.builtin.include_tasks:
+    file: kubecost-calibration.yml
+    apply:
+      tags:
+        - kubecost
+        - kubecost-calibration
+  when:
+    - install_observability | bool
+    - install_kubecost | bool
+    - kubecost_eligible_nodes.stdout | trim | length > 0
+  tags:
+    - kubecost
+    - kubecost-calibration
+
 - name: Install Kubecost
   ansible.builtin.command:
     argv:
@@ -72,14 +87,20 @@
       - --create-namespace
       - --values
       - /tmp/kubecost-values.yml
+      - --values
+      - "{{ kubecost_calibration_values_path }}"
       - --wait
       - --timeout
       - 30m
-  changed_when: true
+  environment:
+    KUBECONFIG: "{{ kalaxy3_kubeconfig }}"
   when:
     - install_observability | bool
     - install_kubecost | bool
     - kubecost_eligible_nodes.stdout | trim | length > 0
+  changed_when: true
+  tags:
+    - kubecost
 
 - name: Report that Kubecost is waiting for an Intel node
   ansible.builtin.debug:

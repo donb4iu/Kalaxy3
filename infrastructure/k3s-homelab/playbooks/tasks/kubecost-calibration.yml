@@ -1,0 +1,227 @@
+---
+- name: Validate Kubecost allocation percentages
+  ansible.builtin.assert:
+    that:
+      - kubecost_calibration.compute.cpu_cost_share | float >= 0
+      - kubecost_calibration.compute.ram_cost_share | float >= 0
+      - >-
+        (
+          (
+            kubecost_calibration.compute.cpu_cost_share | float
+          )
+          +
+          (
+            kubecost_calibration.compute.ram_cost_share | float
+          )
+        ) | round(6) == 1.0
+    fail_msg: Kubecost CPU and RAM cost shares must total 1.0.
+
+- name: Validate Kubecost node cost inventory
+  ansible.builtin.assert:
+    that:
+      - hostvars[item].kalaxy3_cost is defined
+      - hostvars[item].kalaxy3_node_labels is defined
+      - hostvars[item].kalaxy3_cost.purchase_price_usd is number
+      - hostvars[item].kalaxy3_cost.residual_value_usd is number
+      - hostvars[item].kalaxy3_cost.useful_life_months | int > 0
+      - hostvars[item].kalaxy3_cost.average_watts is number
+      - hostvars[item].kalaxy3_cost.cpu_cores | float > 0
+      - hostvars[item].kalaxy3_cost.memory_gib | float > 0
+    fail_msg: >-
+      {{ item }} has incomplete kalaxy3_cost or
+      kalaxy3_node_labels inventory data.
+  loop: "{{ kubecost_priced_nodes }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Initialize Kubecost compute totals
+  ansible.builtin.set_fact:
+    kubecost_compute_monthly_usd: >-
+      {{
+        kubecost_calibration.compute.fixed_monthly_overhead_usd
+        | float
+      }}
+    kubecost_total_cpu_cores: 0.0
+    kubecost_total_memory_gib: 0.0
+
+- name: Calculate monthly compute totals
+  vars:
+    node_cost: "{{ hostvars[item].kalaxy3_cost }}"
+    monthly_amortization: >-
+      {{
+        (
+          (node_cost.purchase_price_usd | float)
+          -
+          (node_cost.residual_value_usd | float)
+        )
+        /
+        (node_cost.useful_life_months | float)
+      }}
+    monthly_electricity: >-
+      {{
+        (node_cost.average_watts | float)
+        *
+        (kubecost_calibration.hours_per_month | float)
+        *
+        (
+          kubecost_calibration.electricity_rate_usd_per_kwh
+          | float
+        )
+        /
+        1000
+      }}
+  ansible.builtin.set_fact:
+    kubecost_compute_monthly_usd: >-
+      {{
+        (kubecost_compute_monthly_usd | float)
+        +
+        (monthly_amortization | float)
+        +
+        (monthly_electricity | float)
+      }}
+    kubecost_total_cpu_cores: >-
+      {{
+        (kubecost_total_cpu_cores | float)
+        +
+        (node_cost.cpu_cores | float)
+      }}
+    kubecost_total_memory_gib: >-
+      {{
+        (kubecost_total_memory_gib | float)
+        +
+        (node_cost.memory_gib | float)
+      }}
+  loop: "{{ kubecost_priced_nodes }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Validate Kubecost storage profiles
+  ansible.builtin.assert:
+    that:
+      - item.value.purchase_price_usd is number
+      - item.value.residual_value_usd is number
+      - item.value.useful_life_months | int > 0
+      - item.value.average_watts is number
+      - item.value.raw_capacity_gb | float > 0
+      - item.value.replication_factor | float > 0
+    fail_msg: >-
+      Storage profile {{ item.key }} has incomplete pricing data.
+  loop: >-
+    {{
+      kubecost_calibration.storage_profiles
+      | dict2items
+    }}
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Initialize Kubecost storage totals
+  ansible.builtin.set_fact:
+    kubecost_storage_monthly_usd: 0.0
+    kubecost_storage_logical_gb: 0.0
+
+- name: Calculate monthly storage totals
+  vars:
+    profile: "{{ item.value }}"
+    monthly_amortization: >-
+      {{
+        (
+          (profile.purchase_price_usd | float)
+          -
+          (profile.residual_value_usd | float)
+        )
+        /
+        (profile.useful_life_months | float)
+      }}
+    monthly_electricity: >-
+      {{
+        (profile.average_watts | float)
+        *
+        (kubecost_calibration.hours_per_month | float)
+        *
+        (
+          kubecost_calibration.electricity_rate_usd_per_kwh
+          | float
+        )
+        /
+        1000
+      }}
+    logical_capacity_gb: >-
+      {{
+        (profile.raw_capacity_gb | float)
+        /
+        (profile.replication_factor | float)
+      }}
+  ansible.builtin.set_fact:
+    kubecost_storage_monthly_usd: >-
+      {{
+        (kubecost_storage_monthly_usd | float)
+        +
+        (monthly_amortization | float)
+        +
+        (monthly_electricity | float)
+        +
+        (profile.fixed_monthly_overhead_usd | float)
+      }}
+    kubecost_storage_logical_gb: >-
+      {{
+        (kubecost_storage_logical_gb | float)
+        +
+        (logical_capacity_gb | float)
+      }}
+  loop: >-
+    {{
+      kubecost_calibration.storage_profiles
+      | dict2items
+    }}
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Calculate Kubecost blended prices
+  ansible.builtin.set_fact:
+    kubecost_cpu_core_month_usd: >-
+      {{
+        (
+          (kubecost_compute_monthly_usd | float)
+          *
+          (
+            kubecost_calibration.compute.cpu_cost_share
+            | float
+          )
+        )
+        /
+        (kubecost_total_cpu_cores | float)
+      }}
+    kubecost_ram_gib_month_usd: >-
+      {{
+        (
+          (kubecost_compute_monthly_usd | float)
+          *
+          (
+            kubecost_calibration.compute.ram_cost_share
+            | float
+          )
+        )
+        /
+        (kubecost_total_memory_gib | float)
+      }}
+    kubecost_storage_gb_month_usd: >-
+      {{
+        (kubecost_storage_monthly_usd | float)
+        /
+        (kubecost_storage_logical_gb | float)
+      }}
+    kubecost_gpu_month_usd: 0.0
+
+- name: Apply persistent Kalaxy3 node labels
+  ansible.builtin.include_tasks: kubecost-node-label.yml
+  vars:
+    kubecost_node_name: "{{ item }}"
+  loop: "{{ kubecost_priced_nodes }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Render calibrated Kubecost Helm values
+  ansible.builtin.template:
+    src: kubecost-calibration-values.yml.j2
+    dest: "{{ kubecost_calibration_values_path }}"
+    mode: "0600"

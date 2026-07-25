@@ -1,0 +1,86 @@
+---
+kubecost_priced_nodes:
+  - arm64-01
+  - arm64-02
+  - arm64-03
+  - arm64-04
+  - arm64-05
+  - amd64-01
+  - amd64-02
+
+kubecost_calibration:
+  electricity_rate_usd_per_kwh: 0.16
+  hours_per_month: 730
+
+  compute:
+    cpu_cost_share: 0.60
+    ram_cost_share: 0.40
+    fixed_monthly_overhead_usd: 0.00
+
+  gpu:
+    # Keep disabled until the NVIDIA device plugin exposes
+    # nvidia.com/gpu as a schedulable Kubernetes resource.
+    pricing_enabled: false
+
+  shared:
+    monthly_overhead_usd: 0.00
+    namespaces:
+      - kube-system
+      - kubecost
+      - longhorn-system
+      - metallb-system
+      - observability
+      - storage
+
+  network:
+    enabled: true
+    internet_egress_usd_per_gb: 0.00
+    region_egress_usd_per_gb: 0.00
+    zone_egress_usd_per_gb: 0.00
+
+  storage_profiles:
+    longhorn:
+      # Two 1 TB dedicated Intel-node disks.
+      purchase_price_usd: null
+      residual_value_usd: 0.00
+      useful_life_months: 60
+      average_watts: null
+      raw_capacity_gb: 2000
+      replication_factor: 2
+      fixed_monthly_overhead_usd: 0.00
+
+    minio_local:
+      # Five 1 TB Pi-attached disks.
+      # EC:1 across five drives gives approximately 4 TB usable.
+      purchase_price_usd: null
+      residual_value_usd: 0.00
+      useful_life_months: 60
+      average_watts: null
+      raw_capacity_gb: 5000
+      replication_factor: 1.25
+      fixed_monthly_overhead_usd: 0.00
+
+    nfs_ssd:
+      # One 1 TB Samsung SSD on the NFS server.
+      purchase_price_usd: null
+      residual_value_usd: 0.00
+      useful_life_months: 60
+      average_watts: null
+      raw_capacity_gb: 1000
+      replication_factor: 1
+      fixed_monthly_overhead_usd: 0.00
+
+    nfs_hdd:
+      # One 8 TB HGST HDD on the NFS server.
+      purchase_price_usd: null
+      residual_value_usd: 0.00
+      useful_life_months: 60
+      average_watts: null
+      raw_capacity_gb: 8000
+      replication_factor: 1
+      fixed_monthly_overhead_usd: 0.00
+
+kubecost_calibration_values_path: >-
+  /tmp/kalaxy3-kubecost-calibration-values.yaml
+
+kalaxy3_kubeconfig: /etc/rancher/k3s/k3s.yaml
