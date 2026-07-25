@@ -52,19 +52,15 @@ kubecostProductConfigs:
   sharedOverhead: >-
     {{
       '%.2f'
-      | format(
-          kubecost_calibration.shared.monthly_overhead_usd
-          | float
-        )
+      | format(kubecost_shared_monthly_usd | float)
     }}
 
 networkCosts:
-  enabled: >-
-    {{
-      kubecost_calibration.network.enabled
-      | bool
-      | ternary('true', 'false')
-    }}
+  enabled: {{
+    kubecost_calibration.network.enabled
+    | bool
+    | ternary('true', 'false')
+  }}
 
   # Kubecost's default affinity expects cloud region and zone labels.
   # Kalaxy3 is an on-premises cluster without those labels.

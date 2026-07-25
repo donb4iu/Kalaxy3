@@ -1,0 +1,10 @@
+---
+- name: Calculate and render Kubecost calibration
+  hosts: arm64-01
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Run Kubecost calibration
+      ansible.builtin.import_tasks:
+        file: tasks/kubecost-calibration.yml

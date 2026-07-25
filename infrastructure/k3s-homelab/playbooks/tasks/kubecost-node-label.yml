@@ -6,7 +6,7 @@
       - label
       - node
       - "{{ kubecost_node_name }}"
-      - "{{ item.key }}={{ item.value }}"
+      - "{{ kubecost_label.key }}={{ kubecost_label.value }}"
       - --overwrite
   environment:
     KUBECONFIG: "{{ kalaxy3_kubeconfig }}"
@@ -16,7 +16,8 @@
       | dict2items
     }}
   loop_control:
-    label: "{{ item.key }}"
+    loop_var: kubecost_label
+    label: "{{ kubecost_label.key }}"
   register: kubecost_label_command
   changed_when: >-
     'not labeled' not in kubecost_label_command.stdout

@@ -47,6 +47,8 @@
 - name: Calculate monthly compute totals
   vars:
     node_cost: "{{ hostvars[item].kalaxy3_cost }}"
+    gpu_cost: "{{ node_cost.gpu | default({}) }}"
+
     monthly_amortization: >-
       {{
         (
@@ -57,6 +59,7 @@
         /
         (node_cost.useful_life_months | float)
       }}
+
     monthly_electricity: >-
       {{
         (node_cost.average_watts | float)
@@ -70,6 +73,31 @@
         /
         1000
       }}
+
+    gpu_monthly_amortization: >-
+      {{
+        (
+          (
+            (gpu_cost.purchase_price_usd | default(0) | float)
+            -
+            (gpu_cost.residual_value_usd | default(0) | float)
+          )
+          /
+          (
+            gpu_cost.useful_life_months
+            | default(60)
+            | float
+          )
+        )
+        if (
+          gpu_cost.enabled | default(false) | bool
+          and not (
+            kubecost_calibration.gpu.pricing_enabled | bool
+          )
+        )
+        else 0.0
+      }}
+
   ansible.builtin.set_fact:
     kubecost_compute_monthly_usd: >-
       {{
@@ -78,19 +106,24 @@
         (monthly_amortization | float)
         +
         (monthly_electricity | float)
+        +
+        (gpu_monthly_amortization | float)
       }}
+
     kubecost_total_cpu_cores: >-
       {{
         (kubecost_total_cpu_cores | float)
         +
         (node_cost.cpu_cores | float)
       }}
+
     kubecost_total_memory_gib: >-
       {{
         (kubecost_total_memory_gib | float)
         +
         (node_cost.memory_gib | float)
       }}
+
   loop: "{{ kubecost_priced_nodes }}"
   loop_control:
     label: "{{ item }}"
@@ -122,6 +155,7 @@
 - name: Calculate monthly storage totals
   vars:
     profile: "{{ item.value }}"
+
     monthly_amortization: >-
       {{
         (
@@ -132,6 +166,7 @@
         /
         (profile.useful_life_months | float)
       }}
+
     monthly_electricity: >-
       {{
         (profile.average_watts | float)
@@ -145,12 +180,14 @@
         /
         1000
       }}
+
     logical_capacity_gb: >-
       {{
         (profile.raw_capacity_gb | float)
         /
         (profile.replication_factor | float)
       }}
+
   ansible.builtin.set_fact:
     kubecost_storage_monthly_usd: >-
       {{
@@ -162,17 +199,20 @@
         +
         (profile.fixed_monthly_overhead_usd | float)
       }}
+
     kubecost_storage_logical_gb: >-
       {{
         (kubecost_storage_logical_gb | float)
         +
         (logical_capacity_gb | float)
       }}
+
   loop: >-
     {{
       kubecost_calibration.storage_profiles
       | dict2items
     }}
+
   loop_control:
     label: "{{ item.key }}"
 
@@ -215,10 +255,40 @@
 - name: Apply persistent Kalaxy3 node labels
   ansible.builtin.include_tasks: kubecost-node-label.yml
   vars:
-    kubecost_node_name: "{{ item }}"
+    kubecost_node_name: "{{ kubecost_node }}"
   loop: "{{ kubecost_priced_nodes }}"
   loop_control:
-    label: "{{ item }}"
+    loop_var: kubecost_node
+    label: "{{ kubecost_node }}"
+
+- name: Calculate Kubecost shared monthly overhead
+  ansible.builtin.set_fact:
+    kubecost_shared_monthly_usd: >-
+      {{
+        (
+          kubecost_calibration.shared.monthly_overhead_usd
+          | float
+        )
+        +
+        (
+          (
+            kubecost_calibration.shared.average_watts
+            | float
+          )
+          *
+          (
+            kubecost_calibration.hours_per_month
+            | float
+          )
+          *
+          (
+            kubecost_calibration.electricity_rate_usd_per_kwh
+            | float
+          )
+          /
+          1000
+        )
+      }}
 
 - name: Render calibrated Kubecost Helm values
   ansible.builtin.template:

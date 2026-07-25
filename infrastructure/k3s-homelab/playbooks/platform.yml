@@ -57,6 +57,9 @@
     - name: Run observability phase
       ansible.builtin.include_tasks: tasks/observability.yml
       when: selected_platform_phase in ['all', 'observability']
+      tags:
+        - observability
+        - kubecost
 
     - name: Run protected UI phase
       ansible.builtin.include_tasks: tasks/protected-ui.yml

@@ -5,13 +5,16 @@ longhorn_disk_max_bytes: 1200000000000
 
 
 kalaxy3_cost:
-  purchase_price_usd: null
-  residual_value_usd: 0.00
+  purchase_price_usd: 1000.00
+  residual_value_usd: 600.00
   useful_life_months: 60
-  average_watts: null
+  average_watts: 68
   cpu_cores: 12
   memory_gib: 64
-
+  power_accounting:
+    method: component-estimate
+    confidence: low
+    measured: false
   gpu:
     enabled: true
     kubernetes_schedulable: false
@@ -19,10 +22,10 @@ kalaxy3_cost:
     model: rtx-3060-ti
     memory_gib: 8
     count: 1
-    purchase_price_usd: null
-    residual_value_usd: 0.00
+    purchase_price_usd: 500.00
+    residual_value_usd: 350.00
     useful_life_months: 60
-    average_incremental_watts: null
+    average_incremental_watts: 0.00
 
 kalaxy3_node_labels:
   kalaxy3.io/hardware-class: intel-i5-11600-64gb

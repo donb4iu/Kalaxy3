@@ -24,6 +24,18 @@ kubecost_calibration:
 
   shared:
     monthly_overhead_usd: 0.00
+    average_watts: 72.00
+    power_accounting:
+      method: ups-load-allocation
+      confidence: medium-low
+      measured: false
+      source_ups: cyberpower1500
+      source_total_watts: 162.00
+      raspberry_pi_nodes_watts: 90.00
+      nfs_server_watts: 35.00
+      switch_2_5gbe_watts: 10.00
+      switch_10gbe_watts: 22.00
+      hdmi_kvm_watts: 5.00
     namespaces:
       - kube-system
       - kubecost
@@ -41,10 +53,10 @@ kubecost_calibration:
   storage_profiles:
     longhorn:
       # Two 1 TB dedicated Intel-node disks.
-      purchase_price_usd: null
-      residual_value_usd: 0.00
+      purchase_price_usd: 120.00
+      residual_value_usd: 60.00
       useful_life_months: 60
-      average_watts: null
+      average_watts: 0.00
       raw_capacity_gb: 2000
       replication_factor: 2
       fixed_monthly_overhead_usd: 0.00
@@ -52,30 +64,30 @@ kubecost_calibration:
     minio_local:
       # Five 1 TB Pi-attached disks.
       # EC:1 across five drives gives approximately 4 TB usable.
-      purchase_price_usd: null
+      purchase_price_usd: 120.00
       residual_value_usd: 0.00
       useful_life_months: 60
-      average_watts: null
+      average_watts: 0.00
       raw_capacity_gb: 5000
       replication_factor: 1.25
       fixed_monthly_overhead_usd: 0.00
 
     nfs_ssd:
       # One 1 TB Samsung SSD on the NFS server.
-      purchase_price_usd: null
-      residual_value_usd: 0.00
+      purchase_price_usd: 120.00
+      residual_value_usd: 60.00
       useful_life_months: 60
-      average_watts: null
+      average_watts: 0
       raw_capacity_gb: 1000
       replication_factor: 1
       fixed_monthly_overhead_usd: 0.00
 
     nfs_hdd:
       # One 8 TB HGST HDD on the NFS server.
-      purchase_price_usd: null
-      residual_value_usd: 0.00
+      purchase_price_usd: 1000.00
+      residual_value_usd: 600.00
       useful_life_months: 60
-      average_watts: null
+      average_watts: 0
       raw_capacity_gb: 8000
       replication_factor: 1
       fixed_monthly_overhead_usd: 0.00

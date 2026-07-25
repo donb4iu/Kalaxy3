@@ -1,10 +1,17 @@
 kalaxy3_cost:
-  purchase_price_usd: null
-  residual_value_usd: 0.0
+  purchase_price_usd: 300.00
+  residual_value_usd: 180.00
   useful_life_months: 60
-  average_watts: null
+  average_watts: 18
   cpu_cores: 4
   memory_gib: 8
+  power_accounting:
+    method: ups-load-allocation
+    confidence: medium-low
+    measured: false
+    source_ups: cyberpower1500
+    source_total_watts: 162.00
+    allocated_watts: 18.00
 kalaxy3_node_labels:
   kalaxy3.io/hardware-class: raspberry-pi-4-8gb
   kalaxy3.io/cost-profile: arm64-low-power

@@ -10,13 +10,16 @@ longhorn_allowed_filesystems:
 
 
 kalaxy3_cost:
-  purchase_price_usd: null
-  residual_value_usd: 0.00
+  purchase_price_usd: 2000.00
+  residual_value_usd: 1000.00
   useful_life_months: 60
-  average_watts: null
+  average_watts: 92
   cpu_cores: 12
   memory_gib: 128
-
+  power_accounting:
+    method: component-estimate
+    confidence: low
+    measured: false
   gpu:
     enabled: true
     kubernetes_schedulable: false
@@ -24,10 +27,10 @@ kalaxy3_cost:
     model: rtx-3090
     memory_gib: 24
     count: 1
-    purchase_price_usd: null
-    residual_value_usd: 0.00
+    purchase_price_usd: 1500.00
+    residual_value_usd: 1200.00
     useful_life_months: 60
-    average_incremental_watts: null
+    average_incremental_watts: 0.00
 
 kalaxy3_node_labels:
   kalaxy3.io/hardware-class: intel-i5-11600-128gb
