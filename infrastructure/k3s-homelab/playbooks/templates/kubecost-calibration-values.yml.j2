@@ -4,38 +4,48 @@ global:
     useDefaultApiKey: false
 
 finopsagent:
-  kubecost:
-    customPrices:
-      enabled: true
-      CPU: >-
-        {{ '%.8f' | format(kubecost_cpu_core_month_usd | float) }}
-      RAM: >-
-        {{ '%.8f' | format(kubecost_ram_gib_month_usd | float) }}
-      GPU: >-
-        {{ '%.8f' | format(kubecost_gpu_month_usd | float) }}
-      storage: >-
-        {{ '%.8f' | format(kubecost_storage_gb_month_usd | float) }}
-      spotCPU: >-
-        {{ '%.8f' | format(kubecost_cpu_core_month_usd | float) }}
-      spotRAM: >-
-        {{ '%.8f' | format(kubecost_ram_gib_month_usd | float) }}
-      spotGPU: >-
-        {{ '%.8f' | format(kubecost_gpu_month_usd | float) }}
-      zoneNetworkEgress: >-
-        {{
-          kubecost_calibration.network.zone_egress_usd_per_gb
-          | float
-        }}
-      regionNetworkEgress: >-
-        {{
-          kubecost_calibration.network.region_egress_usd_per_gb
-          | float
-        }}
-      internetNetworkEgress: >-
-        {{
-          kubecost_calibration.network.internet_egress_usd_per_gb
-          | float
-        }}
+  agent:
+    kubecost:
+      customPrices:
+        enabled: true
+        CPU: >-
+          {{ '%.8f' | format(kubecost_cpu_core_month_usd | float) }}
+        RAM: >-
+          {{ '%.8f' | format(kubecost_ram_gib_month_usd | float) }}
+        GPU: >-
+          {{ '%.8f' | format(kubecost_gpu_month_usd | float) }}
+        storage: >-
+          {{ '%.8f' | format(kubecost_storage_gb_month_usd | float) }}
+        spotCPU: >-
+          {{ '%.8f' | format(kubecost_cpu_core_month_usd | float) }}
+        spotRAM: >-
+          {{ '%.8f' | format(kubecost_ram_gib_month_usd | float) }}
+        spotGPU: >-
+          {{ '%.8f' | format(kubecost_gpu_month_usd | float) }}
+        zoneNetworkEgress: >-
+          {{
+            '%.8f'
+            | format(
+                kubecost_calibration.network.zone_egress_usd_per_gb
+                | float
+              )
+          }}
+        regionNetworkEgress: >-
+          {{
+            '%.8f'
+            | format(
+                kubecost_calibration.network.region_egress_usd_per_gb
+                | float
+              )
+          }}
+        internetNetworkEgress: >-
+          {{
+            '%.8f'
+            | format(
+                kubecost_calibration.network.internet_egress_usd_per_gb
+                | float
+              )
+          }}
 
 kubecostProductConfigs:
   labelMappingConfigs:
@@ -56,12 +66,21 @@ kubecostProductConfigs:
     }}
 
 networkCosts:
-  enabled: {{
-    kubecost_calibration.network.enabled
-    | bool
-    | ternary('true', 'false')
-  }}
+  enabled: >-
+    {{
+      kubecost_calibration.network.enabled
+      | bool
+      | ternary('true', 'false')
+    }}
 
-  # Kubecost's default affinity expects cloud region and zone labels.
-  # Kalaxy3 is an on-premises cluster without those labels.
-  affinity: {}
+  # Override Kubecost's cloud region/zone requirement with a valid
+  # Kubernetes affinity that permits every Linux Kalaxy3 node.
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                  - linux

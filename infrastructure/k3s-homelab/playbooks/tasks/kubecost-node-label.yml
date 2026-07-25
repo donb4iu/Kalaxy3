@@ -21,3 +21,19 @@
   register: kubecost_label_command
   changed_when: >-
     'not labeled' not in kubecost_label_command.stdout
+
+- name: Apply Kubecost topology labels to {{ kubecost_node_name }}
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - label
+      - node
+      - "{{ kubecost_node_name }}"
+      - topology.kubernetes.io/region=kalaxy3-home
+      - topology.kubernetes.io/zone=kalaxy3-lan
+      - --overwrite
+  environment:
+    KUBECONFIG: "{{ kalaxy3_kubeconfig }}"
+  register: kubecost_topology_label_command
+  changed_when: >-
+    'not labeled' not in kubecost_topology_label_command.stdout

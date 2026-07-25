@@ -23,7 +23,7 @@ kubecost_calibration:
     pricing_enabled: false
 
   shared:
-    monthly_overhead_usd: 0.00
+    monthly_overhead_usd: 20.00
     average_watts: 72.00
     power_accounting:
       method: ups-load-allocation
