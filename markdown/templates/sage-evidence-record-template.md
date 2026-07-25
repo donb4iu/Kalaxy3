@@ -1,78 +1,142 @@
 ---
 evidence_id: SAGE-K3-<DOMAIN>-<YYYYMMDD>-<NNN>
-schema_version: "1.0"
+schema_version: "1.1"
 title: <Concise evidence-record title>
 project: Kalaxy3
 record_type: <installation|architecture-decision|change|verification|incident|experiment|benchmark|operations|security|finops>
 status: <draft|implemented|validated|accepted|superseded|retired|rejected>
 classification: internal
-created_at: <YYYY-MM-DDThh:mm:ss-05:00>
-updated_at: <YYYY-MM-DDThh:mm:ss-05:00>
+work_session: <Stable working-session name>
+work_started_at: <RFC3339 timestamp with offset or not-captured>
+work_completed_at: <RFC3339 timestamp with offset>
+evidence_collected_at: <RFC3339 timestamp with offset>
+created_at: <RFC3339 timestamp with offset>
+updated_at: __SAGE_PUBLISHED_AT__
 valid_as_of: <YYYY-MM-DD>
 review_due: <YYYY-MM-DD or event-based>
+local_timezone: America/Chicago
+system_timestamp_timezones:
+  - <UTC, IANA timezone, or not-applicable>
 owner: <accountable owner>
 author: <record author or evidence collector>
 operator: <person or automation that performed the work>
-reviewer: <reviewer or pending>
+reviewer: <named reviewer or pending>
 environment: <homelab|development|test|production|research|shared-platform>
 system: Kalaxy3
-cluster: <cluster name>
-components:
-  - <component>
+cluster: <cluster name or not-applicable>
+execution_host: <host that executed the primary commands or not-applicable>
+controller_host: <automation controller or target controller or not-applicable>
 nodes:
-  - <node or not-applicable>
+  - <node name or not-applicable>
+node_addresses:
+  - <node-name=address or not-applicable>
 namespaces:
   - <namespace or not-applicable>
+endpoints:
+  - <purpose=address-or-hostname or not-applicable>
+components:
+  - <component=exact-version or component=version-not-captured>
 repository: donb4iu/Kalaxy3
-branch: <branch>
-implementation_commit: <Git SHA or pending>
+branch: main
+implementation_commit: __SAGE_IMPLEMENTATION_COMMIT__
 record_path: markdown/<category>/<filename>.md
+artifact_root: markdown/evidence-artifacts/SAGE-K3-<DOMAIN>-<YYYYMMDD>-<NNN>
 confidence: <high|medium|low|unknown>
 tags:
+  - sage
   - <tag>
 relationships:
   verifies:
     - <evidence ID, requirement ID, decision ID, or claim>
   depends_on:
-    - <evidence ID or none>
+    - none
   supersedes:
-    - <evidence ID or none>
+    - none
   superseded_by:
-    - <evidence ID or none>
+    - none
   related_to:
-    - <evidence ID or none>
+    - none
   conflicts_with:
-    - <evidence ID or none>
+    - none
   generated_by:
-    - <playbook, workflow, tool, or manual>
+    - <playbook, workflow, tool, or manual process>
+  implemented_by:
+    - __SAGE_IMPLEMENTATION_COMMIT__
+  revalidated_by:
+    - none
 ---
 
 # <Evidence Record Title>
 
 ## Executive summary
 
-<State the accepted result in one concise paragraph. Identify whether the
-record is complete, provisional, failed, or superseded. Do not describe a
-planned state as an observed result.>
+<State the final observed result in one concise paragraph. Identify whether the
+record is complete, provisional, failed, rejected, or superseded. Do not present
+planned state as observed state.>
+
+## Record metadata
+
+The values in this table MUST exactly mirror front matter. List fields use
+semicolon-space (`; `). Do not reformat timestamps or shorten commit SHAs.
+
+| Field | Value |
+|---|---|
+| **Evidence ID** | SAGE-K3-<DOMAIN>-<YYYYMMDD>-<NNN> |
+| **Schema version** | 1.1 |
+| **Project** | Kalaxy3 |
+| **Title** | <Concise evidence-record title> |
+| **Record type** | <record type> |
+| **Status** | <status> |
+| **Classification** | internal |
+| **Work session** | <Stable working-session name> |
+| **Started** | <same as work_started_at> |
+| **Completed** | <same as work_completed_at> |
+| **Evidence collected** | <same as evidence_collected_at> |
+| **Record created** | <same as created_at> |
+| **Record updated** | __SAGE_PUBLISHED_AT__ |
+| **Local timezone** | America/Chicago |
+| **System timestamp timezone(s)** | <semicolon-joined system_timestamp_timezones> |
+| **Valid as of** | <same as valid_as_of> |
+| **Review due** | <same as review_due> |
+| **Target record path** | markdown/<category>/<filename>.md |
+| **Artifact root** | markdown/evidence-artifacts/SAGE-K3-<DOMAIN>-<YYYYMMDD>-<NNN> |
+| **Repository** | donb4iu/Kalaxy3 |
+| **Branch** | main |
+| **Implementation commit** | __SAGE_IMPLEMENTATION_COMMIT__ |
+| **Environment** | <same as environment> |
+| **System** | Kalaxy3 |
+| **Cluster** | <same as cluster> |
+| **Execution host** | <same as execution_host> |
+| **Controller host** | <same as controller_host> |
+| **Nodes** | <semicolon-joined nodes> |
+| **Node addresses** | <semicolon-joined node_addresses> |
+| **Namespaces** | <semicolon-joined namespaces> |
+| **Endpoints** | <semicolon-joined endpoints> |
+| **Components and versions** | <semicolon-joined components> |
+| **Owner** | <same as owner> |
+| **Author** | <same as author> |
+| **Operator** | <same as operator> |
+| **Reviewer** | <same as reviewer> |
+| **Confidence** | <same as confidence> |
 
 ## Five Ws and How
 
 | Requirement | Answer |
 |---|---|
-| **Who** | **Author:** `<name>`; **operator:** `<name or automation>`; **owner:** `<name or role>`; **reviewer:** `<name, pending, or not required>`; **affected users/teams:** `<list or none>`. |
-| **What** | <Exactly what changed, was decided, failed, or was verified. Include the final claim and the main boundary.> |
-| **When** | **Implemented:** `<timestamp and timezone>`; **evidence collected:** `<timestamp and timezone>`; **system timestamps:** `<timezone if different>`; **valid as of:** `<date>`; **review due:** `<date or trigger>`. |
-| **Where** | **Environment:** `<environment>`; **cluster:** `<cluster>`; **nodes:** `<nodes>`; **namespaces:** `<namespaces>`; **endpoints:** `<addresses/hostnames>`; **repository paths:** `<paths>`; **execution host:** `<host>`. |
-| **Why** | <Problem, opportunity, decision drivers, expected value, safety or governance need, and why the accepted approach was selected.> |
-| **How** | <Implementation method, automation, validation approach, rollback/rebuild path, and where supporting evidence is stored.> |
+| **Who** | **Author:** `<exact author>`; **operator:** `<exact operator>`; **owner:** `<exact owner>`; **reviewer:** `<exact reviewer>`; **affected users/teams:** `<list or none>`. Explain responsibilities without changing canonical names. |
+| **What** | <Exactly what changed, was decided, failed, or was verified. Include the final claim and primary boundary.> |
+| **When** | **Completed:** `<exact work_completed_at>`; **evidence collected:** `<exact evidence_collected_at>`; **local timezone:** `<exact local_timezone>`; **system timestamps:** `<exact semicolon-joined system_timestamp_timezones>`; **valid as of:** `<exact valid_as_of>`; **review due:** `<exact review_due>`. Explain any local/UTC date difference. |
+| **Where** | **Environment:** `<exact environment>`; **cluster:** `<exact cluster>`; **execution host:** `<exact execution_host>`; **controller:** `<exact controller_host>`; **nodes:** `<canonical nodes>`; **addresses:** `<canonical node_addresses>`; **namespaces:** `<canonical namespaces>`; **endpoints:** `<canonical endpoints>`; **record:** `<exact record_path>`. |
+| **Why** | <Problem, opportunity, decision drivers, expected value, alternatives, tradeoffs, safety, and governance rationale.> |
+| **How** | <Implementation method, source files, automation, validation, artifacts, rollback, rebuild, and troubleshooting path.> |
 
 ### Five-W completeness gate
 
-- [ ] Who is complete.
+- [ ] Who is complete and agrees with metadata.
 - [ ] What is complete.
-- [ ] When is complete and includes timezone.
-- [ ] Where is complete at both repository and runtime levels.
-- [ ] Why includes rationale and tradeoffs.
+- [ ] When is complete, uses canonical timestamps, and includes timezone context.
+- [ ] Where is complete at repository and runtime levels and agrees with metadata.
+- [ ] Why includes rationale, alternatives, and tradeoffs.
 - [ ] How is reproducible and verifiable.
 
 Any unchecked item is an explicit evidence gap and prevents `validated` or
@@ -86,18 +150,18 @@ Any unchecked item is an explicit evidence gap and prevents `validated` or
 
 ### Out of scope
 
-- <Explicit exclusions>
+- <Explicit exclusion>
 
 ### Nonclaims
 
 This record does **not** claim:
 
-- <A tempting conclusion that the evidence does not support>
+- <Tempting conclusion not supported by the evidence>
 
 ## Final accepted state
 
 ```text
-<Component/state summary>
+<Concise component and state summary>
 ```
 
 | Item | Accepted result |
@@ -108,24 +172,24 @@ This record does **not** claim:
 
 | Claim ID | Claim | Criticality | Evidence IDs | Result | Confidence |
 |---|---|---|---|---|---|
-| `CLM-001` | <Atomic, testable claim> | <critical|high|normal|low> | `EV-001`, `EV-002` | <supported|partially-supported|contradicted|unverified> | <high|medium|low> |
+| `CLM-001` | <Atomic testable claim> | <critical|high|normal|low> | `EV-001` | <supported|partially-supported|contradicted|unverified> | <high|medium|low> |
 
 Rules:
 
-- Each claim must be atomic and testable.
-- Every critical claim requires direct observation or generated evidence plus
-  repository evidence when configuration is involved.
+- Every claim is atomic and testable.
+- Every critical configuration claim requires direct or generated evidence and
+  repository evidence.
 - Assumptions and planned work cannot prove a claim.
 
 ## Problem and decision rationale
 
 ### Problem or opportunity
 
-<Describe the condition that required action.>
+<Condition requiring action.>
 
 ### Decision
 
-<State the accepted decision plainly.>
+<Accepted decision.>
 
 ### Decision drivers
 
@@ -135,27 +199,27 @@ Rules:
 
 | Alternative | Advantages | Disadvantages or risks | Decision |
 |---|---|---|---|
-| <option> | <benefit> | <cost/risk> | <accepted|rejected|deferred> |
+| <option> | <benefit> | <cost or risk> | <accepted|rejected|deferred> |
 
 ### Tradeoffs and consequences
 
-- <Positive consequence>
-- <Negative consequence>
-- <Operational consequence>
+- <positive consequence>
+- <negative consequence>
+- <operational consequence>
 
 ## Architecture or change description
 
 ```text
-<Architecture, sequence, topology, or before/after diagram>
+<Architecture, topology, sequence, or before/after diagram>
 ```
 
 ### Before
 
-<Previous state or not applicable.>
+<Previous state or not-applicable.>
 
 ### After
 
-<Accepted state.>
+<Final evidenced state.>
 
 ## Source of truth and implementation lineage
 
@@ -168,14 +232,15 @@ Rules:
 ### Implementation commit
 
 ```text
-<Git SHA, commit subject, pull request, or pending>
+__SAGE_IMPLEMENTATION_COMMIT__
+<commit subject or pending before publication>
 ```
 
 ### Versioned dependencies
 
 | Component/tool | Version | Source |
 |---|---:|---|
-| <component> | <version> | <repository, image, chart, package, or device> |
+| <component matching front matter> | <exact version> | <repository, image, chart, package, device, or observation> |
 
 ### Configuration excerpt
 
@@ -195,8 +260,8 @@ Rules:
 |---|---|---|---|
 | `ASM-001` | <assumption> | <risk> | <test or evidence needed> |
 
-A material assumption prevents `accepted` status unless the residual risk is
-explicitly accepted by the owner and reviewer.
+A material assumption prevents `accepted` status unless the owner and reviewer
+explicitly accept the residual risk.
 
 ## Implementation procedure
 
@@ -209,20 +274,24 @@ explicitly accepted by the owner and reviewer.
 ### Execution
 
 ```bash
-<implementation command>
+<implementation commands>
 ```
 
 ### Expected change
 
-<Describe what should change.>
+<Expected state transition.>
 
 ### Observed change
 
-<Describe what actually changed. Reference evidence IDs.>
+<Actual state transition with evidence IDs.>
+
+### Failed or superseded paths
+
+<Separate failed attempts from the final accepted implementation.>
 
 ## Evidence items
 
-Repeat this subsection for every material evidence item.
+Repeat for every material evidence item.
 
 ### `EV-001` — <Evidence title>
 
@@ -231,15 +300,15 @@ Repeat this subsection for every material evidence item.
 | Classification | `<direct-observation|generated-artifact|repository-evidence|derived-conclusion|external-authority|assumption|planned|negative-evidence>` |
 | Supports or contradicts | `CLM-001` |
 | Collected by | <person or automation> |
-| Collected at | <timestamp and timezone> |
-| Execution source | <Mac mini, CI runner, arm64-01, browser, device, etc.> |
-| Target | <cluster/node/namespace/service/file> |
-| Tool and version | <tool and version> |
+| Collected at | <RFC3339 timestamp with offset> |
+| Execution source | <host, runner, browser, device, or repository> |
+| Target | <cluster, node, namespace, service, endpoint, or file> |
+| Tool and version | <tool=version or version-not-captured> |
 | Expected result | <expected result or informational> |
 | Actual result | <pass|fail|partial|informational> |
 | Confidence | <high|medium|low> |
 | Sensitive data | <none, redacted, or description> |
-| Artifact | <repository path, external artifact URI, checksum, or inline> |
+| Artifact | <repository path, URI, checksum, or inline> |
 
 **Command, query, source, or observation**
 
@@ -250,13 +319,13 @@ Repeat this subsection for every material evidence item.
 **Observed result**
 
 ```text
-<exact relevant output; trim unrelated noise and identify omissions>
+<exact relevant output; identify trimmed noise>
 ```
 
 **Interpretation**
 
-<Explain exactly what this proves and what it does not prove. Derived claims
-must cite the evidence IDs used.>
+<What the evidence proves and does not prove. Derived conclusions cite evidence
+IDs.>
 
 ## Verification and acceptance criteria
 
@@ -278,11 +347,8 @@ Observed:
 
 ### Negative verification
 
-<Record security rejection, failed access, absent scheduling, destructive-action
-refusal, or another condition that must not occur.>
-
 ```bash
-<negative test>
+<test of a condition that must not occur>
 ```
 
 Observed:
@@ -302,13 +368,13 @@ Observed:
 ### Steady-state rerun
 
 ```text
-<changed=0 or equivalent repeatability proof>
+<changed=0 or equivalent proof>
 ```
 
 ### Interpretation
 
-<State whether automation is idempotent, a command is intentionally imperative,
-or repeatability is not applicable.>
+<State whether automation is idempotent, intentionally imperative, or not
+applicable.>
 
 ## Security, privacy, and evidence handling
 
@@ -328,11 +394,11 @@ Never include:
 
 ### Redactions and omissions
 
-- <What was redacted and why, or “none.”>
+- <redaction and reason, or none>
 
 ### Residual security risk
 
-- <risk and accepted mitigation>
+- <risk and mitigation>
 
 ## Reliability, recovery, rollback, and rebuild
 
@@ -345,7 +411,7 @@ Never include:
 ### Rollback
 
 ```bash
-<rollback command or procedure>
+<rollback procedure>
 ```
 
 ### Rebuild procedure
@@ -356,14 +422,14 @@ Never include:
 
 ### Data durability and backup impact
 
-<Describe affected persistent data, reclaim policy, backup requirements, and
-recovery point limitations.>
+<Affected persistent data, reclaim policy, backups, recovery point, and
+recovery-time limitations.>
 
 ## Operational considerations and observability
 
 ### Health signals
 
-- <metric, log, event, endpoint, or command>
+- <metric, log, event, endpoint, command, or user-visible behavior>
 
 ### Routine verification
 
@@ -371,7 +437,7 @@ recovery point limitations.>
 <health check>
 ```
 
-### Capacity, performance, and cost impact
+### Capacity, performance, cost, and sustainability
 
 - **Capacity:** <impact>
 - **Performance:** <impact>
@@ -382,7 +448,9 @@ recovery point limitations.>
 
 | ID | Type | Description | Impact | Owner | Due or trigger |
 |---|---|---|---|---|---|
-| `GAP-001` | <limitation|evidence-gap|risk|technical-debt> | <description> | <impact> | <owner> | <date/event> |
+| `GAP-001` | <limitation|evidence-gap|risk|technical-debt> | <description> | <impact> | <owner> | <date or event> |
+
+Every `not-captured` metadata value must appear here.
 
 ## Troubleshooting
 
@@ -408,11 +476,11 @@ recovery point limitations.>
 
 ### Revalidate when
 
-- a referenced component or chart version changes;
+- a component version changes;
+- a canonical metadata value changes;
 - a source-of-truth path changes;
-- the node, namespace, endpoint, replica count, or architecture changes;
-- the relevant playbook or manifest changes;
-- a security control changes;
+- a node, address, namespace, endpoint, replica count, or architecture changes;
+- a relevant playbook, manifest, or security control changes;
 - an acceptance test no longer passes;
 - a conflicting evidence record is accepted;
 - <record-specific trigger>.
@@ -425,73 +493,67 @@ recovery point limitations.>
 
 ### Supersession rule
 
-When replaced, set `status: superseded`, populate `superseded_by`, preserve this
-record for lineage, and identify which claims remain valid.
+When replaced, set `status: superseded`, populate `superseded_by`, preserve the
+record and evidence ID, and state which claims remain valid.
 
-## Final completion checklist
+## Final completion checklist and reviewer acceptance
 
 ### Governance
 
 - [ ] Evidence ID is unique and permanent.
+- [ ] Schema version is 1.1.
+- [ ] Front matter follows the exact metadata contract and order.
+- [ ] Record metadata exactly mirrors front matter.
 - [ ] Status accurately reflects completeness.
-- [ ] Owner, author/operator, and reviewer are identified.
-- [ ] Five Ws and How are complete.
+- [ ] Owner, author, operator, and reviewer are identified.
+- [ ] Five Ws and How agree with canonical metadata.
 - [ ] Scope and nonclaims are explicit.
-- [ ] Implementation commit is recorded.
+- [ ] Implementation commit is recorded or validly not-applicable.
 - [ ] Relationships and supersession fields are complete.
 
 ### Evidence
 
 - [ ] Every critical claim has supporting evidence.
 - [ ] Expected and observed results are separated.
-- [ ] Direct observations identify source, target, time, and tool.
+- [ ] Direct observations identify source, target, time, and tool version.
 - [ ] Derived conclusions reference evidence IDs.
 - [ ] Assumptions and planned work are marked.
-- [ ] Failed attempts are separated from the accepted final state.
-- [ ] Idempotency or repeatability is proven or marked not applicable.
+- [ ] Failed attempts are separated from final state.
+- [ ] Idempotency or repeatability is proven or not-applicable.
+- [ ] Every not-captured value has an evidence gap.
 
 ### Safety and operations
 
 - [ ] Secrets and sensitive data are excluded or redacted.
 - [ ] Security limitations and residual risks are recorded.
-- [ ] Rollback and rebuild are documented.
+- [ ] Rollback, rebuild, and data-durability impacts are documented.
 - [ ] Operational health checks are documented.
-- [ ] Known limitations and evidence gaps have owners or triggers.
+- [ ] Known limitations and gaps have owners or triggers.
 - [ ] Revalidation criteria are defined.
 
 ### Review acceptance
 
 | Role | Name | Decision | Date | Notes |
 |---|---|---|---|---|
-| Owner | <name> | <accept|reject|conditional> | <date> | <notes> |
-| Reviewer | <name> | <accept|reject|conditional> | <date> | <notes> |
+| Owner | <name> | <accept|reject|conditional|pending> | <date or pending> | <notes> |
+| Reviewer | <name or pending> | <accept|reject|conditional|pending> | <date or pending> | <notes> |
 
 ## Git review and publication
+
+Use only the repository publication process:
 
 ```bash
 cd ~/dvlp/Kalaxy3
 
-git diff --check
-git status --short
-git diff -- <implementation paths> <this evidence record>
+python3 scripts/sage/sage-publish.py check \
+  ~/Downloads/<sage-package>.zip
+
+python3 scripts/sage/sage-publish.py publish \
+  ~/Downloads/<sage-package>.zip \
+  --push
 ```
 
-Stage only intentional source and evidence files:
-
-```bash
-git add -- \
-  <implementation paths> \
-  markdown/<category>/<this-record>.md
-```
-
-Commit and publish:
-
-```bash
-git commit -m "<imperative summary>"
-git pull --rebase origin main
-git push origin main
-git status
-```
+Do not invent a session-specific unzip, stage, commit, rebase, or push sequence.
 
 ## Appendices and raw artifacts
 
@@ -499,8 +561,8 @@ git status
 
 | Artifact | Path or URI | SHA-256 | Contains sensitive data | Retention |
 |---|---|---|---|---|
-| <artifact> | `markdown/evidence-artifacts/<evidence-id>/<file>` | `<checksum>` | <yes/no/redacted> | <policy> |
+| <artifact> | `markdown/evidence-artifacts/<evidence-id>/<file>` | <checksum> | <yes|no|redacted> | <policy> |
 
 ### Additional notes
 
-<Optional context that does not belong in the accepted-state narrative.>
+<Context that does not belong in the final-state narrative.>

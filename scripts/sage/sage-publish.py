@@ -20,6 +20,11 @@ import tempfile
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+PACKAGE_SCHEMA_VERSION = "1.1"
+RECORD_SCHEMA_VERSION = "1.1"
+METADATA_CONTRACT_PATH = "markdown/standards/sage-evidence-metadata-contract-v1.1.json"
 
 ALLOWED_STATUSES = {
     "draft",
@@ -42,18 +47,30 @@ ALLOWED_RECORD_TYPES = {
     "security",
     "finops",
 }
+ALLOWED_ENVIRONMENTS = {
+    "homelab",
+    "development",
+    "test",
+    "production",
+    "research",
+    "shared-platform",
+}
+ALLOWED_CONFIDENCE = {"high", "medium", "low", "unknown"}
 ALLOWED_CATEGORIES = {
     "installation",
     "operations",
     "architecture",
     "decisions",
 }
+CANONICAL_UNAVAILABLE = {"not-applicable", "not-captured", "pending"}
 EVIDENCE_ID_RE = re.compile(r"^SAGE-K3-[A-Z0-9-]+-\d{8}-\d{3}$")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+KEY_VALUE_RE = re.compile(r"^[^=;]+=[^=;]+$")
 IMPLEMENTATION_TOKEN = "__SAGE_IMPLEMENTATION_COMMIT__"
 PUBLISHED_AT_TOKEN = "__SAGE_PUBLISHED_AT__"
 
-REQUIRED_FRONTMATTER = [
+REQUIRED_FRONTMATTER_ORDER = [
     "evidence_id",
     "schema_version",
     "title",
@@ -61,30 +78,93 @@ REQUIRED_FRONTMATTER = [
     "record_type",
     "status",
     "classification",
+    "work_session",
+    "work_started_at",
+    "work_completed_at",
+    "evidence_collected_at",
     "created_at",
     "updated_at",
     "valid_as_of",
     "review_due",
+    "local_timezone",
+    "system_timestamp_timezones",
     "owner",
     "author",
     "operator",
     "reviewer",
     "environment",
     "system",
+    "cluster",
+    "execution_host",
+    "controller_host",
+    "nodes",
+    "node_addresses",
+    "namespaces",
+    "endpoints",
+    "components",
     "repository",
     "branch",
     "implementation_commit",
     "record_path",
+    "artifact_root",
     "confidence",
     "tags",
     "relationships",
 ]
+REQUIRED_FRONTMATTER = REQUIRED_FRONTMATTER_ORDER
+LIST_FIELDS = {
+    "system_timestamp_timezones",
+    "nodes",
+    "node_addresses",
+    "namespaces",
+    "endpoints",
+    "components",
+    "tags",
+}
+STATIC_METADATA_ROWS = [
+    ("Evidence ID", "evidence_id"),
+    ("Schema version", "schema_version"),
+    ("Project", "project"),
+    ("Title", "title"),
+    ("Record type", "record_type"),
+    ("Status", "status"),
+    ("Classification", "classification"),
+    ("Work session", "work_session"),
+    ("Started", "work_started_at"),
+    ("Completed", "work_completed_at"),
+    ("Evidence collected", "evidence_collected_at"),
+    ("Record created", "created_at"),
+    ("Record updated", "updated_at"),
+    ("Local timezone", "local_timezone"),
+    ("System timestamp timezone(s)", "system_timestamp_timezones"),
+    ("Valid as of", "valid_as_of"),
+    ("Review due", "review_due"),
+    ("Target record path", "record_path"),
+    ("Artifact root", "artifact_root"),
+    ("Repository", "repository"),
+    ("Branch", "branch"),
+    ("Implementation commit", "implementation_commit"),
+    ("Environment", "environment"),
+    ("System", "system"),
+    ("Cluster", "cluster"),
+    ("Execution host", "execution_host"),
+    ("Controller host", "controller_host"),
+    ("Nodes", "nodes"),
+    ("Node addresses", "node_addresses"),
+    ("Namespaces", "namespaces"),
+    ("Endpoints", "endpoints"),
+    ("Components and versions", "components"),
+    ("Owner", "owner"),
+    ("Author", "author"),
+    ("Operator", "operator"),
+    ("Reviewer", "reviewer"),
+    ("Confidence", "confidence"),
+]
+FIVE_W_ROWS = ["Who", "What", "When", "Where", "Why", "How"]
 
-# Template headings are intentionally stricter than the standard's broad list.
-# Prefix matching permits record-specific suffixes such as
-# "Final completion checklist and reviewer acceptance".
 REQUIRED_HEADING_PREFIXES = [
     "## Executive summary",
+    "## Record metadata",
     "## Five Ws and How",
     "## Scope and boundaries",
     "## Final accepted state",
@@ -235,8 +315,18 @@ def require_manifest(manifest: dict[str, Any], key: str, expected_type: type) ->
 
 
 def validate_manifest(manifest: dict[str, Any]) -> None:
-    if require_manifest(manifest, "schema_version", str) != "1.0":
-        raise SageError("Unsupported package schema_version; expected 1.0")
+    if require_manifest(manifest, "schema_version", str) != PACKAGE_SCHEMA_VERSION:
+        raise SageError(
+            f"Unsupported package schema_version; expected {PACKAGE_SCHEMA_VERSION}"
+        )
+    if require_manifest(manifest, "record_schema_version", str) != RECORD_SCHEMA_VERSION:
+        raise SageError(
+            f"Unsupported record_schema_version; expected {RECORD_SCHEMA_VERSION}"
+        )
+    if require_manifest(manifest, "metadata_contract_path", str) != METADATA_CONTRACT_PATH:
+        raise SageError(
+            f"metadata_contract_path must be {METADATA_CONTRACT_PATH}"
+        )
     if require_manifest(manifest, "repository", str) != "donb4iu/Kalaxy3":
         raise SageError("Manifest repository must be donb4iu/Kalaxy3")
     branch = require_manifest(manifest, "branch", str)
@@ -338,7 +428,23 @@ def verify_payload_hashes(manifest: dict[str, Any], payload: Path) -> None:
         raise SageError(f"Payload file inventory mismatch; extra={extra}, missing={missing}")
 
 
-def parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
+def unquote_yaml_scalar(value: str) -> str:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return value[1:-1]
+    return value
+
+
+def parse_frontmatter(
+    text: str,
+) -> tuple[dict[str, str], dict[str, list[str]], list[str], str]:
+    """Parse the constrained YAML subset used by the SAGE metadata contract.
+
+    The publisher intentionally does not implement general YAML. Top-level
+    scalar fields and top-level string lists are parsed. Nested relationships
+    are retained only as a required top-level block because claim lineage is
+    validated in the record body and publication manifest.
+    """
     if not text.startswith("---\n"):
         raise SageError("Evidence record must start with YAML front matter")
     end = text.find("\n---\n", 4)
@@ -346,14 +452,296 @@ def parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
         raise SageError("Evidence record front matter is not terminated")
     block = text[4:end]
     body = text[end + 5 :]
-    scalar: dict[str, str] = {}
-    for line in block.splitlines():
-        if not line or line[0].isspace() or ":" not in line:
-            continue
-        key, value = line.split(":", 1)
-        scalar[key.strip()] = value.strip().strip('"\'')
-    return scalar, body
+    scalars: dict[str, str] = {}
+    lists: dict[str, list[str]] = {}
+    order: list[str] = []
+    current: str | None = None
 
+    for lineno, line in enumerate(block.splitlines(), start=2):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        top = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*):(?:\s*(.*))?", line)
+        if top:
+            key = top.group(1)
+            if key in order:
+                raise SageError(f"Duplicate front-matter field {key!r} at line {lineno}")
+            order.append(key)
+            current = key
+            value = (top.group(2) or "").strip()
+            if value:
+                scalars[key] = unquote_yaml_scalar(value)
+            else:
+                lists.setdefault(key, [])
+            continue
+        item = re.fullmatch(r"\s{2}-\s+(.+)", line)
+        if item and current in LIST_FIELDS:
+            lists.setdefault(current, []).append(unquote_yaml_scalar(item.group(1)))
+            continue
+        if line.startswith(" ") and current == "relationships":
+            continue
+        raise SageError(
+            f"Unsupported front-matter syntax at line {lineno}: {line!r}. "
+            "Schema 1.1 permits top-level scalars, canonical string lists, "
+            "and the nested relationships map only."
+        )
+    return scalars, lists, order, body
+
+
+def parse_rfc3339(value: str, field: str) -> dt.datetime:
+    try:
+        parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise SageError(f"{field} must be RFC3339 with numeric offset: {value!r}") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise SageError(f"{field} must include a numeric UTC offset: {value!r}")
+    return parsed
+
+
+def validate_timezone(value: str, field: str) -> None:
+    if value == "UTC":
+        return
+    try:
+        ZoneInfo(value)
+    except ZoneInfoNotFoundError as exc:
+        raise SageError(f"{field} must be an IANA timezone name or UTC: {value!r}") from exc
+
+
+def canonical_metadata_value(
+    key: str,
+    scalars: dict[str, str],
+    lists: dict[str, list[str]],
+) -> str:
+    if key in LIST_FIELDS:
+        return "; ".join(lists.get(key, []))
+    return scalars.get(key, "")
+
+
+def parse_markdown_table_rows(section: str) -> list[tuple[str, str]]:
+    rows: list[tuple[str, str]] = []
+    for line in section.splitlines():
+        match = re.fullmatch(r"\|\s*\*\*(.+?)\*\*\s*\|\s*(.*?)\s*\|", line)
+        if match:
+            rows.append((match.group(1).strip(), match.group(2).strip()))
+    return rows
+
+
+def validate_metadata_contract_file(repo: Path) -> None:
+    path = repo / METADATA_CONTRACT_PATH
+    if not path.is_file():
+        raise SageError(f"Missing SAGE metadata contract: {METADATA_CONTRACT_PATH}")
+    try:
+        contract = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SageError(f"Invalid SAGE metadata contract JSON: {exc}") from exc
+    if contract.get("contract_version") != RECORD_SCHEMA_VERSION:
+        raise SageError("Metadata contract version does not match publisher")
+    if contract.get("record_schema_version") != RECORD_SCHEMA_VERSION:
+        raise SageError("Metadata contract record schema does not match publisher")
+    if contract.get("front_matter_order") != REQUIRED_FRONTMATTER_ORDER:
+        raise SageError("Metadata contract front_matter_order differs from publisher")
+    if set(contract.get("list_fields", [])) != LIST_FIELDS:
+        raise SageError("Metadata contract list_fields differ from publisher")
+    rows = [tuple(row) for row in contract.get("static_metadata_rows", [])]
+    if rows != STATIC_METADATA_ROWS:
+        raise SageError("Metadata contract static_metadata_rows differ from publisher")
+    if contract.get("five_w_rows") != FIVE_W_ROWS:
+        raise SageError("Metadata contract five_w_rows differ from publisher")
+
+
+def validate_canonical_frontmatter(
+    scalars: dict[str, str],
+    lists: dict[str, list[str]],
+    order: list[str],
+    manifest: dict[str, Any],
+    *,
+    published: bool,
+) -> None:
+    missing = [key for key in REQUIRED_FRONTMATTER_ORDER if key not in order]
+    extra = [key for key in order if key not in REQUIRED_FRONTMATTER_ORDER]
+    if missing or extra:
+        raise SageError(f"Front-matter contract mismatch; missing={missing}, extra={extra}")
+    if order != REQUIRED_FRONTMATTER_ORDER:
+        raise SageError(
+            "Front-matter fields are not in canonical schema 1.1 order. "
+            f"Expected {REQUIRED_FRONTMATTER_ORDER}, got {order}"
+        )
+    for key in REQUIRED_FRONTMATTER_ORDER:
+        if key in LIST_FIELDS:
+            values = lists.get(key, [])
+            if not values:
+                raise SageError(f"Front-matter list {key!r} cannot be empty")
+            if "not-applicable" in values and len(values) != 1:
+                raise SageError(f"{key} cannot combine not-applicable with other values")
+        elif key != "relationships" and not scalars.get(key, "").strip():
+            raise SageError(f"Front-matter scalar {key!r} cannot be empty")
+
+    if scalars["schema_version"] != RECORD_SCHEMA_VERSION:
+        raise SageError(f"Record schema_version must be {RECORD_SCHEMA_VERSION}")
+    if scalars["project"] != "Kalaxy3" or scalars["system"] != "Kalaxy3":
+        raise SageError("Record project and system must be Kalaxy3")
+    if scalars["repository"] != "donb4iu/Kalaxy3":
+        raise SageError("Record repository must be donb4iu/Kalaxy3")
+    if scalars["record_path"] != manifest["record_path"]:
+        raise SageError("Record record_path does not match package manifest")
+    if scalars["branch"] != manifest["branch"]:
+        raise SageError("Record branch does not match package manifest")
+    if scalars["status"] not in ALLOWED_STATUSES:
+        raise SageError(f"Invalid lifecycle status: {scalars['status']}")
+    if scalars["record_type"] not in ALLOWED_RECORD_TYPES:
+        raise SageError(f"Invalid record_type: {scalars['record_type']}")
+    if scalars["environment"] not in ALLOWED_ENVIRONMENTS:
+        raise SageError(f"Invalid environment: {scalars['environment']}")
+    if scalars["confidence"] not in ALLOWED_CONFIDENCE:
+        raise SageError(f"Invalid confidence: {scalars['confidence']}")
+    if scalars["confidence"] == "unknown" and scalars["status"] != "draft":
+        raise SageError("confidence unknown is allowed only for draft records")
+    if not EVIDENCE_ID_RE.fullmatch(scalars["evidence_id"]):
+        raise SageError(f"Invalid evidence_id: {scalars['evidence_id']}")
+    if scalars["evidence_id"] != manifest["evidence_id"]:
+        raise SageError("Record evidence_id does not match package manifest")
+    expected_artifact_root = f"markdown/evidence-artifacts/{scalars['evidence_id']}"
+    if scalars["artifact_root"] != expected_artifact_root:
+        raise SageError(f"artifact_root must be {expected_artifact_root}")
+
+    validate_timezone(scalars["local_timezone"], "local_timezone")
+    for value in lists["system_timestamp_timezones"]:
+        if value != "not-applicable":
+            validate_timezone(value, "system_timestamp_timezones")
+
+    timestamp_fields = [
+        "work_started_at",
+        "work_completed_at",
+        "evidence_collected_at",
+        "created_at",
+        "updated_at",
+    ]
+    parsed_times: dict[str, dt.datetime] = {}
+    for key in timestamp_fields:
+        value = scalars[key]
+        if key == "updated_at" and not published and value == PUBLISHED_AT_TOKEN:
+            continue
+        if value == "not-captured":
+            if key not in {"work_started_at"}:
+                raise SageError(f"{key} cannot be not-captured in schema 1.1")
+            continue
+        parsed_times[key] = parse_rfc3339(value, key)
+    if scalars["status"] in {"validated", "accepted"}:
+        for key in ["work_completed_at", "evidence_collected_at"]:
+            if key not in parsed_times:
+                raise SageError(f"{scalars['status']} record requires captured {key}")
+    if "work_started_at" in parsed_times and "work_completed_at" in parsed_times:
+        if parsed_times["work_started_at"] > parsed_times["work_completed_at"]:
+            raise SageError("work_started_at cannot be after work_completed_at")
+    if not DATE_RE.fullmatch(scalars["valid_as_of"]):
+        raise SageError("valid_as_of must be YYYY-MM-DD")
+    try:
+        dt.date.fromisoformat(scalars["valid_as_of"])
+    except ValueError as exc:
+        raise SageError("valid_as_of is not a valid date") from exc
+    review_due = scalars["review_due"]
+    if review_due != "event-based":
+        if not DATE_RE.fullmatch(review_due):
+            raise SageError("review_due must be YYYY-MM-DD or event-based")
+        try:
+            dt.date.fromisoformat(review_due)
+        except ValueError as exc:
+            raise SageError("review_due is not a valid date") from exc
+
+    for field in ["node_addresses", "endpoints", "components"]:
+        for value in lists[field]:
+            if value == "not-applicable":
+                continue
+            if not KEY_VALUE_RE.fullmatch(value):
+                raise SageError(f"{field} entry must use name=value: {value!r}")
+    nodes = set(lists["nodes"])
+    if nodes != {"not-applicable"}:
+        for value in lists["node_addresses"]:
+            if value == "not-applicable":
+                continue
+            node, _ = value.split("=", 1)
+            if node not in nodes:
+                raise SageError(f"node_addresses references node not in nodes: {node}")
+
+    for field in ["cluster", "execution_host", "controller_host", "reviewer"]:
+        value = scalars[field]
+        if value.lower() in {"n/a", "none", "unknown", "tbd", "later", ""}:
+            raise SageError(f"{field} uses noncanonical unavailable value: {value!r}")
+
+    impl = scalars["implementation_commit"]
+    if published:
+        if impl != "not-applicable" and not SHA_RE.fullmatch(impl):
+            raise SageError(
+                "Published record must contain a full implementation SHA or not-applicable"
+            )
+    else:
+        if manifest["publication_mode"] == "split" and impl != IMPLEMENTATION_TOKEN:
+            raise SageError(
+                f"Split package record must use implementation_commit: {IMPLEMENTATION_TOKEN}"
+            )
+        if manifest["publication_mode"] == "evidence-only" and impl not in {
+            IMPLEMENTATION_TOKEN,
+            "not-applicable",
+        } and not SHA_RE.fullmatch(impl):
+            raise SageError("Evidence-only record has invalid implementation_commit")
+
+
+def validate_record_metadata_table(
+    body: str,
+    scalars: dict[str, str],
+    lists: dict[str, list[str]],
+) -> None:
+    section = section_text(body, "## Record metadata")
+    rows = parse_markdown_table_rows(section)
+    expected_labels = [label for label, _ in STATIC_METADATA_ROWS]
+    actual_labels = [label for label, _ in rows]
+    if actual_labels != expected_labels:
+        raise SageError(
+            "Record metadata rows are missing, extra, or out of order. "
+            f"Expected {expected_labels}, got {actual_labels}"
+        )
+    for (label, key), (_, observed) in zip(STATIC_METADATA_ROWS, rows):
+        expected = canonical_metadata_value(key, scalars, lists)
+        if observed != expected:
+            raise SageError(
+                f"Record metadata mismatch for {label}: expected {expected!r}, got {observed!r}"
+            )
+
+
+def validate_five_w_table(
+    body: str,
+    scalars: dict[str, str],
+    lists: dict[str, list[str]],
+) -> None:
+    section = section_text(body, "## Five Ws and How")
+    rows = parse_markdown_table_rows(section)
+    actual_labels = [label for label, _ in rows[:6]]
+    if actual_labels != FIVE_W_ROWS:
+        raise SageError(
+            f"Five Ws and How rows must be exactly {FIVE_W_ROWS}; got {actual_labels}"
+        )
+    values = {label: value for label, value in rows[:6]}
+    for field in ["author", "operator", "owner", "reviewer"]:
+        if scalars[field] not in values["Who"]:
+            raise SageError(f"Five-W Who row does not contain canonical {field}: {scalars[field]}")
+    for field in [
+        "work_completed_at",
+        "evidence_collected_at",
+        "local_timezone",
+        "valid_as_of",
+        "review_due",
+    ]:
+        if scalars[field] not in values["When"]:
+            raise SageError(f"Five-W When row does not contain canonical {field}: {scalars[field]}")
+    for timezone in lists["system_timestamp_timezones"]:
+        if timezone not in values["When"]:
+            raise SageError(f"Five-W When row omits system timestamp timezone: {timezone}")
+    for field in ["environment", "cluster", "execution_host", "controller_host", "record_path"]:
+        if scalars[field] not in values["Where"]:
+            raise SageError(f"Five-W Where row does not contain canonical {field}: {scalars[field]}")
+    for field in ["nodes", "node_addresses", "namespaces", "endpoints"]:
+        for value in lists[field]:
+            if value != "not-applicable" and value not in values["Where"]:
+                raise SageError(f"Five-W Where row omits canonical {field} value: {value}")
 
 def validate_heading_order(body: str) -> None:
     headings = [line.rstrip() for line in body.splitlines() if line.startswith("## ")]
@@ -426,56 +814,36 @@ def validate_record(
     published: bool,
 ) -> list[str]:
     text = record_path.read_text(encoding="utf-8")
-    fm, body = parse_frontmatter(text)
-    missing = [key for key in REQUIRED_FRONTMATTER if key not in fm]
-    if missing:
-        raise SageError(f"Missing front-matter fields: {missing}")
-    if fm["evidence_id"] != manifest["evidence_id"]:
-        raise SageError("Record evidence_id does not match package manifest")
-    if fm["schema_version"] != "1.0":
-        raise SageError("Record schema_version must be 1.0")
-    if fm["project"] != "Kalaxy3" or fm["system"] != "Kalaxy3":
-        raise SageError("Record project and system must be Kalaxy3")
-    if fm["repository"] != "donb4iu/Kalaxy3":
-        raise SageError("Record repository must be donb4iu/Kalaxy3")
-    if fm["record_path"] != manifest["record_path"]:
-        raise SageError("Record record_path does not match package manifest")
-    if fm["branch"] != manifest["branch"]:
-        raise SageError("Record branch does not match package manifest")
-    if fm["status"] not in ALLOWED_STATUSES:
-        raise SageError(f"Invalid lifecycle status: {fm['status']}")
-    if fm["record_type"] not in ALLOWED_RECORD_TYPES:
-        raise SageError(f"Invalid record_type: {fm['record_type']}")
+    scalars, lists, order, body = parse_frontmatter(text)
+    validate_canonical_frontmatter(
+        scalars,
+        lists,
+        order,
+        manifest,
+        published=published,
+    )
 
-    impl = fm["implementation_commit"]
-    if published:
-        if not SHA_RE.fullmatch(impl):
-            raise SageError("Published record must contain a 40-character implementation commit SHA")
-        if IMPLEMENTATION_TOKEN in text or PUBLISHED_AT_TOKEN in text:
-            raise SageError("Published record still contains publication tokens")
-    else:
-        if manifest["publication_mode"] == "split" and impl != IMPLEMENTATION_TOKEN:
-            raise SageError(
-                f"Split package record must use implementation_commit: {IMPLEMENTATION_TOKEN}"
-            )
-        if manifest["publication_mode"] == "evidence-only" and impl not in {
-            IMPLEMENTATION_TOKEN,
-            "not-applicable",
-        } and not SHA_RE.fullmatch(impl):
-            raise SageError("Evidence-only record has invalid implementation_commit")
+    if published and (IMPLEMENTATION_TOKEN in text or PUBLISHED_AT_TOKEN in text):
+        raise SageError("Published record still contains publication tokens")
 
     validate_heading_order(body)
+    validate_record_metadata_table(body, scalars, lists)
+    validate_five_w_table(body, scalars, lists)
     validate_claims_and_evidence(body)
 
     five_w = section_text(body, "## Five Ws and How")
-    if fm["status"] in {"validated", "accepted"}:
+    if scalars["status"] in {"validated", "accepted"}:
         unchecked = re.findall(r"(?m)^- \[ \] (Who|What|When|Where|Why|How)\b", five_w)
         if unchecked:
             raise SageError(f"Validated/accepted record has incomplete Five-W gate: {unchecked}")
-    if fm["status"] == "accepted" and fm["reviewer"].strip().lower() in {"pending", "none", ""}:
+    if scalars["status"] == "accepted" and scalars["reviewer"].strip().lower() in {
+        "pending",
+        "not-applicable",
+        "",
+    }:
         raise SageError("Accepted record requires a named reviewer")
 
-    if fm["status"] in {"validated", "accepted"}:
+    if scalars["status"] in {"validated", "accepted"}:
         checklist = section_text(body, "## Final completion checklist")
         unchecked = re.findall(r"(?m)^- \[ \] (.+)$", checklist)
         if unchecked:
@@ -484,11 +852,22 @@ def validate_record(
                 + "; ".join(unchecked[:5])
             )
 
+    if "not-captured" in scalars.values() or any(
+        "not-captured" in values for values in lists.values()
+    ):
+        gaps = section_text(body, "## Known limitations, evidence gaps, and risks")
+        if "not-captured" not in gaps:
+            raise SageError(
+                "Every not-captured metadata value must be represented in the evidence-gap section"
+            )
+
     template_markers = [
         "SAGE-K3-<DOMAIN>",
         "<Concise evidence-record title>",
-        "<Atomic, testable claim>",
+        "<Atomic testable claim>",
         "<exact command or source reference>",
+        "<same as ",
+        "<semicolon-joined",
     ]
     for marker in template_markers:
         if marker in text:
@@ -496,7 +875,6 @@ def validate_record(
 
     warnings = scan_secrets(text, manifest["record_path"])
     return warnings
-
 
 def validate_artifacts(payload: Path, manifest: dict[str, Any]) -> list[str]:
     warnings: list[str] = []
@@ -516,10 +894,14 @@ def validate_artifacts(payload: Path, manifest: dict[str, Any]) -> list[str]:
 def ensure_repo_contract(repo: Path, manifest: dict[str, Any]) -> None:
     standard = repo / "markdown/standards/kalaxy3-sage-evidence-record-standard.md"
     template = repo / "markdown/templates/sage-evidence-record-template.md"
+    process = repo / "markdown/standards/kalaxy3-sage-evidence-publication-process.md"
     if not standard.is_file():
         raise SageError(f"Missing SAGE standard: {standard.relative_to(repo)}")
     if not template.is_file():
         raise SageError(f"Missing SAGE template: {template.relative_to(repo)}")
+    if not process.is_file():
+        raise SageError(f"Missing SAGE publication process: {process.relative_to(repo)}")
+    validate_metadata_contract_file(repo)
     current_branch = git(repo, "branch", "--show-current")
     if current_branch != manifest["branch"]:
         raise SageError(f"Current branch is {current_branch!r}; package requires {manifest['branch']!r}")
@@ -606,7 +988,7 @@ def replace_publication_tokens(record: Path, implementation_sha: str) -> None:
     if IMPLEMENTATION_TOKEN in text:
         text = text.replace(IMPLEMENTATION_TOKEN, implementation_sha)
     elif f"implementation_commit: {implementation_sha}" not in text:
-        fm, _ = parse_frontmatter(text)
+        fm, _, _, _ = parse_frontmatter(text)
         if fm.get("implementation_commit") not in {"not-applicable", implementation_sha}:
             raise SageError("Record lacks the implementation commit token")
     published_at = dt.datetime.now().astimezone().isoformat(timespec="seconds")
@@ -638,6 +1020,16 @@ def write_publication_manifest(
     published["standard_sha256"] = sha256_file(repo / published["standard_path"])
     published["template_path"] = "markdown/templates/sage-evidence-record-template.md"
     published["template_sha256"] = sha256_file(repo / published["template_path"])
+    published["metadata_contract_path"] = METADATA_CONTRACT_PATH
+    published["metadata_contract_sha256"] = sha256_file(
+        repo / published["metadata_contract_path"]
+    )
+    published["publication_process_path"] = (
+        "markdown/standards/kalaxy3-sage-evidence-publication-process.md"
+    )
+    published["publication_process_sha256"] = sha256_file(
+        repo / published["publication_process_path"]
+    )
     # Package hashes describe the original package payload. The final record
     # checksum is stored separately after token replacement.
     path.write_text(json.dumps(published, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -805,68 +1197,305 @@ def publish(package: Path, repo: Path, *, push: bool, remote: str) -> None:
             print(warning, file=sys.stderr)
 
 
+def metadata_contract_document() -> dict[str, Any]:
+    return {
+        "contract_version": RECORD_SCHEMA_VERSION,
+        "record_schema_version": RECORD_SCHEMA_VERSION,
+        "front_matter_order": REQUIRED_FRONTMATTER_ORDER,
+        "list_fields": sorted(LIST_FIELDS),
+        "static_metadata_rows": [list(row) for row in STATIC_METADATA_ROWS],
+        "five_w_rows": FIVE_W_ROWS,
+        "allowed_not_available_values": sorted(CANONICAL_UNAVAILABLE),
+        "canonical_list_separator": "; ",
+        "timestamp_format": "RFC3339 with numeric UTC offset",
+        "timezone_format": "IANA timezone name or UTC",
+    }
+
+
 def make_dummy_record(evidence_id: str, record_path: str) -> str:
-    headings = "\n\n".join(
-        [
-            "## Executive summary\n\nValidated dummy process evidence.",
-            "## Five Ws and How\n\n| Requirement | Answer |\n|---|---|\n| **Who** | Test |\n| **What** | Test |\n| **When** | Test UTC |\n| **Where** | Test repo |\n| **Why** | Test |\n| **How** | Test |\n\n### Five-W completeness gate\n\n- [x] Who is complete.\n- [x] What is complete.\n- [x] When is complete and includes timezone.\n- [x] Where is complete at both repository and runtime levels.\n- [x] Why includes rationale and tradeoffs.\n- [x] How is reproducible and verifiable.",
-            "## Scope and boundaries\n\nTest scope.",
-            "## Final accepted state\n\nTest state.",
-            "## Claims and evidence matrix\n\n| Claim ID | Claim | Criticality | Evidence IDs | Result | Confidence |\n|---|---|---|---|---|---|\n| `CLM-001` | Test claim | critical | `EV-001` | supported | high |",
-            "## Problem and decision rationale\n\nTest rationale.",
-            "## Architecture or change description\n\nTest architecture.",
-            "## Source of truth and implementation lineage\n\nTest lineage.",
-            "## Prerequisites and assumptions\n\nNone.",
-            "## Implementation procedure\n\nTest procedure.",
-            "## Evidence items\n\n### `EV-001` — Test evidence\n\n| Field | Value |\n|---|---|\n| Classification | `repository-evidence` |\n| Supports or contradicts | `CLM-001` |\n| Collected by | self-test |\n| Collected at | 2026-07-25T00:00:00-05:00 |\n| Execution source | temporary repository |\n| Target | test file |\n| Tool and version | Git |\n| Expected result | pass |\n| Actual result | pass |\n| Confidence | high |\n| Sensitive data | none |\n| Artifact | inline |",
-            "## Verification and acceptance criteria\n\nPass.",
-            "## Idempotency and repeatability\n\nPass.",
-            "## Security, privacy, and evidence handling\n\nNo secrets.",
-            "## Reliability, recovery, rollback, and rebuild\n\nRevert commits.",
-            "## Operational considerations and observability\n\nGit status.",
-            "## Known limitations, evidence gaps, and risks\n\nNone for self-test.",
-            "## Troubleshooting\n\nInspect error.",
-            "## Freshness, revalidation, and supersession\n\nRevalidate on script change.",
-            "## Final completion checklist\n\n- [x] Evidence ID is unique and permanent.\n- [x] Status accurately reflects completeness.\n- [x] Implementation commit is injected by the publisher.\n- [x] Required evidence is present.\n- [x] Secrets are excluded.\n- [x] Revalidation criteria are defined.",
-            "## Git review and publication\n\nAutomated.",
-            "## Appendices and raw artifacts\n\nTest artifact.",
-        ]
-    )
-    front = f"""---
+    artifact_root = f"markdown/evidence-artifacts/{evidence_id}"
+    front = f'''---
 evidence_id: {evidence_id}
-schema_version: "1.0"
+schema_version: "1.1"
 title: SAGE publication self-test
 project: Kalaxy3
 record_type: operations
 status: validated
 classification: internal
-created_at: 2026-07-25T00:00:00-05:00
+work_session: SAGE publisher schema 1.1 self-test
+work_started_at: 2026-07-25T17:00:00-05:00
+work_completed_at: 2026-07-25T17:01:00-05:00
+evidence_collected_at: 2026-07-25T17:02:00-05:00
+created_at: 2026-07-25T17:03:00-05:00
 updated_at: {PUBLISHED_AT_TOKEN}
 valid_as_of: 2026-07-25
 review_due: event-based
-owner: test
-author: self-test
-operator: self-test
+local_timezone: America/Chicago
+system_timestamp_timezones:
+  - UTC
+owner: self-test-owner
+author: self-test-author
+operator: self-test-operator
 reviewer: pending
 environment: test
 system: Kalaxy3
 cluster: not-applicable
+execution_host: temporary-repository
+controller_host: self-test-controller
+nodes:
+  - not-applicable
+node_addresses:
+  - not-applicable
+namespaces:
+  - not-applicable
+endpoints:
+  - not-applicable
+components:
+  - SAGE-publisher=self-test-1.1
 repository: donb4iu/Kalaxy3
 branch: main
 implementation_commit: {IMPLEMENTATION_TOKEN}
 record_path: {record_path}
+artifact_root: {artifact_root}
 confidence: high
 tags:
   - sage
+  - self-test
 relationships:
   verifies:
-    - self-test
+    - SAGE publisher self-test
+  depends_on:
+    - none
+  supersedes:
+    - none
+  superseded_by:
+    - none
+  related_to:
+    - none
+  conflicts_with:
+    - none
+  generated_by:
+    - scripts/sage/sage-publish.py
+  implemented_by:
+    - {IMPLEMENTATION_TOKEN}
+  revalidated_by:
+    - none
 ---
 
 # SAGE publication self-test
 
-"""
-    return front + headings + "\n"
+## Executive summary
+
+The temporary publication test validated the schema 1.1 metadata contract,
+created separate implementation and evidence commits, pushed both commits, and
+left the test repository clean.
+
+## Record metadata
+
+| Field | Value |
+|---|---|
+| **Evidence ID** | {evidence_id} |
+| **Schema version** | 1.1 |
+| **Project** | Kalaxy3 |
+| **Title** | SAGE publication self-test |
+| **Record type** | operations |
+| **Status** | validated |
+| **Classification** | internal |
+| **Work session** | SAGE publisher schema 1.1 self-test |
+| **Started** | 2026-07-25T17:00:00-05:00 |
+| **Completed** | 2026-07-25T17:01:00-05:00 |
+| **Evidence collected** | 2026-07-25T17:02:00-05:00 |
+| **Record created** | 2026-07-25T17:03:00-05:00 |
+| **Record updated** | {PUBLISHED_AT_TOKEN} |
+| **Local timezone** | America/Chicago |
+| **System timestamp timezone(s)** | UTC |
+| **Valid as of** | 2026-07-25 |
+| **Review due** | event-based |
+| **Target record path** | {record_path} |
+| **Artifact root** | {artifact_root} |
+| **Repository** | donb4iu/Kalaxy3 |
+| **Branch** | main |
+| **Implementation commit** | {IMPLEMENTATION_TOKEN} |
+| **Environment** | test |
+| **System** | Kalaxy3 |
+| **Cluster** | not-applicable |
+| **Execution host** | temporary-repository |
+| **Controller host** | self-test-controller |
+| **Nodes** | not-applicable |
+| **Node addresses** | not-applicable |
+| **Namespaces** | not-applicable |
+| **Endpoints** | not-applicable |
+| **Components and versions** | SAGE-publisher=self-test-1.1 |
+| **Owner** | self-test-owner |
+| **Author** | self-test-author |
+| **Operator** | self-test-operator |
+| **Reviewer** | pending |
+| **Confidence** | high |
+
+## Five Ws and How
+
+| Requirement | Answer |
+|---|---|
+| **Who** | Author self-test-author, operator self-test-operator, owner self-test-owner, and reviewer pending exercised the workflow. |
+| **What** | The test validates canonical metadata and split Git publication. |
+| **When** | Completed 2026-07-25T17:01:00-05:00; evidence collected 2026-07-25T17:02:00-05:00; local timezone America/Chicago; system timestamps UTC; valid as of 2026-07-25; review due event-based. |
+| **Where** | Environment test; cluster not-applicable; execution host temporary-repository; controller self-test-controller; record {record_path}. |
+| **Why** | The publisher must prevent metadata and Git-workflow drift. |
+| **How** | A temporary repository and bare remote execute the complete check, two-commit publication, push, and clean-tree verification. |
+
+### Five-W completeness gate
+
+- [x] Who is complete and agrees with metadata.
+- [x] What is complete.
+- [x] When is complete, uses canonical timestamps, and includes timezone context.
+- [x] Where is complete at repository and runtime levels and agrees with metadata.
+- [x] Why includes rationale, alternatives, and tradeoffs.
+- [x] How is reproducible and verifiable.
+
+## Scope and boundaries
+
+The test covers schema validation and Git publication in a temporary repository.
+It does not validate the truth of arbitrary engineering evidence.
+
+## Final accepted state
+
+The temporary repository contains separate implementation and evidence commits,
+the evidence record contains the implementation SHA, and the working tree is
+clean.
+
+## Claims and evidence matrix
+
+| Claim ID | Claim | Criticality | Evidence IDs | Result | Confidence |
+|---|---|---|---|---|---|
+| `CLM-001` | The publisher completes a schema 1.1 split publication. | critical | `EV-001` | supported | high |
+
+## Problem and decision rationale
+
+The self-test prevents untested changes to the publication contract.
+
+## Architecture or change description
+
+Temporary working repository to temporary bare remote.
+
+## Source of truth and implementation lineage
+
+The executing publisher and metadata contract are the source of truth.
+
+## Prerequisites and assumptions
+
+Python and Git are available in the test environment.
+
+## Implementation procedure
+
+The self-test generates a package, validates it, publishes it, and pushes it.
+
+## Evidence items
+
+### `EV-001` — Temporary publication result
+
+| Field | Value |
+|---|---|
+| Classification | `generated-artifact` |
+| Supports or contradicts | `CLM-001` |
+| Collected by | self-test-operator |
+| Collected at | 2026-07-25T17:02:00-05:00 |
+| Execution source | temporary-repository |
+| Target | temporary Git remote |
+| Tool and version | SAGE-publisher=self-test-1.1 |
+| Expected result | Two commits, successful push, clean tree |
+| Actual result | pass |
+| Confidence | high |
+| Sensitive data | none |
+| Artifact | inline |
+
+**Command, query, source, or observation**
+
+```bash
+python3 scripts/sage/sage-publish.py self-test
+```
+
+**Observed result**
+
+```text
+SAGE publication self-test: PASS
+```
+
+**Interpretation**
+
+The result proves the tested publication path, not the truth of external
+session evidence.
+
+## Verification and acceptance criteria
+
+| Criterion ID | Requirement | Test or evidence | Expected | Observed | Result |
+|---|---|---|---|---|---|
+| `AC-001` | Split publication succeeds | `EV-001` | two commits and clean tree | observed | pass |
+
+## Idempotency and repeatability
+
+The self-test creates a fresh isolated environment on every run.
+
+## Security, privacy, and evidence handling
+
+Synthetic values only; no secrets are used.
+
+## Reliability, recovery, rollback, and rebuild
+
+Temporary files are removed automatically. Failure returns a nonzero exit.
+
+## Operational considerations and observability
+
+The command output reports commits, paths, push state, and tree cleanliness.
+
+## Known limitations, evidence gaps, and risks
+
+No material metadata gap is present in the synthetic record.
+
+## Troubleshooting
+
+Inspect the first reported contract or Git failure.
+
+## Freshness, revalidation, and supersession
+
+Revalidate whenever the publisher, standard, template, process, package schema,
+or metadata contract changes.
+
+## Final completion checklist and reviewer acceptance
+
+- [x] Evidence ID is unique and permanent.
+- [x] Schema version is 1.1.
+- [x] Front matter follows the exact metadata contract and order.
+- [x] Record metadata exactly mirrors front matter.
+- [x] Status accurately reflects completeness.
+- [x] Owner, author, operator, and reviewer are identified.
+- [x] Five Ws and How agree with canonical metadata.
+- [x] Scope and nonclaims are explicit.
+- [x] Implementation commit is recorded or validly not-applicable.
+- [x] Relationships and supersession fields are complete.
+- [x] Every critical claim has supporting evidence.
+- [x] Expected and observed results are separated.
+- [x] Direct observations identify source, target, time, and tool version.
+- [x] Derived conclusions reference evidence IDs.
+- [x] Assumptions and planned work are marked.
+- [x] Failed attempts are separated from final state.
+- [x] Idempotency or repeatability is proven or not-applicable.
+- [x] Every not-captured value has an evidence gap.
+- [x] Secrets and sensitive data are excluded or redacted.
+- [x] Security limitations and residual risks are recorded.
+- [x] Rollback, rebuild, and data-durability impacts are documented.
+- [x] Operational health checks are documented.
+- [x] Known limitations and gaps have owners or triggers.
+- [x] Revalidation criteria are defined.
+
+## Git review and publication
+
+The self-test uses the same publisher functions as normal publication.
+
+## Appendices and raw artifacts
+
+The synthetic terminal artifact is stored under the evidence ID directory.
+'''
+    return front
 
 
 def self_test() -> None:
@@ -888,6 +1517,13 @@ def self_test() -> None:
         (repo / "markdown/templates/sage-evidence-record-template.md").write_text(
             "# test template\n", encoding="utf-8"
         )
+        (repo / "markdown/standards/kalaxy3-sage-evidence-publication-process.md").write_text(
+            "# test publication process\n", encoding="utf-8"
+        )
+        (repo / METADATA_CONTRACT_PATH).write_text(
+            json.dumps(metadata_contract_document(), indent=2) + "\n",
+            encoding="utf-8",
+        )
         (repo / "implementation.txt").write_text("before\n", encoding="utf-8")
         git(repo, "add", ".")
         git(repo, "commit", "-m", "Initialize test repository")
@@ -907,7 +1543,9 @@ def self_test() -> None:
         for rel in [record_rel, artifact_rel]:
             files.append({"path": rel, "sha256": sha256_file(payload / rel)})
         manifest = {
-            "schema_version": "1.0",
+            "schema_version": PACKAGE_SCHEMA_VERSION,
+            "record_schema_version": RECORD_SCHEMA_VERSION,
+            "metadata_contract_path": METADATA_CONTRACT_PATH,
             "repository": "donb4iu/Kalaxy3",
             "branch": "main",
             "evidence_id": evidence_id,
@@ -936,7 +1574,6 @@ def self_test() -> None:
         if git(repo, "status", "--porcelain=v1"):
             raise SageError("Self-test repository is not clean")
         print("\nSAGE publication self-test: PASS")
-
 
 def main() -> int:
     parser = argparse.ArgumentParser(

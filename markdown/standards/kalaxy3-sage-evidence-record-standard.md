@@ -2,209 +2,379 @@
 title: Kalaxy3 SAGE Evidence Record Standard
 project: Kalaxy3
 record_type: governance-standard
-schema_version: "1.0"
+schema_version: "1.1"
 status: proposed
 created_at: 2026-07-24T23:45:00-05:00
-valid_as_of: 2026-07-24
+updated_at: 2026-07-25T17:38:00-05:00
+valid_as_of: 2026-07-25
 owner: Kalaxy3 architecture
 intended_path: markdown/standards/kalaxy3-sage-evidence-record-standard.md
 companion_template: markdown/templates/sage-evidence-record-template.md
+metadata_contract: markdown/standards/sage-evidence-metadata-contract-v1.1.json
+publication_process: markdown/standards/kalaxy3-sage-evidence-publication-process.md
 ---
 
 # Kalaxy3 SAGE Evidence Record Standard
 
-## SAGE meaning
+## SAGE meaning and purpose
 
-**SAGE** stands for **Systems Architecture & Governance through Evidence**.
+**SAGE** means **Systems Architecture & Governance through Evidence**.
 
-SAGE is the Kalaxy3 evidence-driven engineering methodology. It treats
-architecture decisions, implementation records, observed verification, known
-limitations, rebuild instructions, and operational outcomes as linked evidence
-rather than as isolated narrative documents.
+SAGE is the Kalaxy3 evidence-driven engineering method. It preserves decisions,
+implementation state, observed verification, failed attempts, limitations,
+rebuild instructions, operational consequences, and Git lineage as durable,
+linked evidence.
 
-The goal is to create durable engineering memory that can be used by humans,
-automation, and future AI services without trusting recollection or unsupported
-summaries.
+A SAGE record must let a future operator answer:
 
-A SAGE record should make it possible to answer:
+- what state or claim is being asserted;
+- who performed, owns, authored, and reviewed the work;
+- when the work completed and when evidence was collected;
+- where the work ran and which systems, nodes, addresses, namespaces, and
+  repository paths it affected;
+- why the accepted approach was selected;
+- how the result can be reproduced, validated, repaired, rolled back, rebuilt,
+  revalidated, or superseded;
+- which direct observations and repository changes prove each claim;
+- what the record does not prove.
 
-- What claim or system state is being asserted?
-- What direct evidence supports it?
-- Who performed, owns, and reviewed the work?
-- When and where was the evidence collected?
-- Why was this design selected?
-- How can the result be reproduced, verified, repaired, or superseded?
-- Which earlier and later records are related?
-- How strong, current, and complete is the evidence?
+## Normative language
 
-## Evaluation of the current Kalaxy3 evidence records
+The words **MUST**, **MUST NOT**, **REQUIRED**, **SHOULD**, **SHOULD NOT**, and
+**MAY** are normative.
 
-### Overall assessment
+- **MUST/MUST NOT** define a publication gate enforced by the SAGE publisher or
+  mandatory reviewer action.
+- **SHOULD/SHOULD NOT** define a strong default that may be overridden only with
+  an explicit rationale.
+- **MAY** identifies optional content.
 
-The current Kalaxy3 installation records are technically strong. They preserve
-important details that are commonly lost:
+## Authoritative metadata principle
 
-- design rationale and rejected alternatives;
-- exact repository paths and configuration fragments;
-- installation and reconciliation commands;
-- observed terminal output;
-- functional verification;
-- security and credential-handling restrictions;
-- rebuild and troubleshooting procedures;
-- idempotency evidence in several records;
-- known limitations and future work.
+Every SAGE record has two metadata representations:
 
-They already function as useful rebuild guides and institutional memory.
+1. **YAML front matter**, which is the machine-readable source of truth.
+2. **Record metadata table**, which is the mandatory human-readable mirror.
 
-The weakness is consistency, not substance. Each record organizes evidence
-differently, and several governance facts are implicit rather than
-machine-readable. That limits cross-record search, automated freshness checks,
-claim-to-proof traceability, and future Capability Lineage Graph ingestion.
+The Five Ws and How are explanatory evidence. They do not replace metadata.
+They must explain the significance and context of the canonical facts without
+changing those facts.
 
-### Strong patterns to preserve
+The authoritative metadata contract is:
 
-1. **Purpose and rationale**
+```text
+markdown/standards/sage-evidence-metadata-contract-v1.1.json
+```
 
-   Existing records usually explain both what was installed and why the design
-   was selected. This is essential SAGE content and must remain mandatory.
+The publisher MUST reject a new record when:
 
-2. **Final validated state**
+- a required front-matter field is absent;
+- front-matter fields are not in canonical order;
+- a field uses a noncanonical name for the same concept;
+- a required list is omitted instead of using `not-applicable`;
+- a timestamp does not follow the required format;
+- the human-readable metadata table is absent, reordered, incomplete, or
+  inconsistent with front matter;
+- the Five Ws introduce conflicting dates, hosts, paths, versions, or owners.
 
-   The strongest records summarize the accepted result before presenting the
-   implementation history. This lets a reader distinguish the final design
-   from failed attempts.
+## Metadata schema version 1.1
 
-3. **Commands paired with observed results**
+### Exact front-matter order
 
-   The records generally distinguish commands from the output actually seen.
-   SAGE should formalize this into evidence items rather than lose it in prose.
+All new records MUST use these top-level fields in this exact order:
 
-4. **Rebuild and troubleshooting guidance**
+1. `evidence_id`
+2. `schema_version`
+3. `title`
+4. `project`
+5. `record_type`
+6. `status`
+7. `classification`
+8. `work_session`
+9. `work_started_at`
+10. `work_completed_at`
+11. `evidence_collected_at`
+12. `created_at`
+13. `updated_at`
+14. `valid_as_of`
+15. `review_due`
+16. `local_timezone`
+17. `system_timestamp_timezones`
+18. `owner`
+19. `author`
+20. `operator`
+21. `reviewer`
+22. `environment`
+23. `system`
+24. `cluster`
+25. `execution_host`
+26. `controller_host`
+27. `nodes`
+28. `node_addresses`
+29. `namespaces`
+30. `endpoints`
+31. `components`
+32. `repository`
+33. `branch`
+34. `implementation_commit`
+35. `record_path`
+36. `artifact_root`
+37. `confidence`
+38. `tags`
+39. `relationships`
 
-   The records are written to make Kalaxy3 reproducible rather than merely to
-   chronicle work. This remains a core requirement.
+Additional top-level fields are prohibited in schema 1.1 unless this standard,
+the metadata contract, and the publisher are updated together. Record-specific
+facts belong in evidence items, the final-state table, or artifacts rather than
+new ad hoc front-matter keys.
 
-5. **Security boundaries**
+### Field semantics
 
-   Protected-UI and administrative-access records explicitly identify material
-   that must not enter Git, including secrets, password hashes, and private
-   keys. Every SAGE record must include a data-handling review, even when the
-   answer is “no sensitive material involved.”
-
-6. **Idempotency and functional verification**
-
-   Several records prove that automation converges and that the deployed
-   service performs its intended function. Both are stronger than installation
-   success alone and should be independent acceptance criteria.
-
-### Gaps the standard must correct
-
-1. **No consistent evidence identity**
-
-   Records do not consistently have an immutable evidence ID, schema version,
-   record type, lifecycle status, or evidence owner.
-
-2. **The five Ws are present but scattered**
-
-   What, when, where, and why are often discoverable, but who performed,
-   reviewed, or owns the result is usually absent. The five Ws must be explicit
-   and complete near the beginning of every record.
-
-3. **Claims are not formally connected to proof**
-
-   A command and output may be present, but the specific claim that the output
-   proves is not always identified. SAGE requires claim IDs and an evidence
-   matrix.
-
-4. **Planned, inferred, and observed information can be mixed**
-
-   Future work, intended design, inferred meaning, and directly observed state
-   sometimes appear in the same narrative. Every material statement must be
-   distinguishable as direct evidence, generated evidence, derived conclusion,
-   assumption, or planned work.
-
-5. **Freshness and supersession are not governed**
-
-   Records rarely say when they must be revalidated or which later record
-   supersedes them. This is already material in Kalaxy3: older records refer to
-   paths, flags, node counts, replica counts, or Kubecost behavior that later
-   work changed.
-
-6. **Repository lineage is inconsistent**
-
-   Some records include a commit ID, while others provide only filenames or a
-   proposed commit. Every accepted record should identify the implementation
-   commit or explicitly state that it is not yet committed.
-
-7. **Acceptance criteria are often implicit**
-
-   Checklists are helpful, but a formal expected-versus-observed pass/fail table
-   is easier to review and automate.
-
-8. **Evidence capture context is incomplete**
-
-   Commands should identify execution host, target cluster or node, namespace,
-   local timezone, relevant system timestamp timezone, tool version, and exit
-   status when material.
-
-9. **Record completion is not always reflected in status**
-
-   A record may contain unchecked requirements such as missing second-run
-   idempotency evidence while still reading like a final record. Lifecycle
-   status must make incompleteness visible.
-
-10. **Large records mix distinct concerns**
-
-    A record may contain architecture decisions, installation history,
-    troubleshooting, raw logs, and future plans in one long stream. The new
-    standard keeps these sections but gives them a predictable order and allows
-    large raw evidence to move into appendices or linked artifacts.
-
-## Mandatory five-W and one-H requirements
-
-Every SAGE evidence record must explicitly answer all five Ws. **How** is also
-mandatory because evidence without reproducible execution and validation is
-not sufficient for Kalaxy3.
-
-| Requirement | Required content |
+| Field | Required meaning and format |
 |---|---|
-| **Who** | Author or evidence collector, implementation operator, accountable owner, reviewer or approver, and affected teams or users when relevant. |
-| **What** | The change, incident, decision, capability, claim, final state, and boundaries of what is and is not covered. |
-| **When** | Implementation time, evidence-collection time, timezone, system timestamp timezone when different, valid-as-of date, and revalidation trigger or review date. |
-| **Where** | Project, environment, cluster, nodes, namespaces, endpoints, repository paths, branches, and execution host. |
-| **Why** | Problem or opportunity, decision drivers, alternatives considered, tradeoffs, risks, and expected value. |
-| **How** | Implementation sequence, source changes, commands, observed results, acceptance tests, rollback, rebuild, and troubleshooting. |
+| `evidence_id` | Permanent `SAGE-K3-<DOMAIN>-<YYYYMMDD>-<NNN>` identifier. It never changes when the file is renamed. |
+| `schema_version` | Exactly `"1.1"` for records generated after adoption of this revision. |
+| `title` | Concise title describing the evidenced result, not a planned task. |
+| `project` | Exactly `Kalaxy3`. |
+| `record_type` | One allowed lifecycle domain: `installation`, `architecture-decision`, `change`, `verification`, `incident`, `experiment`, `benchmark`, `operations`, `security`, or `finops`. |
+| `status` | One allowed lifecycle status defined below. |
+| `classification` | Data-handling classification, normally `internal`. |
+| `work_session` | Stable short name for the working session, capability, incident, or validation run. |
+| `work_started_at` | RFC3339 timestamp with numeric offset, or `not-captured` when genuinely unavailable. Never infer a start time. |
+| `work_completed_at` | RFC3339 timestamp with numeric offset for the completed implementation or validation. `validated` and `accepted` records require a captured value. |
+| `evidence_collected_at` | RFC3339 timestamp with numeric offset for the final material evidence capture. `validated` and `accepted` records require a captured value. |
+| `created_at` | RFC3339 timestamp with numeric offset for creation of the record. |
+| `updated_at` | RFC3339 timestamp with numeric offset. A package may use the publisher token until publication. |
+| `valid_as_of` | `YYYY-MM-DD`, representing the date through which the final claim is known to hold. |
+| `review_due` | `YYYY-MM-DD` or exactly `event-based`. Detailed triggers belong in the freshness section. |
+| `local_timezone` | IANA timezone name such as `America/Chicago`; never an abbreviation such as `CST` or `CDT`. |
+| `system_timestamp_timezones` | Nonempty list of timezones used by Kubernetes, APIs, logs, devices, or other evidence. Use `UTC` when applicable or `not-applicable`. |
+| `owner` | Accountable person or stable role. |
+| `author` | Person or automation that assembled the record. |
+| `operator` | Person or automation that performed the implementation or validation. |
+| `reviewer` | Named reviewer, `pending`, or `not-applicable` only when the standard permits no review. `accepted` requires a named reviewer. |
+| `environment` | Canonical environment name: `homelab`, `development`, `test`, `production`, `research`, or `shared-platform`. |
+| `system` | Exactly `Kalaxy3`. |
+| `cluster` | Cluster name or `not-applicable`. |
+| `execution_host` | Host from which the primary commands were executed, or `not-applicable`. |
+| `controller_host` | Automation controller or target through which changes were applied, or `not-applicable`. |
+| `nodes` | Nonempty list of node names or one item `not-applicable`. |
+| `node_addresses` | Nonempty list using `node-name=address`, or one item `not-applicable`. Node names must exist in `nodes`. |
+| `namespaces` | Nonempty list of Kubernetes namespaces or one item `not-applicable`. |
+| `endpoints` | Nonempty list using `purpose=address-or-hostname`, or one item `not-applicable`. |
+| `components` | Nonempty list using `component=version`; use `version-not-captured` only when the version is unavailable and identify the gap. |
+| `repository` | Exactly `donb4iu/Kalaxy3`. |
+| `branch` | Target Git branch, normally `main`. |
+| `implementation_commit` | Full 40-character Git SHA, publisher token before split publication, or `not-applicable` for evidence-only records where no implementation exists. |
+| `record_path` | Canonical repository-relative Markdown path. |
+| `artifact_root` | Exactly `markdown/evidence-artifacts/<evidence_id>`. |
+| `confidence` | `high`, `medium`, `low`, or `unknown`; `unknown` is allowed only in `draft`. |
+| `tags` | Nonempty list of stable search terms. |
+| `relationships` | Required lineage map using the relationship types defined below. |
 
-A record that cannot answer one of the five Ws must identify the missing fact as
-an evidence gap. It must not silently omit it.
+### Canonical unavailable values
+
+Use only:
+
+- `not-applicable` when the concept does not apply;
+- `not-captured` when it applied but was not recorded;
+- `pending` for an unresolved governance role or action.
+
+Do not use variants such as `N/A`, `none`, `unknown`, `TBD`, `later`, blank
+strings, omitted list fields, or prose explanations in place of these values.
+Any `not-captured` value MUST be represented as an evidence gap with an owner
+and revalidation trigger.
+
+### Timestamp rules
+
+- All timestamps MUST use RFC3339 with a numeric UTC offset.
+- The local timezone MUST separately use an IANA name.
+- Human-friendly dates MAY appear in prose, but the canonical timestamp MUST
+  also be present.
+- Kubernetes and most cluster API timestamps SHOULD be recorded as `UTC` in
+  `system_timestamp_timezones`.
+- A local work date and a UTC system date may differ. This is not a conflict
+  when both timezone contexts are explicit.
+- `created_at` and `updated_at` describe the record, not the work.
+- `work_completed_at` describes the implementation or validation event.
+- `evidence_collected_at` describes the final material evidence capture.
+- `valid_as_of` describes claim freshness and is not a substitute for a
+  completion timestamp.
+
+### Components and versions
+
+Component versions MUST be represented in the front matter as exact list items:
+
+```yaml
+components:
+  - K3s=v1.36.2+k3s1
+  - Longhorn=v1.12.0
+```
+
+Do not use free-form variants such as:
+
+```yaml
+components:
+  - K3s version 1.36
+  - current Longhorn
+```
+
+When a version is material but unavailable:
+
+```yaml
+components:
+  - Ansible=version-not-captured
+```
+
+and create an explicit evidence gap.
+
+### Targets, addresses, namespaces, and endpoints
+
+Targets MUST remain relational rather than split into ambiguous unlabeled
+values:
+
+```yaml
+nodes:
+  - amd64-01
+node_addresses:
+  - amd64-01=192.168.2.61
+namespaces:
+  - longhorn-system
+endpoints:
+  - kubernetes-api=https://192.168.2.50:6443
+```
+
+When the record covers several nodes, every captured address MUST identify its
+node. When a node address is not material or not captured, use:
+
+```yaml
+node_addresses:
+  - not-applicable
+```
+
+or:
+
+```yaml
+node_addresses:
+  - amd64-01=not-captured
+```
+
+and document the gap when appropriate.
+
+## Mandatory record metadata table
+
+Every record MUST contain `## Record metadata` immediately after the executive
+summary and before `## Five Ws and How`.
+
+The table is a deterministic mirror of front matter. It MUST use the exact row
+names and exact row order defined in the metadata contract. List values MUST be
+joined using semicolon-space (`; `). Values MUST be identical to front matter;
+no date reformatting, abbreviations, alternate hostnames, or shortened commit
+SHAs are allowed.
+
+Example:
+
+```markdown
+## Record metadata
+
+| Field | Value |
+|---|---|
+| **Evidence ID** | SAGE-K3-STORAGE-20260719-001 |
+| **Schema version** | 1.1 |
+| **Project** | Kalaxy3 |
+| **Title** | AMD64 node and Longhorn installation |
+| **Record type** | installation |
+| **Status** | validated |
+| **Classification** | internal |
+| **Work session** | Add amd64-01 and Longhorn storage |
+| **Started** | not-captured |
+| **Completed** | 2026-07-19T21:30:00-05:00 |
+| **Evidence collected** | 2026-07-19T22:15:00-05:00 |
+| **Record created** | 2026-07-19T22:30:00-05:00 |
+| **Record updated** | 2026-07-19T22:30:00-05:00 |
+| **Local timezone** | America/Chicago |
+| **System timestamp timezone(s)** | UTC |
+| **Valid as of** | 2026-07-19 |
+| **Review due** | event-based |
+| **Target record path** | markdown/installation/kalaxy3-amd64-node-and-longhorn-installation-evidence.md |
+| **Artifact root** | markdown/evidence-artifacts/SAGE-K3-STORAGE-20260719-001 |
+| **Repository** | donb4iu/Kalaxy3 |
+| **Branch** | main |
+| **Implementation commit** | pending |
+| **Environment** | homelab |
+| **System** | Kalaxy3 |
+| **Cluster** | kalaxy3 |
+| **Execution host** | donb-mac-mini |
+| **Controller host** | arm64-01 |
+| **Nodes** | amd64-01 |
+| **Node addresses** | amd64-01=192.168.2.61 |
+| **Namespaces** | longhorn-system |
+| **Endpoints** | kubernetes-api=https://192.168.2.50:6443 |
+| **Components and versions** | K3s=v1.36.2+k3s1; Longhorn=v1.12.0 |
+| **Owner** | Don Buddenbaum |
+| **Author** | Don Buddenbaum |
+| **Operator** | Don Buddenbaum |
+| **Reviewer** | pending |
+| **Confidence** | high |
+```
+
+This table replaces informal, record-specific static headers. A record MAY add
+a concise final-state table later, but it MUST NOT create a competing metadata
+header with different labels or values.
+
+## Mandatory Five Ws and How
+
+Every record MUST include the exact six table rows in this order:
+
+1. Who
+2. What
+3. When
+4. Where
+5. Why
+6. How
+
+The Five Ws and How MUST use the canonical metadata rather than restating it
+in a different format.
+
+| Requirement | Required explanatory content |
+|---|---|
+| **Who** | Explain author, evidence collector, operator, owner, reviewer, and affected users. Names and roles must agree with metadata. |
+| **What** | Explain the change, incident, decision, capability, final claim, and boundaries. |
+| **When** | Explain work completion, evidence collection, local timezone, system timestamp timezone, valid-as-of date, and review timing. The canonical timestamps must appear unchanged. |
+| **Where** | Explain environment, cluster, execution host, controller, nodes, addresses, namespaces, endpoints, and repository paths. Canonical values must appear unchanged. |
+| **Why** | Explain the problem, decision drivers, alternatives, tradeoffs, risk, and expected value. |
+| **How** | Explain implementation sequence, source changes, commands, validation, rollback, rebuild, troubleshooting, and artifact locations. |
+
+A static metadata block answers **which facts** apply. The Five Ws and How
+explain **what those facts mean and why they matter**. Both are required.
 
 ## Evidence classifications
 
-Every evidence item should use one of these classifications:
+Every evidence item MUST use one classification:
 
 | Classification | Meaning |
 |---|---|
-| `direct-observation` | Output observed from the target system, tool, API, hardware, or user-visible behavior. |
-| `generated-artifact` | A rendered manifest, report, package, checksum, test result, or other deterministic output. |
+| `direct-observation` | Output observed from the target system, API, hardware, or user-visible behavior. |
+| `generated-artifact` | Deterministically rendered report, manifest, package, checksum, or test output. |
 | `repository-evidence` | Version-controlled source, configuration, commit, diff, tag, or pull request. |
-| `derived-conclusion` | A conclusion calculated or reasoned from identified evidence. |
-| `external-authority` | Vendor documentation, standards, specifications, or authoritative external sources. |
-| `assumption` | A fact believed for the purpose of the work but not yet proven. |
-| `planned` | Intended future state that has not yet been implemented or validated. |
-| `negative-evidence` | A failed test, absent resource, rejected response, or other observation showing that a condition did not hold. |
+| `derived-conclusion` | Calculation or inference based on identified evidence IDs. |
+| `external-authority` | Vendor documentation, standards, specifications, or other authoritative external source. |
+| `assumption` | Material fact believed for the work but not proven. |
+| `planned` | Intended future state not yet implemented or validated. |
+| `negative-evidence` | Failed test, absent resource, rejected response, or observation that a condition did not hold. |
 
-Direct observations and repository evidence should support all critical claims.
-Derived conclusions must identify their supporting evidence IDs. Assumptions and
-planned statements cannot be used to mark an acceptance criterion as passed.
+Direct observations and repository evidence SHOULD support every critical
+configuration claim. Assumptions and planned statements cannot satisfy an
+acceptance criterion.
 
 ## Confidence levels
 
 | Confidence | Use |
 |---|---|
 | `high` | Direct, repeatable evidence from the correct target with clear provenance and no material contradiction. |
-| `medium` | Credible evidence exists but measurement precision, coverage, or repeatability is limited. |
+| `medium` | Credible evidence exists, but precision, coverage, freshness, or repeatability is limited. |
 | `low` | Evidence is indirect, incomplete, provisional, or substantially assumption-based. |
-| `unknown` | Confidence has not been assessed. This is allowed only in draft records. |
+| `unknown` | Confidence has not been assessed; allowed only in `draft`. |
 
 ## Record lifecycle
 
@@ -212,122 +382,135 @@ Use exactly one status:
 
 | Status | Meaning |
 |---|---|
-| `draft` | Record is being assembled; required facts or evidence may be missing. |
-| `implemented` | Change exists, but full acceptance evidence or review is incomplete. |
-| `validated` | Acceptance criteria passed and evidence is recorded. |
-| `accepted` | Validated and reviewed as the current Kalaxy3 source of truth. |
-| `superseded` | A newer record replaces some or all of this record. |
+| `draft` | Record assembly is incomplete. |
+| `implemented` | Change exists, but validation or governance evidence is incomplete. |
+| `validated` | Technical acceptance criteria passed and material evidence is recorded. |
+| `accepted` | Validated, reviewed, and designated the current Kalaxy3 source of truth. |
+| `superseded` | A newer record replaces some or all claims. |
 | `retired` | The capability or configuration no longer exists. |
-| `rejected` | The attempted design was evaluated and intentionally not accepted. |
+| `rejected` | An attempted design was evaluated and intentionally not accepted. |
 
-A record with an unchecked mandatory acceptance criterion cannot be `validated`
-or `accepted`.
+A `validated` or `accepted` record MUST have:
+
+- captured `work_completed_at` and `evidence_collected_at` timestamps;
+- a complete metadata table;
+- a complete Five-W gate;
+- no unchecked mandatory final-checklist item;
+- an implementation commit or an explicitly valid evidence-only lineage;
+- all critical claims supported by evidence.
+
+An `accepted` record additionally requires a named reviewer and recorded review
+decision.
 
 ## Required evidence lineage
 
-Every record must define relationships where applicable:
+Every record MUST define these relationship keys, using `none` when no
+relationship exists:
 
-- `verifies`: decision, capability, requirement, or claim proved by this record;
-- `depends_on`: records or system states required for this result;
-- `supersedes`: earlier records or claims replaced by this result;
-- `superseded_by`: later accepted record replacing this one;
-- `related_to`: relevant but nondependent records;
-- `conflicts_with`: evidence that materially contradicts this record;
-- `generated_by`: automation, workflow, or tool that produced the record;
-- `implemented_by`: Git commit, pull request, playbook, manifest, or change set;
-- `revalidated_by`: later evidence showing the record still holds.
+- `verifies`
+- `depends_on`
+- `supersedes`
+- `superseded_by`
+- `related_to`
+- `conflicts_with`
+- `generated_by`
+- `implemented_by`
+- `revalidated_by`
 
-Use repository-relative paths and stable evidence IDs rather than only prose
-references.
+Use evidence IDs and repository-relative paths. Avoid prose-only lineage.
 
 ## Mandatory record sections
 
-Every accepted SAGE evidence record must contain these sections, in this order:
+All schema 1.1 records MUST contain these sections in this order:
 
 1. Machine-readable front matter.
-2. Title and one-paragraph executive summary.
-3. Five Ws and How.
-4. Scope and boundaries.
-5. Final accepted state.
-6. Claims and evidence matrix.
-7. Problem and decision rationale.
-8. Alternatives and tradeoffs.
+2. Title and executive summary.
+3. Record metadata.
+4. Five Ws and How.
+5. Scope and boundaries.
+6. Final accepted state.
+7. Claims and evidence matrix.
+8. Problem and decision rationale.
 9. Architecture or change description.
-10. Source-of-truth files and implementation lineage.
+10. Source of truth and implementation lineage.
 11. Prerequisites and assumptions.
 12. Implementation procedure.
-13. Verification and acceptance criteria.
-14. Idempotency or repeatability evidence.
-15. Security, privacy, and secret-handling review.
-16. Reliability, recovery, rollback, and rebuild procedure.
-17. Operational considerations and observability.
-18. Known limitations, evidence gaps, and risks.
-19. Freshness, revalidation, and supersession rules.
-20. Final checklist and reviewer acceptance.
-21. Appendices or linked raw artifacts.
+13. Evidence items.
+14. Verification and acceptance criteria.
+15. Idempotency and repeatability.
+16. Security, privacy, and evidence handling.
+17. Reliability, recovery, rollback, and rebuild.
+18. Operational considerations and observability.
+19. Known limitations, evidence gaps, and risks.
+20. Troubleshooting.
+21. Freshness, revalidation, and supersession.
+22. Final completion checklist and reviewer acceptance.
+23. Git review and publication.
+24. Appendices and raw artifacts.
 
-A section may state “not applicable,” but it must not disappear silently.
+A section may state `not-applicable`, but it MUST NOT disappear.
 
 ## Evidence item minimum fields
 
-Each material evidence item must identify:
+Each material evidence item MUST identify:
 
 - evidence ID;
 - classification;
-- claim supported or contradicted;
-- command, query, file, API, test, or observation;
-- execution source and target;
+- claims supported or contradicted;
+- collector;
 - collection timestamp and timezone;
+- execution source;
+- target;
+- tool and exact version or `version-not-captured`;
+- command, query, file, API, test, or observation;
+- expected result;
 - observed result;
-- expected result when testing;
-- pass, fail, partial, or informational status;
+- result state: pass, fail, partial, or informational;
 - confidence;
-- redactions or omitted sensitive material;
-- artifact path or checksum when evidence is stored separately.
+- sensitive-data review and redactions;
+- artifact path and checksum when externalized.
 
 ## Acceptance rules
 
-A SAGE record is acceptable only when:
+A SAGE record is publishable only when:
 
-- all five Ws and How are answered;
-- every critical claim has at least one evidence item;
-- direct system evidence and repository evidence agree;
-- expected and observed results are distinguished;
-- failed attempts are separated from the accepted final state;
+- metadata schema and order are valid;
+- the metadata table exactly mirrors front matter;
+- all Five Ws and How are complete and nonconflicting;
+- every critical claim has identified evidence;
+- direct evidence and repository evidence agree where configuration is involved;
+- expected and observed results are separated;
+- failed attempts are separated from the accepted state;
 - idempotency or repeatability is tested when automation is involved;
-- rollback or rebuild consequences are documented;
-- credentials and sensitive material are excluded or redacted;
-- limitations and assumptions are explicit;
-- the implementation commit is recorded or marked pending;
-- the record has an owner and reviewer;
+- rollback, rebuild, and data-durability consequences are documented;
+- secrets and sensitive material are excluded or redacted;
+- limitations, assumptions, and evidence gaps are explicit;
+- source-of-truth paths and implementation lineage are recorded;
 - freshness and supersession rules are defined.
 
-## Recommended evidence-record identifier
+## Evidence-record identifier
 
-Use this format:
+Use:
 
 ```text
 SAGE-K3-<DOMAIN>-<YYYYMMDD>-<NNN>
 ```
 
-Examples:
+The date represents the working session or material event date in the canonical
+local timezone. The ID is permanent.
 
-```text
-SAGE-K3-STORAGE-20260724-001
-SAGE-K3-FINOPS-20260724-001
-SAGE-K3-NETWORK-20260724-001
-```
-
-The ID is permanent. Renaming a Markdown file does not change the evidence ID.
-
-## Recommended repository organization
+## Repository organization
 
 ```text
 markdown/
 ├── standards/
-│   └── kalaxy3-sage-evidence-record-standard.md
+│   ├── kalaxy3-sage-evidence-record-standard.md
+│   ├── sage-evidence-metadata-contract-v1.1.json
+│   └── kalaxy3-sage-evidence-publication-process.md
 ├── templates/
-│   └── sage-evidence-record-template.md
+│   ├── sage-evidence-record-template.md
+│   ├── sage-evidence-generation-request.md
+│   └── sage-evidence-package-manifest-template.json
 ├── installation/
 ├── operations/
 ├── architecture/
@@ -336,37 +519,36 @@ markdown/
     └── <evidence-id>/
 ```
 
-The Markdown record should contain concise, reviewable evidence. Very large raw
-logs, generated YAML, screenshots, benchmark output, or archives should be
-stored under `markdown/evidence-artifacts/<evidence-id>/` or another durable
-artifact store and referenced by path and checksum.
+Large raw logs, rendered YAML, screenshots, benchmark output, and archives MUST
+be stored under the evidence ID artifact root and referenced by checksum.
 
-Do not commit secrets, private keys, authentication hashes, unredacted Secret
-manifests, tokens, credentials, or sensitive personal information.
+## Migration from schema 1.0
 
-## Migration guidance for existing records
+Existing schema 1.0 records remain historical evidence and do not require
+immediate rewriting. When a 1.0 record is modified, revalidated, or
+superseded, migrate it to 1.1:
 
-Existing records do not need immediate full rewrites. Apply SAGE incrementally:
+1. preserve the evidence ID;
+2. change `schema_version` to `1.1`;
+3. add the exact canonical metadata fields in order;
+4. distinguish work, evidence, record, and validity timestamps;
+5. normalize node addresses, endpoints, and component versions;
+6. add the mandatory Record metadata table;
+7. reconcile the Five Ws to canonical metadata;
+8. add missing lineage keys;
+9. run the publisher check;
+10. record migration as implementation and evidence when material.
 
-1. Add front matter with an evidence ID, status, owner, valid-as-of date, and
-   lineage.
-2. Add a Five Ws and How table.
-3. Add a concise claims-and-evidence matrix referencing existing sections.
-4. Add implementation commit and source-of-truth paths.
-5. Add revalidation triggers and supersession links.
-6. Change incomplete records to `draft` or `implemented` rather than presenting
-   them as final.
-7. Mark stale records `superseded` and link to the accepted replacement instead
-   of deleting historical evidence.
+Do not mass-edit old records solely for appearance. Migrate when the record is
+next relied upon as current evidence.
 
 ## SAGE quality score
 
-A lightweight review score may be used for existing and new records:
-
 | Category | Points |
 |---|---:|
-| Five Ws and How complete | 15 |
-| Final claim and scope clear | 10 |
+| Canonical metadata and static table | 15 |
+| Five Ws and How | 10 |
+| Final claim and scope | 10 |
 | Claim-to-evidence traceability | 15 |
 | Direct observed evidence | 10 |
 | Repository and commit lineage | 10 |
@@ -374,22 +556,12 @@ A lightweight review score may be used for existing and new records:
 | Acceptance and functional tests | 10 |
 | Idempotency or repeatability | 5 |
 | Security and data handling | 5 |
-| Risks, limitations, and assumptions | 5 |
-| Freshness and supersession | 5 |
+| Risks, limitations, freshness, and supersession | 10 |
 | **Total** | **100** |
 
-Suggested interpretation:
-
-- `90–100`: accepted SAGE-grade record;
-- `75–89`: validated but requires governance completion;
-- `60–74`: useful implementation record with material evidence gaps;
-- below `60`: narrative or working notes, not an accepted evidence record.
+A quality score does not override lifecycle status or missing review.
 
 ## Adoption decision
 
-All new Kalaxy3 evidence records should begin from
-`markdown/templates/sage-evidence-record-template.md`.
-
-Existing records remain valuable historical evidence. They should be upgraded
-when they are next modified, revalidated, or superseded rather than rewritten
-all at once.
+All newly generated Kalaxy3 SAGE records MUST use schema 1.1, the canonical
+metadata contract, the schema 1.1 template, and the repository publisher.
