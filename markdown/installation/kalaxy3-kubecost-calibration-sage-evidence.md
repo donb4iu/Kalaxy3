@@ -1,27 +1,30 @@
 ---
 evidence_id: SAGE-K3-FINOPS-20260724-001
 schema_version: "1.0"
-title: Kubecost Homelab Cost Calibration and Idempotent Helm Reconciliation
+title: Kubecost Homelab Cost Calibration, Network Measurement, and Shared Provider-Cost Allocation
 project: Kalaxy3
 record_type: finops
 status: validated
 classification: internal
 created_at: 2026-07-25T00:03:40-05:00
-updated_at: 2026-07-25T00:03:40-05:00
-valid_as_of: 2026-07-24
+updated_at: 2026-07-25T16:56:17-05:00
+valid_as_of: 2026-07-25
 review_due: event-based
 owner: Don Buddenbaum
-author: ChatGPT, drafted from terminal evidence collected by Don Buddenbaum
+author: ChatGPT, regenerated from the Kalaxy3 SAGE standard, SAGE template, repository evidence, and terminal evidence collected by Don Buddenbaum
 operator: Don Buddenbaum
 reviewer: pending
 environment: homelab
 system: Kalaxy3
 cluster: kalaxy3
 components:
-  - Kubecost 3.2.1
+  - Kubecost chart 3.2.1
+  - Kubecost network-costs 0.19.0
+  - IBM FinOps Agent
   - Ansible
   - Helm
   - Helm Diff 3.15.10
+  - K3s v1.36.2+k3s1
   - Longhorn
   - MetalLB
 nodes:
@@ -34,14 +37,16 @@ nodes:
   - amd64-02
 namespaces:
   - kubecost
-  - longhorn-system
   - kube-system
-  - observability
+  - longhorn-system
   - metallb-system
+  - minio
+  - observability
   - storage
+  - headlamp
 repository: donb4iu/Kalaxy3
 branch: main
-implementation_commit: pending
+implementation_commit: d1d1339b4a3e54030f39bb0900e8e0934aa445c7
 record_path: markdown/installation/kalaxy3-kubecost-calibration-sage-evidence.md
 confidence: medium
 tags:
@@ -49,298 +54,326 @@ tags:
   - finops
   - kubecost
   - cost-calibration
+  - network-cost
+  - network-measurement
+  - provider-allocation
+  - shared-cost
+  - topology-labels
   - ansible
   - helm
   - idempotency
-  - power-accounting
 relationships:
   verifies:
     - Kalaxy3 Kubecost custom-pricing calibration
+    - Kalaxy3 pod-level network byte measurement
+    - Fixed-rate ISP allocation through Kubecost shared overhead
     - Idempotent Kubecost Helm reconciliation
-    - Persistent Kalaxy3 node cost metadata
+    - Persistent Kalaxy3 node cost and topology metadata
   depends_on:
     - markdown/installation/kalaxy3-kubecost-installation-and-verification.md
     - markdown/installation/kalaxy3-amd64-node-and-longhorn-installation-evidence.md
+    - markdown/standards/kalaxy3-sage-evidence-record-standard.md
+    - markdown/templates/sage-evidence-record-template.md
   supersedes:
     - The uncalibrated custom-cost-model gap in markdown/installation/kalaxy3-kubecost-installation-and-verification.md
+    - The earlier version of this evidence record that ended before network-cost and ISP-allocation validation
   superseded_by:
     - none
   related_to:
     - markdown/installation/kalaxy3-observability-and-kubecost.md
     - markdown/standards/kalaxy3-sage-evidence-record-standard.md
+    - markdown/templates/sage-evidence-record-template.md
   conflicts_with:
     - none known
   generated_by:
     - infrastructure/k3s-homelab/playbooks/kubecost-calibration-only.yml
     - infrastructure/k3s-homelab/playbooks/platform.yml
-    - ChatGPT evidence-record generation from captured terminal output
+    - infrastructure/k3s-homelab/playbooks/tasks/kubecost-calibration.yml
+    - infrastructure/k3s-homelab/playbooks/tasks/kubecost-node-label.yml
+    - infrastructure/k3s-homelab/playbooks/templates/kubecost-calibration-values.yml.j2
+    - Kubecost Allocation API
+    - Kubecost network-cost metrics endpoint
+    - Manual terminal validation performed from donbs-imac
+    - ChatGPT SAGE record regeneration
 ---
 
-# Kubecost Homelab Cost Calibration and Idempotent Helm Reconciliation
+# Kubecost Homelab Cost Calibration, Network Measurement, and Shared Provider-Cost Allocation
 
 ## Executive summary
 
-Kalaxy3 Kubecost 3.2.1 was changed from an installed but uncalibrated state to a
-validated homelab cost model driven by version-controlled node, storage, power,
-and shared-infrastructure inputs. Ansible now calculates blended monthly CPU,
-RAM, and storage rates, renders Kubecost custom pricing, applies persistent
-hardware and cost-profile labels to all seven Kubernetes nodes, includes shared
-infrastructure power as monthly overhead, and reconciles the Helm release using
-the idempotent `kubernetes.core.helm` module with Helm Diff 3.15.10. The live
-release is deployed and healthy, all four Kubecost workloads run on `amd64-02`,
-and the final steady-state Ansible run completed with `changed=0` and
-`failed=0`. This record is `validated`; acceptance remains pending because the
-implementation commit and independent review have not yet been recorded.
+Kalaxy3 Kubecost 3.2.1 is now configured as a reproducible homelab engineering-cost model rather than an uncalibrated cloud-cost installation. Version-controlled Ansible inputs calculate and render custom CPU, RAM, GPU, storage, network, and shared-overhead values; persistent node labels describe hardware, cost, role, GPU, storage, and on-premises topology; the Kubecost network-cost DaemonSet runs on all seven Linux nodes and exports pod-level ingress and egress byte counters; and a fixed `$20.00/month` ISP allocation is represented as shared monthly overhead rather than a fabricated usage-based per-GiB rate. A fixed-window API comparison proved that increasing monthly shared overhead from `$8.41` to `$28.41` increased the same 24-hour allocation by `$0.657530`, matching the expected `$0.657534` within `$0.000004` of rounding. The final Ansible rerun completed with `ok=37`, `changed=0`, and `failed=0`. This record is `validated`, not `accepted`, because the implementation commit SHA and independent reviewer acceptance remain pending and because several cost inputs remain engineering assumptions rather than accounting-grade measurements.
 
 ## Five Ws and How
 
 | Requirement | Answer |
 |---|---|
-| **Who** | **Owner and operator:** Don Buddenbaum. **Evidence-record author:** ChatGPT, using terminal evidence supplied by Don Buddenbaum. **Reviewer:** pending. **Affected users:** the Kalaxy3 operator and future users of Kubecost engineering-cost evidence. |
-| **What** | Added an inventory-driven Kubecost cost-calibration model; persistent node metadata; shared-power allocation; generated custom CPU, RAM, storage, GPU, network, and shared-overhead values; tagged Kubecost-only Ansible execution; idempotent Helm management; and Helm Diff installation. Applied the calibrated values to the live Kubecost release. |
-| **When** | **Implementation and evidence collection:** July 24, 2026, approximately 22:08-23:40 CDT (`UTC-05:00`). **Final idempotency proof:** July 24, 2026 at approximately 23:38 CDT. **Record created:** July 25, 2026 at 00:03:40 CDT. **Valid as of:** July 24, 2026. **Review due:** on material hardware, power, electricity-rate, storage, Kubecost-chart, or calibration-code change. |
-| **Where** | **Environment:** Kalaxy3 homelab. **Cluster:** `kalaxy3`. **Execution host:** `donb-mac-mini`. **Ansible/Helm controller:** `arm64-01`. **Kubecost workload node:** `amd64-02`. **Namespace:** `kubecost`. **Frontend address:** `192.168.2.26`. **Repository:** `donb4iu/Kalaxy3`, branch `main`. **Source paths:** `infrastructure/k3s-homelab/inventory`, `playbooks`, and `playbooks/templates`. |
-| **Why** | Kubecost was healthy but its custom prices were disabled and empty, so it could not represent Kalaxy3 hardware amortization, electricity, storage, or shared-infrastructure cost. The roadmap requires useful engineering-cost evidence to compare low-power ARM and Intel platforms and guide architecture decisions. The model also had to be rebuildable, reviewable, and idempotent rather than maintained through manual UI changes. |
-| **How** | Hardware, lifecycle, storage, and power inputs were stored in Ansible inventory; calibration tasks validate and aggregate those inputs; a Jinja template renders Kubecost values; node labels are reconciled with `kubectl label --overwrite`; the observability phase discovers eligible Kubecost nodes; and `kubernetes.core.helm` applies the base and calibration values. Helm Diff 3.15.10 provides reliable change detection. Validation included syntax checks, rendered-value inspection, live Helm-value inspection, node-label verification, workload health, normal rollout events, Helm release status, and a final no-change reconciliation. |
+| **Who** | **Owner and operator:** Don Buddenbaum. **Evidence collector:** Don Buddenbaum. **Record author:** ChatGPT, using the Kalaxy3 SAGE standard, SAGE template, prior Kubecost record, repository diffs, and terminal evidence supplied by Don Buddenbaum. **Reviewer:** pending. **Affected users:** the Kalaxy3 operator and future consumers of Kubecost engineering-cost evidence. |
+| **What** | Calibrated Kubecost custom pricing; corrected the chart path for FinOps Agent custom prices; enabled network-cost collection; replaced an invalid affinity value with a valid Kubernetes affinity object; added persistent on-premises region and zone labels to all seven nodes; kept zone, region, and internet egress unit prices at zero; added `$20.00/month` of ISP cost to shared overhead; validated raw and fully burdened allocation behavior; and proved Ansible/Helm idempotency. |
+| **When** | **Initial calibration implementation:** July 24, 2026 CDT. **Network and provider-cost implementation and evidence collection:** July 25, 2026 CDT. **Fixed-window test:** July 25, 2026, approximately 16:17–16:18 CDT. **Final idempotency proof:** July 25, 2026, approximately 16:27–16:31 CDT. **System timestamps used for the fixed window:** UTC. **Valid as of:** July 25, 2026. **Review due:** event-based. |
+| **Where** | **Environment:** Kalaxy3 homelab. **Cluster:** `kalaxy3`. **Execution host for final validation:** `donbs-imac`. **Ansible target/controller:** `arm64-01`. **Nodes:** `arm64-01` through `arm64-05`, `amd64-01`, and `amd64-02`. **Kubecost namespace:** `kubecost`. **Allocation endpoint:** `http://192.168.2.26:9090/model/allocation`. **Repository:** `donb4iu/Kalaxy3`, branch `main`. **Primary source paths:** `infrastructure/k3s-homelab/inventory/group_vars/all/kubecost-calibration.yml`, `playbooks/tasks/kubecost-calibration.yml`, `playbooks/tasks/kubecost-node-label.yml`, and `playbooks/templates/kubecost-calibration-values.yml.j2`. |
+| **Why** | Kubecost could report Kubernetes usage but could not produce trustworthy Kalaxy3 dollar evidence without local hardware, storage, power, and shared-service inputs. Network bytes also needed to be observable without falsely implying that the flat-rate ISP bill was usage-metered. The design had to remain rebuildable from Git and Ansible, distinguish measurements from assumptions, survive reruns without drift, and produce evidence suitable for future ARM-versus-Intel architecture decisions. |
+| **How** | Ansible inventory stores the cost inputs and labels. Calibration tasks validate and aggregate them, then render Helm values. `kubernetes.core.helm` applies the values with Helm Diff change detection. A network-cost DaemonSet measures pod ingress and egress bytes. Region and zone labels allow the collector to classify local traffic. Kubecost Allocation API queries produce raw and fully burdened namespace allocations. A fixed RFC3339 start/end window was used to compare two shared-overhead values against identical usage data. Rollback and rebuild operate through the same version-controlled source files and playbooks. |
 
 ### Five-W completeness gate
 
 - [x] Who is complete.
 - [x] What is complete.
 - [x] When is complete and includes timezone.
-- [x] Where is complete at both repository and runtime levels.
-- [x] Why includes rationale and tradeoffs.
+- [x] Where is complete at repository and runtime levels.
+- [x] Why includes rationale, alternatives, tradeoffs, and expected value.
 - [x] How is reproducible and verifiable.
 
 ## Scope and boundaries
 
 ### In scope
 
-- The Kalaxy3 homelab Kubecost custom-pricing model.
-- Seven priced Kubernetes nodes: five Raspberry Pi 4 nodes and two Intel nodes.
-- Hardware amortization, electricity allocation, logical storage cost, and
-  shared-infrastructure electricity.
-- Persistent Kubernetes labels describing hardware class, cost profile, node
-  role, power class, storage role, and GPU metadata.
-- Generated Helm values and live Kubecost reconciliation.
-- Ansible tag behavior required for Kubecost-only execution.
-- Idempotent Helm management and Helm Diff installation.
-- The material failed attempts that led to the accepted implementation.
+- Kubecost 3.2.1 custom price configuration for the Kalaxy3 homelab.
+- Seven Kubernetes nodes: five Raspberry Pi 4 ARM64 nodes and two AMD64 Intel nodes.
+- Blended CPU, RAM, GPU, and logical storage price rendering.
+- Shared infrastructure power overhead already calculated by the calibration model.
+- Addition of a `$20.00/month` attributable ISP allocation.
+- Network-cost DaemonSet deployment and scheduling on all seven Linux nodes.
+- Persistent Kubernetes region and zone labels for an on-premises single-region/single-zone model.
+- Pod-level ingress and egress byte metrics.
+- Raw namespace allocation, idle cost, shared namespace redistribution, fixed shared cost, and fully burdened namespace allocation.
+- Fixed-window comparison of monthly shared-cost values.
+- Failed implementation paths that materially explain the accepted design.
+- Idempotent Ansible and Helm reconciliation.
+- Rebuild, rollback, troubleshooting, risk, and revalidation guidance.
 
 ### Out of scope
 
-- Utility-bill reconciliation or accounting-grade cost certification.
-- Direct per-device power-meter measurements.
-- AWS, Azure, or other public-cloud billing integration.
-- GPU scheduling or GPU cost allocation to Kubernetes workloads.
-- Nonzero internet, region, or zone network-egress pricing.
-- Historical validation of Kubecost allocation reports after a full reporting
-  window.
-- Commit and push of the implementation and this evidence record.
-- Independent architecture or FinOps review.
+- Accounting certification, tax treatment, or Generally Accepted Accounting Principles.
+- Reconciliation to an actual ISP invoice, utility bill, purchase ledger, or depreciation schedule.
+- Router-, modem-, switch-, or provider-side WAN byte counters.
+- Packet payload capture, application protocol inspection, or security monitoring.
+- Cloud-provider billing integration.
+- Chargeback policy approval.
+- Separate GPU workload metering or GPU scheduling.
+- Per-node marginal pricing in Kubecost.
+- Long-term weekly or monthly trend stability.
+- Independent reviewer acceptance.
+- Pull-request lineage; this workflow records direct Git commits rather than a pull request.
+- Final archival checksums for every raw terminal transcript.
 
 ### Nonclaims
 
 This record does **not** claim:
 
-- that the current power allocations are precision electrical measurements;
-- that the blended cluster-wide rates represent distinct per-node marginal
-  prices;
-- that Kubecost results have been reconciled to an electric bill or purchase
-  ledger;
-- that GPUs are available to Kubernetes or separately priced;
-- that zero network-egress rates mean network traffic has no operational cost;
-- that Helm revision numbers 4 through 6 were failed releases; they were
-  intermediate successful reconciliations during idempotency correction;
-- that the implementation is accepted governance policy before review and Git
-  lineage are completed.
+- that `$20.00/month` is the objectively correct ISP allocation; it is an explicit operator-selected policy input;
+- that a fixed-rate ISP bill should be modeled as a per-GiB network price;
+- that `networkCost: 0` means network usage is absent or operationally free;
+- that Kubecost network byte counters are identical to provider-billed WAN traffic;
+- that all observed pod traffic leaves the homelab;
+- that shared cost is only the ISP allocation;
+- that `__unmounted__` is an application namespace or should be hidden;
+- that a rolling `window=24h` result can be compared safely with another query executed later;
+- that the current blended CPU, RAM, and storage rates preserve per-node economic differences;
+- that the current topology labels represent multiple physical regions or fault zones;
+- that the model is accepted governance policy before review and Git lineage are completed.
 
 ## Final accepted state
 
 ```text
-Kubecost chart:                 3.2.1
-Helm status:                    deployed
-Final observed Helm revision:   7
-CPU custom price:               0.95500000 per core-month
-RAM custom price:               0.12074713 per GiB-month
-GPU custom price:               0.00000000
-Storage custom price:           0.00076190 per GB-month
-Shared overhead:                8.41 per month
-Network-cost component:         enabled
-Network egress rates:           0.0
-Kubecost workload placement:    amd64-02
-Kubecost pods ready:            4 of 4
-Kubecost pod restarts:          0
-Helm Diff version:              3.15.10
-Steady-state Ansible result:    ok=30 changed=0 failed=0
-Implementation commit:          pending
-Reviewer:                       pending
+Kubecost chart:                    3.2.1
+K3s/Kubernetes:                    v1.36.2+k3s1
+Priced nodes:                      7
+Network-cost collectors:          7 desired / 7 current / 7 ready
+Network-cost image:               icr.io/kubecost/network-costs:v0.19.0
+Topology region:                   kalaxy3-home
+Topology zone:                     kalaxy3-lan
+Network byte metrics:              ingress and egress counters present
+Zone egress unit price:            $0.00000000/GiB
+Region egress unit price:          $0.00000000/GiB
+Internet egress unit price:        $0.00000000/GiB
+Prior shared monthly overhead:     $8.41
+ISP allocation added:              $20.00/month
+Current shared monthly overhead:   $28.41
+Fixed allocation window:           2026-07-24T21:17:00Z to 2026-07-25T21:17:00Z
+Total with $8.41/month:            $60.822290
+Total with $28.41/month:           $61.479820
+Observed 24-hour increase:         $0.657530
+Expected 24-hour increase:         $0.657534
+Rounding difference:               $0.000004
+Final Ansible recap:               ok=37 changed=0 unreachable=0 failed=0
+Implementation commit:             d1d1339b4a3e54030f39bb0900e8e0934aa445c7
+Reviewer:                          pending
 ```
 
 | Item | Accepted result |
 |---|---|
-| Custom pricing | Enabled in the live Kubecost release. |
-| CPU price | `0.95500000` per core-month. |
-| RAM price | `0.12074713` per GiB-month. |
-| Storage price | `0.00076190` per logical GB-month. |
-| GPU price | `0.00000000`; GPU scheduling and separate GPU pricing remain disabled. |
-| Shared overhead | `$8.41` per month, derived from `72 W`, `730` hours/month, and `$0.16/kWh`. |
-| Network costs | Component enabled with on-prem affinity override; all configured egress rates remain `0.0`. |
-| Node metadata | All seven nodes carry persistent Kalaxy3 hardware and cost labels. |
-| Workload health | Aggregator, FinOps Agent, frontend, and local store are ready on `amd64-02` with zero restarts. |
-| Helm reconciliation | Managed by `kubernetes.core.helm`; Helm Diff 3.15.10 prevents false-positive changes. |
-| Repeatability | Final targeted run completed with `changed=0` and did not require a new Helm revision. |
+| Custom pricing path | Rendered under `finopsagent.agent.kubecost.customPrices`, matching the chart structure used by the live release. |
+| Network measurement | Enabled and scheduled on all seven Linux nodes. |
+| Network pricing | All unit prices remain zero because the provider charge is modeled as fixed monthly overhead. |
+| Provider allocation | `$20.00/month` added to shared overhead, producing `$28.41/month` total. |
+| Topology classification | All nodes labeled `region=kalaxy3-home` and `zone=kalaxy3-lan`; local traffic can be classified as same-region and same-zone. |
+| Allocation API | Raw and fully burdened namespace results returned HTTP 200 and reconciled when all adjustment fields were included. |
+| Shared-cost behavior | Fixed monthly share cost is prorated into the requested time window and distributed with shared namespace and idle sharing rules. |
+| Fixed-window proof | The same 24-hour usage window showed the expected `$20/month` proration delta within rounding. |
+| Idempotency | The immediate steady-state rerun reported `changed=0` and `failed=0`. |
+| Governance state | Technical validation passed; commit and independent review remain pending. |
 
 ## Claims and evidence matrix
 
 | Claim ID | Claim | Criticality | Evidence IDs | Result | Confidence |
 |---|---|---|---|---|---|
-| `CLM-001` | The calibration inputs are populated and pass Ansible validation for all seven priced nodes and four storage profiles. | high | `EV-001`, `EV-002` | supported | high |
-| `CLM-002` | The generated Kubecost values contain the intended CPU, RAM, storage, GPU, shared-overhead, and network settings with correct YAML types. | critical | `EV-003` | supported | high |
-| `CLM-003` | The live Kubecost release uses the generated custom prices and shared overhead. | critical | `EV-004` | supported | high |
-| `CLM-004` | Persistent Kalaxy3 node labels describe all seven nodes and survive repeat reconciliation. | high | `EV-005`, `EV-008` | supported | high |
-| `CLM-005` | Kubecost remained healthy after the calibrated rollout and all workloads ran on `amd64-02`. | critical | `EV-006` | supported | high |
-| `CLM-006` | Kubecost-only Ansible execution now reaches the required eligibility, calibration, and Helm tasks. | high | `EV-007` | supported | high |
-| `CLM-007` | Helm reconciliation is idempotent after installing Helm Diff 3.15.10. | critical | `EV-008`, `EV-009` | supported | high |
-| `CLM-008` | The power and shared-cost inputs are useful engineering estimates but are not precision measurements. | high | `EV-001`, `EV-010` | supported | medium |
-| `CLM-009` | The implementation is ready for Git commit but the commit SHA and review are not yet available. | normal | `EV-011` | partially-supported | high |
+| `CLM-001` | Kubecost receives calibrated custom CPU, RAM, GPU, storage, and network prices from version-controlled Ansible/Jinja sources. | critical | `EV-001`, `EV-002`, `EV-013` | supported | high |
+| `CLM-002` | The live shared monthly overhead is `$28.41`, consisting of the prior `$8.41` plus a `$20.00` provider allocation. | critical | `EV-003`, `EV-008`, `EV-009` | supported | high |
+| `CLM-003` | The network-cost DaemonSet runs one ready collector on each of the seven Kalaxy3 nodes. | critical | `EV-004`, `EV-005` | supported | high |
+| `CLM-004` | Persistent region and zone labels allow the on-premises collectors to classify local traffic without cloud-provider topology discovery. | high | `EV-005`, `EV-006`, `EV-013` | supported | high |
+| `CLM-005` | Pod-level ingress and egress byte counters are being exported. | critical | `EV-006` | supported | high |
+| `CLM-006` | Network monetary cost remains zero because all configured per-GiB rates are zero, even while bytes are measured. | high | `EV-001`, `EV-006`, `EV-007` | supported | high |
+| `CLM-007` | Raw namespace allocation results reconcile only when adjustments are included with CPU, RAM, PV, network, shared, and total fields. | high | `EV-007` | supported | high |
+| `CLM-008` | Kubecost correctly prorates an additional `$20.00/month` shared cost into a fixed 24-hour window. | critical | `EV-009` | supported | high |
+| `CLM-009` | A moving `window=24h` comparison can be misleading because the underlying usage window changes between queries. | high | `EV-010`, `EV-009` | supported | high |
+| `CLM-010` | Shared cost in a fully burdened response includes redistributed idle/shared-namespace cost and is not synonymous with the ISP allocation. | high | `EV-007`, `EV-010` | supported | medium |
+| `CLM-011` | The final Ansible and Helm implementation is idempotent. | critical | `EV-011`, `EV-012` | supported | high |
+| `CLM-012` | The original empty-string affinity approach was invalid because Kubernetes expected an affinity object. | high | `EV-014` | supported | high |
+| `CLM-013` | The cost model is useful for engineering comparison but remains dependent on explicit hardware, power, lifecycle, and provider-allocation assumptions. | critical | `EV-001`, `EV-015` | supported | medium |
+| `CLM-014` | The implementation is not yet an accepted SAGE source of truth because commit and reviewer lineage remain pending. | normal | `EV-016` | supported | high |
 
 ## Problem and decision rationale
 
 ### Problem or opportunity
 
-Before this work, the installed Kubecost release was healthy but the effective
-Helm values showed:
+Kubecost was installed and operational, but installation alone did not make its dollar outputs representative of Kalaxy3. The homelab owns its hardware, uses local storage, consumes household electricity, and pays a flat-rate internet bill. Public-cloud default pricing, empty custom-price fields, or manual UI settings would not represent that environment or survive a rebuild.
 
-```yaml
-customPrices:
-  CPU: ""
-  GPU: ""
-  RAM: ""
-  enabled: false
-  storage: ""
+Network accounting introduced a separate modeling problem. Kalaxy3 needs visibility into pod ingress and egress bytes, but the ISP bill is not usage-metered. Assigning an arbitrary internet egress price per GiB would create a false causal relationship between traffic volume and provider cost. Conversely, leaving the network-cost component disabled would hide a useful operational dimension.
 
-sharedNamespaces: ""
-sharedOverhead: 0
+The solution therefore had to answer two distinct questions:
 
-networkCosts:
-  enabled: false
-```
+1. **How much network traffic do workloads generate?**
+2. **How should a fixed monthly provider bill be allocated?**
 
-Kubecost could therefore report Kubernetes allocation and relative utilization,
-but it did not have Kalaxy3-specific dollar values for hardware amortization,
-electricity, storage, or shared infrastructure. This was a direct gap against
-the Kalaxy3 roadmap requirement to produce useful engineering cost evidence
-before comparing future control-plane and compute platforms.
+Those questions require different mechanisms.
 
 ### Decision
 
-Use Ansible inventory as the source of truth for Kalaxy3 cost inputs, calculate
-blended cluster-wide Kubecost rates deterministically, render those rates into a
-separate Helm values file, and apply the values through an idempotent Helm
-module. Keep provisional power assumptions explicit and separate from directly
-observed runtime evidence.
+- Use the Kubecost network-cost collector to measure pod-level ingress and egress bytes.
+- Keep all zone, region, and internet egress unit prices at `$0.00/GiB`.
+- Represent the attributable ISP share as fixed monthly `sharedOverhead`.
+- Persist on-premises region and zone labels through Ansible.
+- Compare cost-model changes only on identical fixed windows.
+- Keep all cost and topology inputs version-controlled and reproducible.
+- Preserve visible unattributed cost such as `__unmounted__` rather than concealing it.
 
 ### Decision drivers
 
+- Accuracy of economic meaning.
+- Separation of measurement from pricing policy.
 - Rebuildability from Git and Ansible.
-- Traceability from hardware assumptions to generated prices.
-- Explicit validation of missing or malformed values.
-- No dependence on manual Kubecost UI configuration.
-- Compatibility with the existing Kubecost 3.2.1 deployment.
-- Ability to refine purchase, residual, power, and lifecycle assumptions later
-  without rewriting the deployment workflow.
-- Persistent node metadata for architecture, capacity, storage, and future
-  FinOps grouping.
-- True Ansible and Helm idempotency.
+- Deterministic rendering of Helm values.
+- Compatibility with Kubecost 3.2.1.
+- Avoidance of cloud-only topology assumptions.
+- Ability to distinguish raw allocation from fully burdened allocation.
+- Evidence suitable for architecture comparisons.
+- Idempotent operational behavior.
+- Explicit limitations rather than false precision.
 
 ### Alternatives considered
 
 | Alternative | Advantages | Disadvantages or risks | Decision |
 |---|---|---|---|
-| Leave custom pricing disabled | No additional implementation work | Kubecost cannot provide Kalaxy3-specific dollar evidence | rejected |
-| Maintain prices manually in the Kubecost UI | Fast initial entry | Not rebuildable, not reviewable in Git, and vulnerable to drift | rejected |
-| Patch Kubecost pricing ConfigMaps directly | Direct runtime control | Conflicts with Helm ownership and had already produced invalid-field behavior in earlier work | rejected |
-| Use public-cloud list prices | Easy external reference | Does not represent owned homelab hardware, residual values, or local electricity | rejected |
-| Measure every device with dedicated power meters | Highest measurement quality | Additional hardware and collection process were not available during this work | deferred |
-| Use shell `helm upgrade` with forced `changed_when: true` | Familiar and simple | Every run reports changed and creates unnecessary revisions | rejected |
-| Use `kubernetes.core.helm` without Helm Diff | Declarative module | Module warned that default idempotency detection could still report false changes | superseded |
-| Use `kubernetes.core.helm` with Helm Diff 3.15.10 | Declarative, version-pinned, and idempotent | Adds a managed Helm plugin dependency | accepted |
+| Leave network-cost disabled | Simpler deployment | No pod-level network evidence | rejected |
+| Enable network-cost and invent a per-GiB ISP rate | Produces nonzero network dollar fields | Misrepresents a flat-rate bill and can over- or under-allocate cost based on traffic | rejected |
+| Enable network-cost with zero unit prices and add fixed provider cost to shared overhead | Separates byte measurement from fixed-cost allocation | Shared cost is less directly intuitive and requires explanation | accepted |
+| Use the chart's default topology affinity | Minimal override work | Expected cloud region/zone labels and did not fit the on-premises cluster | rejected |
+| Set `affinity: ""` to disable chart affinity | Concise | Renders a string where Kubernetes requires an `Affinity` object; Helm upgrade fails | rejected |
+| Use `affinity: {}` | Valid YAML object | Less explicit than the accepted Linux scheduling rule | superseded |
+| Use a valid Linux node-affinity object | Type-safe, explicit, permits every Linux Kalaxy3 node | Must be maintained if non-Linux nodes are added | accepted |
+| Apply topology labels manually only | Fast recovery | Not rebuildable and vulnerable to drift | rejected |
+| Persist labels through Ansible | Reproducible and self-healing | Current values are hardcoded for one site and one zone | accepted |
+| Compare repeated `window=24h` queries | Convenient | Windows move and underlying allocation changes | rejected for validation |
+| Compare explicit RFC3339 start/end windows | Identical usage basis and reproducible delta | Requires slightly more scripting | accepted |
+| Hide `__unmounted__` | Cleaner report | Conceals unattributed storage cost and weakens governance | rejected |
+| Leave `__unmounted__` visible and investigate it | Preserves cost accountability | Adds an exception that must be managed | accepted |
 
 ### Tradeoffs and consequences
 
-- The model is transparent and reproducible but depends on the quality of its
-  inventory assumptions.
-- Blended prices fit the current deployment but hide per-node cost differences.
-- Shared overhead captures non-Kubernetes infrastructure without falsely
-  assigning it to a single node, but the allocation is approximate.
-- GPU hardware is included in whole-node acquisition and power assumptions,
-  while separate GPU pricing remains zero because Kubernetes GPU scheduling is
-  not enabled.
-- Enabling the network-cost component improves future visibility, but configured
-  egress rates remain zero and therefore do not create dollar network charges.
-- Applying Helm values restarted Kubecost workloads. The rollout was healthy,
-  but reconciliation should still be treated as a controlled operational
-  change.
+- Network usage is visible, but network dollar cost remains zero by design.
+- Provider cost is allocated consistently, but the selected `$20.00/month` share is a policy assumption.
+- Shared-cost distribution can concentrate heavily on the few namespaces not designated as shared.
+- In the observed fully burdened sample, MinIO received nearly all distributed cost because it was the dominant non-shared workload.
+- `__unmounted__` also received shared cost; this is mechanically consistent but operationally undesirable because it represents unattributed storage.
+- Fixed-window comparisons are methodologically sound but require exact UTC timestamps and retained query parameters.
+- Blended CPU/RAM/storage prices are useful for cluster-level engineering decisions but hide node-specific marginal economics.
+- Topology labels improve classification but currently describe a single logical home region and LAN zone, not independent physical fault domains.
+- Helm reconciliation can restart Kubecost workloads; changes should be treated as controlled operational events.
 
 ## Architecture or change description
 
 ```text
-Version-controlled cost inputs
+Version-controlled engineering-cost inputs
+  inventory/group_vars/all/kubecost-calibration.yml
+  inventory/host_vars/<node>.yml
+        |
+        v
+Ansible calibration and validation
+  playbooks/tasks/kubecost-calibration.yml
+  playbooks/tasks/kubecost-node-label.yml
+        |
+        +--> persistent node hardware/cost/topology labels
+        |
+        v
+Rendered Helm values
+  /tmp/kalaxy3-kubecost-calibration-values.yaml
+        |
+        v
+kubernetes.core.helm + Helm Diff
+        |
+        v
+Kubecost 3.2.1
+  - FinOps Agent custom prices
+  - shared namespaces
+  - shared monthly overhead
+  - network-cost DaemonSet
+  - Allocation API
+        |
+        +--> pod ingress/egress byte counters
+        |
+        +--> raw namespace allocation
+        |
+        +--> shareIdle + shareNamespaces + shareCost
+                |
+                v
+          fully burdened namespace allocation
+```
 
-inventory/group_vars/all/kubecost-calibration.yml
-inventory/host_vars/arm64-01.yml ... arm64-05.yml
-inventory/host_vars/amd64-01.yml ... amd64-02.yml
-                 |
-                 v
-playbooks/tasks/kubecost-calibration.yml
-  - validate node and storage inputs
-  - aggregate monthly compute cost
-  - aggregate logical storage cost
-  - calculate blended CPU/RAM/storage prices
-  - calculate shared monthly overhead
-  - apply persistent node labels
-                 |
-                 v
-/tmp/kalaxy3-kubecost-calibration-values.yaml
-                 |
-      base values + calibration values
-                 |
-                 v
-kubernetes.core.helm + Helm Diff 3.15.10
-                 |
-                 v
-Kubecost release in namespace kubecost
-  - aggregator      -> amd64-02
-  - finopsagent     -> amd64-02
-  - frontend        -> amd64-02
-  - local-store     -> amd64-02
-  - Longhorn-backed persistent storage
-  - MetalLB frontend address 192.168.2.26
+### Cost and traffic semantics
+
+```text
+Network measurement:
+pod traffic -> network-cost collectors -> byte counters
+
+Network pricing:
+byte counters × $0.00/GiB -> $0 networkCost
+
+Fixed ISP allocation:
+$20.00/month -> sharedOverhead -> prorated to query window
+             -> distributed with shareIdle/shareNamespaces/shareSplit rules
 ```
 
 ### Before
 
-- Custom prices were disabled and empty.
-- Shared namespaces were empty and shared overhead was zero.
-- Network costs were disabled.
-- Cost metadata and power inputs were not consistently represented for all
-  nodes.
-- Targeted `--tags kubecost` execution initially did not reach the complete task
-  chain.
-- The Helm command always reported changed.
+- Network-cost was disabled or could not be reconciled correctly.
+- The first affinity override rendered as a string and was rejected by Kubernetes.
+- Nodes lacked the region and zone labels needed for clean traffic classification.
+- Collector logs reported that the local node region could not be located and that traffic could not be classified.
+- Provider cost was not represented in the shared monthly overhead.
+- Repeated rolling 24-hour queries were initially compared as if they represented the same data.
+- The earlier SAGE record ended before network byte evidence, provider allocation, and fixed-window validation were complete.
 
 ### After
 
-- Inventory contains node, storage, power, lifecycle, residual-value, and label
-  inputs.
-- Calibration tasks validate and calculate all required Kubecost values.
-- Custom pricing is enabled in the live release.
-- Shared namespaces and `$8.41` monthly shared overhead are configured.
-- Network-cost collection is enabled with an on-prem affinity override.
-- Persistent labels are present on all seven nodes.
-- Targeted Kubecost runs execute only the required observability subpath.
-- Helm Diff provides a no-change steady state.
+- `networkCosts.enabled` is rendered from the calibration source.
+- A valid Linux node-affinity object allows one collector on every Kalaxy3 node.
+- Ansible persists `topology.kubernetes.io/region=kalaxy3-home` and `topology.kubernetes.io/zone=kalaxy3-lan`.
+- Collector classification errors were cleared after labeling and restart.
+- Pod ingress and egress counters are present.
+- All configured network unit prices remain zero.
+- `$20.00/month` is added to shared overhead, producing `$28.41/month`.
+- Fixed-window validation proves the expected proration.
+- Final Ansible reconciliation is idempotent.
 
 ## Source of truth and implementation lineage
 
@@ -363,248 +396,187 @@ infrastructure/k3s-homelab/playbooks/tasks/kubecost-calibration.yml
 infrastructure/k3s-homelab/playbooks/tasks/kubecost-node-label.yml
 infrastructure/k3s-homelab/playbooks/templates/kubecost-calibration-values.yml.j2
 markdown/installation/kalaxy3-kubecost-calibration-sage-evidence.md
-```
-
-The original global variable file was moved so Ansible could load multiple
-files for the `all` group without a file/directory collision:
-
-```text
-inventory/group_vars/all.yml
-  -> inventory/group_vars/all/main.yml
+markdown/evidence-artifacts/SAGE-K3-FINOPS-20260724-001/terminal-evidence-20260725.md
 ```
 
 ### Implementation commit
 
 ```text
-Pending. The working tree contained the intended Kubecost calibration changes,
-but no commit SHA was captured before this record was generated.
+Commit: d1d1339b4a3e54030f39bb0900e8e0934aa445c7
+Message: Validate Kubecost network and provider cost allocation
+
+Implementation scope:
+- infrastructure/k3s-homelab/inventory/group_vars/all/kubecost-calibration.yml
+- infrastructure/k3s-homelab/playbooks/tasks/kubecost-node-label.yml
+- infrastructure/k3s-homelab/playbooks/templates/kubecost-calibration-values.yml.j2
 ```
 
 ### Versioned dependencies
 
 | Component/tool | Version | Source |
 |---|---:|---|
-| Kubecost chart | `3.2.1` | `oci://public.ecr.aws/kubecost/kubecost` |
-| Helm Diff | `3.15.10` | `https://github.com/databus23/helm-diff` |
-| K3s/Kubernetes | `v1.36.2+k3s1` | observed node output |
-| FinOps Agent image | `v1.0.20` | `icr.io/ibm-finops/agent` from existing Kubecost base values |
-| Ansible | not captured | evidence gap |
-| Helm client | not captured | evidence gap |
-| `kubernetes.core` collection | not captured | evidence gap |
+| Kubecost chart | `3.2.1` | live Helm release and prior repository evidence |
+| Network-cost image | `v0.19.0` | observed DaemonSet image |
+| K3s/Kubernetes | `v1.36.2+k3s1` | observed cluster baseline |
+| Helm Diff | `3.15.10` | prior calibration evidence |
+| FinOps Agent | `v1.0.20` in prior evidence | existing Kubecost base values; revalidation recommended on chart upgrade |
+| Ansible client | not captured in final transcript | evidence gap |
+| Helm client | not captured in final transcript | evidence gap |
+| `kubernetes.core` collection | not captured in final transcript | evidence gap |
 
 ### Configuration excerpt
 
 ```yaml
 kubecost_calibration:
-  electricity_rate_usd_per_kwh: 0.16
-  hours_per_month: 730
-
-  compute:
-    cpu_cost_share: 0.60
-    ram_cost_share: 0.40
-    fixed_monthly_overhead_usd: 0.00
-
-  gpu:
-    pricing_enabled: false
-
   shared:
-    monthly_overhead_usd: 0.00
+    monthly_overhead_usd: 20.00
     average_watts: 72.00
-    power_accounting:
-      method: ups-load-allocation
-      confidence: medium-low
-      measured: false
-      source_ups: cyberpower1500
-      source_total_watts: 162.00
-      raspberry_pi_nodes_watts: 90.00
-      nfs_server_watts: 35.00
-      switch_2_5gbe_watts: 10.00
-      switch_10gbe_watts: 22.00
-      hdmi_kvm_watts: 5.00
-    namespaces:
-      - kube-system
-      - kubecost
-      - longhorn-system
-      - metallb-system
-      - observability
-      - storage
 
   network:
     enabled: true
-    internet_egress_usd_per_gb: 0.00
-    region_egress_usd_per_gb: 0.00
     zone_egress_usd_per_gb: 0.00
+    region_egress_usd_per_gb: 0.00
+    internet_egress_usd_per_gb: 0.00
 ```
-
-Representative node power inputs:
-
-```yaml
-# arm64-01 through arm64-05
-average_watts: 18
-
-# amd64-01
-average_watts: 92
-
-# amd64-02
-average_watts: 68
-```
-
-Representative storage inputs:
-
-```yaml
-longhorn:
-  purchase_price_usd: 120.00
-  residual_value_usd: 60.00
-  useful_life_months: 60
-  average_watts: 0.00
-  raw_capacity_gb: 2000
-  replication_factor: 2
-
-minio_local:
-  purchase_price_usd: 120.00
-  residual_value_usd: 0.00
-  useful_life_months: 60
-  average_watts: 0.00
-  raw_capacity_gb: 5000
-  replication_factor: 1.25
-
-nfs_ssd:
-  purchase_price_usd: 120.00
-  residual_value_usd: 60.00
-  useful_life_months: 60
-  average_watts: 0
-  raw_capacity_gb: 1000
-  replication_factor: 1
-
-nfs_hdd:
-  purchase_price_usd: 1000.00
-  residual_value_usd: 600.00
-  useful_life_months: 60
-  average_watts: 0
-  raw_capacity_gb: 8000
-  replication_factor: 1
-```
-
-Generated values excerpt:
 
 ```yaml
 finopsagent:
-  kubecost:
-    customPrices:
-      enabled: true
-      CPU: "0.95500000"
-      RAM: "0.12074713"
-      GPU: "0.00000000"
-      storage: "0.00076190"
-      spotCPU: "0.95500000"
-      spotRAM: "0.12074713"
-      spotGPU: "0.00000000"
-      zoneNetworkEgress: "0.0"
-      regionNetworkEgress: "0.0"
-      internetNetworkEgress: "0.0"
-
-kubecostProductConfigs:
-  sharedNamespaces: >-
-    kube-system,kubecost,longhorn-system,metallb-system,observability,storage
-  sharedOverhead: "8.41"
+  agent:
+    kubecost:
+      customPrices:
+        enabled: true
+        CPU: >-
+          {{ '%.8f' | format(kubecost_cpu_core_month_usd | float) }}
+        RAM: >-
+          {{ '%.8f' | format(kubecost_ram_gib_month_usd | float) }}
+        GPU: >-
+          {{ '%.8f' | format(kubecost_gpu_month_usd | float) }}
+        storage: >-
+          {{ '%.8f' | format(kubecost_storage_gb_month_usd | float) }}
+        zoneNetworkEgress: >-
+          {{
+            '%.8f'
+            | format(
+                kubecost_calibration.network.zone_egress_usd_per_gb
+                | float
+              )
+          }}
+        regionNetworkEgress: >-
+          {{
+            '%.8f'
+            | format(
+                kubecost_calibration.network.region_egress_usd_per_gb
+                | float
+              )
+          }}
+        internetNetworkEgress: >-
+          {{
+            '%.8f'
+            | format(
+                kubecost_calibration.network.internet_egress_usd_per_gb
+                | float
+              )
+          }}
 
 networkCosts:
-  enabled: true
-  affinity: {}
+  enabled: >-
+    {{
+      kubecost_calibration.network.enabled
+      | bool
+      | ternary('true', 'false')
+    }}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                  - linux
+```
+
+```yaml
+- name: Apply Kubecost topology labels to {{ kubecost_node_name }}
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - label
+      - node
+      - "{{ kubecost_node_name }}"
+      - topology.kubernetes.io/region=kalaxy3-home
+      - topology.kubernetes.io/zone=kalaxy3-lan
+      - --overwrite
+  environment:
+    KUBECONFIG: "{{ kalaxy3_kubeconfig }}"
+  register: kubecost_topology_label_command
+  changed_when: >-
+    'not labeled' not in kubecost_topology_label_command.stdout
 ```
 
 ## Prerequisites and assumptions
 
 ### Proven prerequisites
 
-- Kubecost 3.2.1 was already deployed in namespace `kubecost`.
-- All Kubecost pods were already constrained to the eligible AMD64 node.
-- Both Intel nodes and all five Pi nodes were `Ready`.
-- Longhorn provided Kubecost persistent storage.
-- `arm64-01` could execute Ansible, `kubectl`, and Helm against the cluster.
-- Node and storage calibration records were populated sufficiently for all
-  validation assertions to pass.
-- The `kubernetes.core` collection was available because both
-  `kubernetes.core.helm` and `kubernetes.core.helm_plugin` executed
-  successfully.
+- The kubeconfig used from `donbs-imac` reached the Kalaxy3 API through the kube-vip endpoint.
+- All seven nodes were joined and available to Ansible and Kubernetes.
+- Kubecost 3.2.1 was installed and reachable at `192.168.2.26:9090`.
+- The calibration inventory passed assertions for all seven nodes and four storage profiles.
+- Helm Diff was installed and available to the Helm module.
+- The Kubecost Allocation API returned HTTP 200 for raw and fully burdened queries.
+- `jq`, `curl`, `awk`, `helm`, `kubectl`, `ansible-playbook`, and macOS `date` were available on the execution host.
 
 ### Assumptions
 
 | Assumption ID | Assumption | Risk if false | Validation plan |
 |---|---|---|---|
-| `ASM-001` | The electricity rate is `$0.16/kWh`. | All electricity-derived costs are biased. | Replace with the current blended utility rate and rerun calibration. |
-| `ASM-002` | `730` hours is an appropriate average month. | Small monthly cost variance. | Retain as an annualized average or use a reporting-period-specific hour count. |
-| `ASM-003` | Five Pi systems consume an allocated `18 W` each, including attached boot and data enclosures. | ARM compute power cost is overstated or understated. | Measure each Pi system with a plug-level meter. |
-| `ASM-004` | Intel UPS load can be allocated as `92 W` to `amd64-01` and `68 W` to `amd64-02`. | Intel blended compute cost is biased. | Capture per-node power under idle and representative load. |
-| `ASM-005` | Shared rack power is reasonably represented by `72 W`. | Shared overhead is biased. | Measure NFS server, switches, and KVM independently. |
-| `ASM-006` | Storage-device power is already included in node or shared allocations and must remain `0` in storage profiles to avoid double counting. | Cost is double counted or omitted. | Confirm electrical boundaries whenever storage hardware or UPS wiring changes. |
-| `ASM-007` | Residual values and 60-month useful lives represent reasonable engineering depreciation assumptions. | Monthly amortization is biased. | Review against actual resale value and replacement history annually. |
-| `ASM-008` | Separate GPU pricing should remain zero while GPUs are not Kubernetes-schedulable. | Future GPU workloads may be underallocated. | Enable GPU pricing only after the device plugin, scheduling, and workload requests are validated. |
+| `ASM-001` | `$20.00/month` is a reasonable share of the household ISP bill attributable to Kalaxy3. | Fully burdened costs are over- or understated. | Record provider bill, allocation rationale, and review when bill or usage changes. |
+| `ASM-002` | `730` hours is an acceptable average month for proration. | Small monthly-to-daily differences compared with calendar-month accounting. | Compare with actual calendar days if accounting precision is required. |
+| `ASM-003` | Existing node purchase prices, residual values, useful lives, and power assumptions remain reasonable. | CPU/RAM/storage rates become stale or biased. | Revalidate after hardware, power-meter, electricity-rate, or lifecycle changes. |
+| `ASM-004` | All current Kalaxy3 nodes belong to one logical region and one logical LAN zone. | Same-zone classification could hide actual fault-domain or network-cost differences. | Introduce distinct labels if the cluster spans rooms, buildings, sites, or routed segments. |
+| `ASM-005` | Kubecost network counters are sufficient for workload engineering evidence. | They may not reconcile to WAN billing, NAT, retransmission, router, or provider counters. | Compare against router/modem/provider telemetry if available. |
+| `ASM-006` | The selected shared namespaces represent platform services that should be redistributed to consuming workloads. | Application costs may be shifted incorrectly. | Review namespace policy before chargeback or showback publication. |
+| `ASM-007` | Weighted sharing is appropriate for the current workload mix. | MinIO or another dominant workload may receive nearly all shared cost. | Compare weighted, even, and explicit allocation policies. |
+| `ASM-008` | The chart's current `shareCost` semantics continue to treat the supplied value as monthly and prorate it into the query window. | Future chart/API changes could invalidate the formula. | Repeat fixed-window delta validation after every Kubecost upgrade. |
 
-The assumptions are material to dollar precision. They do not prevent the
-technical deployment from being validated, but they keep the overall cost-model
-confidence at `medium` rather than `high`.
+Material assumptions prevent `accepted` status unless the owner and reviewer explicitly accept the residual risk.
 
 ## Implementation procedure
 
 ### Preparation
 
-The existing live Helm state was backed up before applying calibration:
+Locate the source of fixed and network costs:
 
 ```bash
 cd ~/dvlp/Kalaxy3/infrastructure/k3s-homelab
 
-mkdir -p /tmp/kalaxy3-kubecost-backup
-
-if helm status kubecost -n kubecost >/dev/null 2>&1; then
-  helm get values kubecost \
-    -n kubecost \
-    --all \
-    > /tmp/kalaxy3-kubecost-backup/values-before-calibration.yaml
-
-  helm status kubecost \
-    -n kubecost \
-    > /tmp/kalaxy3-kubecost-backup/status-before-calibration.txt
-fi
+grep -RInE \
+  'shared.*overhead|fixed_monthly|monthly_overhead|internet|provider|isp' \
+  inventory \
+  group_vars \
+  host_vars \
+  playbooks \
+  2>/dev/null
 ```
 
-The backup is operationally useful but temporary because `/tmp` is not a
-durable evidence store.
-
-### Calibration-only execution
+Confirm the live pre-change shared overhead:
 
 ```bash
-ansible-playbook \
-  -i inventory/hosts.yml \
-  playbooks/kubecost-calibration-only.yml
+helm get values kubecost \
+  -n kubecost \
+  -o json |
+jq -r '.kubecostProductConfigs.sharedOverhead'
 ```
 
-This execution validated inputs, calculated prices, reconciled node labels, and
-rendered:
+### Execution
 
-```text
-/tmp/kalaxy3-kubecost-calibration-values.yaml
-```
-
-It intentionally did not perform a live Helm upgrade.
-
-### Rendered-value inspection
-
-```bash
-ansible arm64-01 \
-  -i inventory/hosts.yml \
-  --become \
-  --module-name ansible.builtin.fetch \
-  --args \
-  "src=/tmp/kalaxy3-kubecost-calibration-values.yaml \
-   dest=/tmp/kalaxy3-kubecost-calibration-values.yaml \
-   flat=yes"
-```
-
-A Python YAML parse confirmed the generated values and the Boolean type of
-`networkCosts.enabled`.
-
-### Live execution
+1. Set `shared.monthly_overhead_usd: 20.00` in `inventory/group_vars/all/kubecost-calibration.yml`.
+2. Correct and preserve `finopsagent.agent.kubecost.customPrices`.
+3. Keep network unit prices driven by calibration variables and currently set to zero.
+4. Enable network costs from the calibration source.
+5. Render a valid Linux node-affinity object.
+6. Add persistent topology labels through Ansible.
+7. Apply the targeted Kubecost phase:
 
 ```bash
 ansible-playbook \
@@ -614,837 +586,729 @@ ansible-playbook \
   --extra-vars install_kubecost=true
 ```
 
-`install_kubecost=true` was provided as an execution-time override. The
-inventory value remained `false` at the time of evidence capture.
+8. Verify the live shared overhead.
+9. Query raw and fully burdened allocation data.
+10. Compare the old and new overhead against one fixed window.
+11. Rerun Ansible to prove convergence.
 
 ### Expected change
 
-- Validate all cost inputs.
-- Render the same calibration values already inspected.
-- Apply persistent node labels.
-- Install Helm Diff when absent.
-- Reconcile the Kubecost release.
-- Restart workloads only when values materially changed.
-- Converge with no changes on a later identical execution.
+- Helm values and the release change once.
+- `sharedOverhead` becomes `28.41`.
+- The network-cost DaemonSet has seven ready pods.
+- Topology classification errors disappear.
+- Network byte metrics appear.
+- Monetary network cost remains zero.
+- The fixed-window difference equals `$20 × 24 / 730`.
+- A second Ansible run reports no changes.
 
 ### Observed change
 
-- The first accepted calibration-only run applied missing node labels and
-  rendered the values file.
-- The live release changed from uncalibrated values to calibrated values.
-- Kubecost workloads rolled and returned to `Ready` on `amd64-02`.
-- Helm Diff 3.15.10 was installed.
-- The final identical run completed with `changed=0`.
+- The first final deployment run reported `changed=2`, corresponding to rendered values and Helm release reconciliation.
+- The live shared overhead returned `28.41`.
+- The network-cost DaemonSet reported `7/7/7`.
+- Ingress and egress metric series were observed.
+- Fixed-window totals differed by `$0.657530`, matching the expected `$0.657534`.
+- The immediate second run reported `changed=0` and `failed=0`.
+
+### Failed and superseded implementation paths
+
+#### Invalid affinity type
+
+A temporary `affinity: ""` rendered a string into the DaemonSet specification. Kubernetes expected a structured `Affinity` object and rejected the Helm patch. This was a schema/type error, not a transient cluster failure.
+
+#### Missing region and zone labels
+
+Collectors initially logged:
+
+```text
+Could not locate region for local node
+Failed to classify TransportData as NetworkTraffic
+```
+
+Adding region and zone labels to every node and restarting the DaemonSet cleared the classification error.
+
+#### Rolling-window comparison
+
+A later rolling `window=24h` query returned a lower total after the provider allocation was added. The underlying usage window had moved. The accepted validation uses an explicit start and end timestamp.
+
+#### Hardcoded network prices during intermediate editing
+
+An intermediate template used literal zero strings. The final implementation restored calibration-variable rendering so inventory remains the source of truth while still producing `0.00000000`.
 
 ## Evidence items
 
-### `EV-001` — Node, storage, and power inputs populated
+### `EV-001` — Repository cost and network source configuration
 
 | Field | Value |
 |---|---|
-| Classification | `repository-evidence` and `direct-observation` |
-| Supports or contradicts | `CLM-001`, `CLM-008` |
+| Classification | `repository-evidence` |
+| Supports or contradicts | `CLM-001`, `CLM-002`, `CLM-006`, `CLM-013` |
 | Collected by | Don Buddenbaum |
-| Collected at | 2026-07-24 22:08-22:17 CDT |
-| Execution source | `donb-mac-mini` |
-| Target | Ansible inventory files |
-| Tool and version | `grep`, version not captured |
-| Expected result | Seven node watt values populated; no remaining null purchase or watt fields |
-| Actual result | pass |
-| Confidence | high for repository state; medium for power precision |
-| Sensitive data | none |
-| Artifact | inline terminal evidence and repository files |
-
-**Commands**
-
-```bash
-grep -n 'average_watts' \
-  inventory/host_vars/arm64-*.yml \
-  inventory/host_vars/amd64-*.yml
-
-grep -RniE \
-  'purchase_price_usd: null|average_watts: null|average_incremental_watts: null' \
-  inventory/host_vars \
-  inventory/group_vars/all/kubecost-calibration.yml
-```
-
-**Observed result**
-
-```text
-inventory/host_vars/arm64-01.yml:5:  average_watts: 18
-inventory/host_vars/arm64-02.yml:5:  average_watts: 18
-inventory/host_vars/arm64-03.yml:5:  average_watts: 18
-inventory/host_vars/arm64-04.yml:5:  average_watts: 18
-inventory/host_vars/arm64-05.yml:5:  average_watts: 18
-inventory/host_vars/amd64-01.yml:16:  average_watts: 92
-inventory/host_vars/amd64-02.yml:11:  average_watts: 68
-```
-
-The null-value search returned no output.
-
-**Interpretation**
-
-This proves the repository had complete values for the fields guarded by the
-search. It does not prove that the watt allocations are precision
-measurements.
-
-### `EV-002` — Calibration input validation and aggregation passed
-
-| Field | Value |
-|---|---|
-| Classification | `direct-observation` |
-| Supports or contradicts | `CLM-001` |
-| Collected by | Don Buddenbaum |
-| Collected at | 2026-07-24 22:43-22:47 CDT |
-| Execution source | `donb-mac-mini`, targeting `arm64-01` |
-| Target | Calibration-only Ansible workflow |
-| Tool and version | Ansible, version not captured |
-| Expected result | All seven nodes and four storage profiles validate and calculate |
+| Collected at | 2026-07-25 16:21–16:26 CDT |
+| Execution source | `donbs-imac` |
+| Target | Kalaxy3 repository working tree |
+| Tool and version | Git; version not captured |
+| Expected result | Only intended files modified; no whitespace errors |
 | Actual result | pass |
 | Confidence | high |
 | Sensitive data | none |
-| Artifact | inline terminal evidence |
+| Artifact | inline and terminal appendix |
 
 **Command**
 
 ```bash
-ansible-playbook \
-  -i inventory/hosts.yml \
-  playbooks/kubecost-calibration-only.yml
+git status --short
+git diff --check
+git --no-pager diff -- \
+  inventory/group_vars/all/kubecost-calibration.yml \
+  playbooks/tasks/kubecost-node-label.yml \
+  playbooks/templates/kubecost-calibration-values.yml.j2
 ```
 
 **Observed result**
 
 ```text
-TASK [Validate Kubecost allocation percentages]
-ok: [arm64-01]
-msg: All assertions passed
-
-TASK [Validate Kubecost node cost inventory]
-ok: [arm64-01] => (item=arm64-01)
-ok: [arm64-01] => (item=arm64-02)
-ok: [arm64-01] => (item=arm64-03)
-ok: [arm64-01] => (item=arm64-04)
-ok: [arm64-01] => (item=arm64-05)
-ok: [arm64-01] => (item=amd64-01)
-ok: [arm64-01] => (item=amd64-02)
-
-TASK [Validate Kubecost storage profiles]
-ok: [arm64-01] => (item=longhorn)
-ok: [arm64-01] => (item=minio_local)
-ok: [arm64-01] => (item=nfs_ssd)
-ok: [arm64-01] => (item=nfs_hdd)
-
-TASK [Calculate monthly storage totals]
-ok: [arm64-01] => (item=longhorn)
-ok: [arm64-01] => (item=minio_local)
-ok: [arm64-01] => (item=nfs_ssd)
-ok: [arm64-01] => (item=nfs_hdd)
-
-TASK [Calculate Kubecost blended prices]
-ok: [arm64-01]
-
-TASK [Calculate Kubecost shared monthly overhead]
-ok: [arm64-01]
-
-TASK [Render calibrated Kubecost Helm values]
-changed: [arm64-01]
-
-PLAY RECAP
-arm64-01 : ok=24 changed=8 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0
+M inventory/group_vars/all/kubecost-calibration.yml
+M playbooks/tasks/kubecost-node-label.yml
+M playbooks/templates/kubecost-calibration-values.yml.j2
 ```
+
+The diff changed `monthly_overhead_usd` from `0.00` to `20.00`, added persistent topology labels, corrected the FinOps Agent path, preserved variable-driven zero network prices, enabled network costs, and replaced the invalid affinity with a valid object. `git diff --check` produced no output.
 
 **Interpretation**
 
-The first complete calibration run proved that the model could validate all
-configured inputs and produce output. The `changed=8` result was expected
-because labels and the rendered file were being established.
+This proves the intended source files changed and passed Git whitespace validation. It does not prove runtime behavior by itself.
 
-### `EV-003` — Generated custom prices and YAML type
+### `EV-002` — Rendered and live custom-pricing structure
 
 | Field | Value |
 |---|---|
-| Classification | `generated-artifact` and `direct-observation` |
-| Supports or contradicts | `CLM-002` |
-| Collected by | Don Buddenbaum |
-| Collected at | 2026-07-24 22:57-22:58 CDT |
-| Execution source | `donb-mac-mini`, fetched from `arm64-01` |
-| Target | `/tmp/kalaxy3-kubecost-calibration-values.yaml` |
-| Tool and version | Ansible fetch and Python/PyYAML, versions not captured |
-| Expected result | Nonzero CPU, RAM, and storage prices; zero GPU; nonzero shared overhead; Boolean network flag |
+| Classification | `repository-evidence` and `generated-artifact` |
+| Supports or contradicts | `CLM-001`, `CLM-006` |
+| Collected by | Don Buddenbaum and Ansible |
+| Collected at | 2026-07-25, exact minute distributed across implementation session |
+| Execution source | `donbs-imac`; rendering target `arm64-01` |
+| Target | rendered Kubecost Helm values and live Helm release |
+| Tool and version | Ansible, Helm, Jinja; client versions not captured |
+| Expected result | Custom prices under `finopsagent.agent.kubecost.customPrices`; network prices rendered as numeric strings |
 | Actual result | pass |
 | Confidence | high |
 | Sensitive data | none |
-| Artifact | fetched file checksum `0f6842e2bb480a74a41bdae26124c1f227f81fa2` |
+| Artifact | repository template; rendered temporary values not durably archived |
 
-**Observed result**
+**Relevant source**
 
-```text
-arm64-01 | SUCCESS =>
-    changed: false
-    checksum: 0f6842e2bb480a74a41bdae26124c1f227f81fa2
-    dest: /tmp/kalaxy3-kubecost-calibration-values.yaml
-    md5sum: 3dfee97b9a2f452d46c8f2cb8219f008
-
-CPU: 0.95500000
-RAM: 0.12074713
-Storage: 0.00076190
-GPU: 0.00000000
-Shared overhead: 8.41
-Network enabled: True bool
+```yaml
+finopsagent:
+  agent:
+    kubecost:
+      customPrices:
+        enabled: true
+        zoneNetworkEgress: "0.00000000"
+        regionNetworkEgress: "0.00000000"
+        internetNetworkEgress: "0.00000000"
 ```
 
 **Interpretation**
 
-This proves the rendered file contained the intended values and that
-`networkCosts.enabled` parsed as a Boolean rather than a string. It does not
-prove Kubecost had yet consumed those values; live Helm evidence is separate.
+The accepted path corrects the earlier structural mismatch and preserves eight-decimal network values. The temporary rendered file was not separately checksummed in the retained final sequence.
 
-### `EV-004` — Live Helm values and release status
+### `EV-003` — Provider overhead source located and updated
+
+| Field | Value |
+|---|---|
+| Classification | `repository-evidence` |
+| Supports or contradicts | `CLM-002` |
+| Collected by | Don Buddenbaum |
+| Collected at | 2026-07-25 16:01–16:05 CDT |
+| Execution source | `donbs-imac` |
+| Target | `inventory/group_vars/all/kubecost-calibration.yml` |
+| Tool and version | `grep`, Git |
+| Expected result | Locate source variable rather than edit rendered files |
+| Actual result | pass |
+| Confidence | high |
+| Sensitive data | none |
+| Artifact | terminal appendix |
+
+**Observed source**
+
+```text
+inventory/group_vars/all/kubecost-calibration.yml:26:
+    monthly_overhead_usd: 0.00
+```
+
+**Accepted change**
+
+```yaml
+shared:
+  monthly_overhead_usd: 20.00
+```
+
+**Interpretation**
+
+This proves the provider allocation was entered in the intended source-of-truth file.
+
+### `EV-004` — Network-cost DaemonSet readiness
 
 | Field | Value |
 |---|---|
 | Classification | `direct-observation` |
 | Supports or contradicts | `CLM-003` |
 | Collected by | Don Buddenbaum |
-| Collected at | 2026-07-24 23:15-23:40 CDT |
-| Execution source | `donb-mac-mini` |
-| Target | Helm release `kubecost` in namespace `kubecost` |
-| Tool and version | Helm, client version not captured |
-| Expected result | Deployed release with calibrated user-supplied values |
+| Collected at | 2026-07-25; exact minute not preserved in the retained excerpt |
+| Execution source | Kalaxy3 administrative client |
+| Target | `kubecost-network-costs` DaemonSet |
+| Tool and version | `kubectl`; client version not captured |
+| Expected result | desired, current, and ready counts equal seven |
 | Actual result | pass |
 | Confidence | high |
 | Sensitive data | none |
-| Artifact | inline terminal evidence |
-
-**Commands**
-
-```bash
-helm status kubecost -n kubecost
-
-helm get values kubecost \
-  -n kubecost |
-grep -A35 -E \
-  'customPrices:|sharedNamespaces:|sharedOverhead:|networkCosts:'
-```
+| Artifact | terminal appendix |
 
 **Observed result**
 
 ```text
-NAME: kubecost
-NAMESPACE: kubecost
-STATUS: deployed
-REVISION: 4
-```
-
-Immediately after the calibrated deployment, Helm user values showed:
-
-```yaml
-customPrices:
-  CPU: "0.95500000"
-  GPU: "0.00000000"
-  RAM: "0.12074713"
-  enabled: true
-  internetNetworkEgress: "0.0"
-  regionNetworkEgress: "0.0"
-  spotCPU: "0.95500000"
-  spotGPU: "0.00000000"
-  spotRAM: "0.12074713"
-  storage: "0.00076190"
-  zoneNetworkEgress: "0.0"
-
-sharedNamespaces: kube-system,kubecost,longhorn-system,metallb-system,observability,storage
-sharedOverhead: "8.41"
-
-networkCosts:
-  affinity: {}
-  enabled: true
-```
-
-After intermediate idempotency corrections, the final observed state was:
-
-```text
-LAST DEPLOYED: Fri Jul 24 23:29:46 2026
-STATUS: deployed
-REVISION: 7
+DESIRED   CURRENT   READY
+7         7         7
 ```
 
 **Interpretation**
 
-This proves that the live release consumed the calibrated values. Revision 7 is
-the accepted final release. Revisions 4 through 6 were created by successful
-intermediate reconciliations while the Ansible Helm change-detection behavior
-was being corrected.
+One ready collector existed per priced node. This does not prove that every possible traffic path is visible.
 
-### `EV-005` — Persistent node labels
-
-| Field | Value |
-|---|---|
-| Classification | `direct-observation` |
-| Supports or contradicts | `CLM-004` |
-| Collected by | Don Buddenbaum |
-| Collected at | 2026-07-24 23:00 CDT |
-| Execution source | `donb-mac-mini` |
-| Target | All Kalaxy3 Kubernetes nodes |
-| Tool and version | `kubectl`, version not separately captured |
-| Expected result | Correct hardware, cost, role, power, storage, and GPU labels |
-| Actual result | pass |
-| Confidence | high |
-| Sensitive data | none |
-| Artifact | inline terminal evidence |
-
-**Command**
-
-```bash
-kubectl get nodes \
-  -L kalaxy3.io/hardware-class \
-  -L kalaxy3.io/cost-profile \
-  -L kalaxy3.io/node-role \
-  -L kalaxy3.io/power-class \
-  -L kalaxy3.io/storage-role \
-  -L kalaxy3.io/gpu-model
-```
-
-**Observed result**
-
-```text
-NAME       HARDWARE-CLASS         COST-PROFILE        NODE-ROLE       POWER-CLASS     STORAGE-ROLE   GPU-MODEL
-amd64-01   intel-i5-11600-128gb   amd64-high-memory   worker          high-capacity   longhorn       rtx-3090
-amd64-02   intel-i5-11600-64gb    amd64-standard      worker          high-capacity   longhorn       rtx-3060-ti
-arm64-01   raspberry-pi-4-8gb     arm64-low-power     control-plane   low-power       minio
-arm64-02   raspberry-pi-4-8gb     arm64-low-power     control-plane   low-power       minio
-arm64-03   raspberry-pi-4-8gb     arm64-low-power     control-plane   low-power       minio
-arm64-04   raspberry-pi-4-8gb     arm64-low-power     worker          low-power       minio
-arm64-05   raspberry-pi-4-8gb     arm64-low-power     worker          low-power       minio
-```
-
-**Interpretation**
-
-This proves all seven nodes had the intended descriptive labels. The final
-Ansible run later reported every label operation as `ok`, proving steady-state
-convergence.
-
-### `EV-006` — Healthy calibrated workload rollout
-
-| Field | Value |
-|---|---|
-| Classification | `direct-observation` |
-| Supports or contradicts | `CLM-005` |
-| Collected by | Don Buddenbaum |
-| Collected at | 2026-07-24 23:17 CDT |
-| Execution source | `donb-mac-mini` |
-| Target | Namespace `kubecost` |
-| Tool and version | `kubectl`, version not separately captured |
-| Expected result | Four ready workloads on `amd64-02`, zero restarts, no warning events |
-| Actual result | pass |
-| Confidence | high |
-| Sensitive data | none |
-| Artifact | inline terminal evidence |
-
-**Commands**
-
-```bash
-kubectl get pods \
-  -n kubecost \
-  -o wide
-
-kubectl get deployments,statefulsets \
-  -n kubecost
-
-kubectl get events \
-  -n kubecost \
-  --sort-by='.lastTimestamp' |
-tail -30
-```
-
-**Observed result**
-
-```text
-NAME                                    READY   STATUS    RESTARTS   NODE
-kubecost-aggregator-0                   1/1     Running   0          amd64-02
-kubecost-finopsagent-576777b756-d5f6p   1/1     Running   0          amd64-02
-kubecost-frontend-67589b6bd4-ktdnf      1/1     Running   0          amd64-02
-kubecost-local-store-7bdf4dbdc9-2nrpz   1/1     Running   0          amd64-02
-```
-
-```text
-deployment.apps/kubecost-finopsagent   1/1
- deployment.apps/kubecost-frontend      1/1
- deployment.apps/kubecost-local-store   1/1
- statefulset.apps/kubecost-aggregator   1/1
-```
-
-The captured event tail contained normal rollout events such as
-`SuccessfulCreate`, `Started`, `ScalingReplicaSet`, and MetalLB
-`nodeAssigned`. No warning event was shown.
-
-**Interpretation**
-
-This proves the calibrated rollout recovered successfully, remained pinned to
-`amd64-02`, and did not introduce immediate restart or readiness failures. It
-does not prove long-duration stability or cost-report accuracy.
-
-### `EV-007` — Kubecost-only tag path and variable loading
+### `EV-005` — Topology labels persisted on all nodes
 
 | Field | Value |
 |---|---|
 | Classification | `direct-observation` and `repository-evidence` |
-| Supports or contradicts | `CLM-006` |
-| Collected by | Don Buddenbaum |
-| Collected at | 2026-07-24 23:03-23:15 CDT |
-| Execution source | `donb-mac-mini` |
-| Target | `playbooks/platform.yml` and `playbooks/tasks/observability.yml` |
-| Tool and version | Ansible, version not captured |
-| Expected result | Targeted run reaches eligibility, calibration, and Helm tasks |
-| Actual result | pass after corrective changes |
+| Supports or contradicts | `CLM-003`, `CLM-004` |
+| Collected by | Don Buddenbaum and Ansible |
+| Collected at | 2026-07-25; final idempotency evidence at 16:27–16:31 CDT |
+| Execution source | `donbs-imac`; target task executed through `arm64-01` |
+| Target | all seven Kubernetes nodes |
+| Tool and version | Ansible and `kubectl`; versions not captured |
+| Expected result | every node has one region and one zone label; rerun reports no change |
+| Actual result | pass |
 | Confidence | high |
 | Sensitive data | none |
-| Artifact | inline terminal evidence and repository files |
+| Artifact | repository task and terminal appendix |
 
-**Observed task sequence**
+**Labels**
 
 ```text
-TASK [Run observability phase]
-included: .../playbooks/tasks/observability.yml for arm64-01
+topology.kubernetes.io/region=kalaxy3-home
+topology.kubernetes.io/zone=kalaxy3-lan
+```
 
-TASK [Find eligible Kubecost Intel nodes]
-ok: [arm64-01]
+**Final task behavior**
 
-TASK [Prepare calibrated Kubecost pricing]
-included: .../playbooks/tasks/kubecost-calibration.yml for arm64-01
-
-TASK [Install Kubecost]
-changed: [arm64-01]
-
-PLAY RECAP
-arm64-01 : ok=29 changed=1 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0
+```text
+Apply Kubecost topology labels to arm64-01 ... ok
+Apply Kubecost topology labels to arm64-02 ... ok
+Apply Kubecost topology labels to arm64-03 ... ok
+Apply Kubecost topology labels to arm64-04 ... ok
+Apply Kubecost topology labels to arm64-05 ... ok
+Apply Kubecost topology labels to amd64-01 ... ok
+Apply Kubecost topology labels to amd64-02 ... ok
 ```
 
 **Interpretation**
 
-This proves the targeted `--tags kubecost` command executes the full required
-path. The parent observability include and the eligibility task both require the
-`kubecost` tag because `include_tasks` is dynamic.
+The labels are automation-managed rather than one-time manual state. They represent one logical home region and one LAN zone, not independent fault domains.
 
-### `EV-008` — Helm Diff installation and Helm idempotency
+### `EV-006` — Network metrics and classification
 
 | Field | Value |
 |---|---|
 | Classification | `direct-observation` |
-| Supports or contradicts | `CLM-004`, `CLM-007` |
+| Supports or contradicts | `CLM-004`, `CLM-005`, `CLM-006` |
 | Collected by | Don Buddenbaum |
-| Collected at | 2026-07-24 23:29-23:35 CDT |
-| Execution source | `donb-mac-mini`, targeting `arm64-01` |
-| Target | Helm plugin installation and Kubecost release |
-| Tool and version | Helm Diff 3.15.10 |
-| Expected result | Plugin installed once; unchanged Kubecost release reports `ok` |
+| Collected at | 2026-07-25; exact minute not preserved in retained excerpt |
+| Execution source | port-forwarded collector metrics endpoint |
+| Target | Kubecost network-cost collector |
+| Tool and version | `curl`, network-costs `v0.19.0` |
+| Expected result | ingress and egress counters; local traffic classified same-region and same-zone |
 | Actual result | pass |
 | Confidence | high |
-| Sensitive data | none |
-| Artifact | inline terminal evidence |
+| Sensitive data | namespace and pod labels only; no packet payload captured |
+| Artifact | terminal appendix |
 
-**Observed result**
-
-```text
-TASK [Install Helm Diff plugin]
-changed: [arm64-01]
-
-TASK [Install Kubecost]
-ok: [arm64-01]
-
-PLAY RECAP
-arm64-01 : ok=30 changed=1 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0
-```
-
-Version verification:
+**Observed metric names**
 
 ```text
-arm64-01 | CHANGED | rc=0 >>
-3.15.10
+kubecost_pod_network_egress_bytes_total
+kubecost_pod_network_ingress_bytes_total
 ```
 
-The ad-hoc Ansible `command` task reported `CHANGED` because the command module
-assumes a command changes state unless told otherwise. The command itself only
-printed the plugin version.
+**Observed local classification labels**
+
+```text
+internet="false"
+same_region="true"
+same_zone="true"
+```
+
+Twelve matching metric series were retained, including traffic associated with `minio`, `metallb-system`, `observability`, and `kubecost`.
 
 **Interpretation**
 
-This proves Helm Diff 3.15.10 was available on the same controller where Helm
-reconciliation runs, and the Helm module already recognized that Kubecost did
-not need another upgrade.
+Network bytes are measured and topologically classified. The evidence does not establish router- or provider-side WAN totals.
 
-### `EV-009` — Final steady-state no-change reconciliation
+### `EV-007` — Raw namespace allocation and reconciliation
+
+| Field | Value |
+|---|---|
+| Classification | `direct-observation` and `derived-conclusion` |
+| Supports or contradicts | `CLM-006`, `CLM-007`, `CLM-010` |
+| Collected by | Don Buddenbaum |
+| Collected at | 2026-07-25; exact minute not preserved in retained excerpt |
+| Execution source | `donbs-imac` |
+| Target | Kubecost Allocation API |
+| Tool and version | `curl`, `jq`, Kubecost 3.2.1 |
+| Expected result | HTTP 200, namespace allocations, calculated fields reconcile to total when adjustments included |
+| Actual result | pass |
+| Confidence | high |
+| Sensitive data | internal namespace names and cost values |
+| Artifact | terminal appendix |
+
+**Query**
+
+```bash
+curl --fail --silent --show-error \
+  'http://192.168.2.26:9090/model/allocation?window=24h&aggregate=namespace&accumulate=true' \
+  -o /tmp/kubecost-allocation-namespace.json
+```
+
+**Observed namespaces**
+
+```text
+__idle__
+__unmounted__
+headlamp
+kube-system
+kubecost
+longhorn-system
+metallb-system
+minio
+observability
+storage
+```
+
+**Observed raw 24-hour summary**
+
+```text
+Total cluster cost:  $60.5458
+Idle cost:           $48.9752
+Non-idle cost:       $11.5706
+Idle percentage:     approximately 80.89%
+Network cost:        $0
+```
+
+**Interpretation**
+
+CPU, RAM, persistent volume, adjustment, and total fields reconciled when adjustment fields were included. The high idle share is useful engineering evidence but is sensitive to the selected window and workload activity.
+
+### `EV-008` — Live shared overhead is `$28.41`
 
 | Field | Value |
 |---|---|
 | Classification | `direct-observation` |
-| Supports or contradicts | `CLM-007` |
+| Supports or contradicts | `CLM-002` |
 | Collected by | Don Buddenbaum |
-| Collected at | 2026-07-24 23:35-23:38 CDT |
-| Execution source | `donb-mac-mini`, targeting `arm64-01` |
-| Target | Complete tagged Kubecost workflow |
-| Tool and version | Ansible, version not captured; Helm Diff 3.15.10 |
-| Expected result | No changed tasks and no failure |
+| Collected at | 2026-07-25 16:13 CDT |
+| Execution source | `donbs-imac` |
+| Target | live Kubecost Helm release |
+| Tool and version | Helm; client version not captured |
+| Expected result | `28.41` |
 | Actual result | pass |
 | Confidence | high |
 | Sensitive data | none |
-| Artifact | inline terminal evidence |
+| Artifact | terminal appendix |
 
 **Command**
 
 ```bash
-ansible-playbook \
-  -i inventory/hosts.yml \
-  playbooks/platform.yml \
-  --tags kubecost \
-  --extra-vars install_kubecost=true
+helm get values kubecost \
+  -n kubecost \
+  -o json |
+jq -r '.kubecostProductConfigs.sharedOverhead'
 ```
 
 **Observed result**
 
 ```text
-TASK [Install Helm Diff plugin]
-ok: [arm64-01]
-
-TASK [Install Kubecost]
-ok: [arm64-01]
-
-PLAY RECAP
-arm64-01 : ok=30 changed=0 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0
-```
-
-All node-label operations, calculations, rendered values, plugin state, and the
-Helm release were also reported as `ok`.
-
-**Interpretation**
-
-This is the final idempotency proof. It demonstrates that the complete targeted
-workflow converges without modifying the cluster or creating another Helm
-revision when source inputs and runtime state already match.
-
-### `EV-010` — Derived shared-power and monthly-overhead calculation
-
-| Field | Value |
-|---|---|
-| Classification | `derived-conclusion` |
-| Supports or contradicts | `CLM-008` |
-| Collected by | Ansible calibration logic |
-| Collected at | 2026-07-24 22:47-22:58 CDT |
-| Execution source | `arm64-01` |
-| Target | Shared-infrastructure cost model |
-| Tool and version | Ansible/Jinja, versions not captured |
-| Expected result | Shared power converts to a deterministic monthly amount |
-| Actual result | pass |
-| Confidence | medium |
-| Sensitive data | none |
-| Artifact | generated values file |
-
-**Calculation**
-
-```text
-Shared power:       72 W
-Hours per month:   730 h
-Electricity rate:  $0.16/kWh
-
-72 * 730 * 0.16 / 1000 = 8.4096
-Rendered monthly shared overhead = 8.41
-```
-
-A broader derived monthly model using the declared aggregate capacities is:
-
-```text
-CPU:      44 cores * 0.95500000          = 42.02
-RAM:     232 GiB   * 0.12074713          = 28.01333416
-Storage: 14,000 GB * 0.00076190          = 10.6666
-Shared:                                     8.4096
-                                            -----------
-Derived modeled total:                     89.10953416/month
-Rounded modeled total:                     89.11/month
+28.41
 ```
 
 **Interpretation**
 
-The arithmetic is deterministic, but the result inherits the uncertainty of
-purchase, useful-life, residual-value, and power assumptions. It is suitable
-for engineering comparison and trend evidence, not accounting certification.
+The live release received the combined monthly overhead. This observation alone does not isolate the provider portion; `EV-003` provides the source value.
 
-### `EV-011` — Repository state before commit
+### `EV-009` — Fixed-window provider-cost proration
 
 | Field | Value |
 |---|---|
-| Classification | `repository-evidence` |
-| Supports or contradicts | `CLM-009` |
+| Classification | `direct-observation` and `derived-conclusion` |
+| Supports or contradicts | `CLM-002`, `CLM-008`, `CLM-009` |
 | Collected by | Don Buddenbaum |
-| Collected at | 2026-07-24 23:40-23:41 CDT |
-| Execution source | `donb-mac-mini` |
-| Target | Git working tree |
-| Tool and version | Git, version not captured |
-| Expected result | Intended files visible and unrelated PDF unstaged |
-| Actual result | partial; files existed but were not yet fully staged or committed |
+| Collected at | 2026-07-25 16:17–16:18 CDT |
+| Execution source | `donbs-imac` |
+| Target | Kubecost Allocation API |
+| Tool and version | `curl`, `jq`, `awk`, Kubecost 3.2.1 |
+| Expected result | Total delta equals `$20 × 24 / 730 = $0.657534` within rounding |
+| Actual result | pass |
 | Confidence | high |
-| Sensitive data | none |
-| Artifact | inline terminal evidence |
+| Sensitive data | internal cost values only |
+| Artifact | terminal appendix |
+
+**Fixed window**
+
+```text
+2026-07-24T21:17:00Z,2026-07-25T21:17:00Z
+```
 
 **Observed result**
 
 ```text
- M inventory/group_vars/all/kubecost-calibration.yml
-R  inventory/group_vars/all.yml -> inventory/group_vars/all/main.yml
- M inventory/host_vars/amd64-01.yml
- M inventory/host_vars/amd64-02.yml
- M inventory/host_vars/arm64-01.yml
- M inventory/host_vars/arm64-02.yml
- M inventory/host_vars/arm64-03.yml
- M inventory/host_vars/arm64-04.yml
- M inventory/host_vars/arm64-05.yml
- M playbooks/platform.yml
- M playbooks/tasks/kubecost-calibration.yml
- M playbooks/tasks/kubecost-node-label.yml
- M playbooks/tasks/observability.yml
- M playbooks/templates/kubecost-calibration-values.yml.j2
-?? playbooks/kubecost-calibration-only.yml
-?? ../../markdown/research/kubecost-on-aws-dev-account-kindle.pdf
+With $8.41/month:  $60.822290
+With $28.41/month: $61.479820
+Difference:         $0.657530
+Expected:           $0.657534
 ```
 
 **Interpretation**
 
-The implementation files were present in the working tree. The unrelated PDF
-was untracked and must not be staged with this evidence record. No implementation
-commit was captured, so repository lineage remains incomplete.
+The `$0.000004` difference is numeric rounding. This is direct evidence that the extra `$20.00/month` is prorated correctly in the tested version.
 
-### `EV-012` — Negative evidence and failed-attempt chronology
+### `EV-010` — Moving-window comparison produced a misleading lower total
 
 | Field | Value |
 |---|---|
 | Classification | `negative-evidence` |
-| Supports or contradicts | Troubleshooting and design rationale |
+| Supports or contradicts | supports `CLM-009`, informs `CLM-010` |
 | Collected by | Don Buddenbaum |
-| Collected at | 2026-07-24 22:35-23:29 CDT |
-| Execution source | `donb-mac-mini` and `arm64-01` |
-| Target | Calibration and deployment workflow |
-| Tool and version | Ansible, Helm, kubectl; versions partially captured |
-| Expected result | Failures identify incomplete task ordering, loop handling, tags, and idempotency dependencies |
-| Actual result | informative; each failure was corrected |
+| Collected at | 2026-07-25 16:14–16:15 CDT |
+| Execution source | `donbs-imac` |
+| Target | Kubecost Allocation API |
+| Tool and version | `curl`, `jq`, Kubecost 3.2.1 |
+| Expected result | Informational; demonstrate why moving windows cannot prove the delta |
+| Actual result | informational |
 | Confidence | high |
-| Sensitive data | none |
-| Artifact | inline excerpts below |
+| Sensitive data | internal cost values |
+| Artifact | terminal appendix |
 
-**Observed failures and accepted corrections**
+**Observed rolling-window result**
 
-1. **Compute accumulator was undefined**
+```text
+NAMESPACE                      SHARED        TOTAL
+minio                       30.789750    58.425380
+__unmounted__                0.179680     0.340950
+headlamp                     0.051130     0.097010
 
-   ```text
-   'kubecost_compute_monthly_usd' is undefined
-   ```
-
-   Correction: initialize compute totals before the node loop.
-
-2. **Outer and inner loops both used `item`**
-
-   ```text
-   The variable 'item' is already in use.
-   ```
-
-   The malformed command passed a label dictionary as the node name.
-   Correction: use `kubecost_node` for the outer loop and `kubecost_label` for
-   the inner loop.
-
-3. **Storage Jinja expression had invalid syntax**
-
-   ```text
-   Syntax error in template: expected token ')', got 'kubecost_calibration'
-   ```
-
-   Correction: replace the monthly storage calculation with explicit,
-   independently parenthesized amortization, electricity, and logical-capacity
-   expressions.
-
-4. **Dynamic observability include was not tagged**
-
-   The first targeted run performed only fact gathering:
-
-   ```text
-   PLAY RECAP
-   arm64-01 : ok=1 changed=0 unreachable=0 failed=0
-   ```
-
-   Correction: add `observability` and `kubecost` tags to the parent dynamic
-   include in `playbooks/platform.yml`.
-
-5. **Global variables were split across a file and same-named directory**
-
-   ```text
-   'install_observability' is undefined
-   ```
-
-   Correction: move `inventory/group_vars/all.yml` to
-   `inventory/group_vars/all/main.yml` so both global variable files load.
-
-6. **Eligible-node discovery task was untagged**
-
-   ```text
-   'kubecost_eligible_nodes' is undefined
-   ```
-
-   Correction: add the `kubecost` tag to the task that registers
-   `kubecost_eligible_nodes`.
-
-7. **Imperative Helm command forced every run to report changed**
-
-   Correction: replace it with `kubernetes.core.helm`.
-
-8. **Helm module lacked reliable diff support**
-
-   ```text
-   The default idempotency check can fail to report changes in certain cases.
-   Install helm diff >= 3.4.1 for better results.
-   ```
-
-   Correction: manage Helm Diff `v3.15.10` through
-   `kubernetes.core.helm_plugin`.
+sharedCost: 31.020560000000003
+networkCost: 0
+totalCost: 58.863339999999994
+```
 
 **Interpretation**
 
-These failures are not part of the final accepted state. They provide causal
-evidence for task ordering, variable layout, loop-variable isolation, dynamic
-include tagging, and Helm Diff as required elements of the final design.
+The total was lower than an earlier query despite increased overhead because the underlying rolling usage window changed. This failed comparison method led to the fixed-window acceptance test.
+
+### `EV-011` — First final deployment changed two resources
+
+| Field | Value |
+|---|---|
+| Classification | `direct-observation` |
+| Supports or contradicts | `CLM-011` |
+| Collected by | Don Buddenbaum |
+| Collected at | 2026-07-25 16:27–16:29 CDT |
+| Execution source | `donbs-imac` |
+| Target | `arm64-01` and live Kubecost Helm release |
+| Tool and version | Ansible; version not captured |
+| Expected result | Rendered values and Helm release change once |
+| Actual result | pass |
+| Confidence | high |
+| Sensitive data | none |
+| Artifact | terminal appendix |
+
+**Observed recap**
+
+```text
+arm64-01 : ok=37 changed=2 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0
+```
+
+The changed tasks were `Render calibrated Kubecost Helm values` and `Install Kubecost`.
+
+**Interpretation**
+
+The first run applied the cleaned final template. This is expected implementation evidence, not idempotency evidence.
+
+### `EV-012` — Steady-state idempotency
+
+| Field | Value |
+|---|---|
+| Classification | `direct-observation` |
+| Supports or contradicts | `CLM-004`, `CLM-011` |
+| Collected by | Don Buddenbaum |
+| Collected at | 2026-07-25 16:29–16:31 CDT |
+| Execution source | `donbs-imac` |
+| Target | `arm64-01` and live Kubecost Helm release |
+| Tool and version | Ansible; version not captured |
+| Expected result | `changed=0`, `failed=0` |
+| Actual result | pass |
+| Confidence | high |
+| Sensitive data | none |
+| Artifact | terminal appendix |
+
+**Observed recap**
+
+```text
+arm64-01 : ok=37 changed=0 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0
+```
+
+**Interpretation**
+
+The full targeted flow converged, including cost validation, seven node-label loops, rendered values, Helm Diff, and Helm reconciliation.
+
+### `EV-013` — Final source diff validation
+
+| Field | Value |
+|---|---|
+| Classification | `repository-evidence` |
+| Supports or contradicts | `CLM-001`, `CLM-004` |
+| Collected by | Don Buddenbaum |
+| Collected at | 2026-07-25 16:26 CDT |
+| Execution source | `donbs-imac` |
+| Target | final repository working tree |
+| Tool and version | Git |
+| Expected result | No whitespace errors; valid final structure |
+| Actual result | pass |
+| Confidence | high |
+| Sensitive data | none |
+| Artifact | terminal appendix |
+
+**Observed result**
+
+`git diff --check` returned no output. The final diff showed valid `KUBECONFIG` handling, output-based topology-label idempotency, newline at end of file, variable-driven network rates, source-driven `networkCosts.enabled`, and a valid Linux affinity object.
+
+**Interpretation**
+
+Repository evidence agrees with runtime evidence.
+
+### `EV-014` — Invalid string affinity rejected
+
+| Field | Value |
+|---|---|
+| Classification | `negative-evidence` |
+| Supports or contradicts | `CLM-012` |
+| Collected by | Don Buddenbaum |
+| Collected at | 2026-07-25; exact minute not preserved |
+| Execution source | Ansible/Helm execution |
+| Target | `kubecost-network-costs` DaemonSet |
+| Tool and version | Helm/Kubernetes |
+| Expected result | Invalid value rejected |
+| Actual result | fail for attempted design; pass as negative evidence |
+| Confidence | high |
+| Sensitive data | none |
+| Artifact | terminal appendix |
+
+**Relevant error**
+
+```text
+UPGRADE FAILED: cannot patch "kubecost-network-costs" with kind DaemonSet
+spec.affinity: invalid value
+```
+
+The retained verbose error showed a string where Kubernetes required a `v1.Affinity` object.
+
+**Interpretation**
+
+This supports the accepted structured affinity and prevents recurrence of the same type error.
+
+### `EV-015` — Cost-model assumptions remain estimates
+
+| Field | Value |
+|---|---|
+| Classification | `assumption` and `derived-conclusion` |
+| Supports or contradicts | `CLM-013` |
+| Collected by | Don Buddenbaum and ChatGPT |
+| Collected at | 2026-07-24 through 2026-07-25 CDT |
+| Execution source | inventory and evidence review |
+| Target | Kalaxy3 cost model |
+| Tool and version | Ansible inventory; not applicable |
+| Expected result | Assumptions explicit |
+| Actual result | informational |
+| Confidence | medium |
+| Sensitive data | none |
+| Artifact | this record |
+
+**Observed assumptions**
+
+- acquisition and residual values are inventory inputs;
+- useful lives are policy inputs;
+- power values are estimates or UPS allocations rather than per-device precision measurements;
+- `$20.00/month` ISP allocation is operator-selected;
+- network unit prices are intentionally zero.
+
+**Interpretation**
+
+The mechanics are validated, while absolute economic accuracy remains bounded by input quality.
+
+### `EV-016` — Governance lineage remains incomplete
+
+| Field | Value |
+|---|---|
+| Classification | `negative-evidence` |
+| Supports or contradicts | `CLM-014` |
+| Collected by | ChatGPT |
+| Collected at | 2026-07-25 16:31 CDT |
+| Execution source | evidence review |
+| Target | SAGE record governance fields |
+| Tool and version | SAGE standard 1.0 |
+| Expected result | Commit and reviewer recorded for accepted status |
+| Actual result | partial |
+| Confidence | high |
+| Sensitive data | none |
+| Artifact | this record |
+
+**Observed result**
+
+```text
+implementation_commit: d1d1339b4a3e54030f39bb0900e8e0934aa445c7
+reviewer: pending
+```
+
+**Interpretation**
+
+Technical validation is complete, but the record should not be marked `accepted`.
 
 ## Verification and acceptance criteria
 
 | Criterion ID | Requirement | Test or evidence | Expected | Observed | Result |
 |---|---|---|---|---|---|
-| `AC-001` | All node and storage inputs validate | `EV-001`, `EV-002` | Seven nodes and four storage profiles pass assertions | All assertions passed | pass |
-| `AC-002` | Generated values are complete and parse correctly | `EV-003` | Nonzero CPU/RAM/storage, zero GPU, shared overhead, Boolean network flag | Exact expected values observed; Boolean type confirmed | pass |
-| `AC-003` | Live Helm release uses calibrated values | `EV-004` | `customPrices.enabled: true` and expected values | Values present in Helm user values | pass |
-| `AC-004` | Node metadata is present on all nodes | `EV-005` | Seven nodes labeled according to hardware and role | All seven rows matched intended metadata | pass |
-| `AC-005` | Kubecost remains healthy after rollout | `EV-006` | Four ready pods, zero restarts, correct node | Four ready pods on `amd64-02`, zero restarts | pass |
-| `AC-006` | Targeted Kubecost run reaches all required tasks | `EV-007` | Eligibility, calibration, and install tasks execute | Required sequence observed | pass |
-| `AC-007` | Helm reconciliation does not create false changes | `EV-008`, `EV-009` | Plugin installed; later install task reports `ok` | Helm Diff 3.15.10 installed; final run unchanged | pass |
-| `AC-008` | Complete workflow is idempotent | `EV-009` | `changed=0`, `failed=0` | `ok=30 changed=0 failed=0` | pass |
-| `AC-009` | Implementation is committed and traceable | `EV-011` | Git commit SHA recorded | Commit pending | not-run |
-| `AC-010` | Independent review is recorded | front matter | Reviewer decision recorded | Reviewer pending | not-run |
-| `AC-011` | Kubecost allocation UI/API reflects calibrated dollar totals after collection window | gap `GAP-003` | Reported allocation visibly uses custom prices | Not captured | not-run |
+| `AC-001` | Source inputs are version-controlled | `EV-001`, `EV-003`, `EV-013` | Intended files only; no diff errors | Three intended files; no `diff --check` output | pass |
+| `AC-002` | Custom price chart path is correct | `EV-002` | `finopsagent.agent.kubecost.customPrices` | present | pass |
+| `AC-003` | Network-cost is enabled | `EV-001`, `EV-004` | enabled and scheduled | 7/7/7 collectors | pass |
+| `AC-004` | Every node has on-prem topology labels | `EV-005` | seven labeled nodes | seven task results `ok` | pass |
+| `AC-005` | Network metrics exist | `EV-006` | ingress and egress byte counters | both present | pass |
+| `AC-006` | Local traffic classifies cleanly | `EV-006` | same region/zone, not internet | observed | pass |
+| `AC-007` | Unit network prices remain zero | `EV-001`, `EV-002`, `EV-007` | `$0/GiB`; `networkCost=0` | observed | pass |
+| `AC-008` | Provider allocation appears in live overhead | `EV-003`, `EV-008` | `$28.41/month` | `28.41` | pass |
+| `AC-009` | Provider delta prorates correctly | `EV-009` | approximately `$0.657534` | `$0.657530` | pass |
+| `AC-010` | Allocation query returns and reconciles | `EV-007` | HTTP 200 and total reconciliation | observed | pass |
+| `AC-011` | Failed affinity design is removed | `EV-013`, `EV-014` | valid object, no string | observed | pass |
+| `AC-012` | Automation converges | `EV-011`, `EV-012` | first change, then `changed=0` | `2`, then `0` | pass |
+| `AC-013` | Secrets are excluded | security review | no secrets in record | none observed | pass |
+| `AC-014` | Implementation commit recorded | `EV-016` | Git SHA | `d1d1339b4a3e54030f39bb0900e8e0934aa445c7` | pass |
+| `AC-015` | Independent review completed | `EV-016` | reviewer acceptance | pending | partial |
 
 ### Functional verification
 
 ```bash
-kubectl get pods \
-  -n kubecost \
-  -o wide
+SHARED_NAMESPACES="$(
+  helm get values kubecost \
+    -n kubecost \
+    -o json |
+  jq -r '.kubecostProductConfigs.sharedNamespaces'
+)"
+
+for SHARE_COST in 8.41 28.41; do
+  curl --fail --silent --show-error \
+    --get \
+    'http://192.168.2.26:9090/model/allocation' \
+    --data-urlencode \
+      'window=2026-07-24T21:17:00Z,2026-07-25T21:17:00Z' \
+    --data-urlencode 'aggregate=namespace' \
+    --data-urlencode 'accumulate=true' \
+    --data-urlencode 'shareIdle=true' \
+    --data-urlencode "shareNamespaces=${SHARED_NAMESPACES}" \
+    --data-urlencode "shareCost=${SHARE_COST}" \
+    --data-urlencode 'shareSplit=weighted' \
+    --output "/tmp/kubecost-overhead-${SHARE_COST}.json"
+done
 ```
 
 Observed:
 
 ```text
-kubecost-aggregator-0                   1/1 Running 0 amd64-02
-kubecost-finopsagent-576777b756-d5f6p   1/1 Running 0 amd64-02
-kubecost-frontend-67589b6bd4-ktdnf      1/1 Running 0 amd64-02
-kubecost-local-store-7bdf4dbdc9-2nrpz   1/1 Running 0 amd64-02
+With $8.41/month:  $60.822290
+With $28.41/month: $61.479820
+Difference:         $0.657530
+Expected:           $0.657534
 ```
 
 ### Negative verification
 
-The final node-placement evidence showed no Kubecost workload on an ARM64 node.
-The final event tail contained no warning events. The final Ansible execution
-showed no changed or failed task.
+#### Invalid affinity is rejected
 
-```text
-PLAY RECAP
-arm64-01 : ok=30 changed=0 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0
+```yaml
+affinity: ""
 ```
+
+Observed: Helm upgrade failed because the DaemonSet affinity field was not a valid object.
+
+#### Moving window is not accepted as proof
+
+A later rolling 24-hour result was `$58.86334`, below the earlier result despite higher shared overhead. The comparison was rejected because the windows were not identical.
 
 ## Idempotency and repeatability
 
-### First accepted live run
+### First accepted run
 
 ```text
-TASK [Install Kubecost]
-changed: [arm64-01]
-
-PLAY RECAP
-arm64-01 : ok=29 changed=1 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0
+arm64-01 : ok=37 changed=2 unreachable=0 failed=0
 ```
 
-This run applied the calibrated Helm values.
+Expected changes:
 
-### Helm module without Helm Diff
-
-```text
-TASK [Install Kubecost]
-changed: [arm64-01]
-
-WARNING: The default idempotency check can fail to report changes in certain
-cases. Install helm diff >= 3.4.1 for better results.
-```
-
-### Helm Diff installation run
-
-```text
-TASK [Install Helm Diff plugin]
-changed: [arm64-01]
-
-TASK [Install Kubecost]
-ok: [arm64-01]
-```
+- render final calibrated values;
+- reconcile the Kubecost Helm release.
 
 ### Steady-state rerun
 
 ```text
-TASK [Install Helm Diff plugin]
-ok: [arm64-01]
-
-TASK [Install Kubecost]
-ok: [arm64-01]
-
-PLAY RECAP
-arm64-01 : ok=30 changed=0 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0
+arm64-01 : ok=37 changed=0 unreachable=0 failed=0
 ```
 
 ### Interpretation
 
-The final automation is idempotent. Calculations, labels, rendered values,
-plugin installation, and the Helm release all converge without changes. The
-live Helm revision remained 7 after the final no-change run.
+The accepted automation is idempotent for the tested state. The topology-label task is imperative but reports steady state through `kubectl label --overwrite` output. The Helm module uses Helm Diff to avoid false-positive changes. Idempotency must be revalidated after Ansible, Helm, Helm Diff, Kubernetes, or chart upgrades because command output and diff behavior may change.
 
 ## Security, privacy, and evidence handling
 
 ### Security controls
 
-- The calibration values contain no Kubernetes Secret values.
-- The generated Helm values include cost and topology metadata only.
-- Kubecost workloads remain pinned to explicitly eligible AMD64 nodes.
-- The calibration workflow uses the existing K3s kubeconfig on `arm64-01` but
-  does not record its contents.
-- The evidence record is classified `internal` because it contains hostnames,
-  internal IP addresses, hardware inventory, and cost assumptions.
+- Cost inputs and nonsecret topology labels are stored in Git.
+- `KUBECONFIG` is passed through the task environment rather than embedded in the record.
+- No Kubernetes Secret manifests are included.
+- No Basic Auth material, tokens, private keys, passwords, or provider account identifiers are included.
+- The record includes internal IP addresses and node names and is classified `internal`.
+- Network evidence consists of counters and Kubernetes labels, not packet payloads.
 
 ### Sensitive material excluded
 
-The record does not contain:
+Never include:
 
-- kubeconfig contents;
-- service-account tokens;
-- passwords, private keys, or vault secrets;
-- Kubernetes Secret manifests;
-- UPS serial numbers;
-- shell history unrelated to this implementation.
+- kubeconfig client keys or certificates;
+- bearer tokens;
+- Ansible Vault passwords;
+- Kubernetes Secret values;
+- ISP account number, billing identifier, or payment information;
+- terminal history containing credentials;
+- packet contents or unnecessary personal information.
 
 ### Redactions and omissions
 
-- Long terminal output was reduced to material task, error, value, health, and
-  recap lines.
-- Exact node acquisition prices are not repeated here because the captured
-  terminal output did not include them; the inventory files remain the source
-  of truth.
-- The unrelated research PDF remained untracked and is intentionally excluded
-  from the implementation commit scope.
+- Verbose Helm managed-field data from the failed DaemonSet patch was omitted because it did not add material evidence and greatly increased record size.
+- Full repeated Ansible task output was reduced to material task names and recaps.
+- No secret values were observed in retained excerpts.
 
 ### Residual security risk
 
-- Kubecost frontend exposure and authentication controls are governed by
-  separate installation/access evidence and were not revalidated in this work.
-- Hardware and cost metadata can reveal internal capacity and should not be
-  published outside the intended documentation boundary without review.
+- Internal addresses and topology names disclose homelab structure. Keep the record in the internal repository.
+- Network metrics expose namespace and pod metadata. Restrict access to Kubecost and Prometheus according to Kalaxy3 administrative controls.
+- The Kubecost frontend address is LAN reachable; authentication and exposure policy are governed by separate records.
 
 ## Reliability, recovery, rollback, and rebuild
 
@@ -1452,140 +1316,45 @@ The record does not contain:
 
 | Failure mode | Detection | Impact | Recovery |
 |---|---|---|---|
-| Missing or null cost input | Ansible assertion failure | Calibration stops before Helm | Populate the specific inventory field and rerun calibration-only playbook |
-| Invalid Jinja expression | Ansible template finalization error | No rendered values | Correct the calculation block; run syntax check and calibration-only playbook |
-| Loop-variable collision | Warning plus malformed `kubectl label` command | Labels fail | Use distinct `loop_var` names for node and label loops |
-| Dynamic include not tagged | Targeted run lists or executes only parent/facts | Kubecost tasks skipped | Add `kubecost` tag to parent include and required child tasks |
-| Global vars file/directory collision | Variables such as `install_observability` undefined | Targeted workflow fails | Keep all `all` variables under `inventory/group_vars/all/` |
-| Eligible-node variable undefined | `kubecost_eligible_nodes` undefined | Calibration/install blocked | Tag the discovery task and verify it runs first |
-| Helm false-positive change | Helm task reports changed on identical input | Unnecessary release revisions and pod restarts | Install and pin Helm Diff; use `kubernetes.core.helm` |
-| Kubecost rollout failure | Pods not ready, warning events, Helm status failed | Cost reporting unavailable | Inspect pods/events/logs and roll back to a known-good revision |
-| Power estimate becomes stale | Hardware or UPS wiring changes | Cost model becomes inaccurate | Update allocations and revalidate |
+| Invalid affinity type | Helm error referencing DaemonSet affinity | Network-cost rollout fails | Restore structured affinity and rerun Ansible |
+| Missing topology labels | Collector logs report missing region or failed classification | Metrics may exist but classification is incomplete | Reapply labels and restart DaemonSet |
+| Network-cost pod not ready | Desired/current/ready mismatch | One or more nodes lack traffic metrics | Inspect pod events, selectors, tolerations, and logs |
+| Wrong custom-price chart path | Live values omit or ignore prices | Allocation uses incomplete pricing | Restore `finopsagent.agent.kubecost.customPrices` |
+| Hardcoded prices diverge from inventory | Repository and rendered values disagree | Source-of-truth drift | Render all values from calibration variables |
+| Rolling-window comparison | Totals change unexpectedly | False configuration conclusion | Use explicit RFC3339 start/end window |
+| Misread `sharedCost` | Operator assumes it is only ISP cost | Incorrect reporting | Isolate provider delta with fixed-window A/B test |
+| `__unmounted__` grows | Allocation contains unattributed PV cost | Cost lacks workload ownership | Identify PV/PVC ownership and correct metadata |
+| MinIO receives most shared cost | Weighted output is highly concentrated | Showback may appear disproportionate | Review sharing policy; compare alternate policies |
+| Kubeconfig unavailable | Ansible or `kubectl` cannot reach cluster | Labels and Helm reconciliation fail | Restore verified kubeconfig and context |
+| Helm Diff unavailable | Module may report false changes | Unnecessary releases or restarts | Reinstall pinned Helm Diff |
+| Provider allocation becomes stale | Bill or usage share changes | Fully burdened cost becomes misleading | Update source and rerun fixed-window validation |
 
 ### Rollback
 
-Review history before selecting a target:
+Preferred source-controlled rollback:
 
 ```bash
-helm history kubecost -n kubecost
+cd ~/dvlp/Kalaxy3/infrastructure/k3s-homelab
+
+git diff -- \
+  inventory/group_vars/all/kubecost-calibration.yml \
+  playbooks/tasks/kubecost-node-label.yml \
+  playbooks/templates/kubecost-calibration-values.yml.j2
 ```
 
-Revision 3 was the last observed pre-calibration deployed release. A rollback
-candidate is:
+Either revert the implementation commit after it exists or deliberately restore previous values:
 
-```bash
-helm rollback kubecost 3 \
-  -n kubecost \
-  --wait \
-  --timeout 30m
+```yaml
+shared:
+  monthly_overhead_usd: 0.00
+
+network:
+  enabled: false
 ```
 
-Then verify:
+Then reconcile:
 
 ```bash
-helm status kubecost -n kubecost
-kubectl get pods -n kubecost -o wide
-```
-
-Rollback to revision 3 would intentionally remove the new custom prices,
-shared overhead, and enabled network-cost settings. If later releases exist,
-select the appropriate known-good revision from `helm history` instead of
-blindly using revision 3.
-
-### Rebuild procedure
-
-1. Restore or clone the Kalaxy3 repository.
-2. Confirm the global variable layout:
-
-   ```text
-   inventory/group_vars/all/main.yml
-   inventory/group_vars/all/kubecost-calibration.yml
-   ```
-
-3. Confirm host cost metadata exists for all seven priced nodes.
-4. Verify Kubecost prerequisites and the eligible node:
-
-   ```bash
-   kubectl get nodes -L kubernetes.io/arch,kalaxy3.io/kubecost
-   kubectl get storageclass longhorn
-   ```
-
-5. Validate syntax:
-
-   ```bash
-   ansible-playbook \
-     -i inventory/hosts.yml \
-     playbooks/platform.yml \
-     --syntax-check
-   ```
-
-6. Render and validate calibration without Helm:
-
-   ```bash
-   ansible-playbook \
-     -i inventory/hosts.yml \
-     playbooks/kubecost-calibration-only.yml
-   ```
-
-7. Inspect the generated values:
-
-   ```bash
-   ansible arm64-01 \
-     -i inventory/hosts.yml \
-     --become \
-     --module-name ansible.builtin.command \
-     --args 'cat /tmp/kalaxy3-kubecost-calibration-values.yaml'
-   ```
-
-8. Apply the live release:
-
-   ```bash
-   ansible-playbook \
-     -i inventory/hosts.yml \
-     playbooks/platform.yml \
-     --tags kubecost \
-     --extra-vars install_kubecost=true
-   ```
-
-9. Verify Helm values, status, pods, labels, and events.
-10. Run the same command again and require `changed=0`.
-
-### Data durability and backup impact
-
-- The change reconciled Helm values and restarted Kubecost pods.
-- Existing Longhorn-backed persistent volumes were retained by the release.
-- No data-loss event was observed.
-- PVC binding, Longhorn replica health, and historical-data continuity were not
-  directly revalidated during this calibration session and remain evidence
-  gaps.
-- The pre-change Helm backup was written to `/tmp` on the Mac mini and is not a
-  durable backup until copied into an approved evidence-artifact location.
-
-## Operational considerations and observability
-
-### Health signals
-
-- `helm status kubecost -n kubecost`
-- `kubectl get pods -n kubecost -o wide`
-- `kubectl get deployments,statefulsets -n kubecost`
-- `kubectl get events -n kubecost --sort-by=.lastTimestamp`
-- `helm get values kubecost -n kubecost`
-- Ansible recap and changed count
-- Helm revision number and last-deployed timestamp
-- Kubecost frontend and allocation reports after collection windows
-
-### Routine verification
-
-```bash
-helm status kubecost -n kubecost |
-grep -E 'LAST DEPLOYED:|STATUS:|REVISION:'
-
-kubectl get pods -n kubecost -o wide
-
-helm get values kubecost -n kubecost |
-grep -A35 -E \
-  'customPrices:|sharedNamespaces:|sharedOverhead:|networkCosts:'
-
 ansible-playbook \
   -i inventory/hosts.yml \
   playbooks/platform.yml \
@@ -1593,269 +1362,400 @@ ansible-playbook \
   --extra-vars install_kubecost=true
 ```
 
-The final Ansible command should produce `changed=0` unless inventory or runtime
-state has intentionally changed.
+Emergency Helm rollback, only after reviewing history:
+
+```bash
+helm history kubecost -n kubecost
+helm rollback kubecost <known-good-revision> -n kubecost --wait
+```
+
+A Helm-only rollback creates temporary drift from Git/Ansible. Reconcile or revert the source immediately afterward.
+
+### Rebuild procedure
+
+1. Clone or update the Kalaxy3 repository.
+2. Restore the verified Kalaxy3 kubeconfig.
+3. Confirm all seven nodes are `Ready`.
+4. Confirm Longhorn and Kubecost prerequisites.
+5. Review `inventory/group_vars/all/kubecost-calibration.yml`.
+6. Review every priced node's host variables.
+7. Run syntax and diff checks.
+8. Apply the targeted Kubecost playbook.
+9. Verify live Helm values.
+10. Verify node labels.
+11. Verify DaemonSet `7/7/7`.
+12. Inspect collector logs for classification errors.
+13. Confirm ingress and egress metrics.
+14. Run a raw allocation query.
+15. Run a fully burdened fixed-window query.
+16. Repeat Ansible and require `changed=0`.
+17. Update evidence, checksum, and implementation commit.
+
+### Data durability and backup impact
+
+- The changes modify Helm values, node labels, and cost metadata; they do not intentionally delete Kubecost PVCs.
+- Kubecost state remains Longhorn-backed according to dependent installation evidence.
+- Helm reconciliation can restart workloads.
+- Final post-change PVC binding and Longhorn replica health were not recaptured in this final sequence and remain a revalidation item.
+- Temporary API result files under `/tmp` are not durable evidence unless copied into `markdown/evidence-artifacts`.
+
+## Operational considerations and observability
+
+### Health signals
+
+- `kubectl get daemonset kubecost-network-costs -n kubecost`
+- `kubectl get pods -n kubecost -o wide`
+- collector logs for region/classification errors;
+- network metric series count;
+- `kubecost_pod_network_ingress_bytes_total`;
+- `kubecost_pod_network_egress_bytes_total`;
+- Allocation API HTTP status;
+- nonzero or unexpected `networkCost`;
+- `__idle__` share;
+- `__unmounted__` cost;
+- shared-cost concentration;
+- Helm release status and revision;
+- Ansible recap.
+
+### Routine verification
+
+```bash
+kubectl get daemonset kubecost-network-costs -n kubecost
+
+kubectl get nodes \
+  -L topology.kubernetes.io/region,topology.kubernetes.io/zone
+
+helm get values kubecost \
+  -n kubecost \
+  -o json |
+jq '{
+  sharedNamespaces: .kubecostProductConfigs.sharedNamespaces,
+  sharedOverhead: .kubecostProductConfigs.sharedOverhead,
+  networkCosts: .networkCosts,
+  customPrices: .finopsagent.agent.kubecost.customPrices
+}'
+```
+
+Use a fixed report window:
+
+```bash
+curl --fail --silent --show-error \
+  --get \
+  'http://192.168.2.26:9090/model/allocation' \
+  --data-urlencode 'window=<RFC3339_START>,<RFC3339_END>' \
+  --data-urlencode 'aggregate=namespace' \
+  --data-urlencode 'accumulate=true'
+```
 
 ### Capacity, performance, and cost impact
 
-- **Capacity:** The model covers seven nodes and approximately 14,000 logical GB
-  represented by the four storage profiles. It does not add cluster capacity.
-- **Performance:** Calibration itself is lightweight. A material Helm-value
-  change restarts Kubecost workloads; the observed rollout completed in roughly
-  two minutes.
-- **Cost:** The derived engineering model is approximately `$89.11/month` using
-  declared aggregate capacities and current assumptions. This is not a billed
-  amount.
-- **Sustainability/power:** The model makes approximately `322 W` of allocated
-  infrastructure power visible: `162 W` rack UPS allocation plus `160 W` Intel
-  UPS allocation. The UPS load readings and allocations are approximate.
+- **Capacity:** One network-cost pod runs on each of seven nodes.
+- **Performance:** Collector overhead was not benchmarked in this record.
+- **Cost:** Provider allocation adds `$20.00/month`; tested 24-hour delta is `$0.65753`.
+- **Sustainability/power:** Existing estimates remain part of the model; this change added no new measured power value.
+- **Reporting:** MinIO dominates fully burdened application cost under the current weighted sharing policy.
+- **Governance:** `__unmounted__` remains visible as an attribution exception.
+
+### How to interpret allocation fields
+
+| Field | Meaning in this record |
+|---|---|
+| `cpuCost` | CPU allocation cost under calibrated blended CPU pricing |
+| `ramCost` | RAM allocation cost under calibrated blended RAM pricing |
+| `pvCost` | Persistent-volume cost under calibrated logical storage pricing |
+| `networkCost` | Byte-based network charge; zero because all unit rates are zero |
+| `sharedCost` | Redistributed idle/shared namespace cost plus prorated fixed `shareCost`; not only ISP cost |
+| adjustment fields | Reconciliation corrections required to match `totalCost` |
+| `totalCost` | Final allocation after component costs and adjustments |
+| `__idle__` | Unallocated cluster capacity before idle sharing |
+| `__unmounted__` | Persistent storage cost not attributed to a mounted workload allocation |
 
 ## Known limitations, evidence gaps, and risks
 
 | ID | Type | Description | Impact | Owner | Due or trigger |
 |---|---|---|---|---|---|
-| `GAP-001` | evidence-gap | Implementation commit SHA is pending. | Repository lineage is incomplete; status cannot become accepted. | Don Buddenbaum | before publication |
-| `GAP-002` | evidence-gap | Independent reviewer decision is pending. | Governance acceptance is incomplete. | Kalaxy3 architecture | before status changes to accepted |
-| `GAP-003` | evidence-gap | No Kubecost UI or API allocation report was captured after the documented data-collection window. | Values are proven in Helm, but end-user cost presentation is not yet directly proven. | Don Buddenbaum | after at least 25 minutes of stable collection |
-| `GAP-004` | limitation | Power is allocated from rounded UPS load readings rather than measured per device. | Dollar precision is medium-low for electricity. | Don Buddenbaum | when plug-level meters are available or wiring changes |
-| `GAP-005` | limitation | CPU and RAM rates are blended cluster-wide. | Per-node marginal-cost differences are hidden. | Kalaxy3 architecture | if Kubecost or a companion model supports node-specific pricing |
-| `GAP-006` | limitation | GPU pricing is zero and GPUs are not Kubernetes-schedulable. | Future GPU workloads would require a new model. | Kalaxy3 architecture | before enabling Kubernetes GPU workloads |
-| `GAP-007` | limitation | Network-cost component is enabled but egress rates are zero. | Traffic may be measured without dollar allocation. | Kalaxy3 architecture | when WAN or inter-site charges become material |
-| `GAP-008` | evidence-gap | PVC, Longhorn replica health, and historical-data continuity were not recaptured after the rollout. | Immediate pod health is proven, but storage continuity evidence is incomplete. | Don Buddenbaum | before acceptance or after any storage alert |
-| `GAP-009` | evidence-gap | Ansible, Helm client, and `kubernetes.core` versions were not recorded. | Toolchain reproducibility is incomplete. | Don Buddenbaum | next maintenance run |
-| `GAP-010` | technical-debt | Pre-change Helm backup remains under `/tmp`. | Backup may disappear on reboot or cleanup. | Don Buddenbaum | before relying on it for rollback evidence |
-| `GAP-011` | risk | Acquisition prices, residual values, and useful lives can age without review. | Cost evidence becomes stale while remaining technically valid. | Kalaxy3 architecture | annual review or hardware replacement |
-| `GAP-012` | evidence-gap | The unrelated research PDF was untracked and intentionally excluded; final staging/commit evidence was not captured. | No risk to runtime; publication lineage is incomplete. | Don Buddenbaum | during Git commit |
+| `GAP-001` | assumption | `$20.00/month` ISP allocation is a policy choice, not invoice-derived evidence. | Absolute fully burdened cost may be biased. | Don Buddenbaum | provider bill or usage-share change |
+| `GAP-002` | evidence-gap | No router, modem, or ISP byte counter was reconciled to Kubecost metrics. | Network bytes are workload evidence, not provider billing evidence. | Don Buddenbaum | telemetry becomes available |
+| `GAP-003` | limitation | All per-GiB network prices are zero. | `networkCost` cannot rank workloads by monetary network charge. | Don Buddenbaum | provider adopts usage pricing |
+| `GAP-004` | methodology risk | Rolling `24h` windows are not comparable across execution times. | False cost-change conclusions. | Operator | every comparative report |
+| `GAP-005` | allocation-policy risk | Weighted sharing concentrates cost on dominant non-shared workloads such as MinIO. | Showback may be mechanically correct but strategically unhelpful. | Don Buddenbaum | before chargeback/showback adoption |
+| `GAP-006` | technical-debt | `__unmounted__` receives cost and shared allocation. | Some storage remains unattributed. | Storage/Kubecost owner | investigate before acceptance |
+| `GAP-007` | limitation | Blended CPU/RAM/storage rates hide node-specific economics. | ARM-versus-Intel marginal comparison is limited. | Kalaxy3 architecture | platform comparison phase |
+| `GAP-008` | assumption | Power values are estimates or UPS allocations, not per-device continuous measurements. | Energy and sustainability conclusions have medium confidence. | Don Buddenbaum | power metering introduced |
+| `GAP-009` | limitation | GPU custom price remains zero and GPU scheduling is not validated. | GPU workloads cannot be separately costed. | Kalaxy3 architecture | Kubernetes GPU enablement |
+| `GAP-010` | limitation | All nodes use one hardcoded region and zone. | No physical failure-domain or routed-zone distinction. | Kalaxy3 architecture | multi-site or multi-zone expansion |
+| `GAP-012` | governance gap | Independent reviewer is pending. | Record cannot be `accepted`. | Kalaxy3 architecture | SAGE review |
+| `GAP-013` | evidence-gap | Final Ansible, Helm, and `kubernetes.core` versions were not captured. | Reproduction may vary after tool upgrades. | Don Buddenbaum | next validation |
+| `GAP-014` | evidence-gap | Full raw logs and generated values were not durably archived at collection time. | Some exact output context is unavailable. | Don Buddenbaum | next evidence capture |
+| `GAP-015` | evidence-gap | No stable weekly or monthly baseline has been collected. | Current values may reflect transient workload activity. | FinOps owner | after 7- and 30-day windows |
+| `GAP-016` | limitation | Monthly proration uses `730` average hours. | Small difference from calendar-specific month lengths. | FinOps owner | accounting-grade reporting |
+| `GAP-017` | compatibility risk | `shareCost` behavior is validated for the current version only. | Upgrade may alter semantics or precision. | Kubecost owner | every chart upgrade |
+| `GAP-018` | evidence-gap | Post-final-rollout PVC and Longhorn replica health were not recaptured. | Storage continuity is inferred, not freshly proven. | Storage owner | before acceptance |
+| `GAP-019` | performance gap | Network collector CPU/RAM overhead was not benchmarked. | Collector impact on small ARM nodes is unknown. | Observability owner | capacity review |
+| `GAP-020` | data-quality risk | Namespace classification policy may change as workloads are added. | Shared/non-shared allocation can drift from intent. | FinOps owner | namespace or platform change |
 
 ## Troubleshooting
 
-### Calibration fails with an undefined accumulator
+### Network-cost Helm upgrade fails on affinity
 
 **Meaning**
 
-A total is used before its initialization task.
+The rendered value is not a valid Kubernetes affinity object.
 
 **Checks**
 
 ```bash
-grep -n -A15 -B5 \
-  'Initialize Kubecost compute totals\|Calculate monthly compute totals' \
-  playbooks/tasks/kubecost-calibration.yml
+helm template kubecost \
+  oci://public.ecr.aws/kubecost/kubecost \
+  --version 3.2.1 \
+  -n kubecost \
+  -f <base-values> \
+  -f /tmp/kalaxy3-kubecost-calibration-values.yaml |
+grep -n -A20 -B5 'affinity:'
 ```
 
 **Recovery**
 
-Ensure the initialization task appears before the loop and defines:
+Restore the structured Linux affinity in the Jinja template and rerun Ansible.
 
-```yaml
-kubecost_compute_monthly_usd
-kubecost_total_cpu_cores
-kubecost_total_memory_gib
-```
-
-### Node-label command receives a dictionary as a node name
+### Collectors report missing region
 
 **Meaning**
 
-Nested loops reused `item`.
-
-**Recovery**
-
-Use distinct loop variables:
-
-```yaml
-loop_control:
-  loop_var: kubecost_node
-```
-
-and:
-
-```yaml
-loop_control:
-  loop_var: kubecost_label
-```
-
-### Targeted Kubecost run performs only fact gathering
-
-**Meaning**
-
-The dynamic observability include is not tagged.
+Nodes lack topology labels required for classification.
 
 **Checks**
 
 ```bash
-sed -n '54,66p' playbooks/platform.yml
+kubectl get nodes \
+  -L topology.kubernetes.io/region,topology.kubernetes.io/zone
+
+kubectl logs \
+  -n kubecost \
+  daemonset/kubecost-network-costs \
+  --tail=200
 ```
 
 **Recovery**
-
-The parent include must contain:
-
-```yaml
-tags:
-  - observability
-  - kubecost
-```
-
-### `install_observability` is undefined
-
-**Meaning**
-
-Ansible is not loading the global variable file because both
-`group_vars/all.yml` and `group_vars/all/` exist.
-
-**Recovery**
-
-Use:
-
-```text
-inventory/group_vars/all/main.yml
-inventory/group_vars/all/kubecost-calibration.yml
-```
-
-Verify:
 
 ```bash
-ansible-inventory \
+ansible-playbook \
   -i inventory/hosts.yml \
-  --host arm64-01 |
-grep -E \
-  '"install_observability"|"install_kubecost"|"kubecost_calibration"'
+  playbooks/platform.yml \
+  --tags kubecost \
+  --extra-vars install_kubecost=true
+
+kubectl rollout restart \
+  daemonset/kubecost-network-costs \
+  -n kubecost
 ```
 
-### `kubecost_eligible_nodes` is undefined
+### Network bytes exist but network cost is zero
 
 **Meaning**
 
-The discovery task was skipped during tagged execution.
-
-**Recovery**
-
-Add:
-
-```yaml
-tags:
-  - kubecost
-```
-
-on the task that registers `kubecost_eligible_nodes`.
-
-### Helm reports changed on every identical run
-
-**Meaning**
-
-Either an imperative Helm command is still used or Helm Diff is absent.
+This is the accepted design when unit prices are zero.
 
 **Checks**
 
 ```bash
-ansible arm64-01 \
+helm get values kubecost \
+  -n kubecost \
+  -o json |
+jq '.finopsagent.agent.kubecost.customPrices'
+```
+
+**Recovery**
+
+No recovery is required unless the provider pricing model changes. Do not invent a per-GiB price for a fixed bill.
+
+### Fully burdened total appears lower after adding overhead
+
+**Meaning**
+
+The compared queries likely used different rolling windows.
+
+**Checks**
+
+Print exact windows and compare the underlying raw allocation.
+
+**Recovery**
+
+Use one explicit fixed RFC3339 start/end window for both `shareCost` values.
+
+### `sharedCost` appears much larger than the daily ISP amount
+
+**Meaning**
+
+`sharedCost` includes redistributed idle and shared-namespace costs in addition to fixed provider cost.
+
+**Checks**
+
+Run the same fixed window with two `shareCost` values and subtract totals.
+
+**Recovery**
+
+Report the provider-attributable delta rather than treating all `sharedCost` as ISP cost.
+
+### MinIO receives nearly all fully burdened cost
+
+**Meaning**
+
+MinIO is the dominant non-shared workload under weighted splitting.
+
+**Checks**
+
+Compare raw non-shared usage and review `sharedNamespaces`.
+
+**Recovery**
+
+Review policy. Compare even splitting, explicit business units, or label-based reports, but do not change policy solely to make results look balanced.
+
+### `__unmounted__` appears
+
+**Meaning**
+
+Kubecost sees storage cost not attributed to a mounted workload allocation.
+
+**Checks**
+
+```bash
+kubectl get pv,pvc -A -o wide
+```
+
+Review deleted workloads, detached Longhorn volumes, storage classes, and allocation metadata.
+
+**Recovery**
+
+Correct ownership or clean up only after confirming no retained data is required. Do not hide the namespace from evidence.
+
+### Ansible reports changes on every run
+
+**Meaning**
+
+Potential causes include rendered-value drift, missing Helm Diff, unstable command output, or chart-generated changes.
+
+**Checks**
+
+```bash
+helm plugin list
+git diff --check
+ansible-playbook \
   -i inventory/hosts.yml \
-  --become \
-  --module-name ansible.builtin.command \
-  --args 'helm diff version'
-```
-
-Expected:
-
-```text
-3.15.10
+  playbooks/platform.yml \
+  --tags kubecost \
+  --extra-vars install_kubecost=true \
+  --check
 ```
 
 **Recovery**
 
-Manage Helm with `kubernetes.core.helm` and install Helm Diff with
-`kubernetes.core.helm_plugin`.
-
-### Kubecost pods do not recover after a values change
-
-**Checks**
-
-```bash
-helm status kubecost -n kubecost
-kubectl get pods -n kubecost -o wide
-kubectl get events -n kubecost --sort-by='.lastTimestamp' | tail -50
-kubectl logs -n kubecost kubecost-aggregator-0 --tail=200
-```
-
-**Recovery**
-
-Correct the reported workload or storage problem, rerun the tagged Ansible
-workflow, or roll back to a known-good Helm revision.
+Restore the pinned Helm Diff plugin, compare rendered values, and inspect the Helm diff before applying.
 
 ## Freshness, revalidation, and supersession
 
 ### Revalidate when
 
-- the Kubecost chart version changes from `3.2.1`;
-- the Helm Diff version or Helm module behavior changes;
-- a node is added, removed, replaced, or materially upgraded;
-- RAM, CPU, GPU, disk, or storage-role metadata changes;
-- UPS wiring or the set of powered devices changes;
-- measured power replaces UPS allocation estimates;
-- the electricity rate changes materially;
-- acquisition price, residual value, or useful-life assumptions change;
-- MinIO or Longhorn capacity or replication changes;
-- network egress becomes chargeable;
-- GPU scheduling is enabled;
-- any source-of-truth file listed in this record moves or changes;
-- the final Ansible run no longer converges with `changed=0`;
-- Kubecost reports a different effective custom price;
-- a conflicting SAGE record is accepted.
+- Kubecost chart, network-cost image, FinOps Agent, K3s, Helm, Helm Diff, Ansible, or `kubernetes.core` changes;
+- any custom-price chart path changes;
+- the Allocation API changes;
+- the provider bill or `$20.00/month` allocation changes;
+- electricity rate, hardware purchase price, residual value, useful life, or power estimate changes;
+- a node is added, removed, replaced, or changes role;
+- a new architecture, GPU, or storage class is introduced;
+- the cluster spans another site, routed segment, region, or fault zone;
+- shared namespace or split policy changes;
+- `__unmounted__` cost grows materially;
+- DaemonSet readiness is not `7/7/7`;
+- collector classification errors return;
+- fixed-window proration no longer matches the expected formula;
+- Ansible no longer converges to `changed=0`;
+- a conflicting or superseding SAGE record is accepted.
 
 ### Scheduled review
 
 ```text
-Event-based, plus an annual review of acquisition, residual-value, useful-life,
-electricity-rate, and power assumptions.
+Event-based, plus quarterly review of:
+- provider allocation;
+- shared namespace policy;
+- idle percentage;
+- __unmounted__ cost;
+- cost-input freshness;
+- 7-day and 30-day allocation baselines.
 ```
 
 ### Supersession rule
 
-When replaced, set `status: superseded`, populate `superseded_by`, preserve this
-record for lineage, and identify whether the deployment claims, price claims,
-or both were replaced. A measurement-only update may supersede the cost values
-without invalidating the automation and idempotency evidence.
+When replaced:
 
-## Final completion checklist
+1. keep this evidence ID permanent;
+2. set `status: superseded`;
+3. populate `superseded_by`;
+4. state which claims remain valid;
+5. preserve failed-path evidence;
+6. link the new implementation commit and revalidation evidence;
+7. do not delete historical cost values solely because newer values exist.
+
+## Final completion checklist and reviewer acceptance
 
 ### Governance
 
 - [x] Evidence ID is unique and permanent.
-- [x] Status accurately reflects completeness.
-- [x] Owner, author/operator, and reviewer state are identified.
+- [x] Status reflects technical validation without claiming review acceptance.
+- [x] Owner, author, operator, and reviewer state are identified.
 - [x] Five Ws and How are complete.
-- [x] Scope and nonclaims are explicit.
-- [ ] Implementation commit is recorded.
-- [x] Relationships and supersession fields are complete.
+- [x] Scope, exclusions, and nonclaims are explicit.
+- [x] Implementation commit is recorded.
+- [x] Relationships and supersession fields are populated.
 
 ### Evidence
 
 - [x] Every critical technical claim has supporting evidence.
 - [x] Expected and observed results are separated.
-- [x] Direct observations identify source, target, time, and tool.
-- [x] Derived conclusions reference evidence IDs.
-- [x] Assumptions and planned work are marked.
 - [x] Failed attempts are separated from the accepted final state.
+- [x] Direct observations and repository evidence agree.
+- [x] Fixed-window provider proration is proven.
+- [x] Network byte measurement is proven.
 - [x] Idempotency is proven.
-- [ ] Kubecost UI/API allocation output after the collection window is captured.
-- [ ] Post-rollout PVC and Longhorn replica health are recaptured.
+- [x] Assumptions and limitations are explicit.
+- [ ] Full original logs are archived with original checksums.
+- [ ] Post-final-rollout PVC and Longhorn replica health are recaptured.
+- [ ] 7-day and 30-day baselines are captured.
 
 ### Safety and operations
 
-- [x] Secrets and sensitive data are excluded or redacted.
-- [x] Security limitations and residual risks are recorded.
+- [x] Secrets and sensitive values are excluded.
+- [x] Internal metadata is classified.
 - [x] Rollback and rebuild are documented.
-- [x] Operational health checks are documented.
-- [x] Known limitations and evidence gaps have owners or triggers.
-- [x] Revalidation criteria are defined.
+- [x] Health checks and troubleshooting are documented.
+- [x] Risks and gaps have owners or triggers.
+- [x] Revalidation and supersession rules are defined.
+
+### SAGE quality score
+
+| Category | Score | Maximum | Notes |
+|---|---:|---:|---|
+| Five Ws and How | 15 | 15 | Complete |
+| Final claim and scope | 10 | 10 | Complete |
+| Claim-to-evidence traceability | 15 | 15 | Complete |
+| Direct observed evidence | 9 | 10 | Full original logs not durably archived |
+| Repository and commit lineage | 10 | 10 | Source paths and implementation commit complete |
+| Reproducible implementation and rebuild | 10 | 10 | Complete |
+| Acceptance and functional tests | 10 | 10 | Technical tests complete |
+| Idempotency or repeatability | 5 | 5 | Proven |
+| Security and data handling | 5 | 5 | Complete |
+| Risks, limitations, and assumptions | 5 | 5 | Complete |
+| Freshness and supersession | 5 | 5 | Complete |
+| **Total** | **99** | **100** | SAGE-grade technical record; reviewer acceptance pending |
+
+A high score does not override lifecycle state. The record remains `validated` until commit and reviewer acceptance are recorded.
 
 ### Review acceptance
 
 | Role | Name | Decision | Date | Notes |
 |---|---|---|---|---|
-| Owner | Don Buddenbaum | pending | pending | Record must be reviewed after adding the implementation commit. |
-| Reviewer | pending | pending | pending | Independent SAGE review not yet performed. |
+| Owner | Don Buddenbaum | pending | pending | Confirm provider allocation policy, shared namespace policy, and residual gaps. |
+| Reviewer | pending | pending | pending | Verify claim/evidence traceability and implementation commit. |
 
 ## Git review and publication
 
@@ -1868,38 +1768,23 @@ git diff --check
 git status --short
 
 git diff -- \
-  infrastructure/k3s-homelab/inventory/group_vars \
-  infrastructure/k3s-homelab/inventory/host_vars \
-  infrastructure/k3s-homelab/playbooks/platform.yml \
-  infrastructure/k3s-homelab/playbooks/kubecost-calibration-only.yml \
-  infrastructure/k3s-homelab/playbooks/tasks/observability.yml \
-  infrastructure/k3s-homelab/playbooks/tasks/kubecost-calibration.yml \
+  infrastructure/k3s-homelab/inventory/group_vars/all/kubecost-calibration.yml \
   infrastructure/k3s-homelab/playbooks/tasks/kubecost-node-label.yml \
   infrastructure/k3s-homelab/playbooks/templates/kubecost-calibration-values.yml.j2 \
-  markdown/installation/kalaxy3-kubecost-calibration-sage-evidence.md
+  markdown/installation/kalaxy3-kubecost-calibration-sage-evidence.md \
+  markdown/evidence-artifacts/SAGE-K3-FINOPS-20260724-001/terminal-evidence-20260725.md
 ```
 
-Stage only the implementation and evidence record. Do not stage the unrelated
-research PDF:
+Stage only intended files:
 
 ```bash
 git add -- \
-  infrastructure/k3s-homelab/inventory/group_vars/all/main.yml \
   infrastructure/k3s-homelab/inventory/group_vars/all/kubecost-calibration.yml \
-  infrastructure/k3s-homelab/inventory/host_vars/arm64-01.yml \
-  infrastructure/k3s-homelab/inventory/host_vars/arm64-02.yml \
-  infrastructure/k3s-homelab/inventory/host_vars/arm64-03.yml \
-  infrastructure/k3s-homelab/inventory/host_vars/arm64-04.yml \
-  infrastructure/k3s-homelab/inventory/host_vars/arm64-05.yml \
-  infrastructure/k3s-homelab/inventory/host_vars/amd64-01.yml \
-  infrastructure/k3s-homelab/inventory/host_vars/amd64-02.yml \
-  infrastructure/k3s-homelab/playbooks/platform.yml \
-  infrastructure/k3s-homelab/playbooks/kubecost-calibration-only.yml \
-  infrastructure/k3s-homelab/playbooks/tasks/observability.yml \
-  infrastructure/k3s-homelab/playbooks/tasks/kubecost-calibration.yml \
   infrastructure/k3s-homelab/playbooks/tasks/kubecost-node-label.yml \
   infrastructure/k3s-homelab/playbooks/templates/kubecost-calibration-values.yml.j2 \
-  markdown/installation/kalaxy3-kubecost-calibration-sage-evidence.md
+  markdown/installation/kalaxy3-kubecost-calibration-sage-evidence.md \
+  markdown/installation/kalaxy3-kubecost-calibration-sage-evidence.md.sha256 \
+  markdown/evidence-artifacts/SAGE-K3-FINOPS-20260724-001/terminal-evidence-20260725.md
 ```
 
 Validate the staged change:
@@ -1913,35 +1798,120 @@ git diff --cached --name-status
 Commit and publish:
 
 ```bash
-git commit -m "Add calibrated Kubecost pricing and SAGE evidence"
+git commit -m "Validate Kubecost network and provider cost allocation"
 git pull --rebase origin main
 git push origin main
 git status
 ```
 
-After committing, update this record with the implementation commit SHA and
-change the owner decision when review is complete.
+After the implementation commit:
 
-## Appendices and raw artifacts
+1. confirm `implementation_commit` equals `d1d1339b4a3e54030f39bb0900e8e0934aa445c7`;
+2. regenerate and verify the SHA-256 file;
+3. commit the evidence record and terminal artifact;
+4. complete owner and reviewer decisions when reviewed.
+
+## Appendices and linked raw artifacts
 
 ### Artifact inventory
 
 | Artifact | Path or URI | SHA-256 | Contains sensitive data | Retention |
 |---|---|---|---|---|
-| SAGE evidence record | `markdown/installation/kalaxy3-kubecost-calibration-sage-evidence.md` | generated after file creation; see packaged artifact checksum | no secrets; internal infrastructure metadata | repository history |
-| Generated calibration values | `/tmp/kalaxy3-kubecost-calibration-values.yaml` | `0f6842e2bb480a74a41bdae26124c1f227f81fa2` was the Ansible-reported checksum, not explicitly labeled SHA-256 | no | temporary unless archived |
-| Pre-calibration Helm values | `/tmp/kalaxy3-kubecost-backup/values-before-calibration.yaml` | not captured | potentially internal configuration; no secret observed | temporary |
-| Pre-calibration Helm status | `/tmp/kalaxy3-kubecost-backup/status-before-calibration.txt` | not captured | no secret observed | temporary |
-| Terminal transcripts | Captured in the implementation conversation; material excerpts are inline in this record | not captured | no secrets observed | retain through this record or export to approved artifact storage |
+| SAGE evidence record | `markdown/installation/kalaxy3-kubecost-calibration-sage-evidence.md` | companion `.sha256` file | internal topology and cost metadata; no secrets | repository history |
+| Consolidated terminal evidence | `markdown/evidence-artifacts/SAGE-K3-FINOPS-20260724-001/terminal-evidence-20260725.md` | calculate after placement if required | internal hostnames, paths, IPs, costs; no secrets observed | repository history |
+| Rendered calibration values | `/tmp/kalaxy3-kubecost-calibration-values.yaml` | not retained in final sequence | internal configuration; no secret observed | temporary |
+| Raw allocation output | `/tmp/kubecost-allocation-namespace.json` | not captured | internal cost and namespace metadata | temporary |
+| Fully burdened provider output | `/tmp/kubecost-fully-burdened-provider.json` | not captured | internal cost and namespace metadata | temporary |
+| Fixed-window old-overhead output | `/tmp/kubecost-overhead-8.41.json` | not captured | internal cost and namespace metadata | temporary |
+| Fixed-window new-overhead output | `/tmp/kubecost-overhead-28.41.json` | not captured | internal cost and namespace metadata | temporary |
 
-### Additional notes
+### Cost formulas and interpretation
 
-- Helm revision 7 is correct. The final no-change Ansible run demonstrated that
-  no additional revision was created after idempotency was fixed.
-- The inventory value `install_kubecost: false` remained unchanged during the
-  live validation; `--extra-vars install_kubecost=true` enabled Kubecost for the
-  targeted execution only. Decide separately whether automatic full-platform
-  rebuilds should enable Kubecost by default.
-- The existing Kubecost installation record remains useful for installation,
-  storage, image, and compatibility history. This record supersedes only its
-  statement that actual Kalaxy3 dollar calibration remained future work.
+#### Node monthly cost
+
+```text
+monthly amortization =
+  (purchase price - residual value) / useful life months
+
+monthly electricity =
+  average watts / 1000 × hours per month × electricity rate
+
+monthly node cost =
+  monthly amortization + monthly electricity + fixed monthly overhead
+```
+
+#### Blended CPU and RAM prices
+
+```text
+cluster monthly compute cost = sum(monthly cost of priced nodes)
+CPU pool = cluster monthly compute cost × CPU cost share
+RAM pool = cluster monthly compute cost × RAM cost share
+CPU price = CPU pool / total priced CPU cores
+RAM price = RAM pool / total priced GiB
+```
+
+#### Storage price
+
+```text
+monthly storage profile cost = amortization + electricity + fixed overhead
+logical billable capacity = raw capacity / replication factor
+storage price = total monthly storage cost / total logical billable GB
+```
+
+#### Shared overhead
+
+```text
+existing shared infrastructure power cost: $8.41/month
+operator-selected ISP allocation:          $20.00/month
+total sharedOverhead:                      $28.41/month
+```
+
+#### Fixed-window provider delta
+
+```text
+$20.00 × 24 hours / 730 hours = $0.657534
+observed API delta:             $0.657530
+rounding difference:            $0.000004
+```
+
+### Raw versus fully burdened allocation
+
+**Raw allocation** preserves platform namespaces and idle cost separately. It is useful for understanding resource consumption and unused cluster capacity.
+
+**Fully burdened allocation** can share idle cost, redistribute selected shared namespaces, add a fixed monthly share cost, and split those amounts according to policy.
+
+Therefore:
+
+```text
+fully burdened total != raw application resource cost only
+sharedCost != ISP cost only
+```
+
+The provider allocation is isolated by comparing identical fixed-window queries that differ only in `shareCost`.
+
+### Why `__unmounted__` must remain visible
+
+`__unmounted__` is evidence that some persistent-volume cost could not be associated with a mounted workload allocation. Hiding it would improve presentation while reducing accountability. Treat it as an exception queue:
+
+1. identify the PV and storage class;
+2. identify current or former PVC ownership;
+3. determine whether storage is retained intentionally;
+4. repair attribution or remove unused storage safely;
+5. rerun the same fixed-window report.
+
+### Why MinIO receives most shared cost
+
+With `shareIdle=true`, platform namespaces designated as shared, and weighted splitting, Kubecost allocates shared amounts to remaining workloads according to weight. In the observed window, MinIO was overwhelmingly the largest non-shared workload, so it received approximately 99% of distributed shared cost. That is mechanically consistent with the chosen policy. It is not proof that MinIO caused the fixed ISP bill or that weighted splitting is the best business policy.
+
+### Evidence boundary
+
+The strongest supported statement is:
+
+```text
+Available repository and runtime evidence supports that Kalaxy3 Kubecost
+measures pod-level network bytes, applies zero usage-based network rates,
+prorates a $20.00 monthly provider allocation through shared cost, and
+reconciles idempotently for the tested Kubecost 3.2.1 configuration.
+```
+
+The evidence does not support an accounting-certified total cost of ownership, provider billing reconciliation, or universal chargeback policy.
