@@ -22,9 +22,11 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-PACKAGE_SCHEMA_VERSION = "1.1"
-RECORD_SCHEMA_VERSION = "1.1"
-METADATA_CONTRACT_PATH = "markdown/standards/sage-evidence-metadata-contract-v1.1.json"
+PACKAGE_SCHEMA_VERSION = "1.2"
+RECORD_SCHEMA_VERSION = "1.2"
+METADATA_CONTRACT_PATH = "markdown/standards/sage-evidence-metadata-contract-v1.2.json"
+INDEXER_PATH = "scripts/sage/sage-index.py"
+GENERATED_FILES_MANIFEST = "markdown/evidence/generated-files.json"
 
 ALLOWED_STATUSES = {
     "draft",
@@ -61,7 +63,15 @@ ALLOWED_CATEGORIES = {
     "operations",
     "architecture",
     "decisions",
+    "finops",
+    "governance",
+    "security",
+    "incidents",
+    "experiments",
+    "benchmarks",
+    "verification",
 }
+ALLOWED_NAV_SECTIONS = ALLOWED_CATEGORIES | {"other"}
 CANONICAL_UNAVAILABLE = {"not-applicable", "not-captured", "pending"}
 EVIDENCE_ID_RE = re.compile(r"^SAGE-K3-[A-Z0-9-]+-\d{8}-\d{3}$")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -74,6 +84,11 @@ REQUIRED_FRONTMATTER_ORDER = [
     "evidence_id",
     "schema_version",
     "title",
+    "nav_title",
+    "nav_section",
+    "nav_order",
+    "summary",
+    "primary_subject",
     "project",
     "record_type",
     "status",
@@ -126,6 +141,11 @@ STATIC_METADATA_ROWS = [
     ("Schema version", "schema_version"),
     ("Project", "project"),
     ("Title", "title"),
+    ("Navigation title", "nav_title"),
+    ("Navigation section", "nav_section"),
+    ("Navigation order", "nav_order"),
+    ("Summary", "summary"),
+    ("Primary subject", "primary_subject"),
     ("Record type", "record_type"),
     ("Status", "status"),
     ("Classification", "classification"),
@@ -481,7 +501,7 @@ def parse_frontmatter(
             continue
         raise SageError(
             f"Unsupported front-matter syntax at line {lineno}: {line!r}. "
-            "Schema 1.1 permits top-level scalars, canonical string lists, "
+            f"Schema {RECORD_SCHEMA_VERSION} permits top-level scalars, canonical string lists, "
             "and the nested relationships map only."
         )
     return scalars, lists, order, body
@@ -546,6 +566,12 @@ def validate_metadata_contract_file(repo: Path) -> None:
         raise SageError("Metadata contract static_metadata_rows differ from publisher")
     if contract.get("five_w_rows") != FIVE_W_ROWS:
         raise SageError("Metadata contract five_w_rows differ from publisher")
+    if set(contract.get("allowed_nav_sections", [])) != ALLOWED_NAV_SECTIONS:
+        raise SageError("Metadata contract allowed_nav_sections differ from publisher")
+    if contract.get("nav_title_max_length") != 80:
+        raise SageError("Metadata contract nav_title_max_length differs from publisher")
+    if contract.get("summary_max_length") != 360:
+        raise SageError("Metadata contract summary_max_length differs from publisher")
 
 
 def validate_canonical_frontmatter(
@@ -562,7 +588,7 @@ def validate_canonical_frontmatter(
         raise SageError(f"Front-matter contract mismatch; missing={missing}, extra={extra}")
     if order != REQUIRED_FRONTMATTER_ORDER:
         raise SageError(
-            "Front-matter fields are not in canonical schema 1.1 order. "
+            f"Front-matter fields are not in canonical schema {RECORD_SCHEMA_VERSION} order. "
             f"Expected {REQUIRED_FRONTMATTER_ORDER}, got {order}"
         )
     for key in REQUIRED_FRONTMATTER_ORDER:
@@ -595,6 +621,22 @@ def validate_canonical_frontmatter(
         raise SageError(f"Invalid confidence: {scalars['confidence']}")
     if scalars["confidence"] == "unknown" and scalars["status"] != "draft":
         raise SageError("confidence unknown is allowed only for draft records")
+    if scalars["nav_section"] not in ALLOWED_NAV_SECTIONS:
+        raise SageError(f"Invalid nav_section: {scalars['nav_section']}")
+    if not (1 <= len(scalars["nav_title"]) <= 80):
+        raise SageError("nav_title must contain 1..80 characters")
+    if not (20 <= len(scalars["summary"]) <= 360):
+        raise SageError("summary must contain 20..360 characters")
+    if "\n" in scalars["summary"]:
+        raise SageError("summary must be a single-line scalar")
+    if not scalars["primary_subject"].strip():
+        raise SageError("primary_subject cannot be empty")
+    try:
+        nav_order = int(scalars["nav_order"])
+    except ValueError as exc:
+        raise SageError("nav_order must be an integer") from exc
+    if not 0 <= nav_order <= 9999:
+        raise SageError("nav_order must be between 0 and 9999")
     if not EVIDENCE_ID_RE.fullmatch(scalars["evidence_id"]):
         raise SageError(f"Invalid evidence_id: {scalars['evidence_id']}")
     if scalars["evidence_id"] != manifest["evidence_id"]:
@@ -622,7 +664,7 @@ def validate_canonical_frontmatter(
             continue
         if value == "not-captured":
             if key not in {"work_started_at"}:
-                raise SageError(f"{key} cannot be not-captured in schema 1.1")
+                raise SageError(f"{key} cannot be not-captured in schema {RECORD_SCHEMA_VERSION}")
             continue
         parsed_times[key] = parse_rfc3339(value, key)
     if scalars["status"] in {"validated", "accepted"}:
@@ -827,6 +869,8 @@ def validate_record(
         raise SageError("Published record still contains publication tokens")
 
     validate_heading_order(body)
+    if "[TOC]" not in body:
+        raise SageError("Schema 1.2 record must contain an explicit [TOC] marker")
     validate_record_metadata_table(body, scalars, lists)
     validate_five_w_table(body, scalars, lists)
     validate_claims_and_evidence(body)
@@ -901,6 +945,12 @@ def ensure_repo_contract(repo: Path, manifest: dict[str, Any]) -> None:
         raise SageError(f"Missing SAGE template: {template.relative_to(repo)}")
     if not process.is_file():
         raise SageError(f"Missing SAGE publication process: {process.relative_to(repo)}")
+    indexer = repo / INDEXER_PATH
+    registry = repo / "markdown/evidence/legacy-record-registry.json"
+    if not indexer.is_file():
+        raise SageError(f"Missing SAGE indexer: {INDEXER_PATH}")
+    if not registry.is_file():
+        raise SageError("Missing legacy evidence registry")
     validate_metadata_contract_file(repo)
     current_branch = git(repo, "branch", "--show-current")
     if current_branch != manifest["branch"]:
@@ -950,7 +1000,7 @@ def modified_for_paths(repo: Path, paths: Iterable[str]) -> list[str]:
 def stage_exact(repo: Path, paths: list[str]) -> None:
     if not paths:
         return
-    git(repo, "add", "--", *paths)
+    git(repo, "add", "-A", "--", *paths)
     run(["git", "diff", "--cached", "--check"], cwd=repo)
     staged = git(repo, "diff", "--cached", "--name-only").splitlines()
     unexpected = sorted(set(staged) - set(paths))
@@ -1030,6 +1080,12 @@ def write_publication_manifest(
     published["publication_process_sha256"] = sha256_file(
         repo / published["publication_process_path"]
     )
+    published["evidence_indexer_path"] = INDEXER_PATH
+    published["evidence_indexer_sha256"] = sha256_file(repo / INDEXER_PATH)
+    published["legacy_registry_path"] = "markdown/evidence/legacy-record-registry.json"
+    published["legacy_registry_sha256"] = sha256_file(
+        repo / published["legacy_registry_path"]
+    )
     # Package hashes describe the original package payload. The final record
     # checksum is stored separately after token replacement.
     path.write_text(json.dumps(published, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -1103,6 +1159,34 @@ def rebase_repair_if_needed(
     return implementation_sha, evidence_sha
 
 
+def reconcile_evidence_catalog(repo: Path) -> list[str]:
+    indexer = repo / INDEXER_PATH
+    if not indexer.is_file():
+        raise SageError(f"Missing SAGE evidence indexer: {INDEXER_PATH}")
+    run([sys.executable, INDEXER_PATH, "reconcile", "--repo", str(repo)], cwd=repo)
+    manifest_path = repo / GENERATED_FILES_MANIFEST
+    if not manifest_path.is_file():
+        raise SageError("Evidence indexer did not produce generated-files.json")
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SageError(f"Invalid generated-files.json: {exc}") from exc
+    paths = data.get("generated_paths")
+    removed = data.get("removed_paths", [])
+    if not isinstance(paths, list) or not all(isinstance(x, str) for x in paths):
+        raise SageError("generated-files.json must contain generated_paths")
+    if not isinstance(removed, list) or not all(isinstance(x, str) for x in removed):
+        raise SageError("generated-files.json removed_paths must be a list")
+    safe = [
+        str(safe_relpath(x, field="generated catalog path"))
+        for x in [*paths, *removed]
+    ]
+    for rel in safe:
+        if not rel.startswith("markdown/evidence/"):
+            raise SageError(f"Generated catalog path outside markdown/evidence: {rel}")
+    return sorted(set(safe))
+
+
 def package_check(package: Path, repo: Path | None = None) -> tuple[dict[str, Any], list[str]]:
     warnings: list[str] = []
     with tempfile.TemporaryDirectory(prefix="sage-package-") as td:
@@ -1157,6 +1241,8 @@ def publish(package: Path, repo: Path, *, push: bool, remote: str) -> None:
         checksum_rel = write_record_checksum(repo, manifest)
         publication_manifest_rel = write_publication_manifest(repo, manifest, implementation_sha)
         evidence_paths.extend([checksum_rel, publication_manifest_rel])
+        catalog_paths = reconcile_evidence_catalog(repo)
+        evidence_paths.extend(catalog_paths)
         evidence_paths = sorted(set(evidence_paths))
 
         # Validate final files after deterministic token replacement.
@@ -1205,6 +1291,9 @@ def metadata_contract_document() -> dict[str, Any]:
         "list_fields": sorted(LIST_FIELDS),
         "static_metadata_rows": [list(row) for row in STATIC_METADATA_ROWS],
         "five_w_rows": FIVE_W_ROWS,
+        "allowed_nav_sections": sorted(ALLOWED_NAV_SECTIONS),
+        "nav_title_max_length": 80,
+        "summary_max_length": 360,
         "allowed_not_available_values": sorted(CANONICAL_UNAVAILABLE),
         "canonical_list_separator": "; ",
         "timestamp_format": "RFC3339 with numeric UTC offset",
@@ -1216,13 +1305,18 @@ def make_dummy_record(evidence_id: str, record_path: str) -> str:
     artifact_root = f"markdown/evidence-artifacts/{evidence_id}"
     front = f'''---
 evidence_id: {evidence_id}
-schema_version: "1.1"
+schema_version: "1.2"
 title: SAGE publication self-test
+nav_title: Test SAGE publication and legacy indexing
+nav_section: governance
+nav_order: 10
+summary: Validates split publication, canonical navigation metadata, and preservation of legacy evidence in generated catalogs.
+primary_subject: SAGE publisher
 project: Kalaxy3
 record_type: operations
 status: validated
 classification: internal
-work_session: SAGE publisher schema 1.1 self-test
+work_session: SAGE publisher schema 1.2 self-test
 work_started_at: 2026-07-25T17:00:00-05:00
 work_completed_at: 2026-07-25T17:01:00-05:00
 evidence_collected_at: 2026-07-25T17:02:00-05:00
@@ -1251,7 +1345,7 @@ namespaces:
 endpoints:
   - not-applicable
 components:
-  - SAGE-publisher=self-test-1.1
+  - SAGE-publisher=self-test-1.2
 repository: donb4iu/Kalaxy3
 branch: main
 implementation_commit: {IMPLEMENTATION_TOKEN}
@@ -1286,22 +1380,29 @@ relationships:
 
 ## Executive summary
 
-The temporary publication test validated the schema 1.1 metadata contract,
+The temporary publication test validated the schema 1.2 metadata and navigation contracts,
 created separate implementation and evidence commits, pushed both commits, and
 left the test repository clean.
+
+[TOC]
 
 ## Record metadata
 
 | Field | Value |
 |---|---|
 | **Evidence ID** | {evidence_id} |
-| **Schema version** | 1.1 |
+| **Schema version** | 1.2 |
 | **Project** | Kalaxy3 |
 | **Title** | SAGE publication self-test |
+| **Navigation title** | Test SAGE publication and legacy indexing |
+| **Navigation section** | governance |
+| **Navigation order** | 10 |
+| **Summary** | Validates split publication, canonical navigation metadata, and preservation of legacy evidence in generated catalogs. |
+| **Primary subject** | SAGE publisher |
 | **Record type** | operations |
 | **Status** | validated |
 | **Classification** | internal |
-| **Work session** | SAGE publisher schema 1.1 self-test |
+| **Work session** | SAGE publisher schema 1.2 self-test |
 | **Started** | 2026-07-25T17:00:00-05:00 |
 | **Completed** | 2026-07-25T17:01:00-05:00 |
 | **Evidence collected** | 2026-07-25T17:02:00-05:00 |
@@ -1325,7 +1426,7 @@ left the test repository clean.
 | **Node addresses** | not-applicable |
 | **Namespaces** | not-applicable |
 | **Endpoints** | not-applicable |
-| **Components and versions** | SAGE-publisher=self-test-1.1 |
+| **Components and versions** | SAGE-publisher=self-test-1.2 |
 | **Owner** | self-test-owner |
 | **Author** | self-test-author |
 | **Operator** | self-test-operator |
@@ -1367,7 +1468,7 @@ clean.
 
 | Claim ID | Claim | Criticality | Evidence IDs | Result | Confidence |
 |---|---|---|---|---|---|
-| `CLM-001` | The publisher completes a schema 1.1 split publication. | critical | `EV-001` | supported | high |
+| `CLM-001` | The publisher completes a schema 1.2 split publication and reconciles legacy evidence. | critical | `EV-001` | supported | high |
 
 ## Problem and decision rationale
 
@@ -1401,7 +1502,7 @@ The self-test generates a package, validates it, publishes it, and pushes it.
 | Collected at | 2026-07-25T17:02:00-05:00 |
 | Execution source | temporary-repository |
 | Target | temporary Git remote |
-| Tool and version | SAGE-publisher=self-test-1.1 |
+| Tool and version | SAGE-publisher=self-test-1.2 |
 | Expected result | Two commits, successful push, clean tree |
 | Actual result | pass |
 | Confidence | high |
@@ -1463,7 +1564,7 @@ or metadata contract changes.
 ## Final completion checklist and reviewer acceptance
 
 - [x] Evidence ID is unique and permanent.
-- [x] Schema version is 1.1.
+- [x] Schema version is 1.2.
 - [x] Front matter follows the exact metadata contract and order.
 - [x] Record metadata exactly mirrors front matter.
 - [x] Status accurately reflects completeness.
@@ -1520,6 +1621,28 @@ def self_test() -> None:
         (repo / "markdown/standards/kalaxy3-sage-evidence-publication-process.md").write_text(
             "# test publication process\n", encoding="utf-8"
         )
+        (repo / "scripts/sage").mkdir(parents=True)
+        shutil.copy2(Path(__file__).with_name("sage-index.py"), repo / INDEXER_PATH)
+        (repo / "markdown/evidence").mkdir(parents=True)
+        (repo / "markdown/evidence/legacy-record-registry.json").write_text(
+            json.dumps({
+                "registry_version": "1.0",
+                "candidate_roots": ["markdown/installation", "markdown/operations"],
+                "exclude_paths": [],
+                "records": [],
+            }, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (repo / "markdown/installation").mkdir(parents=True)
+        (repo / "markdown/installation/legacy-node-evidence.md").write_text(
+            "# AMD64 node and Longhorn installation evidence\n\n"
+            "Project: Kalaxy3\n"
+            "Completed: July 19, 2026, America/Chicago\n"
+            "Node: amd64-01\n"
+            "Node address: 192.168.2.61\n"
+            "Longhorn version: v1.12.0\n",
+            encoding="utf-8",
+        )
         (repo / METADATA_CONTRACT_PATH).write_text(
             json.dumps(metadata_contract_document(), indent=2) + "\n",
             encoding="utf-8",
@@ -1571,9 +1694,17 @@ def self_test() -> None:
         log = git(repo, "log", "--oneline", "-3")
         if "Add self-test SAGE evidence" not in log or "Apply self-test implementation" not in log:
             raise SageError("Self-test commits were not created")
+        catalog_path = repo / "markdown/evidence/catalog.json"
+        if not catalog_path.is_file():
+            raise SageError("Self-test did not generate evidence catalog")
+        catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+        classes = {item["record_class"] for item in catalog.get("records", [])}
+        if "sage-current" not in classes or "legacy-evidence" not in classes:
+            raise SageError(f"Self-test catalog did not preserve both classes: {classes}")
+        run([sys.executable, INDEXER_PATH, "check", "--repo", str(repo)], cwd=repo)
         if git(repo, "status", "--porcelain=v1"):
             raise SageError("Self-test repository is not clean")
-        print("\nSAGE publication self-test: PASS")
+        print("\nSAGE publication and legacy reconciliation self-test: PASS")
 
 def main() -> int:
     parser = argparse.ArgumentParser(

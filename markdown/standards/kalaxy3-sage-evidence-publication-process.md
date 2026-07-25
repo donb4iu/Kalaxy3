@@ -2,164 +2,163 @@
 title: Kalaxy3 SAGE Evidence Generation and Git Publication Process
 project: Kalaxy3
 record_type: governance-standard
-schema_version: "1.1"
+schema_version: "1.2"
 status: proposed
 created_at: 2026-07-25T17:00:00-05:00
-updated_at: 2026-07-25T17:38:00-05:00
+updated_at: 2026-07-25T18:30:00-05:00
 valid_as_of: 2026-07-25
 owner: Kalaxy3 architecture
 standard_path: markdown/standards/kalaxy3-sage-evidence-publication-process.md
 record_standard: markdown/standards/kalaxy3-sage-evidence-record-standard.md
-metadata_contract: markdown/standards/sage-evidence-metadata-contract-v1.1.json
+metadata_contract: markdown/standards/sage-evidence-metadata-contract-v1.2.json
 record_template: markdown/templates/sage-evidence-record-template.md
 manifest_template: markdown/templates/sage-evidence-package-manifest-template.json
 publisher: scripts/sage/sage-publish.py
+indexer: scripts/sage/sage-index.py
+legacy_registry: markdown/evidence/legacy-record-registry.json
 ---
 
 # Kalaxy3 SAGE Evidence Generation and Git Publication Process
 
 ## Purpose
 
-This process makes every working-session evidence publication deterministic.
-The evidence generator synthesizes one package. The repository publisher
-enforces metadata, structure, checksums, placement, Git lineage, commit
-separation, synchronization, and push.
+This process makes working-session evidence publication deterministic while
+preserving all historical evidence. The generator creates one package. The
+repository publisher validates, commits, resolves lineage, reconciles current
+and legacy evidence, generates navigation, and optionally pushes.
 
 ```text
-working session and observed evidence
-        |
-        v
-SAGE package generator
-  - schema 1.1 front matter
-  - canonical Record metadata table
-  - Five Ws and How
-  - claims and evidence
-  - raw artifact package
-        |
-        v
-scripts/sage/sage-publish.py
-  - contract validation
-  - exact file placement
-  - implementation commit
-  - SHA injection
-  - record checksum
-  - evidence commit
-  - safe synchronization and push
+working session
+  -> schema 1.2 package
+  -> package validation
+  -> implementation commit
+  -> evidence installation and SHA resolution
+  -> current + legacy evidence reconciliation
+  -> catalog and migration views
+  -> evidence commit
+  -> safe synchronization and push
 ```
 
-## Authoritative inputs
-
-The generator and publisher MUST use these repository files:
+## Authoritative repository files
 
 ```text
 markdown/standards/kalaxy3-sage-evidence-record-standard.md
-markdown/standards/sage-evidence-metadata-contract-v1.1.json
+markdown/standards/sage-evidence-metadata-contract-v1.2.json
+markdown/standards/kalaxy3-sage-evidence-publication-process.md
 markdown/templates/sage-evidence-record-template.md
 markdown/templates/sage-evidence-package-manifest-template.json
 markdown/templates/sage-evidence-generation-request.md
+markdown/evidence/legacy-record-registry.json
+scripts/sage/sage-publish.py
+scripts/sage/sage-index.py
 ```
 
-The JSON metadata contract is the machine-readable authority for:
+The JSON contract and publisher constants MUST agree exactly.
 
-- record schema version;
-- exact front-matter fields and order;
-- list-valued fields;
-- exact Record metadata table rows and order;
-- exact Five-W table row names;
-- canonical list separator;
-- unavailable-value vocabulary;
-- timestamp and timezone requirements.
+## Generator responsibilities
 
-The publisher MUST reject drift between the JSON contract and its enforcement
-constants.
-
-## Division of responsibility
-
-### Evidence generator
-
-The generator MUST:
+The evidence generator MUST:
 
 1. identify the most recent Kalaxy3 working session and its boundaries;
-2. use a permanent evidence ID;
-3. use record schema `1.1`;
-4. populate every canonical front-matter field in exact order;
-5. distinguish work, evidence, record, and validity timestamps;
-6. use `America/Chicago` as the canonical local timezone unless the session
-   evidence proves another location/timezone;
-7. record Kubernetes and other system timestamp zones separately, normally
-   `UTC`;
-8. normalize components as `component=version`;
-9. normalize node addresses as `node=address`;
-10. normalize endpoints as `purpose=address-or-hostname`;
-11. use `not-applicable`, `not-captured`, or `pending` exactly rather than
-    inventing synonyms;
-12. generate the exact Record metadata table from front matter;
-13. use the exact Five Ws and How rows and keep their facts consistent with
-    canonical metadata;
-14. include all mandatory template sections in order;
-15. create atomic claims and map them to evidence IDs;
-16. distinguish direct observation, repository evidence, generated artifacts,
-    derived conclusions, assumptions, plans, and negative evidence;
-17. separate failed paths from accepted state;
-18. document limitations, nonclaims, gaps, rollback, rebuild, operations,
-    security, and revalidation;
-19. use `__SAGE_IMPLEMENTATION_COMMIT__` wherever the implementation SHA belongs;
-20. use `__SAGE_PUBLISHED_AT__` wherever publication time belongs;
-21. create one valid package manifest;
-22. hash every payload file;
-23. return one ZIP and only the standard check and publish commands.
+2. use package and record schema `1.2`;
+3. assign a permanent SAGE evidence ID;
+4. populate every canonical field in exact order;
+5. provide formal title, navigation title, section, order, summary, and primary
+   subject;
+6. distinguish work, evidence, record, validity, local-time, and system-time
+   semantics;
+7. create the exact Record metadata table from front matter;
+8. include `[TOC]` and all mandatory sections in order;
+9. keep Five Ws consistent with canonical metadata;
+10. create atomic claims and evidence items;
+11. include repository changes, terminal evidence, expected and observed
+    results, failed paths, limitations, rollback, rebuild, security, operations,
+    and revalidation;
+12. use `__SAGE_IMPLEMENTATION_COMMIT__` and `__SAGE_PUBLISHED_AT__` tokens;
+13. place artifacts under the evidence ID directory;
+14. hash every package payload file;
+15. return one ZIP and only the standard check and publish commands.
 
-The generator MUST NOT:
+The generator MUST NOT provide a custom unzip, Git add, commit, pull, or push
+workflow.
 
-- create an informal static header with different field names;
-- reformat canonical timestamps in the Record metadata table;
-- abbreviate timezones or commit SHAs;
-- put version numbers only in prose;
-- omit node-address relationships;
-- introduce a front-matter field not defined by the contract;
-- silently convert assumptions into facts;
-- omit a failed attempt that materially explains the accepted design;
-- include credentials, tokens, private keys, secret values, or unredacted
-  Kubernetes Secrets;
-- place raw artifacts outside the evidence ID directory;
-- provide a custom Git workflow.
-
-### Repository publisher
+## Publisher responsibilities
 
 `scripts/sage/sage-publish.py` MUST:
 
-- reject unsafe ZIP paths, symbolic links, undeclared files, and checksum
-  mismatches;
-- require package schema `1.1` and record schema `1.1`;
-- verify the repository standard, template, metadata contract, and process;
-- enforce exact front-matter field order;
-- validate RFC3339 timestamps and IANA timezone names;
-- validate canonical unavailable values;
-- validate node/address, endpoint, component/version, and artifact-root formats;
-- require the exact Record metadata table and compare every value with front
-  matter;
-- require the exact Five-W row order;
-- detect material conflicts between Five Ws and metadata;
-- validate claims and evidence references;
-- scan for high-confidence secret patterns;
-- require a clean Git index;
-- synchronize safely with `origin/main`;
+- reject unsafe ZIP paths, links, undeclared files, and checksum mismatches;
+- require package and record schema `1.2`;
+- enforce the metadata and navigation contracts;
+- validate table mirroring, Five-W consistency, headings, claims, evidence,
+  checklists, and secret patterns;
+- synchronize safely with the declared branch and remote;
 - stage only manifest-declared implementation paths;
-- create a separate implementation commit when implementation changed;
-- inject the full immutable implementation SHA;
-- copy only declared evidence files;
-- generate the final record checksum;
-- write a publication manifest containing standard, template, process, and
-  metadata-contract hashes;
-- stage only declared evidence paths;
+- create a separate implementation commit when required;
+- inject the full implementation SHA and publication timestamp;
+- create the final evidence checksum and publication manifest;
+- call the evidence indexer after the record is installed;
+- stage generated catalog additions, changes, and safe stale removals in the
+  evidence commit;
 - create a separate evidence commit;
-- repair the recorded implementation SHA after a safe rebase if necessary;
+- repair the implementation SHA after a safe rebase when necessary;
 - push without force;
-- report final commits, paths, and actual working-tree state.
+- report commits, paths, warnings, and working-tree state.
+
+## Evidence reconciliation
+
+`scripts/sage/sage-index.py` MUST:
+
+1. discover all records under configured candidate roots;
+2. discover SAGE IDs outside candidate roots;
+3. include explicit registry records;
+4. classify records as `sage-current`, `sage-legacy`, or `legacy-evidence`;
+5. use authoritative schema 1.2 navigation metadata for current records;
+6. use curated registry metadata when supplied;
+7. use clearly identified inferred metadata only when necessary for discovery;
+8. assign deterministic `LEGACY-K3-*` identifiers to pre-SAGE records;
+9. preserve source files without rewriting them;
+10. reject duplicate IDs and duplicate current navigation titles within a
+    section;
+11. generate Markdown, JSON, and CSV catalogs plus section, subject, status,
+    legacy, and migration views;
+12. remove only stale paths declared by the previous generated-files manifest;
+13. report legacy and curation warnings without blocking unrelated current
+    evidence publication;
+14. fail `check` when generated catalog files are stale.
+
+The compatibility model is asymmetric by design:
+
+```text
+new schema 1.2 record -> strict publication gate
+schema 1.0/1.1 record -> preserve, index, warn, migrate deliberately
+pre-SAGE Markdown     -> preserve, assign stable legacy ID, curate or infer
+```
+
+Historical records are never automatically rewritten to satisfy the current
+schema.
+
+## Legacy registry
+
+The registry is:
+
+```text
+markdown/evidence/legacy-record-registry.json
+```
+
+It contains:
+
+- `registry_version`;
+- candidate evidence roots;
+- explicit exclusions;
+- optional curated records keyed by `source_path`.
+
+A curated record may define `nav_title`, `nav_section`, `nav_order`, `summary`,
+`primary_subject`, dates, status, owner, tags, confidence, and migration status.
+Curated values improve navigation but do not change the historical source.
 
 ## Package format
 
-A package is a ZIP with exactly:
+A package ZIP contains exactly:
 
 ```text
 sage-package.json
@@ -168,57 +167,49 @@ payload/
   markdown/evidence-artifacts/<evidence-id>/<artifact files>
 ```
 
-The packaged record does not include its final checksum because publication
-replaces tokens. The publisher creates:
+The publisher creates the final checksum and publication manifest after token
+replacement. Generated catalogs are repository outputs, not package payload.
 
-```text
-markdown/<category>/<record>.md.sha256
-markdown/evidence-artifacts/<evidence-id>/publication-manifest.json
-```
-
-## Package manifest schema 1.1
+## Manifest schema 1.2
 
 | Field | Requirement |
 |---|---|
-| `schema_version` | Exactly `1.1`. |
-| `record_schema_version` | Exactly `1.1`. |
-| `metadata_contract_path` | Exactly `markdown/standards/sage-evidence-metadata-contract-v1.1.json`. |
-| `repository` | Exactly `donb4iu/Kalaxy3`. |
-| `branch` | Target branch, normally `main`. |
-| `evidence_id` | Permanent SAGE evidence ID. |
-| `record_path` | Canonical repository path. |
-| `record_checksum_path` | Exactly `record_path + .sha256`. |
-| `artifact_paths` | Files under the exact evidence ID artifact root. |
-| `implementation_paths` | Exact implementation paths changed during the session. |
+| `schema_version` | Exactly `1.2`. |
+| `record_schema_version` | Exactly `1.2`. |
+| `metadata_contract_path` | Exact schema 1.2 contract path. |
+| `repository` | `donb4iu/Kalaxy3`. |
+| `branch` | Target branch. |
+| `evidence_id` | Permanent SAGE ID. |
+| `record_path` | Canonical record path. |
+| `record_checksum_path` | `record_path + .sha256`. |
+| `artifact_paths` | Files under the evidence ID artifact root. |
+| `implementation_paths` | Exact changed implementation files. |
 | `publication_mode` | `split` or `evidence-only`. |
-| `implementation_commit_message` | Imperative implementation commit subject. |
-| `evidence_commit_message` | Imperative evidence commit subject. |
-| `files` | Every packaged payload file and its SHA-256. |
+| commit messages | Imperative and specific. |
+| `files` | Every payload path and prepublication SHA-256. |
 
 ## Publication modes
 
 ### Split
 
-Use when implementation or configuration changed:
+Use when implementation changed:
 
 ```text
-commit 1: implementation paths only
-commit 2: evidence record, checksum, artifacts, publication manifest
+commit 1: declared implementation files
+commit 2: evidence, checksum, artifacts, publication manifest, generated catalog
 ```
 
 ### Evidence-only
 
-Use when the session only validates or documents an existing implementation.
-`implementation_paths` must be empty. The manifest may name an existing full
-implementation SHA; otherwise the publisher uses current `HEAD`.
+Use when no implementation changed. The package may name an existing full
+implementation SHA; otherwise the current `HEAD` is used.
 
 ## Standard commands
 
-### Check
+### Check a package
 
 ```bash
 cd ~/dvlp/Kalaxy3
-
 python3 scripts/sage/sage-publish.py check \
   ~/Downloads/<sage-package>.zip
 ```
@@ -227,14 +218,18 @@ python3 scripts/sage/sage-publish.py check \
 
 ```bash
 cd ~/dvlp/Kalaxy3
-
 python3 scripts/sage/sage-publish.py publish \
   ~/Downloads/<sage-package>.zip \
   --push
 ```
 
-No manual unzip, stage, commit, rebase, or push step belongs to the normal
-process.
+### Reconcile or verify navigation independently
+
+```bash
+cd ~/dvlp/Kalaxy3
+python3 scripts/sage/sage-index.py reconcile
+python3 scripts/sage/sage-index.py check
+```
 
 ### Self-test
 
@@ -243,103 +238,68 @@ cd ~/dvlp/Kalaxy3
 python3 scripts/sage/sage-publish.py self-test
 ```
 
-The self-test creates a temporary bare remote and working repository, publishes
-a synthetic schema 1.1 split package, validates both commits and metadata
-mirroring, pushes, and requires a clean final tree.
+The self-test MUST publish a current schema 1.2 record and preserve a pre-SAGE
+legacy record in an isolated temporary repository and remote.
 
-## Validation gates
+## Publication gates
 
-The publisher rejects:
+Publication fails for:
 
-- package schema other than `1.1`;
-- record schema other than `1.1`;
-- invalid ZIP structure or hash inventory;
-- missing repository contract files;
-- drift between contract JSON and publisher constants;
-- missing, extra, or reordered front-matter fields;
-- noncanonical timestamp, timezone, unavailable-value, component, address, or
-  endpoint formats;
-- a Record metadata row that is missing, extra, reordered, or inconsistent;
-- a Five-W row that is missing, extra, reordered, or materially inconsistent;
-- unsupported lifecycle status or record type;
-- missing required section or unresolved template marker;
+- schema or contract drift;
+- unsafe package structure;
+- missing, extra, reordered, or inconsistent current metadata;
+- invalid navigation values or duplicate current navigation titles;
+- missing `[TOC]` or mandatory section;
 - missing evidence referenced by a claim;
-- incomplete Five-W or final checklist in a validated/accepted record;
-- an accepted record with a pending reviewer;
-- a split package without the implementation token;
-- a high-confidence secret pattern;
+- incomplete validated/accepted checklists;
+- high-confidence secret patterns;
 - preexisting staged changes;
-- wrong branch or remote;
-- diverged local and remote history;
-- no implementation change in split mode;
+- wrong branch, remote, or diverged history;
 - unexpected staged files;
-- final checksum mismatch;
+- checksum failure;
+- catalog reconciliation failure;
+- duplicate permanent IDs;
+- stale generated catalog in `sage-index.py check`;
 - unsafe Git or push failure.
 
-Warnings are printed and require review; they do not silently disappear.
+Legacy deficiencies produce migration warnings rather than record deletion or
+unrelated publication failure, except duplicate IDs or unsafe paths.
 
-## Consistency rules
+## Generated outputs
 
-1. Front matter is authoritative.
-2. Record metadata mirrors front matter exactly.
-3. Five Ws explain metadata and may not redefine it.
-4. Components and versions always use `name=version`.
-5. Nodes and addresses always use `node=address`.
-6. Endpoints always use `purpose=value`.
-7. Lists use semicolon-space in the human-readable metadata table.
-8. Timestamps remain RFC3339 in canonical displays.
-9. Local timezone uses an IANA name; system timestamp zones remain separate.
-10. Missing concepts use only canonical unavailable values.
-11. Implementation and evidence commits remain separate when implementation
-    changed.
-12. Historical evidence IDs never change.
+```text
+markdown/evidence/index.md
+markdown/evidence/current.md
+markdown/evidence/legacy.md
+markdown/evidence/migration-report.md
+markdown/evidence/catalog.json
+markdown/evidence/catalog.csv
+markdown/evidence/sections/
+markdown/evidence/subjects/
+markdown/evidence/status/
+markdown/evidence/generated-files.json
+```
 
-## Evidence-package generation checklist
+These files are generated and MUST NOT be edited manually. The registry is
+curated and MUST NOT be overwritten by the indexer.
 
-### Canonical metadata
+## Process request
 
-- [ ] Schema version is 1.1.
-- [ ] Every front-matter field exists in exact order.
-- [ ] Work completion and evidence collection timestamps are distinct.
-- [ ] Local and system timestamp timezones are explicit.
-- [ ] Nodes, addresses, endpoints, and components use canonical formats.
-- [ ] The artifact root matches the evidence ID.
-- [ ] No ad hoc front-matter keys exist.
-- [ ] Record metadata exactly mirrors front matter.
-- [ ] Five Ws agree with metadata.
+The normal user request is:
 
-### Evidence record
+> Generate the SAGE evidence package for this working session using the Kalaxy3
+> SAGE standard, template, and publication process.
 
-- [ ] All mandatory headings exist in order.
-- [ ] Scope, exclusions, and nonclaims are explicit.
-- [ ] Atomic claims map to evidence items.
-- [ ] Expected and observed results are separated.
-- [ ] Failed paths are separated from accepted state.
-- [ ] Idempotency is proven or not applicable.
-- [ ] Security and secret review is complete.
-- [ ] Rollback, rebuild, operations, troubleshooting, and revalidation are
-      complete.
-- [ ] Implementation and publication tokens are present where required.
-
-### Artifacts and publication
-
-- [ ] Material terminal evidence is preserved.
-- [ ] Raw artifacts use the evidence ID directory.
-- [ ] Sensitive data is removed or redacted.
-- [ ] Every payload file is hashed.
-- [ ] Exact implementation paths are listed.
-- [ ] Commit messages are imperative and specific.
-- [ ] Package passes `check`.
-- [ ] Package is published only through the script.
+The response should contain one ZIP plus the standard `check` and `publish`
+commands. No session-specific Git procedure is required.
 
 ## Limitations
 
-- Structural validation cannot prove that every factual statement is true.
-- Exact metadata prevents naming drift but cannot supply evidence that was not
-  captured.
-- Secret scanning is conservative and cannot guarantee absence of all sensitive
-  material.
-- Legacy schema 1.0 records remain valid historical artifacts but are not
-  accepted as templates for new records.
-- A process update that replaces the publisher itself requires a reviewed
-  bootstrap extraction before the new publisher can validate its own update.
+- Structural validation cannot prove every factual statement.
+- Inferred legacy metadata is useful for discovery but is not authoritative.
+- Candidate roots may need registry additions for evidence stored elsewhere.
+- Secret scanning cannot guarantee absence of every sensitive value.
+- Documentation renderers still control visual styling, but the catalog and
+  navigation semantics are repository-owned and renderer-neutral.
+- Migration remains a reviewed activity; the indexer does not fabricate a
+  compliant record from incomplete history.

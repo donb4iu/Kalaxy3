@@ -1,7 +1,12 @@
 ---
 evidence_id: SAGE-K3-<DOMAIN>-<YYYYMMDD>-<NNN>
-schema_version: "1.1"
-title: <Concise evidence-record title>
+schema_version: "1.2"
+title: <Formal evidence-record title>
+nav_title: <Plain-language navigation title, maximum 80 characters>
+nav_section: <installation|operations|architecture|decisions|finops|governance|security|incidents|experiments|benchmarks|verification|other>
+nav_order: <integer 0-9999>
+summary: <Single-line human navigation summary, 20-360 characters>
+primary_subject: <Primary component, system, node, or capability>
 project: Kalaxy3
 record_type: <installation|architecture-decision|change|verification|incident|experiment|benchmark|operations|security|finops>
 status: <draft|implemented|validated|accepted|superseded|retired|rejected>
@@ -74,6 +79,8 @@ relationships:
 record is complete, provisional, failed, rejected, or superseded. Do not present
 planned state as observed state.>
 
+[TOC]
+
 ## Record metadata
 
 The values in this table MUST exactly mirror front matter. List fields use
@@ -82,9 +89,14 @@ semicolon-space (`; `). Do not reformat timestamps or shorten commit SHAs.
 | Field | Value |
 |---|---|
 | **Evidence ID** | SAGE-K3-<DOMAIN>-<YYYYMMDD>-<NNN> |
-| **Schema version** | 1.1 |
+| **Schema version** | 1.2 |
 | **Project** | Kalaxy3 |
-| **Title** | <Concise evidence-record title> |
+| **Title** | <Formal evidence-record title> |
+| **Navigation title** | <same as nav_title> |
+| **Navigation section** | <same as nav_section> |
+| **Navigation order** | <same as nav_order> |
+| **Summary** | <same as summary> |
+| **Primary subject** | <same as primary_subject> |
 | **Record type** | <record type> |
 | **Status** | <status> |
 | **Classification** | internal |
@@ -118,6 +130,17 @@ semicolon-space (`; `). Do not reformat timestamps or shorten commit SHAs.
 | **Operator** | <same as operator> |
 | **Reviewer** | <same as reviewer> |
 | **Confidence** | <same as confidence> |
+
+## Navigation contract
+
+- `title` is the formal evidentiary title and MAY be long enough to be precise.
+- `nav_title` is the concise human-facing label shown in generated indexes.
+- `nav_section` controls section grouping.
+- `nav_order` controls deterministic order within a section.
+- `summary` explains why a human should open the record.
+- `primary_subject` drives subject indexes.
+- `[TOC]` is mandatory so Daux.io and compatible renderers expose page-level headings.
+- These fields are authoritative only for schema 1.2 records. Historical records are indexed through the compatibility registry and are never rewritten automatically.
 
 ## Five Ws and How
 
@@ -501,7 +524,7 @@ record and evidence ID, and state which claims remain valid.
 ### Governance
 
 - [ ] Evidence ID is unique and permanent.
-- [ ] Schema version is 1.1.
+- [ ] Schema version is 1.2.
 - [ ] Front matter follows the exact metadata contract and order.
 - [ ] Record metadata exactly mirrors front matter.
 - [ ] Status accurately reflects completeness.
