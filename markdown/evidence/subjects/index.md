@@ -16,6 +16,7 @@
 - [Observability](observability.md)
 - [Protected Longhorn](protected-longhorn.md)
 - [Protected Traefik Dashboard Installation](protected-traefik-dashboard-installation.md)
+- [SAGE enforcement guardrails](sage-enforcement-guardrails.md)
 - [SAGE evidence catalog](sage-evidence-catalog.md)
 - [SAGE-record-schema](sage-record-schema.md)
 - [Ubuntu Installation](ubuntu-installation.md)

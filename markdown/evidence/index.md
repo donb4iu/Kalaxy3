@@ -12,14 +12,15 @@ with curated or inferred metadata and an explicit migration state.
 | Classification | Count |
 |---|---:|
 | legacy-evidence | 17 |
-| sage-current | 3 |
+| sage-current | 4 |
 | sage-legacy | 3 |
-| **Total** | **23** |
+| **Total** | **24** |
 
 ## Start here
 
 | Section | Record | Summary | Class | Status | Valid as of |
 |---|---|---|---|---|---|
+| governance | [Pause logging work to close the SAGE enforcement gap](../governance/kalaxy3-sage-guardrail-gap-observability-pause-evidence.md) | Documents the machine-local Helm escape path, the missing preventive SAGE controls, and the decision to checkpoint and pause centralized logging until repository and admission guardrails are implemented. | sage-current | validated | 2026-07-26 |
 | governance | [Validate interchangeable Kalaxy3 automation controllers](../operations/kalaxy3-controller-machine-portability-evidence.md) | Verifies that clean iMac and Mac mini controllers reproduce the same repository-managed Python and Ansible environment despite different system Python versions. | sage-current | validated | 2026-07-26 |
 | benchmarks | [Capture pre-logging Kubecost baseline](../benchmarks/kalaxy3-pre-logging-kubecost-baseline-evidence.md) | Preserves checksum-verified 24-hour and 72-hour Kubecost control measurements before centralized logging changes cluster resource use and cost. | sage-current | validated | 2026-07-25 |
 | governance | [Preserve legacy evidence and generate navigation](../operations/kalaxy3-sage-legacy-evidence-navigation-evidence.md) | Adds strict navigation metadata for new SAGE records while preserving and indexing schema 1.0, schema 1.1, and pre-SAGE evidence without rewriting historical source files. | sage-current | validated | 2026-07-25 |
@@ -31,7 +32,6 @@ with curated or inferred metadata and an explicit migration state.
 | installation | [amd64-02 K3s and Longhorn Node Addition](../installation/kalaxy3-amd64-02-k3s-longhorn-node-addition.md) | This document chronicles the addition of amd64-02 to the Kalaxy3 cluster as: | legacy-evidence | historical | 2026-07-21 |
 | installation | [Protected Traefik Dashboard Installation and Rebuild Guide](../installation/kalaxy3-traefik-dashboard-installation-evidence.md) | Project: Kalaxy3 Implementation date: July 20, 2026, America/Chicago Target path: markdown/installation/kalaxy3-traefik-dashboard-installation-evidence.md Traefik LoadBalancer address: 192.168.2.20 Dashboard hostname: traefik.kalaxy3.home.arpa | legacy-evidence | historical | 2026-07-20 |
 | installation | [Protected Longhorn and Prometheus UI installation and Rebuild Guide](../installation/kalaxy3-protected-ui-installation-evidence.md) | Project: Kalaxy3 Completed: July 20, 2026, America/Chicago Kubernetes timestamps: July 21, 2026 UTC Target path: markdown/installation/kalaxy3-protected-ui-installation-evidence.md Traefik LoadBalancer address: 192.168.2.20 | legacy-evidence | historical | 2026-07-20 |
-| installation | [AMD64 Node and Longhorn installation and Rebuild Guide](../installation/kalaxy3-amd64-node-and-longhorn-installation-evidence.md) | Project: Kalaxy3 Completed: July 19, 2026, America/Chicago Kubernetes timestamps: July 20, 2026 UTC Target path: markdown/installation/kalaxy3-amd64-node-and-longhorn-installation-evidence.md Node: amd64-01 Node address: 192.168.2.61 K3s version: v1.36.2+k3s1 Longhorn version: v1.12.0 | legacy-evidence | historical | 2026-07-19 |
 
 ## Browse
 
