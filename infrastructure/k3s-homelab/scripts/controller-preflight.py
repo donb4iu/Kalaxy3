@@ -66,6 +66,26 @@ def installed_collections() -> Dict[str, str]:
     return installed
 
 
+def validate_uv() -> None:
+    """Validate the repository-local uv executable and version."""
+    expected = (ROOT / ".uv-version").read_text(encoding="utf-8").strip()
+    executable = ROOT / ".tools/uv"
+
+    if not executable.is_file():
+        raise RuntimeError(f"Repository-local uv is missing: {executable}")
+
+    output = run_command([str(executable), "--version"]).strip()
+    parts = output.split()
+    actual = parts[1] if len(parts) >= 2 else ""
+
+    if actual != expected:
+        raise RuntimeError(
+            f"uv mismatch: expected {expected}, found {actual or output}"
+        )
+
+    print(f"PASS uv {actual}")
+
+
 def validate_python() -> None:
     """Validate the virtual-environment Python version."""
     expected = (ROOT / ".python-version").read_text(encoding="utf-8").strip()
@@ -74,6 +94,16 @@ def validate_python() -> None:
         raise RuntimeError(
             f"Python mismatch: expected {expected}, found {actual}"
         )
+
+    managed_root = (ROOT / ".python").resolve()
+    base_prefix = Path(sys.base_prefix).resolve()
+
+    if managed_root != base_prefix and managed_root not in base_prefix.parents:
+        raise RuntimeError(
+            "Python is not repository-managed: "
+            f"expected under {managed_root}, found {base_prefix}"
+        )
+
     print(f"PASS Python {actual}")
 
 
@@ -113,6 +143,7 @@ def main() -> int:
             "Preflight must run from the repository .venv: "
             f"expected {expected_venv}, found {active_venv}"
         )
+    validate_uv()
     validate_python()
     validate_ansible()
     print("Kalaxy3 controller preflight: PASS")

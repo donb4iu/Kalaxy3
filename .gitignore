@@ -227,3 +227,7 @@ infrastructure/k3s-homelab/playbooks/files/pi-admin-ed25519.pub
 
 # Repository-local Ansible collections
 infrastructure/k3s-homelab/.ansible/
+
+infrastructure/k3s-homelab/.tools/
+infrastructure/k3s-homelab/.python/
+infrastructure/k3s-homelab/.uv-cache/
