@@ -7,6 +7,7 @@
 - [Intel Node pi Administrative Access Evidence](intel-node-pi-administrative-access-evidence.md)
 - [K3s API High Availability](k3s-api-high-availability.md)
 - [K3s etcd Baseline Backup Evidence](k3s-etcd-baseline-backup-evidence.md)
+- [Kalaxy3 automation controller portability](kalaxy3-automation-controller-portability.md)
 - [Kalaxy3 SAGE evidence-record standard 1.0](kalaxy3-sage-evidence-record-standard-1-0.md)
 - [Kubecost chart 3.2.1](kubecost-chart-3-2-1.md)
 - [Kubecost Installation](kubecost-installation.md)

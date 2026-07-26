@@ -12,14 +12,15 @@ with curated or inferred metadata and an explicit migration state.
 | Classification | Count |
 |---|---:|
 | legacy-evidence | 17 |
-| sage-current | 2 |
+| sage-current | 3 |
 | sage-legacy | 3 |
-| **Total** | **22** |
+| **Total** | **23** |
 
 ## Start here
 
 | Section | Record | Summary | Class | Status | Valid as of |
 |---|---|---|---|---|---|
+| governance | [Validate interchangeable Kalaxy3 automation controllers](../operations/kalaxy3-controller-machine-portability-evidence.md) | Verifies that clean iMac and Mac mini controllers reproduce the same repository-managed Python and Ansible environment despite different system Python versions. | sage-current | validated | 2026-07-26 |
 | benchmarks | [Capture pre-logging Kubecost baseline](../benchmarks/kalaxy3-pre-logging-kubecost-baseline-evidence.md) | Preserves checksum-verified 24-hour and 72-hour Kubecost control measurements before centralized logging changes cluster resource use and cost. | sage-current | validated | 2026-07-25 |
 | governance | [Preserve legacy evidence and generate navigation](../operations/kalaxy3-sage-legacy-evidence-navigation-evidence.md) | Adds strict navigation metadata for new SAGE records while preserving and indexing schema 1.0, schema 1.1, and pre-SAGE evidence without rewriting historical source files. | sage-current | validated | 2026-07-25 |
 | operations | [Canonical metadata contract and publisher enforcement](../operations/kalaxy3-sage-canonical-metadata-contract-evidence.md) | Kalaxy3 SAGE metadata is now defined by a schema 1.1 machine-readable contract, a matching record standard and template, and publisher validation that rejects missing, extra, reordered, renamed, or inconsistent metadata. Every new record must contain an exact YAML field set, an exact human-readable Record metadata table, normalized timestamps, timezones,... | sage-legacy | validated | 2026-07-25 |
@@ -31,7 +32,6 @@ with curated or inferred metadata and an explicit migration state.
 | installation | [Protected Traefik Dashboard Installation and Rebuild Guide](../installation/kalaxy3-traefik-dashboard-installation-evidence.md) | Project: Kalaxy3 Implementation date: July 20, 2026, America/Chicago Target path: markdown/installation/kalaxy3-traefik-dashboard-installation-evidence.md Traefik LoadBalancer address: 192.168.2.20 Dashboard hostname: traefik.kalaxy3.home.arpa | legacy-evidence | historical | 2026-07-20 |
 | installation | [Protected Longhorn and Prometheus UI installation and Rebuild Guide](../installation/kalaxy3-protected-ui-installation-evidence.md) | Project: Kalaxy3 Completed: July 20, 2026, America/Chicago Kubernetes timestamps: July 21, 2026 UTC Target path: markdown/installation/kalaxy3-protected-ui-installation-evidence.md Traefik LoadBalancer address: 192.168.2.20 | legacy-evidence | historical | 2026-07-20 |
 | installation | [AMD64 Node and Longhorn installation and Rebuild Guide](../installation/kalaxy3-amd64-node-and-longhorn-installation-evidence.md) | Project: Kalaxy3 Completed: July 19, 2026, America/Chicago Kubernetes timestamps: July 20, 2026 UTC Target path: markdown/installation/kalaxy3-amd64-node-and-longhorn-installation-evidence.md Node: amd64-01 Node address: 192.168.2.61 K3s version: v1.36.2+k3s1 Longhorn version: v1.12.0 | legacy-evidence | historical | 2026-07-19 |
-| installation | [K3s API High Availability with kube-vip](../installation/k3s-api-ha-kube-vip.md) | Project: Kalaxy3 Cluster: Kalaxy3 K3s homelab Implemented: July 16, 2026 Status: kube-vip deployed and API VIP verified Publication: Safe to commit and push | legacy-evidence | historical | 2026-07-17 |
 
 ## Browse
 
