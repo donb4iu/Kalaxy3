@@ -1,0 +1,2 @@
+# Preserve SAGE evidence artifacts byte-for-byte.
+markdown/evidence-artifacts/** -whitespace
