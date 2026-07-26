@@ -206,3 +206,9 @@ deploy: cluster-guardrails
 
 uninstall: recovery-guardrails confirm-uninstall
 	$(ANSIBLE) playbooks/uninstall.yml
+
+.PHONY: centralized-logging-render
+centralized-logging-render: controller-preflight
+	.venv/bin/ansible-playbook \
+		playbooks/validate-centralized-logging.yml
+
