@@ -5,7 +5,7 @@ record_type: governance-standard
 schema_version: "1.2"
 status: proposed
 created_at: 2026-07-24T23:45:00-05:00
-updated_at: 2026-07-25T18:30:00-05:00
+updated_at: 2026-07-26T13:56:37-05:00
 valid_as_of: 2026-07-25
 owner: Kalaxy3 architecture
 intended_path: markdown/standards/kalaxy3-sage-evidence-record-standard.md
@@ -30,6 +30,31 @@ without depending on the original chat session.
 
 The words **MUST**, **MUST NOT**, **REQUIRED**, **SHOULD**, **SHOULD NOT**, and
 **MAY** are normative.
+
+## Repository authority and controller portability
+
+The Git repository MUST be the authoritative source for persistent
+configuration, dependency versions, deployment logic, operational procedures,
+rebuild instructions, and evidence.
+
+Operator workstations and automation controllers MUST be treated as
+interchangeable execution clients. An iMac, Mac mini, CI runner, or future
+controller MUST NOT contain the only authoritative copy of state required to
+deploy, operate, validate, recover, or rebuild Kalaxy3.
+
+Controller-local state MAY contain credentials, SSH keys, kubeconfig files,
+vault access, repository-created virtual environments, and disposable caches.
+It MUST NOT be the sole location of Helm repositories, chart versions, values,
+manifests, Ansible variables, operational decisions, or evidence.
+
+Repository-owned bootstrap and preflight procedures MUST recreate and validate
+the controller toolchain before deployment. Exact dependency versions MUST be
+recorded in repository dependency files or configuration.
+
+Evidence MUST distinguish `controller_host`, `execution_host`, and affected
+target nodes. A manual diagnostic or emergency change MAY be performed, but
+the work is not repeatable or complete until the intended state is reconciled
+into repository-owned automation and validated from a clean checkout.
 
 ## Authoritative representations
 

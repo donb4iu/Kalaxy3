@@ -7,13 +7,27 @@
   vars:
     selected_platform_phase: "{{ platform_phase | default('all') }}"
   pre_tasks:
-    - name: Install Helm
+    - name: Read installed Helm version
+      ansible.builtin.command:
+        argv:
+          - helm
+          - version
+          - --short
+      register: installed_helm_version
+      changed_when: false
+      failed_when: false
+
+    - name: Install repository-pinned Helm version
       ansible.builtin.shell: |
         set -o pipefail
-        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        curl -fsSL \
+          https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 |
+          bash -s -- --version "{{ helm_version }}"
       args:
         executable: /bin/bash
-        creates: /usr/local/bin/helm
+      when: >-
+        installed_helm_version.rc != 0 or
+        not installed_helm_version.stdout.startswith(helm_version)
 
     - name: Add Helm repositories
       ansible.builtin.command: >-

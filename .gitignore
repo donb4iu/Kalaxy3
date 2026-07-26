@@ -224,3 +224,6 @@ infrastructure/k3s-homelab/kubeconfig-kalaxy3.yaml
 
 /infrastructure/k3s-homelab/kubeconfig-kalaxy3.yaml
 infrastructure/k3s-homelab/playbooks/files/pi-admin-ed25519.pub
+
+# Repository-local Ansible collections
+infrastructure/k3s-homelab/.ansible/

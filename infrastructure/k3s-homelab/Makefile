@@ -1,15 +1,32 @@
+PYTHON ?= python3
 VENV := .venv
+COLLECTIONS := .ansible/collections
 ANSIBLE := $(VENV)/bin/ansible-playbook
+PREFLIGHT := $(VENV)/bin/python scripts/controller-preflight.py
 VAULT := --ask-vault-pass
 
-.PHONY: install ping phase-0 phase-1 phase-2 phase-3 phase-4 phase-5 \
+.PHONY: install controller-bootstrap controller-preflight ping \
+        phase-0 phase-1 phase-2 phase-3 phase-4 phase-5 \
         phase-6 phase-7 phase-8 survey-clean validate-1 validate-2 validate-3 \
         validate-4 validate-5 validate-6 deploy uninstall syntax
 
-install:
-	python3 -m venv $(VENV)
+install: controller-bootstrap
+
+controller-bootstrap:
+	@expected="$$(cat .python-version)"; \
+	actual="$$($(PYTHON) -c 'import platform; print(platform.python_version())')"; \
+	if [ "$$actual" != "$$expected" ]; then \
+		echo "Python $$actual found; repository requires $$expected"; \
+		exit 1; \
+	fi
+	$(PYTHON) -m venv $(VENV)
 	$(VENV)/bin/pip install -r requirements.txt
-	$(VENV)/bin/ansible-galaxy collection install -r requirements.yml
+	mkdir -p $(COLLECTIONS)
+	$(VENV)/bin/ansible-galaxy collection install --force -p $(COLLECTIONS) -r requirements.yml
+	$(PREFLIGHT)
+
+controller-preflight:
+	$(PREFLIGHT)
 
 ping:
 	$(VENV)/bin/ansible all -m ping

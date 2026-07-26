@@ -5,7 +5,7 @@ record_type: governance-standard
 schema_version: "1.2"
 status: proposed
 created_at: 2026-07-25T17:00:00-05:00
-updated_at: 2026-07-25T18:30:00-05:00
+updated_at: 2026-07-26T13:56:37-05:00
 valid_as_of: 2026-07-25
 owner: Kalaxy3 architecture
 standard_path: markdown/standards/kalaxy3-sage-evidence-publication-process.md
@@ -54,6 +54,22 @@ scripts/sage/sage-index.py
 ```
 
 The JSON contract and publisher constants MUST agree exactly.
+
+## Multi-controller execution contract
+
+The repository, rather than a particular workstation, is the publication and
+deployment source of truth.
+
+Before generating or publishing evidence, the controller MUST synchronize the
+declared branch, use the repository-created virtual environment, install exact
+repository dependencies, pass controller preflight, identify the actual
+controller and execution hosts, and preserve implementation lineage through a
+full Git commit SHA.
+
+Changing controller hosts MUST NOT change dependency selection, generated
+configuration, deployment behavior, evidence structure, or the target
+environment. Machine-local persistent configuration must be reconciled into
+the repository before evidence can claim repeatability.
 
 ## Generator responsibilities
 

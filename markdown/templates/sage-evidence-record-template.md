@@ -265,6 +265,22 @@ __SAGE_IMPLEMENTATION_COMMIT__
 |---|---:|---|
 | <component matching front matter> | <exact version> | <repository, image, chart, package, device, or observation> |
 
+### Controller portability and repository authority
+
+| Item | Evidence |
+|---|---|
+| Repository-controlled dependencies | <paths and exact versions> |
+| Controller bootstrap | <repository command or target> |
+| Controller preflight | <command and result> |
+| Controller host | <canonical controller_host> |
+| Execution host | <canonical execution_host> |
+| Machine-local authoritative state | none, or explain as an evidence gap |
+
+- [ ] Another supported controller can recreate the toolchain from a clean checkout.
+- [ ] No workstation contains the only authoritative deployment configuration.
+- [ ] Manual runtime changes were reconciled into repository-owned automation.
+- [ ] Controller and execution-host versions are recorded in `components`.
+
 ### Configuration excerpt
 
 ```yaml

@@ -2,6 +2,8 @@
 cluster_name: kalaxy3
 k3s_channel: stable
 k3s_version: ""
+helm_version: "v3.21.3"
+helm_diff_plugin_version: "v3.15.10"
 k3s_token_file: /var/lib/rancher/k3s/server/node-token
 k3s_cluster_cidr: 10.42.0.0/16
 k3s_service_cidr: 10.43.0.0/16
@@ -50,7 +52,8 @@ longhorn_replica_count: 2
 install_dashboard: false
 install_headlamp: true
 install_observability: true
-install_loki: false
+# Staged implementation gate; activate during deployment.
+deploy_centralized_logging: false
 install_kubecost: false
 install_minio: true
 
