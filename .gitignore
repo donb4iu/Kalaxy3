@@ -231,3 +231,6 @@ infrastructure/k3s-homelab/.ansible/
 infrastructure/k3s-homelab/.tools/
 infrastructure/k3s-homelab/.python/
 infrastructure/k3s-homelab/.uv-cache/
+
+# Repository-local Helm runtime state
+infrastructure/k3s-homelab/.helm/

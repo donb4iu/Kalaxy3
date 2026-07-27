@@ -11,25 +11,20 @@
       ansible.builtin.file:
         path: /etc/rancher/k3s
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Write initial K3s server configuration
       ansible.builtin.template:
         src: ../templates/k3s-server-config.yml.j2
         dest: /etc/rancher/k3s/config.yaml
-        mode: '0600'
+        mode: "0600"
       notify: Restart K3s
 
-    - name: Install first K3s server
-      ansible.builtin.shell: |
-        set -o pipefail
-        curl -sfL https://get.k3s.io | sh -s - server
-      environment:
-        INSTALL_K3S_CHANNEL: "{{ k3s_channel }}"
-        INSTALL_K3S_VERSION: "{{ k3s_version }}"
-      args:
-        executable: /bin/bash
-        creates: /usr/local/bin/k3s
+    - name: Reconcile the first K3s server from the release lock
+      ansible.builtin.include_tasks: tasks/install-k3s.yml
+      vars:
+        k3s_install_role: server
+        k3s_service_name: k3s
 
     - name: Apply pending K3s restart
       ansible.builtin.meta: flush_handlers
@@ -52,6 +47,7 @@
       ansible.builtin.set_fact:
         k3s_cluster_token: "{{ token_data.content | b64decode | trim }}"
       no_log: true
+
   handlers:
     - name: Restart K3s
       ansible.builtin.systemd:
@@ -67,26 +63,21 @@
       ansible.builtin.file:
         path: /etc/rancher/k3s
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Write K3s server configuration
       ansible.builtin.template:
         src: ../templates/k3s-server-config.yml.j2
         dest: /etc/rancher/k3s/config.yaml
-        mode: '0600'
+        mode: "0600"
       no_log: true
       notify: Restart K3s
 
-    - name: Install and join K3s server
-      ansible.builtin.shell: |
-        set -o pipefail
-        curl -sfL https://get.k3s.io | sh -s - server
-      environment:
-        INSTALL_K3S_CHANNEL: "{{ k3s_channel }}"
-        INSTALL_K3S_VERSION: "{{ k3s_version }}"
-      args:
-        executable: /bin/bash
-        creates: /usr/local/bin/k3s
+    - name: Reconcile the joined K3s server from the release lock
+      ansible.builtin.include_tasks: tasks/install-k3s.yml
+      vars:
+        k3s_install_role: server
+        k3s_service_name: k3s
 
     - name: Apply pending K3s restart
       ansible.builtin.meta: flush_handlers
@@ -112,32 +103,26 @@
   hosts: k3s_agents
   become: true
   serial: 1
-
   tasks:
     - name: Create K3s configuration directory
       ansible.builtin.file:
         path: /etc/rancher/k3s
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Write K3s agent configuration
       ansible.builtin.template:
         src: ../templates/k3s-agent-config.yml.j2
         dest: /etc/rancher/k3s/config.yaml
-        mode: '0600'
+        mode: "0600"
       no_log: true
       notify: Restart K3s agent
 
-    - name: Install and join K3s agent
-      ansible.builtin.shell: |
-        set -o pipefail
-        curl -sfL https://get.k3s.io | sh -s - agent
-      environment:
-        INSTALL_K3S_CHANNEL: "{{ k3s_channel }}"
-        INSTALL_K3S_VERSION: "{{ k3s_version }}"
-      args:
-        executable: /bin/bash
-        creates: /usr/local/bin/k3s-agent
+    - name: Reconcile the K3s agent from the release lock
+      ansible.builtin.include_tasks: tasks/install-k3s.yml
+      vars:
+        k3s_install_role: agent
+        k3s_service_name: k3s-agent
 
     - name: Apply pending K3s agent restart
       ansible.builtin.meta: flush_handlers
@@ -171,7 +156,7 @@
              replace('https://127.0.0.1:6443',
                      'https://' + k3s_api_endpoint + ':6443') }}
         dest: "{{ playbook_dir }}/../kubeconfig-kalaxy3.yaml"
-        mode: '0600'
+        mode: "0600"
       delegate_to: localhost
       become: false
       vars:

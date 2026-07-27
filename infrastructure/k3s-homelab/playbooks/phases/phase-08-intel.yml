@@ -1,4 +1,3 @@
 ---
-- import_playbook: ../intel-admin-access.yml
 - import_playbook: ../prerequisites.yml
 - import_playbook: ../k3s.yml

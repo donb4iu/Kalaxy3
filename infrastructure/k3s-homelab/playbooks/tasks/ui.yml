@@ -1,22 +1,26 @@
 ---
 - name: Install Headlamp
   ansible.builtin.command: >-
-    helm upgrade --install headlamp headlamp/headlamp
+    {{ helm_binary }} upgrade --install headlamp headlamp/headlamp
+    --version {{ helm_chart_lock.charts.headlamp.version }}
     --namespace headlamp --create-namespace
     --set service.type=LoadBalancer
     --set service.loadBalancerIP={{ headlamp_load_balancer_ip }}
     --wait --timeout 10m
+  environment: "{{ helm_environment }}"
   when: install_headlamp
   changed_when: true
 
 - name: Install Kubernetes Dashboard
   ansible.builtin.command: >-
-    helm upgrade --install kubernetes-dashboard
+    {{ helm_binary }} upgrade --install kubernetes-dashboard
     kubernetes-dashboard/kubernetes-dashboard
+    --version {{ helm_chart_lock.charts.kubernetes_dashboard.version }}
     --namespace kubernetes-dashboard --create-namespace
     --set kong.proxy.type=LoadBalancer
     --set kong.proxy.loadBalancerIP={{ dashboard_load_balancer_ip }}
     --wait --timeout 10m
+  environment: "{{ helm_environment }}"
   when: install_dashboard
   changed_when: true
 

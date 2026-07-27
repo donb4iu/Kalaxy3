@@ -1,8 +1,9 @@
 ---
 - name: Install Prometheus and Grafana
   ansible.builtin.command: >-
-    helm upgrade --install kube-prometheus-stack
+    {{ helm_binary }} upgrade --install kube-prometheus-stack
     prometheus-community/kube-prometheus-stack
+    --version {{ helm_chart_lock.charts.kube_prometheus_stack.version }}
     --namespace observability
     --create-namespace
     --set prometheus.prometheusSpec.retention={{
@@ -29,6 +30,7 @@
     --set alertmanager.alertmanagerSpec.storage.volumeClaimTemplate.spec.resources.requests.storage=5Gi
     --wait
     --timeout 20m
+  environment: "{{ helm_environment }}"
   when: install_observability | bool
   changed_when: true
 
@@ -76,9 +78,11 @@
 
 - name: Install Helm Diff plugin
   kubernetes.core.helm_plugin:
+    binary_path: "{{ helm_binary }}"
     plugin_path: https://github.com/databus23/helm-diff
     plugin_version: "{{ helm_diff_plugin_version }}"
     state: present
+  environment: "{{ helm_environment }}"
   when:
     - install_observability | bool
     - install_kubecost | bool
@@ -88,9 +92,10 @@
 
 - name: Install Kubecost
   kubernetes.core.helm:
+    binary_path: "{{ helm_binary }}"
     release_name: kubecost
     chart_ref: oci://public.ecr.aws/kubecost/kubecost
-    chart_version: "3.2.1"
+    chart_version: "{{ helm_chart_lock.charts.kubecost.version }}"
     release_namespace: kubecost
     create_namespace: true
     state: present
@@ -101,6 +106,7 @@
     wait: true
     timeout: 30m
     kubeconfig: "{{ kalaxy3_kubeconfig }}"
+  environment: "{{ helm_environment }}"
   when:
     - install_observability | bool
     - install_kubecost | bool

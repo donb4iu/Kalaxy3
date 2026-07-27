@@ -1,0 +1,123 @@
+---
+- name: Enforce canonical Kalaxy3 controller access
+  hosts: all
+  become: true
+  gather_facts: false
+
+  vars:
+    kalaxy3_controller_public_keys: |-
+      {{ lookup('ansible.builtin.file', playbook_dir + '/../access/controller-keys/donb-mac-mini-ed25519.pub') }}
+      {{ lookup('ansible.builtin.file', playbook_dir + '/../access/controller-keys/donbs-imac-rsa.pub') }}
+    kalaxy3_canonical_sudoers_file: /etc/sudoers.d/90-kalaxy3-ansible-admin
+
+  tasks:
+    - name: Install the complete approved controller key set
+      ansible.posix.authorized_key:
+        user: "{{ ansible_user }}"
+        state: present
+        key: "{{ kalaxy3_controller_public_keys }}"
+        exclusive: true
+        manage_dir: true
+
+    - name: Install the canonical Ansible sudo policy
+      ansible.builtin.copy:
+        dest: "{{ kalaxy3_canonical_sudoers_file }}"
+        content: "{{ ansible_user }} ALL=(ALL:ALL) NOPASSWD: ALL\n"
+        owner: root
+        group: root
+        mode: "0440"
+        validate: /usr/sbin/visudo -cf %s
+
+    - name: Verify noninteractive sudo through the canonical policy
+      ansible.builtin.command:
+        argv:
+          - sudo
+          - -n
+          - id
+          - -u
+      become: false
+      changed_when: false
+      register: kalaxy3_sudo_verification
+      failed_when: >-
+        kalaxy3_sudo_verification.rc != 0 or
+        kalaxy3_sudo_verification.stdout | trim != '0'
+
+    - name: Remove superseded per-installation sudo policy
+      ansible.builtin.file:
+        path: /etc/sudoers.d/90-k3s-admin
+        state: absent
+
+- name: Retire the legacy Intel pi administration path
+  hosts: longhorn_nodes
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Detect the retained legacy pi account
+      ansible.builtin.command:
+        argv:
+          - getent
+          - passwd
+          - pi
+      check_mode: false
+      changed_when: false
+      failed_when: false
+      register: kalaxy3_legacy_pi_account
+
+    - name: Record the retained legacy pi home directory
+      ansible.builtin.set_fact:
+        kalaxy3_legacy_pi_home: >-
+          {{ kalaxy3_legacy_pi_account.stdout.split(':')[5] }}
+      when: kalaxy3_legacy_pi_account.rc == 0
+
+    - name: Keep the retained legacy pi password locked
+      ansible.builtin.user:
+        name: pi
+        password_lock: true
+      when: kalaxy3_legacy_pi_account.rc == 0
+
+    - name: Read retained legacy pi supplementary groups
+      ansible.builtin.command:
+        argv:
+          - id
+          - -nG
+          - pi
+      check_mode: false
+      changed_when: false
+      register: kalaxy3_legacy_pi_groups
+      when: kalaxy3_legacy_pi_account.rc == 0
+
+    - name: Remove retained legacy pi from the sudo group
+      ansible.builtin.command:
+        argv:
+          - gpasswd
+          - --delete
+          - pi
+          - sudo
+      when:
+        - kalaxy3_legacy_pi_account.rc == 0
+        - "'sudo' in kalaxy3_legacy_pi_groups.stdout.split()"
+
+    - name: Remove SSH authorization from retained legacy pi
+      ansible.builtin.file:
+        path: "{{ kalaxy3_legacy_pi_home }}/.ssh/authorized_keys"
+        state: absent
+      when: kalaxy3_legacy_pi_account.rc == 0
+
+    - name: Remove the legacy Intel pi passwordless-sudo policy
+      ansible.builtin.file:
+        path: /etc/sudoers.d/90-kalaxy3-pi
+        state: absent
+
+    - name: Confirm the legacy Intel pi sudo policy is absent
+      ansible.builtin.stat:
+        path: /etc/sudoers.d/90-kalaxy3-pi
+      register: kalaxy3_legacy_pi_sudoers
+
+    - name: Assert the legacy Intel pi sudo policy was retired
+      ansible.builtin.assert:
+        that:
+          - not kalaxy3_legacy_pi_sudoers.stat.exists
+        fail_msg: Legacy Intel pi passwordless-sudo policy remains present
+        success_msg: Legacy Intel pi passwordless-sudo policy is absent
+      when: not ansible_check_mode

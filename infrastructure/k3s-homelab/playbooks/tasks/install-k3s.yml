@@ -1,0 +1,160 @@
+---
+- name: Load the repository K3s release lock
+  ansible.builtin.set_fact:
+    k3s_release_lock: >-
+      {{
+        lookup(
+          'ansible.builtin.file',
+          playbook_dir ~ '/../k3s-platforms.json'
+        ) | from_json
+      }}
+
+- name: Resolve the repository-supported K3s platform
+  ansible.builtin.set_fact:
+    k3s_platform: >-
+      {{
+        'linux-amd64'
+        if ansible_architecture in ['x86_64', 'amd64']
+        else
+        (
+          'linux-arm64'
+          if ansible_architecture in ['aarch64', 'arm64']
+          else 'unsupported'
+        )
+      }}
+
+- name: Require an exact repository-pinned K3s release
+  ansible.builtin.assert:
+    that:
+      - k3s_version == k3s_release_lock.version
+      - k3s_platform in k3s_release_lock.platforms
+      - >-
+        k3s_release_lock.platforms[k3s_platform].sha256
+        is match('^[0-9a-f]{64}$')
+      - >-
+        k3s_release_lock.install_script.sha256
+        is match('^[0-9a-f]{64}$')
+    fail_msg: >-
+      K3s {{ k3s_version }} is not fully pinned for
+      {{ ansible_system }} {{ ansible_architecture }}.
+
+- name: Define K3s installation paths
+  ansible.builtin.set_fact:
+    k3s_staging_root: >-
+      /var/lib/kalaxy3/k3s-install/{{ k3s_version }}/{{ k3s_platform }}
+    k3s_staging_binary: >-
+      /var/lib/kalaxy3/k3s-install/{{ k3s_version }}/{{ k3s_platform }}/k3s
+    k3s_staging_installer: >-
+      /var/lib/kalaxy3/k3s-install/{{ k3s_version }}/install.sh
+    k3s_service_unit: >-
+      /etc/systemd/system/{{ k3s_service_name }}.service
+
+- name: Inspect the installed K3s binary
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+    checksum_algorithm: sha256
+    get_checksum: true
+  register: k3s_installed_binary
+
+- name: Inspect the K3s systemd unit
+  ansible.builtin.stat:
+    path: "{{ k3s_service_unit }}"
+  register: k3s_installed_service
+
+- name: Decide whether K3s installation reconciliation is required
+  ansible.builtin.set_fact:
+    k3s_install_required: >-
+      {{
+        not k3s_installed_binary.stat.exists
+        or
+        (
+          k3s_installed_binary.stat.checksum | default('')
+          !=
+          k3s_release_lock.platforms[k3s_platform].sha256
+        )
+        or
+        not k3s_installed_service.stat.exists
+      }}
+
+- name: Create the versioned K3s staging directory
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ k3s_staging_root }}"
+    - "{{ k3s_staging_installer | dirname }}"
+  when: k3s_install_required | bool
+
+- name: Download the exact K3s binary
+  ansible.builtin.get_url:
+    url: "{{ k3s_release_lock.platforms[k3s_platform].url }}"
+    dest: "{{ k3s_staging_binary }}"
+    checksum: >-
+      sha256:{{ k3s_release_lock.platforms[k3s_platform].sha256 }}
+    owner: root
+    group: root
+    mode: "0755"
+  when: k3s_install_required | bool
+
+- name: Download the commit-pinned K3s installer
+  ansible.builtin.get_url:
+    url: "{{ k3s_release_lock.install_script.url }}"
+    dest: "{{ k3s_staging_installer }}"
+    checksum: "sha256:{{ k3s_release_lock.install_script.sha256 }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when: k3s_install_required | bool
+
+- name: Install the verified K3s binary atomically
+  ansible.builtin.copy:
+    src: "{{ k3s_staging_binary }}"
+    dest: /usr/local/bin/k3s
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+  when: k3s_install_required | bool
+
+- name: Run the verified local K3s installer
+  ansible.builtin.command:
+    argv:
+      - "{{ k3s_staging_installer }}"
+      - "{{ k3s_install_role }}"
+  environment:
+    INSTALL_K3S_SKIP_DOWNLOAD: "true"
+    INSTALL_K3S_VERSION: "{{ k3s_version }}"
+    INSTALL_K3S_BIN_DIR: /usr/local/bin
+    INSTALL_K3S_FORCE_RESTART: "true"
+  changed_when: true
+  when: k3s_install_required | bool
+
+- name: Read the installed K3s version
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/k3s
+      - --version
+  register: k3s_installed_version
+  changed_when: false
+
+- name: Reinspect the installed K3s binary
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+    checksum_algorithm: sha256
+    get_checksum: true
+  register: k3s_final_binary
+
+- name: Require the exact K3s version and binary checksum
+  ansible.builtin.assert:
+    that:
+      - k3s_installed_version.stdout.startswith('k3s version ' ~ k3s_version)
+      - >-
+        k3s_final_binary.stat.checksum
+        ==
+        k3s_release_lock.platforms[k3s_platform].sha256
+    fail_msg: >-
+      Installed K3s does not match the repository release lock for
+      {{ inventory_hostname }}.
