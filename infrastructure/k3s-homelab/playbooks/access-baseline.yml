@@ -59,6 +59,7 @@
           - getent
           - passwd
           - pi
+      check_mode: false
       changed_when: false
       failed_when: false
       register: kalaxy3_legacy_pi_account
@@ -81,6 +82,7 @@
           - id
           - -nG
           - pi
+      check_mode: false
       changed_when: false
       register: kalaxy3_legacy_pi_groups
       when: kalaxy3_legacy_pi_account.rc == 0
@@ -118,3 +120,4 @@
           - not kalaxy3_legacy_pi_sudoers.stat.exists
         fail_msg: Legacy Intel pi passwordless-sudo policy remains present
         success_msg: Legacy Intel pi passwordless-sudo policy is absent
+      when: not ansible_check_mode
