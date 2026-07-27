@@ -26,7 +26,7 @@ VAULT := --ask-vault-pass
         ansible-access-preflight bootstrap-guardrails k3s-guardrails \
         cluster-guardrails guardrails \
         recovery-guardrails confirm-uninstall uninstall-syntax \
-        helm-release-inventory bootstrap-ssh-key verify-ssh-host-keys ping \
+        helm-release-inventory access-baseline access-baseline-bootstrap bootstrap-ssh-key verify-ssh-host-keys ping \
         phase-0 phase-1 phase-2 phase-3 phase-4 phase-5 \
         phase-6 phase-7 phase-8 survey-clean validate-1 validate-2 validate-3 \
         validate-4 validate-5 validate-6 deploy uninstall syntax
@@ -122,6 +122,12 @@ confirm-uninstall:
 
 helm-release-inventory: cluster-access-preflight source-guardrails
 	$(HELM_WRAPPER) list --all-namespaces --output json
+
+access-baseline: controller-core-preflight ssh-auth-preflight
+	$(ANSIBLE) playbooks/access-baseline.yml
+
+access-baseline-bootstrap: controller-core-preflight
+	$(ANSIBLE) playbooks/access-baseline.yml --ask-become-pass
 
 bootstrap-ssh-key: controller-core-preflight
 	@test -n "$(HOST)" || { \
