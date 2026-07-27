@@ -6,42 +6,202 @@
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   vars:
     selected_platform_phase: "{{ platform_phase | default('all') }}"
+    helm_release_lock: >-
+      {{
+        lookup(
+          'ansible.builtin.file',
+          playbook_dir ~ '/../helm-platforms.json'
+        ) | from_json
+      }}
+    helm_repository_registry: >-
+      {{
+        lookup(
+          'ansible.builtin.file',
+          playbook_dir ~ '/../helm-repositories.json'
+        ) | from_json
+      }}
+    helm_chart_lock: >-
+      {{
+        lookup(
+          'ansible.builtin.file',
+          playbook_dir ~ '/../helm-chart-lock.json'
+        ) | from_json
+      }}
+    helm_version: "{{ helm_release_lock.version }}"
+    helm_install_root: "/usr/local/lib/kalaxy3/helm/{{ helm_version }}"
+    helm_binary: "{{ helm_install_root }}/helm"
+    helm_state_root: /var/lib/kalaxy3/helm
+    helm_environment:
+      KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+      HELM_KUBEAPISERVER: ""
+      HELM_KUBECAFILE: ""
+      HELM_KUBECONTEXT: ""
+      HELM_KUBETOKEN: ""
+      HELM_NAMESPACE: ""
+      HELM_CONFIG_HOME: "{{ helm_state_root }}/config"
+      HELM_CACHE_HOME: "{{ helm_state_root }}/cache"
+      HELM_DATA_HOME: "{{ helm_state_root }}/data"
+      HELM_PLUGINS: "{{ helm_state_root }}/plugins"
+      HELM_REGISTRY_CONFIG: "{{ helm_state_root }}/registry/config.json"
+      HELM_REPOSITORY_CONFIG: "{{ helm_state_root }}/repositories.yaml"
+      HELM_REPOSITORY_CACHE: "{{ helm_state_root }}/repository-cache"
+    helm_repositories: "{{ helm_repository_registry.repositories }}"
+
   pre_tasks:
-    - name: Read installed Helm version
+    - name: Resolve the repository-supported Helm platform
+      ansible.builtin.set_fact:
+        helm_platform: >-
+          {{
+            'linux-amd64'
+            if ansible_architecture in ['x86_64', 'amd64']
+            else
+            (
+              'linux-arm64'
+              if ansible_architecture in ['aarch64', 'arm64']
+              else 'unsupported'
+            )
+          }}
+
+    - name: Require a repository-pinned Helm platform
+      ansible.builtin.assert:
+        that:
+          - helm_platform in helm_release_lock.platforms
+        fail_msg: >-
+          No repository-pinned Helm archive exists for
+          {{ ansible_system }} {{ ansible_architecture }}.
+
+    - name: Create the versioned Helm installation directory
+      ansible.builtin.file:
+        path: "{{ helm_install_root }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Create isolated Helm runtime directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ helm_state_root }}/config"
+        - "{{ helm_state_root }}/cache"
+        - "{{ helm_state_root }}/data"
+        - "{{ helm_state_root }}/plugins"
+        - "{{ helm_state_root }}/registry"
+        - "{{ helm_state_root }}/repository-cache"
+
+    - name: Download the repository-pinned Helm archive
+      ansible.builtin.get_url:
+        url: "{{ helm_release_lock.platforms[helm_platform].url }}"
+        dest: >-
+          /var/tmp/{{
+            helm_release_lock.platforms[helm_platform].archive
+          }}
+        checksum: >-
+          sha256:{{
+            helm_release_lock.platforms[helm_platform].sha256
+          }}
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Create the Helm extraction directory
+      ansible.builtin.file:
+        path: >-
+          /var/tmp/kalaxy3-helm-{{ helm_version }}-{{ helm_platform }}
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Extract the repository-pinned Helm archive
+      ansible.builtin.unarchive:
+        src: >-
+          /var/tmp/{{
+            helm_release_lock.platforms[helm_platform].archive
+          }}
+        dest: >-
+          /var/tmp/kalaxy3-helm-{{ helm_version }}-{{ helm_platform }}
+        remote_src: true
+        creates: >-
+          /var/tmp/kalaxy3-helm-{{ helm_version }}-{{
+            helm_platform
+          }}/{{ helm_platform }}/helm
+
+    - name: Install the exact remote Helm binary
+      ansible.builtin.copy:
+        src: >-
+          /var/tmp/kalaxy3-helm-{{ helm_version }}-{{
+            helm_platform
+          }}/{{ helm_platform }}/helm
+        dest: "{{ helm_binary }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Read the controlled remote Helm binary checksum
+      ansible.builtin.stat:
+        path: "{{ helm_binary }}"
+        checksum_algorithm: sha256
+        get_checksum: true
+      register: remote_helm_binary
+
+    - name: Require the exact remote Helm binary checksum
+      ansible.builtin.assert:
+        that:
+          - >-
+            remote_helm_binary.stat.checksum
+            ==
+            helm_release_lock.platforms[helm_platform].binary_sha256
+        fail_msg: >-
+          Remote Helm binary checksum does not match the repository lock
+          for {{ helm_platform }}.
+
+    - name: Read the controlled remote Helm version
       ansible.builtin.command:
         argv:
-          - helm
+          - "{{ helm_binary }}"
           - version
           - --short
+      environment: "{{ helm_environment }}"
       register: installed_helm_version
       changed_when: false
-      failed_when: false
 
-    - name: Install repository-pinned Helm version
-      ansible.builtin.shell: |
-        set -o pipefail
-        curl -fsSL \
-          https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 |
-          bash -s -- --version "{{ helm_version }}"
-      args:
-        executable: /bin/bash
-      when: >-
-        installed_helm_version.rc != 0 or
-        not installed_helm_version.stdout.startswith(helm_version)
+    - name: Require the exact remote Helm version
+      ansible.builtin.assert:
+        that:
+          - >-
+            installed_helm_version.stdout == helm_version or
+            installed_helm_version.stdout.startswith(helm_version ~ '+')
+        fail_msg: >-
+          Expected {{ helm_version }} at {{ helm_binary }} but found
+          {{ installed_helm_version.stdout }}.
 
-    - name: Add Helm repositories
-      ansible.builtin.command: >-
-        helm repo add {{ item.name }} {{ item.url }} --force-update
-      loop:
-        - {name: metallb, url: https://metallb.github.io/metallb}
-        - {name: nfs, url: https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner}
-        - {name: prometheus-community, url: https://prometheus-community.github.io/helm-charts}
-        - {name: grafana, url: https://grafana.github.io/helm-charts}
-        - {name: headlamp, url: https://kubernetes-sigs.github.io/headlamp/}
+    - name: Reconcile approved Helm repositories
+      ansible.builtin.command:
+        argv:
+          - "{{ helm_binary }}"
+          - repo
+          - add
+          - "{{ item.name }}"
+          - "{{ item.url }}"
+          - --force-update
+      environment: "{{ helm_environment }}"
+      loop: "{{ helm_repositories }}"
       changed_when: false
 
-    - name: Update Helm repositories
-      ansible.builtin.command: helm repo update
+    - name: Update only approved Helm repositories
+      ansible.builtin.command:
+        argv: >-
+          {{
+            [helm_binary, 'repo', 'update']
+            + (helm_repositories | map(attribute='name') | list)
+          }}
+      environment: "{{ helm_environment }}"
       changed_when: false
 
   tasks:
@@ -51,7 +211,7 @@
       tags:
         - network-storage
         - traefik-config
-        
+
     - name: Run administrative UI phase
       ansible.builtin.include_tasks: tasks/ui.yml
       when: selected_platform_phase in ['all', 'ui']

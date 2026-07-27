@@ -1,0 +1,35 @@
+{
+  "platforms": {
+    "darwin-amd64": {
+      "archive": "helm-v3.21.3-darwin-amd64.tar.gz",
+      "binary_sha256": "f4f7708f4af5dd29fd0061b0cc3cb5b47648ff3b7a0ff6ab8a134ba83f392940",
+      "checksum_url": "https://get.helm.sh/helm-v3.21.3-darwin-amd64.tar.gz.sha256",
+      "sha256": "76d0db4730b05d3d625eee11e80f0721b32b4d8422f4e5d093de6337bf3ac9f8",
+      "url": "https://get.helm.sh/helm-v3.21.3-darwin-amd64.tar.gz"
+    },
+    "darwin-arm64": {
+      "archive": "helm-v3.21.3-darwin-arm64.tar.gz",
+      "binary_sha256": "33914971fb241c27d0e78cb6e6e95f1d4f919184f170a1f7cc51a7bf814a177d",
+      "checksum_url": "https://get.helm.sh/helm-v3.21.3-darwin-arm64.tar.gz.sha256",
+      "sha256": "19879a848cad832b7a1ac24b767a481d20fb3b95ab53a220849649422ada144e",
+      "url": "https://get.helm.sh/helm-v3.21.3-darwin-arm64.tar.gz"
+    },
+    "linux-amd64": {
+      "archive": "helm-v3.21.3-linux-amd64.tar.gz",
+      "binary_sha256": "46870487d8cbd7f304b93dc38bb6d91e4813d5c9bfab061538f474d775006f42",
+      "checksum_url": "https://get.helm.sh/helm-v3.21.3-linux-amd64.tar.gz.sha256",
+      "sha256": "15e041a93a590dce8100f39385cd98c84a765c9e36aeeb9e2dc6ff9e4769e2e0",
+      "url": "https://get.helm.sh/helm-v3.21.3-linux-amd64.tar.gz"
+    },
+    "linux-arm64": {
+      "archive": "helm-v3.21.3-linux-arm64.tar.gz",
+      "binary_sha256": "76df6d8b548f341c065838fa4583cec85a923ae5f894aa1ff7096a4edb329a08",
+      "checksum_url": "https://get.helm.sh/helm-v3.21.3-linux-arm64.tar.gz.sha256",
+      "sha256": "67f58155079ff9ffab98ba5c88daff0ed9b542f3a4732f5dd426dde7dd0f5244",
+      "url": "https://get.helm.sh/helm-v3.21.3-linux-arm64.tar.gz"
+    }
+  },
+  "release_source": "https://get.helm.sh",
+  "schema_version": "1.0",
+  "version": "v3.21.3"
+}

@@ -2,6 +2,14 @@ VENV := .venv
 COLLECTIONS := .ansible/collections
 TOOLS := .tools
 UV := $(TOOLS)/uv
+HELM := $(TOOLS)/helm
+HELM_WRAPPER := scripts/helm
+HELM_VERSION := $(shell cat .helm-version)
+SOURCE_GUARDRAILS := python3 scripts/sage-source-guardrails.py
+DEPLOYMENT_GUARDRAIL := python3 scripts/sage-deployment-guardrail.py
+K3S_GUARDRAIL := python3 scripts/sage-k3s-guardrail.py
+HELM_LOCK_RECONCILE := $(VENV)/bin/python scripts/helm-lock-reconcile.py
+SSH_AUTH_PREFLIGHT := $(VENV)/bin/python scripts/ssh-auth-preflight.py
 UV_VERSION := $(shell cat .uv-version)
 PYTHON_VERSION := $(shell cat .python-version)
 PYTHON_INSTALL_DIR := $(abspath .python)
@@ -10,8 +18,14 @@ ANSIBLE := $(VENV)/bin/ansible-playbook
 PREFLIGHT := $(VENV)/bin/python scripts/controller-preflight.py
 VAULT := --ask-vault-pass
 
-.PHONY: install controller-uv controller-bootstrap \
-        controller-preflight ping \
+.PHONY: install controller-uv controller-helm controller-bootstrap \
+        controller-core-preflight controller-helm-preflight \
+        cluster-access-preflight controller-preflight \
+        source-guardrails k3s-release-guardrail deployment-guardrail \
+        helm-lock-reconcile ssh-auth-preflight \
+        bootstrap-guardrails k3s-guardrails cluster-guardrails guardrails \
+        recovery-guardrails confirm-uninstall uninstall-syntax \
+        helm-release-inventory bootstrap-ssh-key verify-ssh-host-keys ping \
         phase-0 phase-1 phase-2 phase-3 phase-4 phase-5 \
         phase-6 phase-7 phase-8 survey-clean validate-1 validate-2 validate-3 \
         validate-4 validate-5 validate-6 deploy uninstall syntax
@@ -19,28 +33,12 @@ VAULT := --ask-vault-pass
 install: controller-bootstrap
 
 controller-uv:
-	@mkdir -p $(TOOLS)
-	@if ! command -v sha256sum >/dev/null 2>&1; then \
-		command -v shasum >/dev/null 2>&1 || { \
-			echo "Neither sha256sum nor shasum is available"; \
-			exit 1; \
-		}; \
-		printf '%s\n' '#!/bin/sh' \
-		  'exec shasum -a 256 "$$@"' \
-		  > "$(TOOLS)/sha256sum"; \
-		chmod 755 "$(TOOLS)/sha256sum"; \
-	fi
-	@if [ ! -x "$(UV)" ] || \
-	   [ "$$($(UV) --version 2>/dev/null | awk '{print $$2}')" != "$(UV_VERSION)" ]; then \
-		rm -f "$(UV)"; \
-		curl --proto '=https' --tlsv1.2 -LsSf \
-		  "https://releases.astral.sh/github/uv/releases/download/$(UV_VERSION)/uv-installer.sh" | \
-		  env PATH="$(abspath $(TOOLS)):$$PATH" \
-		  UV_UNMANAGED_INSTALL="$(abspath $(TOOLS))" sh; \
-	fi
-	@test -x "$(UV)"
-	@test "$$($(UV) --version | awk '{print $$2}')" = "$(UV_VERSION)"
-controller-bootstrap: controller-uv
+	python3 scripts/install-repository-uv.py
+
+controller-helm:
+	python3 scripts/install-repository-helm.py
+
+controller-bootstrap: controller-uv controller-helm
 	UV_MANAGED_PYTHON=1 \
 	UV_PYTHON_INSTALL_DIR="$(PYTHON_INSTALL_DIR)" \
 	UV_CACHE_DIR="$(UV_CACHE_DIR)" \
@@ -57,43 +55,109 @@ controller-bootstrap: controller-uv
 		--force \
 		-p $(COLLECTIONS) \
 		-r requirements.yml
-	$(PREFLIGHT)
+	$(PREFLIGHT) --scope core
+	$(PREFLIGHT) --scope helm
+	$(SOURCE_GUARDRAILS)
 
-controller-preflight:
-	$(PREFLIGHT)
+controller-core-preflight:
+	$(PREFLIGHT) --scope core
 
-ping:
+controller-helm-preflight: controller-helm controller-core-preflight
+	$(PREFLIGHT) --scope helm
+
+cluster-access-preflight: controller-helm-preflight
+	$(PREFLIGHT) --scope cluster
+
+controller-preflight: controller-core-preflight controller-helm-preflight \
+                      cluster-access-preflight
+
+source-guardrails:
+	$(SOURCE_GUARDRAILS)
+
+k3s-release-guardrail:
+	$(K3S_GUARDRAIL)
+
+deployment-guardrail:
+	$(DEPLOYMENT_GUARDRAIL)
+
+helm-lock-reconcile: cluster-access-preflight deployment-guardrail
+	$(HELM_LOCK_RECONCILE) --allow-missing
+
+ssh-auth-preflight: controller-core-preflight
+	$(SSH_AUTH_PREFLIGHT)
+
+bootstrap-guardrails: controller-core-preflight source-guardrails \
+                      ssh-auth-preflight syntax
+	@echo "Kalaxy3 SAGE bootstrap guardrails: PASS"
+
+k3s-guardrails: bootstrap-guardrails k3s-release-guardrail
+	@echo "Kalaxy3 SAGE K3s guardrails: PASS"
+
+cluster-guardrails: bootstrap-guardrails controller-helm-preflight \
+                    cluster-access-preflight deployment-guardrail \
+                    helm-lock-reconcile
+	@echo "Kalaxy3 SAGE cluster deployment guardrails: PASS"
+
+guardrails: cluster-guardrails
+
+recovery-guardrails: controller-core-preflight source-guardrails \
+                     ssh-auth-preflight uninstall-syntax
+	@echo "Kalaxy3 SAGE recovery guardrails: PASS"
+
+uninstall-syntax:
+	$(ANSIBLE) playbooks/uninstall.yml --syntax-check
+
+confirm-uninstall:
+	@test "$(CONFIRM_UNINSTALL)" = "kalaxy3" || { \
+		echo "Refusing uninstall. Re-run with CONFIRM_UNINSTALL=kalaxy3"; \
+		exit 1; \
+	}
+
+helm-release-inventory: cluster-access-preflight source-guardrails
+	$(HELM_WRAPPER) list --all-namespaces --output json
+
+bootstrap-ssh-key: controller-core-preflight
+	@test -n "$(HOST)" || { \
+		echo "Usage: make bootstrap-ssh-key HOST=<inventory-host>"; \
+		exit 1; \
+	}
+	$(VENV)/bin/python scripts/bootstrap-ssh-key.py --host "$(HOST)"
+
+verify-ssh-host-keys: controller-core-preflight
+	$(VENV)/bin/python scripts/verify-ssh-host-keys.py
+
+ping: ssh-auth-preflight
 	$(VENV)/bin/ansible all -m ping
 
-phase-0:
+phase-0: bootstrap-guardrails
 	$(ANSIBLE) playbooks/phases/phase-00-readiness.yml
 
 survey-clean:
 	rm -f artifacts/site-survey/*.yml artifacts/site-survey/*.json
 
-phase-1:
+phase-1: bootstrap-guardrails
 	$(ANSIBLE) playbooks/phases/phase-01-prerequisites.yml
 
-phase-2:
+phase-2: k3s-guardrails
 	$(ANSIBLE) playbooks/phases/phase-02-k3s.yml
 
-phase-3:
+phase-3: cluster-guardrails
 	$(ANSIBLE) playbooks/phases/phase-03-network-storage.yml
 
-phase-4:
+phase-4: cluster-guardrails
 	$(ANSIBLE) playbooks/phases/phase-04-ui.yml
 
-phase-5:
+phase-5: cluster-guardrails
 	$(ANSIBLE) playbooks/phases/phase-05-observability.yml
 
-phase-6:
+phase-6: cluster-guardrails
 	$(ANSIBLE) playbooks/phases/phase-06-minio.yml $(VAULT)
 
 phase-7:
 	@echo "Complete markdown/Infrastructure/K3s_Homelab/Phase_Notes.md security, DNS, TLS, backup, and Cloudflare decisions."
 	@echo "Do not expose management services with router port forwarding."
 
-phase-8:
+phase-8: cluster-guardrails
 	$(ANSIBLE) playbooks/phases/phase-08-intel.yml
 
 validate-1:
@@ -124,8 +188,8 @@ syntax:
 	$(ANSIBLE) playbooks/phases/phase-06-minio.yml --syntax-check
 
 # Convenience target only after every phase has been tested independently.
-deploy:
+deploy: cluster-guardrails
 	$(ANSIBLE) playbooks/site.yml $(VAULT)
 
-uninstall:
+uninstall: recovery-guardrails confirm-uninstall
 	$(ANSIBLE) playbooks/uninstall.yml

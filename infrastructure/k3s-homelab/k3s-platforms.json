@@ -1,0 +1,22 @@
+{
+  "install_script": {
+    "sha256": "46177d4c99440b4c0311b67233823a8e8a2fc09693f6c89af1a7161e152fbfad",
+    "url": "https://raw.githubusercontent.com/k3s-io/k3s/01b6f04aaa69e8b09303f0393d4b4f1811da23aa/install.sh"
+  },
+  "platforms": {
+    "linux-amd64": {
+      "asset": "k3s",
+      "sha256": "65a55ec56c24eab44383086166ec620a491952b7e23941a49ddca6e8a4c4b4de",
+      "url": "https://github.com/k3s-io/k3s/releases/download/v1.36.2%2Bk3s1/k3s"
+    },
+    "linux-arm64": {
+      "asset": "k3s-arm64",
+      "sha256": "1dc5fc17f15c28fa0a3f011cee28ad613f918c3d967a426e5a05d43ddb239817",
+      "url": "https://github.com/k3s-io/k3s/releases/download/v1.36.2%2Bk3s1/k3s-arm64"
+    }
+  },
+  "release_commit": "01b6f04aaa69e8b09303f0393d4b4f1811da23aa",
+  "release_source": "https://github.com/k3s-io/k3s/releases/tag/v1.36.2%2Bk3s1",
+  "schema_version": "1.0",
+  "version": "v1.36.2+k3s1"
+}

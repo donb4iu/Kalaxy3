@@ -1,0 +1,61 @@
+{
+    "charts": {
+        "headlamp": {
+            "chart": "headlamp/headlamp",
+            "enabled_variable": "install_headlamp",
+            "namespace": "headlamp",
+            "release": "headlamp",
+            "version": "0.43.0"
+        },
+        "kube_prometheus_stack": {
+            "chart": "prometheus-community/kube-prometheus-stack",
+            "enabled_variable": "install_observability",
+            "namespace": "observability",
+            "release": "kube-prometheus-stack",
+            "version": "87.19.0"
+        },
+        "kubecost": {
+            "chart": "oci://public.ecr.aws/kubecost/kubecost",
+            "enabled_variable": "install_kubecost",
+            "namespace": "kubecost",
+            "release": "kubecost",
+            "version": "3.2.1"
+        },
+        "kubernetes_dashboard": {
+            "chart": "kubernetes-dashboard/kubernetes-dashboard",
+            "enabled_variable": "install_dashboard",
+            "namespace": "kubernetes-dashboard",
+            "release": "kubernetes-dashboard",
+            "version": "UNRESOLVED"
+        },
+        "longhorn": {
+            "chart": "longhorn/longhorn",
+            "enabled_variable": "install_longhorn",
+            "namespace": "longhorn-system",
+            "release": "longhorn",
+            "version": "1.12.0"
+        },
+        "metallb": {
+            "chart": "metallb/metallb",
+            "enabled_variable": "always",
+            "namespace": "metallb-system",
+            "release": "metallb",
+            "version": "0.16.1"
+        },
+        "nfs_hdd": {
+            "chart": "nfs/nfs-subdir-external-provisioner",
+            "enabled_variable": "always",
+            "namespace": "storage",
+            "release": "nfs-hdd",
+            "version": "4.0.18"
+        },
+        "nfs_ssd": {
+            "chart": "nfs/nfs-subdir-external-provisioner",
+            "enabled_variable": "always",
+            "namespace": "storage",
+            "release": "nfs-ssd",
+            "version": "4.0.18"
+        }
+    },
+    "schema_version": "1.0"
+}

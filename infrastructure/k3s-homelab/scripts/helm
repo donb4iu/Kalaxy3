@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""Execute repository-managed Helm with isolated state and cluster authority."""
+
+from __future__ import annotations
+
+import os
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+HELM = ROOT / ".tools/helm"
+STATE = ROOT / ".helm"
+KUBECONFIG = ROOT / "kubeconfig-kalaxy3.yaml"
+
+SANITIZED_NAMES = {
+    "KUBECONFIG",
+    "HELM_NAMESPACE",
+    "HELM_KUBEAPISERVER",
+    "HELM_KUBECAFILE",
+    "HELM_KUBECONTEXT",
+    "HELM_KUBETOKEN",
+    "HELM_QPS",
+    "HELM_BURST_LIMIT",
+}
+
+BLOCKED_ARGUMENT_PREFIXES = (
+    "--kubeconfig",
+    "--kube-context",
+    "--kube-apiserver",
+    "--kube-ca-file",
+    "--kube-token",
+)
+
+
+def current_context() -> str:
+    text = KUBECONFIG.read_text(encoding="utf-8")
+    matches = re.findall(
+        r"(?m)^current-context:\s*['\"]?([^'\"\r\n]+?)['\"]?\s*$",
+        text,
+    )
+    if len(matches) != 1 or not matches[0].strip():
+        raise SystemExit(
+            "Repository kubeconfig must contain exactly one current-context"
+        )
+    return matches[0].strip()
+
+
+def reject_cluster_overrides(arguments: list[str]) -> None:
+    for argument in arguments:
+        if any(
+            argument == prefix or argument.startswith(prefix + "=")
+            for prefix in BLOCKED_ARGUMENT_PREFIXES
+        ):
+            raise SystemExit(
+                f"Cluster override {argument!r} is prohibited; "
+                "scripts/helm owns kubeconfig and context selection"
+            )
+
+
+if not HELM.is_file():
+    raise SystemExit("Repository Helm is missing. Run: make controller-helm")
+
+if not KUBECONFIG.is_file():
+    raise SystemExit(
+        "Repository Kalaxy3 kubeconfig is missing: "
+        f"{KUBECONFIG}"
+    )
+
+reject_cluster_overrides(sys.argv[1:])
+context = current_context()
+
+environment = dict(os.environ)
+for name in list(environment):
+    if name in SANITIZED_NAMES or name.startswith("HELM_KUBE"):
+        environment.pop(name, None)
+
+environment.update(
+    {
+        "HELM_CONFIG_HOME": str(STATE / "config"),
+        "HELM_CACHE_HOME": str(STATE / "cache"),
+        "HELM_DATA_HOME": str(STATE / "data"),
+        "HELM_PLUGINS": str(STATE / "plugins"),
+        "HELM_REGISTRY_CONFIG": str(STATE / "registry/config.json"),
+        "HELM_REPOSITORY_CONFIG": str(STATE / "repositories.yaml"),
+        "HELM_REPOSITORY_CACHE": str(STATE / "repository-cache"),
+        "KUBECONFIG": str(KUBECONFIG),
+        "HELM_KUBECONTEXT": context,
+    }
+)
+
+for directory in (
+    STATE / "config",
+    STATE / "cache",
+    STATE / "data",
+    STATE / "plugins",
+    STATE / "registry",
+    STATE / "repository-cache",
+):
+    directory.mkdir(parents=True, exist_ok=True)
+
+arguments = [
+    str(HELM),
+    "--kubeconfig",
+    str(KUBECONFIG),
+    "--kube-context",
+    context,
+    *sys.argv[1:],
+]
+
+os.execve(str(HELM), arguments, environment)

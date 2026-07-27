@@ -42,32 +42,6 @@
   changed_when: true
   when: install_longhorn | bool
 
-- name: Add the Longhorn Helm repository
-  ansible.builtin.command:
-    argv:
-      - helm
-      - repo
-      - add
-      - longhorn
-      - https://charts.longhorn.io
-      - --force-update
-  changed_when: false
-  when:
-    - install_longhorn | bool
-    - longhorn_amd64_nodes.stdout | default('') | trim | length > 0
-
-- name: Update the Longhorn Helm repository
-  ansible.builtin.command:
-    argv:
-      - helm
-      - repo
-      - update
-      - longhorn
-  changed_when: false
-  when:
-    - install_longhorn | bool
-    - longhorn_amd64_nodes.stdout | default('') | trim | length > 0
-
 - name: Write Longhorn Helm values
   ansible.builtin.template:
     src: longhorn-values.yml.j2
@@ -80,13 +54,13 @@
 - name: Install Longhorn
   ansible.builtin.command:
     argv:
-      - helm
+      - "{{ helm_binary }}"
       - upgrade
       - --install
       - longhorn
       - longhorn/longhorn
       - --version
-      - "{{ longhorn_version }}"
+      - "{{ helm_chart_lock.charts.longhorn.version }}"
       - --namespace
       - longhorn-system
       - --create-namespace
@@ -95,6 +69,7 @@
       - --wait
       - --timeout
       - 30m
+  environment: "{{ helm_environment }}"
   changed_when: true
   when:
     - install_longhorn | bool
