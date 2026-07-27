@@ -12,14 +12,15 @@ with curated or inferred metadata and an explicit migration state.
 | Classification | Count |
 |---|---:|
 | legacy-evidence | 17 |
-| sage-current | 5 |
+| sage-current | 6 |
 | sage-legacy | 3 |
-| **Total** | **25** |
+| **Total** | **26** |
 
 ## Start here
 
 | Section | Record | Summary | Class | Status | Valid as of |
 |---|---|---|---|---|---|
+| governance | [Validate the Kalaxy3 Daux landing page](../governance/kalaxy3-daux-landing-page-sage-evidence.md) | Validates the Kalaxy3 Daux landing-page source, container bootstrap, local render, visual identity, and clean feature-branch preservation without changing branch publication automation. | sage-current | validated | 2026-07-26 |
 | security | [Enforce canonical controller access across Kalaxy3](../security/kalaxy3-controller-access-baseline-sage-evidence.md) | Validates a repository-owned dual-controller SSH and sudo baseline across seven Kalaxy3 nodes and retires the legacy Intel pi administration path. | sage-current | validated | 2026-07-26 |
 | governance | [Pause logging work to close the SAGE enforcement gap](../governance/kalaxy3-sage-guardrail-gap-observability-pause-evidence.md) | Documents the machine-local Helm escape path, the missing preventive SAGE controls, and the decision to checkpoint and pause centralized logging until repository and admission guardrails are implemented. | sage-current | validated | 2026-07-26 |
 | governance | [Validate interchangeable Kalaxy3 automation controllers](../operations/kalaxy3-controller-machine-portability-evidence.md) | Verifies that clean iMac and Mac mini controllers reproduce the same repository-managed Python and Ansible environment despite different system Python versions. | sage-current | validated | 2026-07-26 |
@@ -31,7 +32,6 @@ with curated or inferred metadata and an explicit migration state.
 | installation | [Kubecost Installation and Verification](../installation/kalaxy3-kubecost-installation-and-verification.md) | This document records the installation, configuration, correction, and verification of Kubecost on the Kalaxy3 K3s cluster. | legacy-evidence | historical | 2026-07-21 |
 | installation | [Intel Node pi Administrative Access](../installation/kalaxy3-intel-pi-admin-access-evidence.md) | Evidence date: 2026-07-21 Cluster: Kalaxy3 Nodes: amd64-01, amd64-02 Repository area: infrastructure/k3s-homelab Purpose: Preserve the Intel-node administrative-access design and rebuild procedure. | legacy-evidence | historical | 2026-07-21 |
 | installation | [amd64-02 K3s and Longhorn Node Addition](../installation/kalaxy3-amd64-02-k3s-longhorn-node-addition.md) | This document chronicles the addition of amd64-02 to the Kalaxy3 cluster as: | legacy-evidence | historical | 2026-07-21 |
-| installation | [Protected Traefik Dashboard Installation and Rebuild Guide](../installation/kalaxy3-traefik-dashboard-installation-evidence.md) | Project: Kalaxy3 Implementation date: July 20, 2026, America/Chicago Target path: markdown/installation/kalaxy3-traefik-dashboard-installation-evidence.md Traefik LoadBalancer address: 192.168.2.20 Dashboard hostname: traefik.kalaxy3.home.arpa | legacy-evidence | historical | 2026-07-20 |
 
 ## Browse
 
