@@ -9,7 +9,7 @@ SOURCE_GUARDRAILS := python3 scripts/sage-source-guardrails.py
 DEPLOYMENT_GUARDRAIL := python3 scripts/sage-deployment-guardrail.py
 K3S_GUARDRAIL := python3 scripts/sage-k3s-guardrail.py
 HELM_LOCK_RECONCILE := $(VENV)/bin/python scripts/helm-lock-reconcile.py
-SSH_AUTH_PREFLIGHT := $(VENV)/bin/python scripts/ssh-auth-preflight.py
+ANSIBLE_ACCESS_PREFLIGHT := $(VENV)/bin/python scripts/ansible-access-preflight.py
 UV_VERSION := $(shell cat .uv-version)
 PYTHON_VERSION := $(shell cat .python-version)
 PYTHON_INSTALL_DIR := $(abspath .python)
@@ -22,8 +22,9 @@ VAULT := --ask-vault-pass
         controller-core-preflight controller-helm-preflight \
         cluster-access-preflight controller-preflight \
         source-guardrails k3s-release-guardrail deployment-guardrail \
-        helm-lock-reconcile ssh-auth-preflight \
-        bootstrap-guardrails k3s-guardrails cluster-guardrails guardrails \
+        helm-lock-reconcile ssh-auth-preflight privilege-preflight \
+        ansible-access-preflight bootstrap-guardrails k3s-guardrails \
+        cluster-guardrails guardrails \
         recovery-guardrails confirm-uninstall uninstall-syntax \
         helm-release-inventory bootstrap-ssh-key verify-ssh-host-keys ping \
         phase-0 phase-1 phase-2 phase-3 phase-4 phase-5 \
@@ -84,10 +85,16 @@ helm-lock-reconcile: cluster-access-preflight deployment-guardrail
 	$(HELM_LOCK_RECONCILE) --allow-missing
 
 ssh-auth-preflight: controller-core-preflight
-	$(SSH_AUTH_PREFLIGHT)
+	$(ANSIBLE_ACCESS_PREFLIGHT) --scope ssh
+
+privilege-preflight: controller-core-preflight
+	$(ANSIBLE_ACCESS_PREFLIGHT) --scope privilege
+
+ansible-access-preflight: controller-core-preflight
+	$(ANSIBLE_ACCESS_PREFLIGHT) --scope all
 
 bootstrap-guardrails: controller-core-preflight source-guardrails \
-                      ssh-auth-preflight syntax
+                      ansible-access-preflight syntax
 	@echo "Kalaxy3 SAGE bootstrap guardrails: PASS"
 
 k3s-guardrails: bootstrap-guardrails k3s-release-guardrail
@@ -101,7 +108,7 @@ cluster-guardrails: bootstrap-guardrails controller-helm-preflight \
 guardrails: cluster-guardrails
 
 recovery-guardrails: controller-core-preflight source-guardrails \
-                     ssh-auth-preflight uninstall-syntax
+                     ansible-access-preflight uninstall-syntax
 	@echo "Kalaxy3 SAGE recovery guardrails: PASS"
 
 uninstall-syntax:
@@ -126,7 +133,7 @@ bootstrap-ssh-key: controller-core-preflight
 verify-ssh-host-keys: controller-core-preflight
 	$(VENV)/bin/python scripts/verify-ssh-host-keys.py
 
-ping: ssh-auth-preflight
+ping: ansible-access-preflight
 	$(VENV)/bin/ansible all -m ping
 
 phase-0: bootstrap-guardrails
