@@ -5,3 +5,4 @@
 - [Governance](governance.md)
 - [Installation](installation.md)
 - [Operations](operations.md)
+- [Security](security.md)
