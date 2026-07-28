@@ -21,6 +21,10 @@ loki:
 
   storage:
     type: filesystem
+    # Chart 18.5.4 validates these names even for filesystem storage.
+    bucketNames:
+      chunks: chunks
+      ruler: ruler
 
   limits_config:
     retention_period: "{{ loki_retention_period }}"
@@ -75,6 +79,10 @@ gateway:
       memory: 256Mi
 
 lokiCanary:
+  enabled: false
+
+# The chart test requires Loki Canary, which this deployment omits.
+test:
   enabled: false
 
 chunksCache:
