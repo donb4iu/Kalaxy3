@@ -48,8 +48,8 @@ longhorn_replica_count: 2
 
 install_headlamp: true
 install_observability: true
-# Staged implementation gate; activate during deployment.
-deploy_centralized_logging: false
+# Centralized logging deployment activation gate.
+deploy_centralized_logging: true
 install_kubecost: false
 install_minio: true
 
