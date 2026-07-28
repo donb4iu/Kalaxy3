@@ -62,11 +62,9 @@ grafana_storage_size: 10Gi
 centralized_logging_namespace: observability
 centralized_logging_workload_pool: platform-services
 centralized_logging_expected_node: amd64-02
-loki_chart_version: "18.5.4"
 loki_storage_class: longhorn
 loki_storage_size: 40Gi
 loki_retention_period: 168h
-fluent_bit_collector_chart_version: "1.0.9"
 
 kubecost_storage_size: 32Gi
 

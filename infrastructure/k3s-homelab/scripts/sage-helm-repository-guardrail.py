@@ -16,7 +16,11 @@ ROOT: Final = Path(__file__).resolve().parents[1]
 REGISTRY_PATH: Final = ROOT / "helm-repositories.json"
 REQUIRED_FIELDS: Final = {"name", "url", "url_sha256"}
 TRUSTED_REPOSITORIES: Final = {
+    "fluent": "https://fluent.github.io/helm-charts/",
     "grafana": "https://grafana.github.io/helm-charts",
+    "grafana-community": (
+        "https://grafana-community.github.io/helm-charts"
+    ),
     "headlamp": "https://kubernetes-sigs.github.io/headlamp/",
     "kubernetes-dashboard": "https://kubernetes.github.io/dashboard/",
     "longhorn": "https://charts.longhorn.io",

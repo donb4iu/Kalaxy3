@@ -21,6 +21,16 @@
             "url_sha256": "7bb9752fde3d72057b84f100226217b212b0c3e26365451c28d72d0113e977f9"
         },
         {
+            "name": "grafana-community",
+            "url": "https://grafana-community.github.io/helm-charts",
+            "url_sha256": "206ac5464a9fcfa3442aa8c4f732e5017d88ffedfbee02e2ff2bed5cb58e67e3"
+        },
+        {
+            "name": "fluent",
+            "url": "https://fluent.github.io/helm-charts/",
+            "url_sha256": "b16bb56016f47f67656cfbd58474bd8df8db9000c48377b2cef31927f3c33910"
+        },
+        {
             "name": "headlamp",
             "url": "https://kubernetes-sigs.github.io/headlamp/",
             "url_sha256": "3d2292cd1983c771cb3fe6621bbc314405a664ff3443ed12d7d30062467a66fb"

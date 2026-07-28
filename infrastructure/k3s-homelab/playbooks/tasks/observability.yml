@@ -119,10 +119,11 @@
 
 - name: Install Loki
   kubernetes.core.helm:
+    binary_path: "{{ helm_binary }}"
     release_name: loki
-    chart_ref: oci://ghcr.io/grafana-community/helm-charts/loki
-    chart_version: "{{ loki_chart_version }}"
-    release_namespace: "{{ centralized_logging_namespace }}"
+    chart_ref: grafana-community/loki
+    chart_version: "{{ helm_chart_lock.charts.loki.version }}"
+    release_namespace: observability
     create_namespace: true
     state: present
     reset_values: true
@@ -131,6 +132,7 @@
     wait: true
     timeout: 20m
     kubeconfig: "{{ kalaxy3_kubeconfig }}"
+  environment: "{{ helm_environment }}"
   when:
     - install_observability | bool
     - deploy_centralized_logging | bool
@@ -152,11 +154,11 @@
 
 - name: Install Fluent Bit Collector
   kubernetes.core.helm:
+    binary_path: "{{ helm_binary }}"
     release_name: fluent-bit-collector
-    chart_ref: >-
-      oci://ghcr.io/fluent/helm-charts/fluent-bit-collector
-    chart_version: "{{ fluent_bit_collector_chart_version }}"
-    release_namespace: "{{ centralized_logging_namespace }}"
+    chart_ref: fluent/fluent-bit-collector
+    chart_version: "{{ helm_chart_lock.charts.fluent_bit_collector.version }}"
+    release_namespace: observability
     create_namespace: true
     state: present
     reset_values: true
@@ -165,6 +167,7 @@
     wait: true
     timeout: 20m
     kubeconfig: "{{ kalaxy3_kubeconfig }}"
+  environment: "{{ helm_environment }}"
   when:
     - install_observability | bool
     - deploy_centralized_logging | bool
