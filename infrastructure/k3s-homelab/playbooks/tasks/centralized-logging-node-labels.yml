@@ -1,0 +1,60 @@
+---
+- name: Preview centralized logging workload-pool label
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - --kubeconfig
+      - "{{ kalaxy3_kubeconfig }}"
+      - label
+      - node
+      - "{{ centralized_logging_label_node }}"
+      - >-
+        kalaxy3.io/workload-pool={{
+          hostvars[
+            centralized_logging_label_node
+          ].kalaxy3_node_labels[
+            'kalaxy3.io/workload-pool'
+          ]
+        }}
+      - --overwrite
+      - --dry-run=server
+      - --output=name
+  loop:
+    - amd64-01
+    - amd64-02
+  loop_control:
+    loop_var: centralized_logging_label_node
+    label: "{{ centralized_logging_label_node }}"
+  when: ansible_check_mode
+  check_mode: false
+  changed_when: false
+
+- name: Reconcile centralized logging workload-pool label
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - --kubeconfig
+      - "{{ kalaxy3_kubeconfig }}"
+      - label
+      - node
+      - "{{ centralized_logging_label_node }}"
+      - >-
+        kalaxy3.io/workload-pool={{
+          hostvars[
+            centralized_logging_label_node
+          ].kalaxy3_node_labels[
+            'kalaxy3.io/workload-pool'
+          ]
+        }}
+      - --overwrite
+  loop:
+    - amd64-01
+    - amd64-02
+  loop_control:
+    loop_var: centralized_logging_label_node
+    label: "{{ centralized_logging_label_node }}"
+  register: centralized_logging_label_command
+  changed_when: >-
+    'not labeled'
+    not in centralized_logging_label_command.stdout
+  when: not ansible_check_mode

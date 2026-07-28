@@ -34,28 +34,16 @@
   when: install_observability | bool
   changed_when: true
 
-- name: Reconcile centralized logging workload-pool labels
-  kubernetes.core.k8s:
-    state: patched
-    api_version: v1
-    kind: Node
-    name: "{{ item }}"
-    definition:
-      metadata:
-        labels:
-          kalaxy3.io/workload-pool: >-
-            {{
-              hostvars[item].kalaxy3_node_labels[
-                'kalaxy3.io/workload-pool'
-              ]
-            }}
-    kubeconfig: "{{ kalaxy3_kubeconfig }}"
-  loop:
-    - amd64-01
-    - amd64-02
+- name: Reconcile staged centralized logging workload-pool labels
+  ansible.builtin.include_tasks:
+    file: centralized-logging-node-labels.yml
+    apply:
+      tags:
+        - centralized-logging
+  # Placement metadata is an activation prerequisite and may be
+  # reconciled while the logging implementation remains staged.
   when:
     - install_observability | bool
-    - deploy_centralized_logging | bool
   tags:
     - centralized-logging
 

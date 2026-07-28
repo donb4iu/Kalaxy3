@@ -1,0 +1,65 @@
+---
+- name: Reconcile staged centralized logging placement labels
+  hosts: localhost
+  connection: local
+  become: false
+  gather_facts: false
+
+  vars_files:
+    - ../inventory/group_vars/all/main.yml
+
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+    # Override inventory defaults that target a remote K3s server.
+    ansible_become: false
+    kalaxy3_kubeconfig: >-
+      {{ playbook_dir }}/../kubeconfig-kalaxy3.yaml
+
+  pre_tasks:
+    - name: Require the repository-managed controller interpreter
+      ansible.builtin.assert:
+        that:
+          - >-
+            ansible_playbook_python
+            is match('^.*/\\.venv/bin/python$')
+          - ansible_python_interpreter == ansible_playbook_python
+        fail_msg: >-
+          Label reconciliation must use the repository-managed
+          Python and Ansible environment.
+        success_msg: >-
+          Using repository-managed Python:
+          {{ ansible_playbook_python }}
+
+    - name: Require staged centralized logging
+      ansible.builtin.assert:
+        that:
+          - not (deploy_centralized_logging | bool)
+        fail_msg: >-
+          This prerequisite-only playbook requires
+          deploy_centralized_logging to remain false.
+        success_msg: >-
+          Centralized logging remains staged and inactive.
+
+    - name: Validate declared workload-pool labels
+      ansible.builtin.assert:
+        that:
+          - >-
+            hostvars['amd64-01'].kalaxy3_node_labels[
+              'kalaxy3.io/workload-pool'
+            ] == 'ai'
+          - >-
+            hostvars['amd64-02'].kalaxy3_node_labels[
+              'kalaxy3.io/workload-pool'
+            ] == centralized_logging_workload_pool
+          - centralized_logging_expected_node == 'amd64-02'
+        fail_msg: >-
+          Centralized logging node-label declarations do not match
+          the accepted amd64-01=ai and amd64-02=platform-services
+          placement design.
+        success_msg: >-
+          Repository workload-pool declarations are valid.
+
+  tasks:
+    - name: Apply staged centralized logging placement labels
+      ansible.builtin.include_tasks:
+        file: tasks/centralized-logging-node-labels.yml
