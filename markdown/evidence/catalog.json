@@ -1,7 +1,7 @@
 {
-  "catalog_fingerprint": "60979b376fae1b8c80d0d44a24cb6a25c2c612e1b83256784b2bd3ea569ebb9e",
+  "catalog_fingerprint": "7eafe86be2e1089bb53ec67e02bae39d9ff4773d5f223450396c26a24d933411",
   "catalog_schema_version": "1.0",
-  "record_count": 26,
+  "record_count": 27,
   "records": [
     {
       "completed_at": "2026-07-25T21:01:00-05:00",
@@ -521,6 +521,34 @@
       "tags": [],
       "title": "Ubuntu Node Provisioning",
       "valid_as_of": "2026-07-10"
+    },
+    {
+      "completed_at": "2026-07-28T00:48:00-05:00",
+      "confidence": "high",
+      "evidence_id": "SAGE-K3-OBS-20260728-001",
+      "metadata_source": "authoritative",
+      "migration_status": "current",
+      "nav_order": 430,
+      "nav_section": "operations",
+      "nav_title": "Stage centralized logging through SAGE guardrails",
+      "owner": "Kalaxy3 architecture",
+      "primary_subject": "Centralized observability logging",
+      "record_class": "sage-current",
+      "schema_version": "1.2",
+      "source_path": "markdown/operations/kalaxy3-sage-observability-iterative-readiness-evidence.md",
+      "status": "validated",
+      "summary": "Documents the iterative ChatGPT-SAGE discovery, correction, validation, commit, and push cycle that made Kalaxy3 centralized logging activation-ready without deploying Loki or Fluent Bit.",
+      "tags": [
+        "sage",
+        "observability",
+        "centralized-logging",
+        "helm",
+        "loki",
+        "fluent-bit",
+        "guardrails"
+      ],
+      "title": "Iterative SAGE-Governed Observability Staging and Activation-Readiness Evidence",
+      "valid_as_of": "2026-07-28"
     },
     {
       "completed_at": "2026-07-25T17:45:00-05:00",

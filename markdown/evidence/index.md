@@ -12,14 +12,15 @@ with curated or inferred metadata and an explicit migration state.
 | Classification | Count |
 |---|---:|
 | legacy-evidence | 17 |
-| sage-current | 6 |
+| sage-current | 7 |
 | sage-legacy | 3 |
-| **Total** | **26** |
+| **Total** | **27** |
 
 ## Start here
 
 | Section | Record | Summary | Class | Status | Valid as of |
 |---|---|---|---|---|---|
+| operations | [Stage centralized logging through SAGE guardrails](../operations/kalaxy3-sage-observability-iterative-readiness-evidence.md) | Documents the iterative ChatGPT-SAGE discovery, correction, validation, commit, and push cycle that made Kalaxy3 centralized logging activation-ready without deploying Loki or Fluent Bit. | sage-current | validated | 2026-07-28 |
 | governance | [Validate the Kalaxy3 Daux landing page](../governance/kalaxy3-daux-landing-page-sage-evidence.md) | Validates the Kalaxy3 Daux landing-page source, container bootstrap, local render, visual identity, and clean feature-branch preservation without changing branch publication automation. | sage-current | validated | 2026-07-26 |
 | security | [Enforce canonical controller access across Kalaxy3](../security/kalaxy3-controller-access-baseline-sage-evidence.md) | Validates a repository-owned dual-controller SSH and sudo baseline across seven Kalaxy3 nodes and retires the legacy Intel pi administration path. | sage-current | validated | 2026-07-26 |
 | governance | [Pause logging work to close the SAGE enforcement gap](../governance/kalaxy3-sage-guardrail-gap-observability-pause-evidence.md) | Documents the machine-local Helm escape path, the missing preventive SAGE controls, and the decision to checkpoint and pause centralized logging until repository and admission guardrails are implemented. | sage-current | validated | 2026-07-26 |
@@ -31,7 +32,6 @@ with curated or inferred metadata and an explicit migration state.
 | finops | [Kubecost Homelab Cost Calibration, Network Measurement, and Shared Provider-C...](../installation/kalaxy3-kubecost-calibration-sage-evidence.md) | Kalaxy3 Kubecost 3.2.1 is now configured as a reproducible homelab engineering-cost model rather than an uncalibrated cloud-cost installation. Version-controlled Ansible inputs calculate and render custom CPU, RAM, GPU, storage, network, and shared-overhead values; persistent node labels describe hardware, cost, role, GPU, storage, and on-premises topolog... | sage-legacy | validated | 2026-07-25 |
 | installation | [Kubecost Installation and Verification](../installation/kalaxy3-kubecost-installation-and-verification.md) | This document records the installation, configuration, correction, and verification of Kubecost on the Kalaxy3 K3s cluster. | legacy-evidence | historical | 2026-07-21 |
 | installation | [Intel Node pi Administrative Access](../installation/kalaxy3-intel-pi-admin-access-evidence.md) | Evidence date: 2026-07-21 Cluster: Kalaxy3 Nodes: amd64-01, amd64-02 Repository area: infrastructure/k3s-homelab Purpose: Preserve the Intel-node administrative-access design and rebuild procedure. | legacy-evidence | historical | 2026-07-21 |
-| installation | [amd64-02 K3s and Longhorn Node Addition](../installation/kalaxy3-amd64-02-k3s-longhorn-node-addition.md) | This document chronicles the addition of amd64-02 to the Kalaxy3 cluster as: | legacy-evidence | historical | 2026-07-21 |
 
 ## Browse
 
