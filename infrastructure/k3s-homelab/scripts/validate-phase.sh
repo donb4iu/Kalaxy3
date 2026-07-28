@@ -22,7 +22,6 @@ case "$phase" in
     ;;
   4)
     kubectl get pods,svc -n headlamp
-    kubectl get pods,svc -n kubernetes-dashboard 2>/dev/null || true
     ;;
   5)
     kubectl get pods,pvc -n observability

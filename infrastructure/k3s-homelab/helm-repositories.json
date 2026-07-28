@@ -36,11 +36,6 @@
             "url_sha256": "3d2292cd1983c771cb3fe6621bbc314405a664ff3443ed12d7d30062467a66fb"
         },
         {
-            "name": "kubernetes-dashboard",
-            "url": "https://kubernetes.github.io/dashboard/",
-            "url_sha256": "602693e8f5d1a68dc0300eb544f8e9829d89b7af15ee517b5231c07768425e69"
-        },
-        {
             "name": "longhorn",
             "url": "https://charts.longhorn.io",
             "url_sha256": "fb7e9a4773fc0b78c82a6905fc62e1a675b271aa1d6ed461a42068c3bcb93860"

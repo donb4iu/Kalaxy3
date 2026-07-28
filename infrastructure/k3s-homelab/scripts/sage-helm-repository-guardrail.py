@@ -22,7 +22,6 @@ TRUSTED_REPOSITORIES: Final = {
         "https://grafana-community.github.io/helm-charts"
     ),
     "headlamp": "https://kubernetes-sigs.github.io/headlamp/",
-    "kubernetes-dashboard": "https://kubernetes.github.io/dashboard/",
     "longhorn": "https://charts.longhorn.io",
     "metallb": "https://metallb.github.io/metallb",
     "nfs": (

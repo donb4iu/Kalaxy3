@@ -13,7 +13,6 @@ k3s_disable:
 metallb_pool_name: lan-pool
 metallb_address_range: 192.168.2.20-192.168.2.49
 traefik_load_balancer_ip: 192.168.2.20
-dashboard_load_balancer_ip: 192.168.2.21
 headlamp_load_balancer_ip: 192.168.2.22
 minio_api_load_balancer_ip: 192.168.2.23
 minio_console_load_balancer_ip: 192.168.2.24
@@ -47,7 +46,6 @@ longhorn_allowed_filesystems:
 # Existing volumes must be updated separately.
 longhorn_replica_count: 2
 
-install_dashboard: false
 install_headlamp: true
 install_observability: true
 # Staged implementation gate; activate during deployment.
