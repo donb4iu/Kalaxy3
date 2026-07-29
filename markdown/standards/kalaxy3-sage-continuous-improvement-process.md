@@ -340,6 +340,62 @@ The machine-readable authority is:
 - `scripts/sage/sage-candidate-lifecycle.py`;
 - `scripts/sage/sage-candidate-lifecycle-guardrail.py`.
 
+## Improvement actions and baseline extraction
+
+Improvement actions convert accepted lessons into controlled engineering
+changes. The lifecycle is:
+
+```text
+identified
+  → accepted
+  → implemented
+  → validated
+  → measured
+  → closed
+```
+
+`rejected` is a terminal outcome for an evidence-backed no-action decision.
+Supported rework transitions return an action to the nearest appropriate
+earlier state.
+
+Each action must reference at least one lesson or session and preserve:
+
+- owner and priority;
+- intended control type;
+- desired outcome;
+- acceptance criteria;
+- measurement plan;
+- append-only transition history;
+- evidence references for every lifecycle event.
+
+Action planning is dry-run by default. Registry mutation requires the explicit
+`--apply` flag and a clean working tree.
+
+Repository baseline extraction records measured Git and registry state against
+an explicit baseline and current commit. When no canonical session records
+exist, process metrics remain `null`; they are not inferred from terminal
+narrative or commit volume.
+
+The initial baseline records:
+
+- Git commits and change volume;
+- candidate, lesson, action, session, feedback, and lifecycle counts;
+- the preserved discovery prediction;
+- measurement quality and provenance;
+- explicit limitations.
+
+The baseline must not create a composite maturity or quality score.
+
+The machine-readable authority is:
+
+- `sage-improvement-actions.json`;
+- `sage-continuous-improvement-baseline-registry.json`;
+- `markdown/standards/sage-improvement-action-schema-v1.0.json`;
+- `markdown/standards/sage-continuous-improvement-baseline-schema-v1.0.json`;
+- `scripts/sage/sage-improvement-actions.py`;
+- `scripts/sage/sage-baseline-extract.py`;
+- `scripts/sage/sage-learning-guardrail.py`.
+
 ## Post-session review
 
 The review must answer:

@@ -136,7 +136,13 @@
                 "scripts/sage/sage-feedback-",
                 "sage-change-candidate-lifecycle-",
                 "markdown/standards/sage-change-candidate-lifecycle-",
-                "scripts/sage/sage-candidate-lifecycle"
+                "scripts/sage/sage-candidate-lifecycle",
+                "sage-continuous-improvement-baseline-",
+                "markdown/standards/sage-improvement-action-",
+                "markdown/standards/sage-continuous-improvement-baseline-",
+                "scripts/sage/sage-improvement-actions",
+                "scripts/sage/sage-baseline-extract",
+                "scripts/sage/sage-learning"
             ],
             "requires": [
                 "repository-governance",
@@ -168,9 +174,16 @@
                 "sage-change-candidate-lifecycle-registry.json",
                 "markdown/standards/sage-change-candidate-lifecycle-schema-v1.0.json",
                 "scripts/sage/sage-candidate-lifecycle.py",
-                "scripts/sage/sage-candidate-lifecycle-guardrail.py"
+                "scripts/sage/sage-candidate-lifecycle-guardrail.py",
+                "sage-continuous-improvement-baseline-registry.json",
+                "markdown/standards/sage-improvement-action-schema-v1.0.json",
+                "markdown/standards/sage-continuous-improvement-baseline-schema-v1.0.json",
+                "scripts/sage/sage-improvement-actions.py",
+                "scripts/sage/sage-baseline-extract.py",
+                "scripts/sage/sage-learning-guardrail.py"
             ],
             "baseline_checks": [
+                "make sage-learning-self-test",
                 "make sage-candidate-self-test",
                 "make sage-feedback-self-test",
                 "make sage-session-self-test",
@@ -179,6 +192,7 @@
                 "make sage-index-check"
             ],
             "required_validation": [
+                "make sage-learning-self-test",
                 "make sage-candidate-self-test",
                 "make sage-feedback-self-test",
                 "make sage-session-self-test",

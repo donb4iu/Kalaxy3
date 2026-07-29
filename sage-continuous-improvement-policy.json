@@ -8,7 +8,8 @@
         "improvement_actions": "sage-improvement-actions.json",
         "sessions": "sage-session-improvement-registry.json",
         "feedback_baselines": "sage-feedback-baseline-registry.json",
-        "candidate_lifecycle": "sage-change-candidate-lifecycle-registry.json"
+        "candidate_lifecycle": "sage-change-candidate-lifecycle-registry.json",
+        "improvement_baselines": "sage-continuous-improvement-baseline-registry.json"
     },
     "lesson_preflight_path": "scripts/sage/sage-lessons.py",
     "required_lesson_fields": [
@@ -265,6 +266,8 @@
         "session_scorecard_schema": "markdown/standards/sage-session-scorecard-schema-v1.0.json",
         "feedback_comparison_schema": "markdown/standards/sage-feedback-comparison-schema-v1.0.json",
         "candidate_lifecycle_schema": "markdown/standards/sage-change-candidate-lifecycle-schema-v1.0.json",
+        "improvement_action_schema": "markdown/standards/sage-improvement-action-schema-v1.0.json",
+        "continuous_improvement_baseline_schema": "markdown/standards/sage-continuous-improvement-baseline-schema-v1.0.json",
         "status": "implemented"
     },
     "feedback_compare_path": "scripts/sage/sage-feedback-compare.py",
@@ -352,5 +355,65 @@
         "apply_requires_explicit_flag": true,
         "rollback_on_write_failure": true,
         "staged_term": "staged implementation"
+    },
+    "improvement_action_path": "scripts/sage/sage-improvement-actions.py",
+    "baseline_extract_path": "scripts/sage/sage-baseline-extract.py",
+    "learning_guardrail_path": "scripts/sage/sage-learning-guardrail.py",
+    "improvement_action_lifecycle_policy": {
+        "statuses": [
+            "identified",
+            "accepted",
+            "implemented",
+            "validated",
+            "measured",
+            "closed",
+            "rejected"
+        ],
+        "allowed_transitions": {
+            "identified": [
+                "accepted",
+                "rejected"
+            ],
+            "accepted": [
+                "implemented",
+                "rejected"
+            ],
+            "implemented": [
+                "accepted",
+                "validated"
+            ],
+            "validated": [
+                "implemented",
+                "measured"
+            ],
+            "measured": [
+                "validated",
+                "closed"
+            ],
+            "closed": [],
+            "rejected": []
+        },
+        "initial_status": "identified",
+        "terminal_statuses": [
+            "closed",
+            "rejected"
+        ],
+        "history_append_only": true,
+        "dry_run_default": true,
+        "apply_requires_explicit_flag": true,
+        "atomic_write_required": true,
+        "direct_status_edits_forbidden": true,
+        "registration_requires_source": true
+    },
+    "baseline_extraction_policy": {
+        "git_metrics_measured": true,
+        "registry_metrics_measured": true,
+        "session_metrics_null_when_unavailable": true,
+        "populated_session_aggregation_fail_closed": true,
+        "prediction_reference_required": true,
+        "provenance_required": true,
+        "composite_score_enabled": false,
+        "baseline_commit": "20c06b2c1c6d3a5af5cc392d95f6743bd4ab8d82",
+        "current_commit": "55a375c849afa4d59254447b3022a57738df7700"
     }
 }
