@@ -1,0 +1,102 @@
+{
+    "schema_version": "1.0",
+    "registry_type": "continuous-improvement-baselines",
+    "baselines": [
+        {
+            "baseline_id": "SAGE-BASELINE-20260728-001",
+            "change_id": "SAGE-CHANGE-20260728-001",
+            "captured_at": "2026-07-28T23:35:21-05:00",
+            "branch": "feature/sage-continuous-improvement",
+            "baseline_commit": "20c06b2c1c6d3a5af5cc392d95f6743bd4ab8d82",
+            "current_commit": "55a375c849afa4d59254447b3022a57738df7700",
+            "git_metrics": {
+                "commits_in_range": 9,
+                "files_changed": 24,
+                "insertions": 8354,
+                "deletions": 2,
+                "binary_files": 0
+            },
+            "registry_metrics": {
+                "change_candidates": 1,
+                "lessons": 8,
+                "improvement_actions": 0,
+                "sessions": 0,
+                "feedback_baselines": 0,
+                "candidate_lifecycles": 1
+            },
+            "process_metrics": {
+                "status": "unavailable-no-session-records",
+                "raw": {
+                    "commands_executed": null,
+                    "commands_failed": null,
+                    "commands_retried": null,
+                    "manual_corrections": null,
+                    "phases_total": null,
+                    "phases_first_pass": null,
+                    "known_failures_encountered": null,
+                    "known_failures_recurred": null,
+                    "mutation_opportunities": null,
+                    "failures_detected_pre_mutation": null,
+                    "applicable_lessons": null,
+                    "applicable_lessons_used": null,
+                    "avoidable_rework_minutes": null,
+                    "prompt_to_validated_change_minutes": null
+                },
+                "derived": {
+                    "first_pass_phase_success_rate": null,
+                    "known_failure_recurrence_rate": null,
+                    "pre_mutation_detection_rate": null,
+                    "applicable_lesson_usage_rate": null
+                }
+            },
+            "prediction_reference": {
+                "stage": "discovery",
+                "version": 1,
+                "confidence": "medium",
+                "estimate": {
+                    "overall_size": "L",
+                    "active_hours": 48,
+                    "elapsed_days": 7
+                },
+                "range": {
+                    "active_hours_min": 32,
+                    "active_hours_max": 80,
+                    "elapsed_days_min": 4,
+                    "elapsed_days_max": 14
+                }
+            },
+            "measurement_quality": {
+                "git": "measured",
+                "registries": "measured",
+                "process": "unavailable",
+                "overall_confidence": "medium"
+            },
+            "provenance": [
+                {
+                    "source_type": "git",
+                    "reference": "git:20c06b2c1c6d3a5af5cc392d95f6743bd4ab8d82...55a375c849afa4d59254447b3022a57738df7700",
+                    "measurement_type": "measured",
+                    "captured_at": "2026-07-28T23:35:21-05:00"
+                },
+                {
+                    "source_type": "registry",
+                    "reference": "sage-change-candidate-registry.json",
+                    "measurement_type": "measured",
+                    "captured_at": "2026-07-28T23:35:21-05:00"
+                },
+                {
+                    "source_type": "registry",
+                    "reference": "sage-session-improvement-registry.json",
+                    "measurement_type": "unavailable",
+                    "captured_at": "2026-07-28T23:35:21-05:00"
+                }
+            ],
+            "limitations": [
+                "No canonical session records exist yet, so delivery and learning process metrics are null.",
+                "Git metrics describe repository change volume, not engineering quality or business value.",
+                "This baseline is not sufficient for a composite maturity or quality score."
+            ],
+            "composite_score_enabled": false
+        }
+    ]
+}

@@ -1,0 +1,182 @@
+{
+    "schema_version": "1.0",
+    "registry_type": "change-candidates",
+    "candidates": [
+        {
+            "schema_version": "1.0",
+            "change_id": "SAGE-CHANGE-20260728-001",
+            "title": "Add the SAGE continuous-improvement feedback loop",
+            "request": "agreed, make it so, but remember frequent pushes to a feature branch is good practice",
+            "status": "staged-implementation",
+            "branch": "feature/sage-continuous-improvement",
+            "baseline_commit": "20c06b2c1c6d3a5af5cc392d95f6743bd4ab8d82",
+            "contexts": [
+                "repository-governance",
+                "evidence",
+                "continuous-improvement"
+            ],
+            "dependencies": [],
+            "predictions": [
+                {
+                    "stage": "discovery",
+                    "version": 1,
+                    "recorded_at": "2026-07-28T21:20:00-05:00",
+                    "estimate": {
+                        "overall_size": "L",
+                        "active_hours": 48,
+                        "elapsed_days": 7
+                    },
+                    "range": {
+                        "active_hours_min": 32,
+                        "active_hours_max": 80,
+                        "elapsed_days_min": 4,
+                        "elapsed_days_max": 14
+                    },
+                    "confidence": "medium",
+                    "confidence_basis": [
+                        "Repository-owned discovery, evidence, publisher, indexer, and guardrail patterns already exist.",
+                        "Kubecost, Prometheus, Grafana, Loki, and published SAGE evidence provide baseline inputs.",
+                        "Lesson extraction, longitudinal metrics, prediction scoring, and candidate lifecycle tooling do not yet exist."
+                    ],
+                    "assumptions": [
+                        "The first version will preserve raw metrics and will not create a composite quality score.",
+                        "The repository-only foundation will not mutate the cluster or materially change recurring run rate.",
+                        "Existing SAGE evidence and deployment workflows remain authoritative."
+                    ],
+                    "known_unknowns": [
+                        "How much historical terminal evidence can be classified automatically with acceptable accuracy.",
+                        "Which observability and Kubecost queries can be normalized across different change classes.",
+                        "How many comparable sessions are required before T-shirt boundaries and confidence calibration are statistically useful."
+                    ],
+                    "failure_conditions": [
+                        "The implementation creates a parallel authority path instead of extending repository-owned SAGE.",
+                        "Recorded predictions can be overwritten after outcomes are known.",
+                        "A staged implementation can activate without an explicit open deployment gate.",
+                        "Metrics reward documentation volume instead of improved engineering outcomes."
+                    ]
+                }
+            ],
+            "sizing": {
+                "overall": "L",
+                "dimensions": {
+                    "implementation_effort": "L",
+                    "elapsed_duration": "M",
+                    "technical_uncertainty": "L",
+                    "operational_risk": "S",
+                    "blast_radius": "M",
+                    "validation_burden": "L",
+                    "cost_exposure": "S",
+                    "dependency_complexity": "L"
+                },
+                "confidence": {
+                    "rating": "medium",
+                    "basis": [
+                        "The repository governance surface is defined and testable.",
+                        "The historical evidence baseline is rich but is not yet normalized into lessons and process metrics.",
+                        "No cluster mutation is required for the governance and tooling foundation."
+                    ]
+                }
+            },
+            "expected_value": {
+                "delivery": "high",
+                "operations": "high",
+                "economics": "high",
+                "learning": "very-high"
+            },
+            "cost": {
+                "baseline_references": [
+                    "SAGE-K3-FINOPS-20260724-001",
+                    "SAGE-K3-OBS-20260728-002",
+                    "SAGE-K3-OBS-20260728-003"
+                ],
+                "one_time_change_cost": {
+                    "measurement": "active engineering time",
+                    "estimate_hours": 48,
+                    "range_hours": {
+                        "minimum": 32,
+                        "maximum": 80
+                    },
+                    "measurement_type": "estimated"
+                },
+                "recurring_run_rate_delta": {
+                    "estimate_usd_per_month": 0.0,
+                    "measurement_type": "estimated",
+                    "basis": "The repository-only foundation adds no cluster workload."
+                },
+                "unit_economics": {
+                    "planned_units": [
+                        "cost per validated change",
+                        "avoidable rework cost per session",
+                        "engineering hours per accepted implementation"
+                    ],
+                    "measurement_type": "estimated"
+                },
+                "avoidable_rework_cost": {
+                    "baseline_status": "not-yet-measured",
+                    "measurement_type": "estimated",
+                    "initial_target": "Establish a measurable baseline before claiming savings."
+                },
+                "measurement_provenance": [
+                    "repository-owned SAGE evidence",
+                    "terminal session evidence",
+                    "Kubecost calibration evidence"
+                ],
+                "confidence": "medium"
+            },
+            "observability": {
+                "baseline_references": [
+                    "SAGE-K3-OBS-20260728-002",
+                    "SAGE-K3-OBS-20260728-003"
+                ],
+                "signals": [
+                    "SAGE guardrail pass rate",
+                    "commands executed, failed, and retried",
+                    "manual corrections",
+                    "known-failure recurrence",
+                    "first-pass phase success",
+                    "prompt-to-validated-change lead time",
+                    "post-change workload readiness and restart counts",
+                    "Kubecost before-and-after allocation"
+                ],
+                "observation_windows": [
+                    "baseline",
+                    "immediate",
+                    "stabilization",
+                    "trend",
+                    "economic"
+                ]
+            },
+            "implementation_outline": [
+                "Establish continuous-improvement authority, policy, schemas, registries, and guardrails.",
+                "Implement machine-readable lessons and experience-aware preflight.",
+                "Implement process metrics, prediction scoring, confidence calibration, and T-shirt sizing.",
+                "Integrate Kubecost and observability baseline and comparison inputs.",
+                "Implement candidate-registry and staged-implementation lifecycle tooling.",
+                "Add baseline extraction, scorecards, regression tests, and negative tests.",
+                "Publish SAGE implementation evidence."
+            ],
+            "validation_plan": [
+                "Validate every policy, schema, and registry JSON document.",
+                "Run representative and negative contract tests.",
+                "Require continuous-improvement discovery for relevant requests.",
+                "Run root SAGE guardrails after every cohesive commit.",
+                "Push every cohesive validated commit to the feature branch.",
+                "Keep deployment and activation gates closed until final validation."
+            ],
+            "deployment_gate": {
+                "status": "closed",
+                "reason": "The continuous-improvement foundation remains a staged implementation under active development."
+            },
+            "revalidation": {
+                "valid_until": "2026-08-27",
+                "triggers": [
+                    "origin/main advances",
+                    "SAGE evidence schema changes",
+                    "Kubecost baseline changes",
+                    "observability architecture changes",
+                    "the workstream is selected for activation"
+                ]
+            }
+        }
+    ]
+}

@@ -1,0 +1,30 @@
+{
+    "schema_version": "1.0",
+    "registry_type": "change-candidate-lifecycle",
+    "lifecycles": [
+        {
+            "change_id": "SAGE-CHANGE-20260728-001",
+            "current_status": "staged-implementation",
+            "branch": "feature/sage-continuous-improvement",
+            "baseline_commit": "20c06b2c1c6d3a5af5cc392d95f6743bd4ab8d82",
+            "deployment_gate_required": true,
+            "revalidation_required": true,
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "staged-implementation",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-07-28T22:44:01-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Initial candidate was registered as a staged implementation.",
+                    "validation_references": [
+                        "commit:fbeedfbe827e967bac9530522d44b814bc9b6bd4",
+                        "make:sage-improvement-policy-check"
+                    ],
+                    "candidate_commit": "fbeedfbe827e967bac9530522d44b814bc9b6bd4"
+                }
+            ]
+        }
+    ]
+}
