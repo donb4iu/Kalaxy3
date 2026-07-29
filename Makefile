@@ -151,6 +151,7 @@ docs-mkdocs-build-strict: docs-mkdocs-bootstrap docs-mkdocs-prepare
 
 docs-mkdocs-validate:
 	python3 scripts/docs/validate-mkdocs-build.py
+	python3 scripts/docs/validate-mkdocs-navigation.py
 
 docs-mkdocs-stage: docs-mkdocs-build-strict docs-mkdocs-validate
 	@echo "Kalaxy3 staged MkDocs build: PASS"

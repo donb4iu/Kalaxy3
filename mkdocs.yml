@@ -11,6 +11,11 @@ docs_dir: .mkdocs-work/source
 site_dir: .mkdocs-work/site
 use_directory_urls: true
 
+# Preserve raw SAGE artifacts in the published site for evidence lineage,
+# but keep them out of the human-facing inferred navigation.
+not_in_nav: |
+  /evidence-artifacts/
+
 theme:
   name: material
   logo: rpi4.png
