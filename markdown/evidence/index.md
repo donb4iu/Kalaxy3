@@ -12,14 +12,15 @@ with curated or inferred metadata and an explicit migration state.
 | Classification | Count |
 |---|---:|
 | legacy-evidence | 17 |
-| sage-current | 8 |
+| sage-current | 9 |
 | sage-legacy | 3 |
-| **Total** | **28** |
+| **Total** | **29** |
 
 ## Start here
 
 | Section | Record | Summary | Class | Status | Valid as of |
 |---|---|---|---|---|---|
+| verification | [Audit centralized logging SAGE evidence quality](../verification/kalaxy3-centralized-logging-sage-evidence-quality-audit.md) | Independently audits SAGE-K3-OBS-20260728-002 against the Kalaxy3 schema 1.2 quality contract and confirms it meets the generic SAGE prompt baseline while providing stronger specificity and traceability. | sage-current | validated | 2026-07-28 |
 | operations | [Deploy centralized logging observability](../operations/kalaxy3-centralized-logging-deployment-evidence.md) | Documents activating and deploying Loki and Fluent Bit, correcting Grafana datasource reconciliation, and validating storage, all-node collection, Grafana health, and queryable logs. | sage-current | validated | 2026-07-28 |
 | operations | [Stage centralized logging through SAGE guardrails](../operations/kalaxy3-sage-observability-iterative-readiness-evidence.md) | Documents the iterative ChatGPT-SAGE discovery, correction, validation, commit, and push cycle that made Kalaxy3 centralized logging activation-ready without deploying Loki or Fluent Bit. | sage-current | validated | 2026-07-28 |
 | governance | [Validate the Kalaxy3 Daux landing page](../governance/kalaxy3-daux-landing-page-sage-evidence.md) | Validates the Kalaxy3 Daux landing-page source, container bootstrap, local render, visual identity, and clean feature-branch preservation without changing branch publication automation. | sage-current | validated | 2026-07-26 |
@@ -31,7 +32,6 @@ with curated or inferred metadata and an explicit migration state.
 | operations | [Canonical metadata contract and publisher enforcement](../operations/kalaxy3-sage-canonical-metadata-contract-evidence.md) | Kalaxy3 SAGE metadata is now defined by a schema 1.1 machine-readable contract, a matching record standard and template, and publisher validation that rejects missing, extra, reordered, renamed, or inconsistent metadata. Every new record must contain an exact YAML field set, an exact human-readable Record metadata table, normalized timestamps, timezones,... | sage-legacy | validated | 2026-07-25 |
 | operations | [Repeatable Package Generation and Git Publication Process](../operations/kalaxy3-sage-evidence-publication-process-evidence.md) | Kalaxy3 now has a repository-owned SAGE evidence publication process that replaces session-specific packaging and Git instructions with a stable contract. Evidence generators must produce one ZIP containing sage-package.json and a canonical payload/; scripts/sage/sage-publish.py validates package integrity, SAGE record structure, claim-to-evidence referen... | sage-legacy | validated | 2026-07-25 |
 | finops | [Kubecost Homelab Cost Calibration, Network Measurement, and Shared Provider-C...](../installation/kalaxy3-kubecost-calibration-sage-evidence.md) | Kalaxy3 Kubecost 3.2.1 is now configured as a reproducible homelab engineering-cost model rather than an uncalibrated cloud-cost installation. Version-controlled Ansible inputs calculate and render custom CPU, RAM, GPU, storage, network, and shared-overhead values; persistent node labels describe hardware, cost, role, GPU, storage, and on-premises topolog... | sage-legacy | validated | 2026-07-25 |
-| installation | [Kubecost Installation and Verification](../installation/kalaxy3-kubecost-installation-and-verification.md) | This document records the installation, configuration, correction, and verification of Kubecost on the Kalaxy3 K3s cluster. | legacy-evidence | historical | 2026-07-21 |
 
 ## Browse
 

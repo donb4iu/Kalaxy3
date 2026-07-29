@@ -6,3 +6,4 @@
 - [Installation](installation.md)
 - [Operations](operations.md)
 - [Security](security.md)
+- [Verification](verification.md)
