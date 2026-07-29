@@ -126,9 +126,12 @@ MKDOCS_VENV := .mkdocs-venv
 MKDOCS_PYTHON := $(MKDOCS_VENV)/bin/python
 MKDOCS_BIN := $(MKDOCS_VENV)/bin/mkdocs
 MKDOCS_READY := $(MKDOCS_VENV)/.kalaxy3-ready
+MKDOCS_PUBLICATION_TEST := .mkdocs-work/publication-test/docs
 
 .PHONY: docs-mkdocs-bootstrap docs-mkdocs-prepare docs-mkdocs-build
 .PHONY: docs-mkdocs-build-strict docs-mkdocs-validate docs-mkdocs-stage
+.PHONY: docs-mkdocs-publication-test docs-mkdocs-publication-check
+.PHONY: docs-mkdocs-generate
 
 $(MKDOCS_READY): requirements-docs.txt requirements-docs.lock.txt
 	python3 -m venv $(MKDOCS_VENV)
@@ -148,7 +151,27 @@ docs-mkdocs-build-strict: docs-mkdocs-bootstrap docs-mkdocs-prepare
 
 docs-mkdocs-validate:
 	python3 scripts/docs/validate-mkdocs-build.py
+	python3 scripts/docs/validate-mkdocs-navigation.py
 
 docs-mkdocs-stage: docs-mkdocs-build-strict docs-mkdocs-validate
 	@echo "Kalaxy3 staged MkDocs build: PASS"
+
+docs-mkdocs-publication-test: docs-mkdocs-stage
+	rm -rf $(MKDOCS_PUBLICATION_TEST)
+	python3 scripts/docs/promote-mkdocs-site.py \
+		--destination $(MKDOCS_PUBLICATION_TEST)
+	python3 scripts/docs/validate-mkdocs-publication.py \
+		--destination $(MKDOCS_PUBLICATION_TEST)
+	@echo "Kalaxy3 staged MkDocs publication test: PASS"
+
+docs-mkdocs-publication-check:
+	python3 scripts/docs/validate-mkdocs-publication.py \
+		--destination docs
+
+docs-mkdocs-generate: docs-mkdocs-stage
+	python3 scripts/docs/promote-mkdocs-site.py \
+		--destination docs
+	python3 scripts/docs/validate-mkdocs-publication.py \
+		--destination docs
+	@echo "Kalaxy3 MkDocs generated documentation: PASS"
 # END KALAXY3 MKDOCS STAGED TARGETS

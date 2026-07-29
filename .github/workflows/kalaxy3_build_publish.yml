@@ -36,9 +36,8 @@ jobs:
     - name: Run repository SAGE guardrails
       run: make sage-guardrails
 
-
   mkdocs-validation:
-    name: Staged MkDocs Material validation
+    name: MkDocs Material publication validation
     needs: sage-governance
     runs-on: ubuntu-latest
     permissions:
@@ -55,16 +54,16 @@ jobs:
       with:
         python-version: "3.12"
 
-    - name: Build and validate staged MkDocs site
-      run: make docs-mkdocs-stage
+    - name: Build and validate MkDocs publication output
+      run: make docs-mkdocs-publication-test
 
   doc:
     if: github.event_name != 'pull_request'
-    needs: sage-governance
+    needs: mkdocs-validation
     env:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
-    runs-on: ubuntu-latest 
+    runs-on: ubuntu-latest
 
     steps:
     - name: Check out repository
@@ -73,21 +72,15 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Generate Daux webpages
-      uses: addnab/docker-run-action@v3
-      id: Generating_webpages_from_commit
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        image: daux/daux.io:latest
-        options: >-
-          --rm
-          -v ${{ github.workspace }}:/build
-          -w /build
-        run: |
-          rm -rf docs
-          /daux/bin/daux generate -s markdown -d docs
-    - name: Fix generated documentation permissions
-      run: sudo chown -R "$(id -u):$(id -g)" docs         
-  
+        python-version: "3.12"
+
+    - name: Generate MkDocs Material webpages
+      id: Generating_webpages_from_commit
+      run: make docs-mkdocs-generate
+
     - name: Commit generated documentation to Kalaxy3
       run: |
         git config --local user.email "dbuddenbaum@gmail.com"
@@ -97,12 +90,12 @@ jobs:
 
         if git diff --cached --quiet; then
           echo "No generated documentation changes."
-        else  
-          git commit -m "Generate Kalaxy3 Daux documentation [skip ci]"
+        else
+          git commit -m "Generate Kalaxy3 MkDocs Material documentation [skip ci]"
         fi
 
         # Documentation is already committed. Discard any unintended
-        # tracked working-tree changes left by the build action.
+        # tracked working-tree changes left by the build.
         git restore --worktree .
         git pull --rebase origin main
         git push origin HEAD:main
@@ -118,30 +111,30 @@ jobs:
         destination-github-username: "donb4iu"
         destination-repository-name: "donb4iu.github.io"
         target-branch: "main"
-        commit-message: "DauxIO webpage commit from Kalaxy3"
+        commit-message: "MkDocs Material webpage commit from Kalaxy3"
         user-email: "dbuddenbaum@gmail.com"
         user-name: "donb4iu"
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
-      
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      
+
     - name: Login to Docker Hub
       uses: docker/login-action@v3
       id: Logging_into_docker_hub
       with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      
+
     - name: Build and push image to donb4iu/mynginx_docs
       uses: docker/build-push-action@v6
       id: Build_and_Push_Docker_Image
       with:
           context: .
           platforms: linux/amd64,linux/arm64
-          file: yaml/nginx-docs/k8s-doc-to-nginx/nginx/Dockerfile          
+          file: yaml/nginx-docs/k8s-doc-to-nginx/nginx/Dockerfile
           push: true
           tags: donb4iu/mynginx_docs:${{ github.sha }}
 
@@ -173,4 +166,3 @@ jobs:
           status: ${{ job.status }}
           steps: ${{ toJson(steps) }}
       if: always()
-
