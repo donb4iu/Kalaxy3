@@ -66,6 +66,15 @@ SESSION_ID_RE: Final = re.compile(
 )
 SHA_RE: Final = re.compile(r"^[0-9a-f]{40}$")
 
+FOUNDATION_CHANGE_ID: Final = "SAGE-CHANGE-20260728-001"
+FOUNDATION_REQUEST: Final = (
+    "agreed, make it so, but remember frequent pushes "
+    "to a feature branch is good practice"
+)
+FOUNDATION_BASELINE_SHA: Final = (
+    "20c06b2c1c6d3a5af5cc392d95f6743bd4ab8d82"
+)
+
 
 def load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -230,12 +239,13 @@ def validate_policy(payload: Any) -> list[str]:
     return failures
 
 
-def validate_registry(
+def validate_registry_header(
     payload: Any,
     *,
     registry_type: str,
     collection: str,
 ) -> list[str]:
+    """Validate fields shared by all registries."""
     failures: list[str] = []
     if not isinstance(payload, dict):
         return [f"{registry_type} registry must be an object"]
@@ -257,12 +267,123 @@ def validate_registry(
         failures.append(
             f"{registry_type} registry_type mismatch"
         )
-    if payload.get(collection) != []:
+    if not isinstance(payload.get(collection), list):
         failures.append(
-            f"{registry_type} registry must begin empty"
+            f"{registry_type} {collection} must be a list"
         )
     return failures
 
+
+def validate_empty_registry(
+    payload: Any,
+    *,
+    registry_type: str,
+    collection: str,
+) -> list[str]:
+    """Validate a registry that has not yet been populated."""
+    failures = validate_registry_header(
+        payload,
+        registry_type=registry_type,
+        collection=collection,
+    )
+    if isinstance(payload, dict) and payload.get(collection) != []:
+        failures.append(
+            f"{registry_type} registry must remain empty"
+        )
+    return failures
+
+
+def validate_candidate_registry(
+    payload: Any,
+    policy: dict[str, Any],
+) -> list[str]:
+    """Validate the canonical change-candidate registry."""
+    failures = validate_registry_header(
+        payload,
+        registry_type="change-candidates",
+        collection="candidates",
+    )
+    if not isinstance(payload, dict):
+        return failures
+
+    candidates = payload.get("candidates")
+    if not isinstance(candidates, list):
+        return failures
+    if not candidates:
+        failures.append(
+            "change-candidates registry must include "
+            "the foundational candidate"
+        )
+        return failures
+
+    identifiers = [
+        str(item.get("change_id", ""))
+        for item in candidates
+        if isinstance(item, dict)
+    ]
+    if len(identifiers) != len(set(identifiers)):
+        failures.append(
+            "change-candidate identifiers must be unique"
+        )
+
+    for candidate in candidates:
+        failures.extend(
+            validate_candidate_instance(candidate, policy)
+        )
+
+    foundation = [
+        item
+        for item in candidates
+        if isinstance(item, dict)
+        and item.get("change_id") == FOUNDATION_CHANGE_ID
+    ]
+    if len(foundation) != 1:
+        failures.append(
+            "foundational change candidate must appear exactly once"
+        )
+        return failures
+
+    item = foundation[0]
+    if item.get("request") != FOUNDATION_REQUEST:
+        failures.append(
+            "foundational candidate request must remain literal"
+        )
+    if item.get("baseline_commit") != FOUNDATION_BASELINE_SHA:
+        failures.append(
+            "foundational candidate baseline commit changed"
+        )
+    if item.get("branch") != (
+        "feature/sage-continuous-improvement"
+    ):
+        failures.append(
+            "foundational candidate branch changed"
+        )
+    if item.get("status") != "staged-implementation":
+        failures.append(
+            "foundational candidate must remain staged "
+            "until explicit lifecycle advancement"
+        )
+    if item.get("deployment_gate", {}).get(
+        "status"
+    ) != "closed":
+        failures.append(
+            "foundational candidate deployment gate must be closed"
+        )
+
+    predictions = item.get("predictions", [])
+    discovery_v1 = [
+        prediction
+        for prediction in predictions
+        if isinstance(prediction, dict)
+        and prediction.get("stage") == "discovery"
+        and prediction.get("version") == 1
+    ]
+    if len(discovery_v1) != 1:
+        failures.append(
+            "foundational discovery prediction v1 "
+            "must appear exactly once"
+        )
+    return failures
 
 def validate_candidate_schema(
     schema: Any,
@@ -395,18 +516,56 @@ def validate_candidate_instance(
     item: Any,
     policy: dict[str, Any],
 ) -> list[str]:
+    """Validate one change-candidate instance."""
     failures: list[str] = []
     if not isinstance(item, dict):
         return ["candidate instance must be an object"]
 
+    required_fields = {
+        "schema_version",
+        "change_id",
+        "title",
+        "request",
+        "status",
+        "branch",
+        "baseline_commit",
+        "contexts",
+        "dependencies",
+        "predictions",
+        "sizing",
+        "expected_value",
+        "cost",
+        "observability",
+        "implementation_outline",
+        "validation_plan",
+        "deployment_gate",
+        "revalidation",
+    }
+    if set(item) != required_fields:
+        failures.append(
+            "candidate top-level fields must match the schema"
+        )
+
+    if item.get("schema_version") != "1.0":
+        failures.append("candidate schema_version invalid")
     if not CHANGE_ID_RE.fullmatch(
         str(item.get("change_id", ""))
     ):
         failures.append("candidate change_id invalid")
+    if not isinstance(item.get("title"), str) or not item.get(
+        "title"
+    ):
+        failures.append("candidate title required")
+    if not isinstance(item.get("request"), str) or not item.get(
+        "request"
+    ):
+        failures.append("candidate request required")
     if item.get("status") not in policy["candidate_statuses"]:
         failures.append("candidate status invalid")
+
+    branch = str(item.get("branch", ""))
     if not any(
-        str(item.get("branch", "")).startswith(prefix)
+        branch.startswith(prefix)
         for prefix in policy["branch_policy"][
             "allowed_candidate_branch_prefixes"
         ]
@@ -417,48 +576,391 @@ def validate_candidate_instance(
     ):
         failures.append("candidate baseline_commit invalid")
 
+    contexts = item.get("contexts")
+    if (
+        not isinstance(contexts, list)
+        or not contexts
+        or len(contexts) != len(set(contexts))
+        or not all(
+            isinstance(value, str) and value
+            for value in contexts
+        )
+    ):
+        failures.append("candidate contexts invalid")
+
+    dependencies = item.get("dependencies")
+    if not isinstance(dependencies, list):
+        failures.append("candidate dependencies invalid")
+    elif (
+        len(dependencies) != len(set(dependencies))
+        or not all(
+            CHANGE_ID_RE.fullmatch(str(value))
+            for value in dependencies
+        )
+    ):
+        failures.append("candidate dependencies invalid")
+
     predictions = item.get("predictions")
     if not isinstance(predictions, list) or not predictions:
         failures.append("candidate predictions required")
     else:
+        prediction_keys = {
+            "stage",
+            "version",
+            "recorded_at",
+            "estimate",
+            "range",
+            "confidence",
+            "confidence_basis",
+            "assumptions",
+            "known_unknowns",
+            "failure_conditions",
+        }
+        versions: set[tuple[str, int]] = set()
+        stages: set[str] = set()
+
         for prediction in predictions:
-            if prediction.get("stage") not in policy[
-                "prediction_stages"
-            ]:
-                failures.append("candidate prediction stage invalid")
+            if not isinstance(prediction, dict):
+                failures.append(
+                    "candidate prediction must be an object"
+                )
+                continue
+            if set(prediction) != prediction_keys:
+                failures.append(
+                    "candidate prediction fields invalid"
+                )
+
+            stage = prediction.get("stage")
+            version = prediction.get("version")
+            if stage not in policy["prediction_stages"]:
+                failures.append(
+                    "candidate prediction stage invalid"
+                )
+            else:
+                stages.add(str(stage))
+
+            if (
+                not isinstance(version, int)
+                or isinstance(version, bool)
+                or version < 1
+            ):
+                failures.append(
+                    "candidate prediction version invalid"
+                )
+            elif isinstance(stage, str):
+                key = (stage, version)
+                if key in versions:
+                    failures.append(
+                        "candidate prediction versions "
+                        "must be unique per stage"
+                    )
+                versions.add(key)
+
+            if not isinstance(
+                prediction.get("recorded_at"), str
+            ) or not prediction.get("recorded_at"):
+                failures.append(
+                    "candidate prediction recorded_at required"
+                )
+            for key in ("estimate", "range"):
+                value = prediction.get(key)
+                if not isinstance(value, dict) or not value:
+                    failures.append(
+                        f"candidate prediction {key} invalid"
+                    )
             if prediction.get("confidence") not in policy[
                 "confidence_ratings"
             ]:
                 failures.append(
                     "candidate prediction confidence invalid"
                 )
+            basis = prediction.get("confidence_basis")
+            if (
+                not isinstance(basis, list)
+                or not basis
+                or not all(
+                    isinstance(value, str) and value
+                    for value in basis
+                )
+            ):
+                failures.append(
+                    "candidate prediction confidence basis invalid"
+                )
+            for key in (
+                "assumptions",
+                "known_unknowns",
+                "failure_conditions",
+            ):
+                value = prediction.get(key)
+                if not isinstance(value, list) or not all(
+                    isinstance(entry, str)
+                    for entry in value
+                ):
+                    failures.append(
+                        f"candidate prediction {key} invalid"
+                    )
 
-    sizing = item.get("sizing", {})
-    if sizing.get("overall") not in policy["tshirt_sizes"]:
-        failures.append("candidate overall size invalid")
-    dimensions = sizing.get("dimensions", {})
-    if list(dimensions) != policy[
-        "required_sizing_dimensions"
+        if "discovery" not in stages:
+            failures.append(
+                "candidate requires a discovery prediction"
+            )
+
+    sizing = item.get("sizing")
+    if not isinstance(sizing, dict):
+        failures.append("candidate sizing invalid")
+    else:
+        if set(sizing) != {
+            "overall",
+            "dimensions",
+            "confidence",
+        }:
+            failures.append(
+                "candidate sizing fields invalid"
+            )
+        if sizing.get("overall") not in policy["tshirt_sizes"]:
+            failures.append("candidate overall size invalid")
+
+        dimensions = sizing.get("dimensions")
+        if not isinstance(dimensions, dict):
+            failures.append(
+                "candidate sizing dimensions invalid"
+            )
+        elif list(dimensions) != policy[
+            "required_sizing_dimensions"
+        ]:
+            failures.append(
+                "candidate sizing dimensions invalid"
+            )
+        elif not all(
+            value in policy["tshirt_sizes"]
+            for value in dimensions.values()
+        ):
+            failures.append(
+                "candidate sizing dimension value invalid"
+            )
+
+        confidence = sizing.get("confidence")
+        if not isinstance(confidence, dict):
+            failures.append(
+                "candidate sizing confidence invalid"
+            )
+        elif set(confidence) != {"rating", "basis"}:
+            failures.append(
+                "candidate sizing confidence fields invalid"
+            )
+        else:
+            if confidence.get("rating") not in policy[
+                "confidence_ratings"
+            ]:
+                failures.append(
+                    "candidate sizing confidence invalid"
+                )
+            basis = confidence.get("basis")
+            if (
+                not isinstance(basis, list)
+                or not basis
+                or not all(
+                    isinstance(value, str) and value
+                    for value in basis
+                )
+            ):
+                failures.append(
+                    "candidate sizing confidence basis invalid"
+                )
+
+    expected_value = item.get("expected_value")
+    expected_levels = {
+        "none",
+        "low",
+        "medium",
+        "high",
+        "very-high",
+    }
+    if not isinstance(expected_value, dict):
+        failures.append("candidate expected_value invalid")
+    elif list(expected_value) != policy[
+        "required_feedback_planes"
     ]:
         failures.append(
-            "candidate sizing dimensions invalid"
+            "candidate expected_value planes invalid"
         )
-    if sizing.get("confidence", {}).get(
-        "rating"
-    ) not in policy["confidence_ratings"]:
-        failures.append("candidate sizing confidence invalid")
-
-    gate = item.get("deployment_gate", {})
-    if gate.get("status") not in ("closed", "open"):
-        failures.append("candidate deployment gate invalid")
-    if item.get("status") == "active" and gate.get(
-        "status"
-    ) != "open":
+    elif not all(
+        value in expected_levels
+        for value in expected_value.values()
+    ):
         failures.append(
-            "active candidate requires open deployment gate"
+            "candidate expected_value rating invalid"
         )
-    return failures
 
+    cost = item.get("cost")
+    required_cost = {
+        "baseline_references",
+        "one_time_change_cost",
+        "recurring_run_rate_delta",
+        "unit_economics",
+        "avoidable_rework_cost",
+        "measurement_provenance",
+        "confidence",
+    }
+    if not isinstance(cost, dict) or set(cost) != required_cost:
+        failures.append("candidate cost fields invalid")
+    else:
+        if not isinstance(
+            cost.get("baseline_references"), list
+        ):
+            failures.append(
+                "candidate cost baseline references invalid"
+            )
+        for key in (
+            "one_time_change_cost",
+            "recurring_run_rate_delta",
+            "unit_economics",
+            "avoidable_rework_cost",
+        ):
+            if not isinstance(cost.get(key), dict):
+                failures.append(
+                    f"candidate cost {key} invalid"
+                )
+        provenance = cost.get("measurement_provenance")
+        if (
+            not isinstance(provenance, list)
+            or not provenance
+            or not all(
+                isinstance(value, str) and value
+                for value in provenance
+            )
+        ):
+            failures.append(
+                "candidate cost measurement provenance invalid"
+            )
+        if cost.get("confidence") not in policy[
+            "confidence_ratings"
+        ]:
+            failures.append(
+                "candidate cost confidence invalid"
+            )
+
+    observability = item.get("observability")
+    required_observability = {
+        "baseline_references",
+        "signals",
+        "observation_windows",
+    }
+    if (
+        not isinstance(observability, dict)
+        or set(observability) != required_observability
+    ):
+        failures.append(
+            "candidate observability fields invalid"
+        )
+    else:
+        if not isinstance(
+            observability.get("baseline_references"), list
+        ):
+            failures.append(
+                "candidate observability baseline references invalid"
+            )
+        signals = observability.get("signals")
+        if (
+            not isinstance(signals, list)
+            or not signals
+            or not all(
+                isinstance(value, str) and value
+                for value in signals
+            )
+        ):
+            failures.append(
+                "candidate observability signals invalid"
+            )
+        windows = observability.get("observation_windows")
+        if (
+            not isinstance(windows, list)
+            or not windows
+            or len(windows) != len(set(windows))
+            or not all(
+                value
+                in policy["required_observability_windows"]
+                for value in windows
+            )
+        ):
+            failures.append(
+                "candidate observability windows invalid"
+            )
+
+    for key in (
+        "implementation_outline",
+        "validation_plan",
+    ):
+        value = item.get(key)
+        if (
+            not isinstance(value, list)
+            or not value
+            or not all(
+                isinstance(entry, str) and entry
+                for entry in value
+            )
+        ):
+            failures.append(f"candidate {key} invalid")
+
+    gate = item.get("deployment_gate")
+    if not isinstance(gate, dict):
+        failures.append("candidate deployment gate invalid")
+    elif set(gate) != {"status", "reason"}:
+        failures.append(
+            "candidate deployment gate fields invalid"
+        )
+    else:
+        if gate.get("status") not in ("closed", "open"):
+            failures.append(
+                "candidate deployment gate invalid"
+            )
+        if not isinstance(gate.get("reason"), str) or not gate.get(
+            "reason"
+        ):
+            failures.append(
+                "candidate deployment gate reason required"
+            )
+        if item.get("status") == "active" and gate.get(
+            "status"
+        ) != "open":
+            failures.append(
+                "active candidate requires open deployment gate"
+            )
+        if item.get("status") == "staged-implementation" and gate.get(
+            "status"
+        ) != "closed":
+            failures.append(
+                "staged implementation requires closed deployment gate"
+            )
+
+    revalidation = item.get("revalidation")
+    if not isinstance(revalidation, dict):
+        failures.append("candidate revalidation invalid")
+    elif set(revalidation) != {"valid_until", "triggers"}:
+        failures.append(
+            "candidate revalidation fields invalid"
+        )
+    else:
+        if not isinstance(
+            revalidation.get("valid_until"), str
+        ) or not revalidation.get("valid_until"):
+            failures.append(
+                "candidate revalidation date required"
+            )
+        triggers = revalidation.get("triggers")
+        if (
+            not isinstance(triggers, list)
+            or not triggers
+            or not all(
+                isinstance(value, str) and value
+                for value in triggers
+            )
+        ):
+            failures.append(
+                "candidate revalidation triggers invalid"
+            )
+
+    return failures
 
 def validate_session_instance(
     item: Any,
@@ -651,6 +1153,7 @@ def mutation_tests(
     policy: dict[str, Any],
     candidate_schema: dict[str, Any],
     session_schema: dict[str, Any],
+    candidate_registry: dict[str, Any],
 ) -> list[str]:
     failures: list[str] = []
 
@@ -710,6 +1213,15 @@ def mutation_tests(
     candidate_cases.append(
         ("active candidate with closed gate", active_closed)
     )
+    duplicate_prediction = representative_candidate()
+    duplicate_prediction["predictions"].append(
+        copy.deepcopy(
+            duplicate_prediction["predictions"][0]
+        )
+    )
+    candidate_cases.append(
+        ("duplicate prediction version", duplicate_prediction)
+    )
 
     for label, candidate in candidate_cases:
         if not validate_candidate_instance(
@@ -717,6 +1229,47 @@ def mutation_tests(
         ):
             failures.append(
                 f"candidate negative test accepted {label}"
+            )
+
+    registry_cases: list[
+        tuple[str, dict[str, Any]]
+    ] = []
+    empty_registry = copy.deepcopy(candidate_registry)
+    empty_registry["candidates"] = []
+    registry_cases.append(
+        ("empty candidate registry", empty_registry)
+    )
+
+    duplicate_id = copy.deepcopy(candidate_registry)
+    duplicate_id["candidates"].append(
+        copy.deepcopy(duplicate_id["candidates"][0])
+    )
+    registry_cases.append(
+        ("duplicate candidate identifier", duplicate_id)
+    )
+
+    altered_request = copy.deepcopy(candidate_registry)
+    altered_request["candidates"][0]["request"] = (
+        "altered requester language"
+    )
+    registry_cases.append(
+        ("altered foundational request", altered_request)
+    )
+
+    opened_staged_gate = copy.deepcopy(candidate_registry)
+    opened_staged_gate["candidates"][0][
+        "deployment_gate"
+    ]["status"] = "open"
+    registry_cases.append(
+        ("opened staged deployment gate", opened_staged_gate)
+    )
+
+    for label, registry in registry_cases:
+        if not validate_candidate_registry(
+            registry, policy
+        ):
+            failures.append(
+                f"candidate registry negative test accepted {label}"
             )
 
     session_cases: list[
@@ -771,7 +1324,6 @@ def mutation_tests(
         )
     return failures
 
-
 def main() -> int:
     failures: list[str] = []
     try:
@@ -780,6 +1332,9 @@ def main() -> int:
             CANDIDATE_SCHEMA_PATH
         )
         session_schema = load_json(SESSION_SCHEMA_PATH)
+        candidate_registry = load_json(
+            REGISTRIES["change_candidates"][0]
+        )
 
         failures.extend(validate_policy(policy))
         failures.extend(
@@ -792,14 +1347,23 @@ def main() -> int:
                 session_schema, policy
             )
         )
+        failures.extend(
+            validate_candidate_registry(
+                candidate_registry, policy
+            )
+        )
 
-        for _, (
-            path,
-            registry_type,
-            collection,
-        ) in REGISTRIES.items():
+        for key in (
+            "lessons",
+            "improvement_actions",
+        ):
+            (
+                path,
+                registry_type,
+                collection,
+            ) = REGISTRIES[key]
             failures.extend(
-                validate_registry(
+                validate_empty_registry(
                     load_json(path),
                     registry_type=registry_type,
                     collection=collection,
@@ -821,6 +1385,7 @@ def main() -> int:
                 policy,
                 candidate_schema,
                 session_schema,
+                candidate_registry,
             )
         )
     except (OSError, ValueError, TypeError) as error:
@@ -840,12 +1405,13 @@ def main() -> int:
     print("PASS immutable versioned prediction policy")
     print("PASS candidate and session schema contracts")
     print("PASS representative candidate and session records")
+    print("PASS foundational change candidate registry")
+    print("PASS discovery prediction v1 remains immutable")
     print("PASS multidimensional sizing and confidence policy")
     print("PASS cost, observability, and process-metric policy")
     print("PASS frequent cohesive feature-branch push policy")
     print(
-        "PASS empty canonical candidate, lesson, "
-        "and action registries"
+        "PASS empty canonical lesson and action registries"
     )
     print(
         "PASS continuous-improvement mutation negative tests"
