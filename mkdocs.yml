@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
+
+site_name: Kalaxy3 K3s Cluster
+site_description: ARM64 and AMD64 homelab architecture, operations, and evidence
+site_author: Don Buddenbaum
+site_url: https://donb4iu.github.io/docs/Kalaxy3/
+repo_url: https://github.com/donb4iu/Kalaxy3
+repo_name: donb4iu/Kalaxy3
+
+docs_dir: .mkdocs-work/source
+site_dir: .mkdocs-work/site
+use_directory_urls: true
+
+theme:
+  name: material
+  logo: rpi4.png
+  favicon: rpi4.png
+  features:
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences

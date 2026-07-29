@@ -119,3 +119,36 @@ sage-evidence-guardrail:
 .PHONY: sage-learning-self-test
 
 .PHONY: sage-review-self-test
+
+
+# BEGIN KALAXY3 MKDOCS STAGED TARGETS
+MKDOCS_VENV := .mkdocs-venv
+MKDOCS_PYTHON := $(MKDOCS_VENV)/bin/python
+MKDOCS_BIN := $(MKDOCS_VENV)/bin/mkdocs
+MKDOCS_READY := $(MKDOCS_VENV)/.kalaxy3-ready
+
+.PHONY: docs-mkdocs-bootstrap docs-mkdocs-prepare docs-mkdocs-build
+.PHONY: docs-mkdocs-build-strict docs-mkdocs-validate docs-mkdocs-stage
+
+$(MKDOCS_READY): requirements-docs.txt requirements-docs.lock.txt
+	python3 -m venv $(MKDOCS_VENV)
+	$(MKDOCS_PYTHON) -m pip install -r requirements-docs.lock.txt
+	@touch $(MKDOCS_READY)
+
+docs-mkdocs-bootstrap: $(MKDOCS_READY)
+
+docs-mkdocs-prepare:
+	python3 scripts/docs/prepare-mkdocs-source.py
+
+docs-mkdocs-build: docs-mkdocs-bootstrap docs-mkdocs-prepare
+	$(MKDOCS_BIN) build --config-file mkdocs.yml --clean
+
+docs-mkdocs-build-strict: docs-mkdocs-bootstrap docs-mkdocs-prepare
+	$(MKDOCS_BIN) build --config-file mkdocs.yml --clean --strict
+
+docs-mkdocs-validate:
+	python3 scripts/docs/validate-mkdocs-build.py
+
+docs-mkdocs-stage: docs-mkdocs-build-strict docs-mkdocs-validate
+	@echo "Kalaxy3 staged MkDocs build: PASS"
+# END KALAXY3 MKDOCS STAGED TARGETS
