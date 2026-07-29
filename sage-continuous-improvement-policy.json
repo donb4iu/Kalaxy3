@@ -7,11 +7,6 @@
         "lessons": "sage-lessons.json",
         "improvement_actions": "sage-improvement-actions.json"
     },
-    "planned_contracts": {
-        "change_candidate_schema": "markdown/standards/sage-change-candidate-schema-v1.0.json",
-        "session_improvement_schema": "markdown/standards/sage-session-improvement-schema-v1.0.json",
-        "status": "staged"
-    },
     "required_feedback_planes": [
         "delivery",
         "operations",
@@ -194,5 +189,10 @@
             "predictable execution ranges",
             "measurable cost-value trends"
         ]
+    },
+    "contracts": {
+        "change_candidate_schema": "markdown/standards/sage-change-candidate-schema-v1.0.json",
+        "session_improvement_schema": "markdown/standards/sage-session-improvement-schema-v1.0.json",
+        "status": "implemented"
     }
 }

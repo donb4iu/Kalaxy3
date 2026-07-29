@@ -12,6 +12,14 @@ measurements, and candidate sizing to improve future prompt resolution.
 This process extends existing SAGE discovery and publication authority. It
 does not create a parallel evidence system.
 
+The machine-readable contracts are:
+
+- `markdown/standards/sage-change-candidate-schema-v1.0.json`;
+- `markdown/standards/sage-session-improvement-schema-v1.0.json`.
+
+Candidate and session documents must conform to these contracts before
+registry publication or outcome scoring.
+
 ## Authoritative discovery behavior
 
 Requests involving continuous improvement, lessons learned, predictions,
