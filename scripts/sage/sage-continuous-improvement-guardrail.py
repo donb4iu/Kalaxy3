@@ -19,6 +19,13 @@ SESSION_SCHEMA_PATH: Final = (
     ROOT / "markdown/standards/"
     "sage-session-improvement-schema-v1.0.json"
 )
+SESSION_SCORE_SCHEMA_PATH: Final = (
+    ROOT / "markdown/standards/"
+    "sage-session-scorecard-schema-v1.0.json"
+)
+SESSION_SCORE_PATH: Final = (
+    ROOT / "scripts/sage/sage-session-score.py"
+)
 REGISTRIES: Final = {
     "change_candidates": (
         ROOT / "sage-change-candidate-registry.json",
@@ -34,6 +41,11 @@ REGISTRIES: Final = {
         ROOT / "sage-improvement-actions.json",
         "improvement-actions",
         "actions",
+    ),
+    "sessions": (
+        ROOT / "sage-session-improvement-registry.json",
+        "session-improvements",
+        "sessions",
     ),
 }
 REQUIRED_PLANES: Final = [
@@ -74,6 +86,24 @@ REQUIRED_LESSON_FIELDS: Final = ['lesson_id',
  'latest_evidence',
  'recurrence_count',
  'automation_status']
+REQUIRED_RAW_SESSION_METRICS: Final = ['commands_executed',
+ 'commands_failed',
+ 'commands_retried',
+ 'manual_corrections',
+ 'phases_total',
+ 'phases_first_pass',
+ 'known_failures_encountered',
+ 'known_failures_recurred',
+ 'mutation_opportunities',
+ 'failures_detected_pre_mutation',
+ 'applicable_lessons',
+ 'applicable_lessons_used',
+ 'avoidable_rework_minutes',
+ 'prompt_to_validated_change_minutes']
+REQUIRED_DERIVED_SESSION_METRICS: Final = ['first_pass_phase_success_rate',
+ 'known_failure_recurrence_rate',
+ 'pre_mutation_detection_rate',
+ 'applicable_lesson_usage_rate']
 CHANGE_ID_RE: Final = re.compile(
     r"^SAGE-CHANGE-[0-9]{8}-[0-9]{3}$"
 )
@@ -230,6 +260,10 @@ def validate_policy(payload: Any) -> list[str]:
                 "session_improvement_schema",
                 SESSION_SCHEMA_PATH,
             ),
+            (
+                "session_scorecard_schema",
+                SESSION_SCORE_SCHEMA_PATH,
+            ),
         ):
             relative = contracts.get(key)
             if not isinstance(relative, str):
@@ -251,6 +285,53 @@ def validate_policy(payload: Any) -> list[str]:
             failures.append(
                 f"{label} does not exist: {relative}"
             )
+
+    session_score_path = payload.get("session_score_path")
+    if session_score_path != (
+        "scripts/sage/sage-session-score.py"
+    ):
+        failures.append(
+            "session_score_path changed"
+        )
+    elif not SESSION_SCORE_PATH.is_file():
+        failures.append(
+            "session scoring script is missing"
+        )
+
+    if payload.get(
+        "required_session_raw_metrics"
+    ) != REQUIRED_RAW_SESSION_METRICS:
+        failures.append(
+            "required_session_raw_metrics changed"
+        )
+
+    if payload.get(
+        "required_session_derived_metrics"
+    ) != REQUIRED_DERIVED_SESSION_METRICS:
+        failures.append(
+            "required_session_derived_metrics changed"
+        )
+
+    scoring_policy = payload.get(
+        "prediction_scoring_policy"
+    )
+    expected_scoring_policy = {
+        "signed_error": "actual-minus-point-estimate",
+        "absolute_error": "absolute-signed-error",
+        "percentage_error": (
+            "absolute-error-divided-by-absolute-actual-times-100"
+        ),
+        "percentage_error_when_actual_zero": None,
+        "range_bounds": "inclusive",
+        "range_distance_when_in_range": 0,
+        "zero_denominator_rate": None,
+        "aggregate_by_confidence": True,
+        "composite_score_enabled": False,
+    }
+    if scoring_policy != expected_scoring_policy:
+        failures.append(
+            "prediction_scoring_policy changed"
+        )
 
     registries = payload.get("registries")
     if not isinstance(registries, dict):
@@ -629,6 +710,92 @@ def validate_lesson_registry(
     ):
         failures.append(
             "remote-state lesson must check origin/main"
+        )
+    return failures
+
+
+def validate_session_score_schema(
+    schema: Any,
+    policy: dict[str, Any],
+) -> list[str]:
+    """Validate the deterministic session scorecard schema."""
+    failures: list[str] = []
+    if not isinstance(schema, dict):
+        return ["session scorecard schema must be an object"]
+
+    if schema.get("$schema") != (
+        "https://json-schema.org/draft/2020-12/schema"
+    ):
+        failures.append(
+            "session scorecard schema must use draft 2020-12"
+        )
+    if schema.get("type") != "object":
+        failures.append(
+            "session scorecard schema type must be object"
+        )
+    if schema.get("additionalProperties") is not False:
+        failures.append(
+            "session scorecard schema must reject unknown properties"
+        )
+
+    properties = schema.get("properties", {})
+    required = schema.get("required", [])
+    if set(required) != set(properties):
+        failures.append(
+            "session scorecard top-level fields changed"
+        )
+
+    raw = properties.get("raw_metrics", {})
+    if raw.get("required") != policy.get(
+        "required_session_raw_metrics"
+    ):
+        failures.append(
+            "scorecard raw metric contract changed"
+        )
+    if raw.get("additionalProperties") is not False:
+        failures.append(
+            "scorecard raw metrics must reject unknown properties"
+        )
+
+    derived = properties.get("derived_metrics", {})
+    if derived.get("required") != policy.get(
+        "required_session_derived_metrics"
+    ):
+        failures.append(
+            "scorecard derived metric contract changed"
+        )
+    if derived.get("additionalProperties") is not False:
+        failures.append(
+            "scorecard derived metrics must reject unknown properties"
+        )
+
+    score = schema.get("$defs", {}).get(
+        "prediction_score", {}
+    )
+    score_properties = score.get("properties", {})
+    if score_properties.get(
+        "stage", {}
+    ).get("enum") != policy.get("prediction_stages"):
+        failures.append(
+            "scorecard prediction stages changed"
+        )
+    if score_properties.get(
+        "confidence", {}
+    ).get("enum") != list(
+        policy.get("confidence_ratings", {})
+    ):
+        failures.append(
+            "scorecard confidence levels changed"
+        )
+    if score_properties.get(
+        "range_result", {}
+    ).get("enum") != [
+        "in-range",
+        "below-range",
+        "above-range",
+    ]:
+        failures.append(
+            "scorecard range results changed"
         )
     return failures
 
@@ -1400,6 +1567,7 @@ def mutation_tests(
     policy: dict[str, Any],
     candidate_schema: dict[str, Any],
     session_schema: dict[str, Any],
+    session_score_schema: dict[str, Any],
     candidate_registry: dict[str, Any],
     lesson_registry: dict[str, Any],
 ) -> list[str]:
@@ -1433,6 +1601,22 @@ def mutation_tests(
     )
     policy_cases.append(
         ("learning plane removed", missing_plane)
+    )
+
+    composite_score = copy.deepcopy(policy)
+    composite_score["prediction_scoring_policy"][
+        "composite_score_enabled"
+    ] = True
+    policy_cases.append(
+        ("prediction composite score enabled", composite_score)
+    )
+
+    changed_zero_rule = copy.deepcopy(policy)
+    changed_zero_rule["prediction_scoring_policy"][
+        "zero_denominator_rate"
+    ] = 0
+    policy_cases.append(
+        ("zero denominator coerced to zero", changed_zero_rule)
     )
 
     for label, candidate in policy_cases:
@@ -1612,6 +1796,17 @@ def mutation_tests(
         failures.append(
             "session schema weakening was accepted"
         )
+
+    weakened_score_schema = copy.deepcopy(
+        session_score_schema
+    )
+    weakened_score_schema["additionalProperties"] = True
+    if not validate_session_score_schema(
+        weakened_score_schema, policy
+    ):
+        failures.append(
+            "session scorecard schema weakening was accepted"
+        )
     return failures
 
 def main() -> int:
@@ -1622,6 +1817,9 @@ def main() -> int:
             CANDIDATE_SCHEMA_PATH
         )
         session_schema = load_json(SESSION_SCHEMA_PATH)
+        session_score_schema = load_json(
+            SESSION_SCORE_SCHEMA_PATH
+        )
         candidate_registry = load_json(
             REGISTRIES["change_candidates"][0]
         )
@@ -1641,6 +1839,11 @@ def main() -> int:
             )
         )
         failures.extend(
+            validate_session_score_schema(
+                session_score_schema, policy
+            )
+        )
+        failures.extend(
             validate_candidate_registry(
                 candidate_registry, policy
             )
@@ -1651,18 +1854,22 @@ def main() -> int:
             )
         )
 
-        (
-            action_path,
-            action_type,
-            action_collection,
-        ) = REGISTRIES["improvement_actions"]
-        failures.extend(
-            validate_empty_registry(
-                load_json(action_path),
-                registry_type=action_type,
-                collection=action_collection,
+        for key in (
+            "improvement_actions",
+            "sessions",
+        ):
+            (
+                path,
+                registry_type,
+                collection,
+            ) = REGISTRIES[key]
+            failures.extend(
+                validate_empty_registry(
+                    load_json(path),
+                    registry_type=registry_type,
+                    collection=collection,
+                )
             )
-        )
 
         failures.extend(
             validate_candidate_instance(
@@ -1679,6 +1886,7 @@ def main() -> int:
                 policy,
                 candidate_schema,
                 session_schema,
+                session_score_schema,
                 candidate_registry,
                 lesson_registry,
             )
@@ -1699,6 +1907,7 @@ def main() -> int:
     print("PASS four-plane feedback contract")
     print("PASS immutable versioned prediction policy")
     print("PASS candidate and session schema contracts")
+    print("PASS deterministic session scorecard contract")
     print("PASS representative candidate and session records")
     print("PASS foundational change candidate registry")
     print("PASS discovery prediction v1 remains immutable")
@@ -1706,9 +1915,10 @@ def main() -> int:
     print("PASS required seed lessons and preventive controls")
     print("PASS multidimensional sizing and confidence policy")
     print("PASS cost, observability, and process-metric policy")
+    print("PASS session rate and prediction scoring policy")
     print("PASS frequent cohesive feature-branch push policy")
     print(
-        "PASS canonical lesson and empty action registries"
+        "PASS canonical lesson and empty action/session registries"
     )
     print(
         "PASS continuous-improvement mutation negative tests"

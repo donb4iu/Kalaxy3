@@ -129,7 +129,8 @@
                 "scripts/sage/sage-lessons",
                 "scripts/sage/sage-session",
                 "scripts/sage/sage-improvement",
-                "scripts/sage/sage-candidate"
+                "scripts/sage/sage-candidate",
+                "sage-session-improvement-"
             ],
             "requires": [
                 "repository-governance",
@@ -150,14 +151,19 @@
                 "scripts/sage/sage-continuous-improvement-guardrail.py",
                 "markdown/standards/sage-change-candidate-schema-v1.0.json",
                 "markdown/standards/sage-session-improvement-schema-v1.0.json",
-                "scripts/sage/sage-lessons.py"
+                "scripts/sage/sage-lessons.py",
+                "sage-session-improvement-registry.json",
+                "markdown/standards/sage-session-scorecard-schema-v1.0.json",
+                "scripts/sage/sage-session-score.py"
             ],
             "baseline_checks": [
+                "make sage-session-self-test",
                 "make sage-improvement-policy-check",
                 "make sage-discovery-guardrail",
                 "make sage-index-check"
             ],
             "required_validation": [
+                "make sage-session-self-test",
                 "make sage-improvement-policy-check",
                 "make sage-guardrails"
             ],

@@ -3,6 +3,7 @@
 PYTHON ?= python3
 SAGE_PREFLIGHT := $(PYTHON) scripts/sage/sage-change-preflight.py
 SAGE_LESSONS := $(PYTHON) scripts/sage/sage-lessons.py
+SAGE_SESSION_SCORE := $(PYTHON) scripts/sage/sage-session-score.py
 SAGE_DISCOVERY_GUARDRAIL := \
 	$(PYTHON) scripts/sage/sage-change-discovery-guardrail.py
 SAGE_INDEX := $(PYTHON) scripts/sage/sage-index.py
@@ -23,6 +24,7 @@ help:
 	  '  make sage-changed' \
 	  '  make sage-guardrails' \
 	  '  make sage-improvement-policy-check' \
+	  '  make sage-session-self-test' \
 	  '  SAGE_REQUEST="<request>" make sage-evidence-prepare' \
 	  '  SAGE_PACKAGE="<package.zip>" make sage-evidence-check'
 
@@ -48,12 +50,15 @@ sage-discovery-guardrail:
 sage-index-check:
 	$(SAGE_INDEX) check
 
+sage-session-self-test:
+	$(SAGE_SESSION_SCORE) --self-test
+
 sage-improvement-policy-check:
 	$(SAGE_IMPROVEMENT_GUARDRAIL)
 
 sage-guardrails: sage-self-test sage-discovery-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
-                 sage-improvement-policy-check sage-index-check
+                 sage-session-self-test sage-improvement-policy-check sage-index-check
 	@echo "Kalaxy3 repository SAGE guardrails: PASS"
 
 .PHONY: sage-evidence-brief sage-evidence-prepare \
@@ -74,3 +79,5 @@ sage-evidence-self-test:
 
 sage-evidence-guardrail:
 	$(SAGE_EVIDENCE_GUARDRAIL)
+
+.PHONY: sage-session-self-test

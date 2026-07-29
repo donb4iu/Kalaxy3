@@ -74,6 +74,40 @@ A governed change follows this sequence:
 16. Extract lessons and improvement actions.
 17. Measure whether comparable future sessions improve.
 
+## Session metrics and prediction scoring
+
+Every completed improvement session must preserve raw measurements before
+calculating derived rates. The canonical raw fields are defined by
+`sage-continuous-improvement-policy.json` and validated by
+`scripts/sage/sage-session-score.py`.
+
+Derived rates use these rules:
+
+- first-pass success is first-pass phases divided by total phases;
+- known-failure recurrence is recurring known failures divided by known
+  failures encountered;
+- pre-mutation detection is failures detected before mutation divided by
+  mutation opportunities;
+- lesson usage is applicable lessons used divided by applicable lessons;
+- a zero denominator produces `null`, not a misleading zero.
+
+Prediction scoring uses the recorded point estimate, inclusive range, actual
+value, and confidence. Signed error is actual minus the point estimate.
+Absolute error is the magnitude of signed error. Percentage error is absolute
+error divided by the absolute actual value and is `null` when actual is zero.
+Range distance is zero inside the range and otherwise measures distance to the
+nearest range boundary.
+
+Range-hit rates must be retained by confidence level so calibration can be
+evaluated across comparable sessions. The scorer must not collapse delivery,
+operations, economics, and learning into a composite score before stable
+baselines and justified weights exist.
+
+The canonical scorecard contract is
+`markdown/standards/sage-session-scorecard-schema-v1.0.json`. Completed
+scorecards may be registered in `sage-session-improvement-registry.json`
+after their implementation evidence is published.
+
 ## Predictions
 
 Predictions must be recorded before their outcomes are known.
