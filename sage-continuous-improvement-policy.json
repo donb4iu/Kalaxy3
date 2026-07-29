@@ -1,0 +1,198 @@
+{
+    "schema_version": "1.0",
+    "standard_path": "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
+    "guardrail_path": "scripts/sage/sage-continuous-improvement-guardrail.py",
+    "registries": {
+        "change_candidates": "sage-change-candidate-registry.json",
+        "lessons": "sage-lessons.json",
+        "improvement_actions": "sage-improvement-actions.json"
+    },
+    "planned_contracts": {
+        "change_candidate_schema": "markdown/standards/sage-change-candidate-schema-v1.0.json",
+        "session_improvement_schema": "markdown/standards/sage-session-improvement-schema-v1.0.json",
+        "status": "staged"
+    },
+    "required_feedback_planes": [
+        "delivery",
+        "operations",
+        "economics",
+        "learning"
+    ],
+    "prediction_stages": [
+        "discovery",
+        "pre-deployment"
+    ],
+    "required_prediction_fields": [
+        "estimate",
+        "range",
+        "confidence",
+        "confidence_basis",
+        "assumptions",
+        "known_unknowns",
+        "failure_conditions"
+    ],
+    "prediction_policy": {
+        "record_before_outcome_is_known": true,
+        "preserve_all_versions": true,
+        "overwrite_previous_predictions": false,
+        "compare_prediction_with_actual": true,
+        "classify_prediction_error": true,
+        "measure_confidence_calibration": true
+    },
+    "prediction_error_classifications": [
+        "incomplete-discovery",
+        "prior-lesson-not-applied",
+        "baseline-inaccurate",
+        "scope-changed",
+        "implementation-defect",
+        "environmental-change",
+        "dependency-behavior",
+        "operator-error",
+        "new-failure-mode",
+        "range-too-narrow",
+        "confidence-overstated",
+        "confidence-understated"
+    ],
+    "tshirt_sizes": {
+        "XS": {
+            "active_hours_min": 0,
+            "active_hours_max": 4,
+            "interpretation": "Localized work using an established pattern with low uncertainty."
+        },
+        "S": {
+            "active_hours_min": 4,
+            "active_hours_max": 12,
+            "interpretation": "Small change with a known implementation and validation path."
+        },
+        "M": {
+            "active_hours_min": 12,
+            "active_hours_max": 32,
+            "interpretation": "Multiple components or moderate uncertainty and validation."
+        },
+        "L": {
+            "active_hours_min": 32,
+            "active_hours_max": 80,
+            "interpretation": "Cross-cutting work with meaningful uncertainty, risk, or evidence burden."
+        },
+        "XL": {
+            "active_hours_min": 80,
+            "active_hours_max": null,
+            "interpretation": "Work that normally requires decomposition before implementation.",
+            "requires_decomposition": true
+        }
+    },
+    "required_sizing_dimensions": [
+        "implementation_effort",
+        "elapsed_duration",
+        "technical_uncertainty",
+        "operational_risk",
+        "blast_radius",
+        "validation_burden",
+        "cost_exposure",
+        "dependency_complexity"
+    ],
+    "confidence_ratings": {
+        "high": "Similar work and measured baselines exist, dependencies are verified, and few material unknowns remain.",
+        "medium": "The major path is understood, but some assumptions, integrations, or measurements remain unverified.",
+        "low": "The work is novel, baselines are weak, dependencies are uncertain, or scope remains incomplete."
+    },
+    "required_cost_views": [
+        "one_time_change_cost",
+        "recurring_run_rate_delta",
+        "unit_economics",
+        "avoidable_rework_cost",
+        "measurement_provenance"
+    ],
+    "cost_measurement_types": [
+        "measured",
+        "allocated",
+        "estimated",
+        "inferred"
+    ],
+    "required_observability_windows": [
+        "baseline",
+        "immediate",
+        "stabilization",
+        "trend",
+        "economic"
+    ],
+    "required_process_metrics": [
+        "commands_executed",
+        "commands_failed",
+        "commands_retried",
+        "manual_corrections",
+        "first_pass_phase_success_rate",
+        "known_failure_recurrence_rate",
+        "pre_mutation_detection_rate",
+        "applicable_lesson_usage_rate",
+        "avoidable_rework",
+        "prompt_to_validated_change_lead_time"
+    ],
+    "lesson_statuses": [
+        "identified",
+        "accepted",
+        "automated",
+        "validated",
+        "retired"
+    ],
+    "improvement_action_statuses": [
+        "identified",
+        "accepted",
+        "implemented",
+        "validated",
+        "measured",
+        "closed",
+        "rejected"
+    ],
+    "candidate_statuses": [
+        "discovery-needed",
+        "sized",
+        "decision-ready",
+        "sequenced",
+        "staged-implementation",
+        "active",
+        "validated",
+        "closed",
+        "superseded"
+    ],
+    "branch_policy": {
+        "staged_term": "staged implementation",
+        "allowed_candidate_branch_prefixes": [
+            "feature/",
+            "staged/"
+        ],
+        "small_cohesive_commits": true,
+        "validate_before_commit": true,
+        "push_after_each_cohesive_commit": true,
+        "deployment_requires_explicit_gate": true,
+        "revalidate_before_activation": true
+    },
+    "metric_policy": {
+        "preserve_raw_metrics": true,
+        "require_before_after_comparison": true,
+        "require_prediction_actual_comparison": true,
+        "allow_composite_score_before_baseline": false
+    },
+    "post_session_questions": [
+        "What failed?",
+        "Was the failure previously known?",
+        "Was an applicable lesson surfaced and used?",
+        "Why did any known failure recur?",
+        "Could the failure have been detected before mutation?",
+        "How did actual effort, cost, and operational behavior compare with predictions?",
+        "Was prediction confidence calibrated appropriately?",
+        "Should the result become a lesson, guardrail, preflight check, template, runbook, or explicit no-action decision?",
+        "Did the session measurably improve delivery, operations, economics, or learning?"
+    ],
+    "maturity_policy": {
+        "formal_maturity_claim_requires_multiple_sessions": true,
+        "required_demonstrated_trends": [
+            "stable metric definitions",
+            "calibrated prediction ranges",
+            "declining known-failure recurrence",
+            "improving first-pass success",
+            "predictable execution ranges",
+            "measurable cost-value trends"
+        ]
+    }
+}

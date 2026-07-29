@@ -142,13 +142,20 @@
                 "sage-change-authority.json",
                 "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
                 "markdown/standards/kalaxy3-sage-change-discovery-process.md",
-                "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md"
+                "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md",
+                "sage-continuous-improvement-policy.json",
+                "sage-change-candidate-registry.json",
+                "sage-lessons.json",
+                "sage-improvement-actions.json",
+                "scripts/sage/sage-continuous-improvement-guardrail.py"
             ],
             "baseline_checks": [
+                "make sage-improvement-policy-check",
                 "make sage-discovery-guardrail",
                 "make sage-index-check"
             ],
             "required_validation": [
+                "make sage-improvement-policy-check",
                 "make sage-guardrails"
             ],
             "evidence_process": [

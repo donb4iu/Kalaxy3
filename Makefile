@@ -7,11 +7,13 @@ SAGE_DISCOVERY_GUARDRAIL := \
 SAGE_INDEX := $(PYTHON) scripts/sage/sage-index.py
 SAGE_EVIDENCE_ORCHESTRATOR := $(PYTHON) scripts/sage/sage-evidence-orchestrator.py
 SAGE_EVIDENCE_GUARDRAIL := $(PYTHON) scripts/sage/sage-evidence-orchestration-guardrail.py
+SAGE_IMPROVEMENT_GUARDRAIL := $(PYTHON) scripts/sage/sage-continuous-improvement-guardrail.py
 
 override export REQUEST := $(value REQUEST)
 
 .PHONY: help sage-preflight sage-changed sage-self-test \
-        sage-discovery-guardrail sage-index-check sage-guardrails
+        sage-discovery-guardrail sage-index-check \
+        sage-improvement-policy-check sage-guardrails
 
 help:
 	@printf '%s\n' \
@@ -19,6 +21,7 @@ help:
 	  '  SAGE_REQUEST="<request>" make sage-preflight' \
 	  '  make sage-changed' \
 	  '  make sage-guardrails' \
+	  '  make sage-improvement-policy-check' \
 	  '  SAGE_REQUEST="<request>" make sage-evidence-prepare' \
 	  '  SAGE_PACKAGE="<package.zip>" make sage-evidence-check'
 
@@ -41,9 +44,12 @@ sage-discovery-guardrail:
 sage-index-check:
 	$(SAGE_INDEX) check
 
+sage-improvement-policy-check:
+	$(SAGE_IMPROVEMENT_GUARDRAIL)
+
 sage-guardrails: sage-self-test sage-discovery-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
-                 sage-index-check
+                 sage-improvement-policy-check sage-index-check
 	@echo "Kalaxy3 repository SAGE guardrails: PASS"
 
 .PHONY: sage-evidence-brief sage-evidence-prepare \
