@@ -460,6 +460,7 @@
                 "scripts/docs/validate-mkdocs-build.py",
                 "scripts/docs/promote-mkdocs-site.py",
                 "scripts/docs/validate-mkdocs-publication.py",
+                "scripts/docs/validate-mkdocs-navigation.py",
                 "markdown/standards/kalaxy3-sage-evidence-publication-process.md"
             ],
             "baseline_checks": [
