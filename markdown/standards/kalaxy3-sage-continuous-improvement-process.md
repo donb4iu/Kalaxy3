@@ -234,6 +234,42 @@ Improvement actions follow this lifecycle:
 
 Rejected actions preserve their rejection rationale.
 
+## Cost and observability feedback comparison
+
+Cost and observability feedback must compare one canonical `baseline`
+snapshot with one `immediate`, `stabilization`, `trend`, or `economic`
+snapshot.
+
+The comparison must preserve:
+
+- recurring monthly run rate;
+- one-time change cost;
+- avoidable-rework cost;
+- named unit-economics measurements;
+- named observability measurements;
+- measurement type and confidence;
+- source references and capture times.
+
+Baseline and after snapshots must use matching currency, metric names, units,
+and observability directions. Percentage change is `null` when the baseline
+is zero.
+
+Observability results are derived from each metric's declared direction:
+
+- `lower-is-better`;
+- `higher-is-better`;
+- `neutral`.
+
+The comparison may classify individual measurements as improved, regressed,
+unchanged, or neutral. It must not create a composite quality score.
+
+The machine-readable contract and implementation are:
+
+- `markdown/standards/sage-feedback-comparison-schema-v1.0.json`;
+- `scripts/sage/sage-feedback-compare.py`;
+- `scripts/sage/sage-feedback-guardrail.py`;
+- `sage-feedback-baseline-registry.json`.
+
 ## Candidate and branch policy
 
 A candidate must identify its request, context, branch, baseline, status,

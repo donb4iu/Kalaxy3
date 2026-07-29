@@ -6,7 +6,8 @@
         "change_candidates": "sage-change-candidate-registry.json",
         "lessons": "sage-lessons.json",
         "improvement_actions": "sage-improvement-actions.json",
-        "sessions": "sage-session-improvement-registry.json"
+        "sessions": "sage-session-improvement-registry.json",
+        "feedback_baselines": "sage-feedback-baseline-registry.json"
     },
     "lesson_preflight_path": "scripts/sage/sage-lessons.py",
     "required_lesson_fields": [
@@ -261,6 +262,27 @@
         "change_candidate_schema": "markdown/standards/sage-change-candidate-schema-v1.0.json",
         "session_improvement_schema": "markdown/standards/sage-session-improvement-schema-v1.0.json",
         "session_scorecard_schema": "markdown/standards/sage-session-scorecard-schema-v1.0.json",
+        "feedback_comparison_schema": "markdown/standards/sage-feedback-comparison-schema-v1.0.json",
         "status": "implemented"
+    },
+    "feedback_compare_path": "scripts/sage/sage-feedback-compare.py",
+    "feedback_guardrail_path": "scripts/sage/sage-feedback-guardrail.py",
+    "feedback_comparison_policy": {
+        "baseline_window": "baseline",
+        "after_windows": [
+            "immediate",
+            "stabilization",
+            "trend",
+            "economic"
+        ],
+        "require_matching_currency": true,
+        "require_matching_unit_economic_metrics": true,
+        "require_matching_observability_metrics": true,
+        "require_matching_units": true,
+        "require_matching_directions": true,
+        "require_provenance": true,
+        "preserve_measurement_types": true,
+        "percentage_change_when_baseline_zero": null,
+        "composite_score_enabled": false
     }
 }
