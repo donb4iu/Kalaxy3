@@ -133,7 +133,10 @@
                 "sage-session-improvement-",
                 "sage-feedback-",
                 "markdown/standards/sage-feedback-",
-                "scripts/sage/sage-feedback-"
+                "scripts/sage/sage-feedback-",
+                "sage-change-candidate-lifecycle-",
+                "markdown/standards/sage-change-candidate-lifecycle-",
+                "scripts/sage/sage-candidate-lifecycle"
             ],
             "requires": [
                 "repository-governance",
@@ -161,9 +164,14 @@
                 "sage-feedback-baseline-registry.json",
                 "markdown/standards/sage-feedback-comparison-schema-v1.0.json",
                 "scripts/sage/sage-feedback-compare.py",
-                "scripts/sage/sage-feedback-guardrail.py"
+                "scripts/sage/sage-feedback-guardrail.py",
+                "sage-change-candidate-lifecycle-registry.json",
+                "markdown/standards/sage-change-candidate-lifecycle-schema-v1.0.json",
+                "scripts/sage/sage-candidate-lifecycle.py",
+                "scripts/sage/sage-candidate-lifecycle-guardrail.py"
             ],
             "baseline_checks": [
+                "make sage-candidate-self-test",
                 "make sage-feedback-self-test",
                 "make sage-session-self-test",
                 "make sage-improvement-policy-check",
@@ -171,6 +179,7 @@
                 "make sage-index-check"
             ],
             "required_validation": [
+                "make sage-candidate-self-test",
                 "make sage-feedback-self-test",
                 "make sage-session-self-test",
                 "make sage-improvement-policy-check",

@@ -286,6 +286,60 @@ waiting until the end of the workstream.
 Candidate branches must be revalidated before activation because repository
 state, cluster state, cost baselines, and telemetry may change.
 
+## Candidate lifecycle controls
+
+Candidate status is governed by an append-only lifecycle registry rather
+than an unrecorded status edit.
+
+The lifecycle is:
+
+```text
+discovery-needed
+  → sized
+  → decision-ready
+  → sequenced
+  → staged-implementation
+  → active
+  → validated
+  → closed
+```
+
+Supported rework transitions return a candidate to the nearest appropriate
+earlier state. `superseded` and `closed` are terminal.
+
+Every transition must preserve:
+
+- source and target status;
+- sequence number;
+- timestamp and actor;
+- reason;
+- validation references;
+- candidate commit.
+
+The default transition mode is dry-run. Mutation requires the explicit
+`--apply` flag.
+
+A staged implementation cannot become active unless:
+
+- its deployment gate is open;
+- a pre-deployment prediction exists;
+- revalidation is current;
+- the candidate branch is checked out;
+- the local and remote feature branch are synchronized;
+- validation evidence is supplied;
+- the expected commit matches `HEAD`.
+
+The foundational continuous-improvement candidate remains a staged
+implementation with a closed deployment gate. This capability does not
+activate it or mutate the cluster.
+
+The machine-readable authority is:
+
+- `sage-change-candidate-lifecycle-registry.json`;
+- `markdown/standards/sage-change-candidate-lifecycle-schema-v1.0.json`;
+- `scripts/sage/sage-candidate-lifecycle.py`;
+- `scripts/sage/sage-candidate-lifecycle-guardrail.py`.
+
 ## Post-session review
 
 The review must answer:

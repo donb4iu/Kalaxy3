@@ -7,7 +7,8 @@
         "lessons": "sage-lessons.json",
         "improvement_actions": "sage-improvement-actions.json",
         "sessions": "sage-session-improvement-registry.json",
-        "feedback_baselines": "sage-feedback-baseline-registry.json"
+        "feedback_baselines": "sage-feedback-baseline-registry.json",
+        "candidate_lifecycle": "sage-change-candidate-lifecycle-registry.json"
     },
     "lesson_preflight_path": "scripts/sage/sage-lessons.py",
     "required_lesson_fields": [
@@ -263,6 +264,7 @@
         "session_improvement_schema": "markdown/standards/sage-session-improvement-schema-v1.0.json",
         "session_scorecard_schema": "markdown/standards/sage-session-scorecard-schema-v1.0.json",
         "feedback_comparison_schema": "markdown/standards/sage-feedback-comparison-schema-v1.0.json",
+        "candidate_lifecycle_schema": "markdown/standards/sage-change-candidate-lifecycle-schema-v1.0.json",
         "status": "implemented"
     },
     "feedback_compare_path": "scripts/sage/sage-feedback-compare.py",
@@ -284,5 +286,71 @@
         "preserve_measurement_types": true,
         "percentage_change_when_baseline_zero": null,
         "composite_score_enabled": false
+    },
+    "candidate_lifecycle_path": "scripts/sage/sage-candidate-lifecycle.py",
+    "candidate_lifecycle_guardrail_path": "scripts/sage/sage-candidate-lifecycle-guardrail.py",
+    "candidate_lifecycle_policy": {
+        "statuses": [
+            "discovery-needed",
+            "sized",
+            "decision-ready",
+            "sequenced",
+            "staged-implementation",
+            "active",
+            "validated",
+            "closed",
+            "superseded"
+        ],
+        "allowed_transitions": {
+            "discovery-needed": [
+                "sized",
+                "superseded"
+            ],
+            "sized": [
+                "discovery-needed",
+                "decision-ready",
+                "superseded"
+            ],
+            "decision-ready": [
+                "sized",
+                "sequenced",
+                "superseded"
+            ],
+            "sequenced": [
+                "decision-ready",
+                "staged-implementation",
+                "superseded"
+            ],
+            "staged-implementation": [
+                "sequenced",
+                "active",
+                "superseded"
+            ],
+            "active": [
+                "staged-implementation",
+                "validated"
+            ],
+            "validated": [
+                "staged-implementation",
+                "closed"
+            ],
+            "closed": [],
+            "superseded": []
+        },
+        "required_activation_conditions": [
+            "deployment-gate-open",
+            "pre-deployment-prediction-recorded",
+            "revalidation-current",
+            "candidate-branch-checked-out",
+            "feature-branch-synchronized",
+            "validation-reference-present",
+            "expected-head-matches"
+        ],
+        "history_append_only": true,
+        "candidate_status_must_match_lifecycle": true,
+        "dry_run_default": true,
+        "apply_requires_explicit_flag": true,
+        "rollback_on_write_failure": true,
+        "staged_term": "staged implementation"
     }
 }
