@@ -31,6 +31,7 @@ kalaxy3_node_labels:
   kalaxy3.io/hardware-class: intel-i5-11600-64gb
   kalaxy3.io/cost-profile: amd64-standard
   kalaxy3.io/node-role: worker
+  kalaxy3.io/workload-pool: platform-services
   kalaxy3.io/power-class: high-capacity
   kalaxy3.io/storage-role: longhorn
   kalaxy3.io/gpu-capable: "true"

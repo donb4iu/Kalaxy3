@@ -4,6 +4,7 @@
 - [AMD64 NoCloud Seed USB Helper](amd64-nocloud-seed-usb-helper.md)
 - [AMD64 Node](amd64-node.md)
 - [Centralized logging cost baseline](centralized-logging-cost-baseline.md)
+- [Centralized observability logging](centralized-observability-logging.md)
 - [Intel Node pi Administrative Access Evidence](intel-node-pi-administrative-access-evidence.md)
 - [K3s API High Availability](k3s-api-high-availability.md)
 - [K3s etcd Baseline Backup Evidence](k3s-etcd-baseline-backup-evidence.md)

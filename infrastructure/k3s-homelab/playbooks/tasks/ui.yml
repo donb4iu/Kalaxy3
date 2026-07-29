@@ -10,22 +10,3 @@
   environment: "{{ helm_environment }}"
   when: install_headlamp
   changed_when: true
-
-- name: Install Kubernetes Dashboard
-  ansible.builtin.command: >-
-    {{ helm_binary }} upgrade --install kubernetes-dashboard
-    kubernetes-dashboard/kubernetes-dashboard
-    --version {{ helm_chart_lock.charts.kubernetes_dashboard.version }}
-    --namespace kubernetes-dashboard --create-namespace
-    --set kong.proxy.type=LoadBalancer
-    --set kong.proxy.loadBalancerIP={{ dashboard_load_balancer_ip }}
-    --wait --timeout 10m
-  environment: "{{ helm_environment }}"
-  when: install_dashboard
-  changed_when: true
-
-- name: Create Dashboard administrator service account
-  ansible.builtin.command: >-
-    k3s kubectl apply -f {{ playbook_dir }}/../manifests/dashboard-admin.yml
-  when: install_dashboard
-  changed_when: true

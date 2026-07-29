@@ -1,0 +1,52 @@
+
+# Kalaxy3 node-level log collector.
+# The DaemonSet intentionally runs on every Kubernetes node.
+commonLabels:
+  kalaxy3.io/component: centralized-logging-collector
+
+tolerations:
+  - operator: Exists
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+storage:
+  enabled: true
+  hostPath: /var/lib/fluent-bit
+
+serviceMonitor:
+  enabled: true
+  additionalLabels:
+    release: kube-prometheus-stack
+
+dashboards:
+  enabled: true
+
+config:
+  service:
+    log_level: info
+    flush: 1
+    storage.sync: normal
+    storage.checksum: "on"
+    storage.backlog.mem_limit: 64M
+
+  pipeline:
+    outputs:
+      - name: loki
+        alias: loki
+        match: "*"
+        host: >-
+          loki-gateway.{{ centralized_logging_namespace }}.svc.cluster.local
+        port: 80
+        labels: >-
+          cluster=kalaxy3,
+          namespace=$kubernetes['namespace_name'],
+          pod=$kubernetes['pod_name'],
+          container=$kubernetes['container_name'],
+          node=$kubernetes['host']
+        line_format: json
+        retry_limit: false

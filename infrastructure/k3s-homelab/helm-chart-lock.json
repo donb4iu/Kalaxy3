@@ -1,5 +1,12 @@
 {
     "charts": {
+        "fluent_bit_collector": {
+            "chart": "fluent/fluent-bit-collector",
+            "enabled_variable": "deploy_centralized_logging",
+            "namespace": "observability",
+            "release": "fluent-bit-collector",
+            "version": "1.0.9"
+        },
         "headlamp": {
             "chart": "headlamp/headlamp",
             "enabled_variable": "install_headlamp",
@@ -21,12 +28,12 @@
             "release": "kubecost",
             "version": "3.2.1"
         },
-        "kubernetes_dashboard": {
-            "chart": "kubernetes-dashboard/kubernetes-dashboard",
-            "enabled_variable": "install_dashboard",
-            "namespace": "kubernetes-dashboard",
-            "release": "kubernetes-dashboard",
-            "version": "UNRESOLVED"
+        "loki": {
+            "chart": "grafana-community/loki",
+            "enabled_variable": "deploy_centralized_logging",
+            "namespace": "observability",
+            "release": "loki",
+            "version": "18.5.4"
         },
         "longhorn": {
             "chart": "longhorn/longhorn",

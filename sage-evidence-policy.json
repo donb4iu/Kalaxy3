@@ -1,0 +1,46 @@
+{
+    "schema_version": "1.0",
+    "canonical_request_path": "markdown/templates/sage-evidence-generation-request.md",
+    "canonical_request_sha256": "fb57630dc72560ee6f816d852daea6a6459c30c410dfc44a417ff30659734063",
+    "standard_path": "markdown/standards/kalaxy3-sage-evidence-record-standard.md",
+    "metadata_contract_path": "markdown/standards/sage-evidence-metadata-contract-v1.2.json",
+    "record_template_path": "markdown/templates/sage-evidence-record-template.md",
+    "manifest_template_path": "markdown/templates/sage-evidence-package-manifest-template.json",
+    "publication_process_path": "markdown/standards/kalaxy3-sage-evidence-publication-process.md",
+    "orchestration_process_path": "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md",
+    "publisher_path": "scripts/sage/sage-publish.py",
+    "indexer_path": "scripts/sage/sage-index.py",
+    "discovery_map_path": "sage-change-authority.json",
+    "minimum_quality_requirements": [
+        "Preserve the original requester language verbatim.",
+        "Apply the canonical generation request automatically.",
+        "Use package and record schema 1.2.",
+        "Populate every canonical metadata field in exact order.",
+        "Mirror front matter in the canonical Record metadata table.",
+        "Include an explicit TOC and every mandatory section in order.",
+        "Keep Five Ws and How consistent with canonical metadata.",
+        "Create atomic claims and trace each claim to evidence IDs.",
+        "Separate expected results, observations, and derived conclusions.",
+        "Preserve failed paths separately from the accepted final state.",
+        "Document rationale, alternatives, tradeoffs, and consequences.",
+        "Document security, rollback, rebuild, operations, and revalidation.",
+        "Identify limitations, assumptions, evidence gaps, and confidence.",
+        "Store artifacts under the permanent evidence ID and hash each file.",
+        "Produce one package that passes the repository publisher check.",
+        "Return only the package and standard check and publish commands."
+    ],
+    "plain_language_examples": [
+        "Document what we just did.",
+        "Create the evidence for this work.",
+        "Finish this change and preserve the evidence.",
+        "Repair centralized logging.",
+        "Add Loki and Fluent Bit."
+    ],
+    "required_bundle_files": [
+        "sage-evidence-generation-brief.md",
+        "sage-session-context.json",
+        "repository-evidence.md",
+        "bundle-manifest.json"
+    ],
+    "default_output": "/tmp/kalaxy3-sage-evidence-inputs.zip"
+}

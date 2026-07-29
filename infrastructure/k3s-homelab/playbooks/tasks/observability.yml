@@ -34,6 +34,166 @@
   when: install_observability | bool
   changed_when: true
 
+- name: Reconcile staged centralized logging workload-pool labels
+  ansible.builtin.include_tasks:
+    file: centralized-logging-node-labels.yml
+    apply:
+      tags:
+        - centralized-logging
+  # Placement metadata is an activation prerequisite and may be
+  # reconciled while the logging implementation remains staged.
+  when:
+    - install_observability | bool
+  tags:
+    - centralized-logging
+
+- name: Find eligible centralized logging platform nodes
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - get
+      - nodes
+      - >-
+        --selector=kubernetes.io/arch=amd64,kalaxy3.io/workload-pool={{
+          centralized_logging_workload_pool
+        }}
+      - --output=name
+  register: centralized_logging_eligible_nodes
+  changed_when: false
+  when:
+    - install_observability | bool
+    - deploy_centralized_logging | bool
+  tags:
+    - centralized-logging
+
+- name: Require the intended centralized logging node
+  ansible.builtin.assert:
+    that:
+      - >-
+        centralized_logging_eligible_nodes.stdout_lines
+        ==
+        ['node/' ~ centralized_logging_expected_node]
+    fail_msg: >-
+      Centralized logging requires exactly {{
+        centralized_logging_expected_node
+      }} labeled with
+      kalaxy3.io/workload-pool={{
+        centralized_logging_workload_pool
+      }}. Found {{
+        centralized_logging_eligible_nodes.stdout_lines
+      }}.
+    success_msg: >-
+      Centralized logging is assigned to {{
+        centralized_logging_expected_node
+      }}.
+  when:
+    - install_observability | bool
+    - deploy_centralized_logging | bool
+  tags:
+    - centralized-logging
+
+- name: Write Loki Helm values
+  ansible.builtin.template:
+    src: loki-values.yml.j2
+    dest: /tmp/loki-values.yml
+    mode: "0644"
+  when:
+    - install_observability | bool
+    - deploy_centralized_logging | bool
+  tags:
+    - centralized-logging
+    - loki
+
+- name: Install Loki
+  kubernetes.core.helm:
+    binary_path: "{{ helm_binary }}"
+    release_name: loki
+    chart_ref: grafana-community/loki
+    chart_version: "{{ helm_chart_lock.charts.loki.version }}"
+    release_namespace: observability
+    create_namespace: true
+    state: present
+    reset_values: true
+    values_files:
+      - /tmp/loki-values.yml
+    wait: true
+    timeout: 20m
+    kubeconfig: "{{ kalaxy3_kubeconfig }}"
+  environment: "{{ helm_environment }}"
+  when:
+    - install_observability | bool
+    - deploy_centralized_logging | bool
+  tags:
+    - centralized-logging
+    - loki
+
+- name: Write Fluent Bit Collector Helm values
+  ansible.builtin.template:
+    src: fluent-bit-collector-values.yml.j2
+    dest: /tmp/fluent-bit-collector-values.yml
+    mode: "0644"
+  when:
+    - install_observability | bool
+    - deploy_centralized_logging | bool
+  tags:
+    - centralized-logging
+    - fluent-bit
+
+- name: Install Fluent Bit Collector
+  kubernetes.core.helm:
+    binary_path: "{{ helm_binary }}"
+    release_name: fluent-bit-collector
+    chart_ref: fluent/fluent-bit-collector
+    chart_version: "{{ helm_chart_lock.charts.fluent_bit_collector.version }}"
+    release_namespace: observability
+    create_namespace: true
+    state: present
+    reset_values: true
+    values_files:
+      - /tmp/fluent-bit-collector-values.yml
+    wait: true
+    timeout: 20m
+    kubeconfig: "{{ kalaxy3_kubeconfig }}"
+  environment: "{{ helm_environment }}"
+  when:
+    - install_observability | bool
+    - deploy_centralized_logging | bool
+  tags:
+    - centralized-logging
+    - fluent-bit
+
+- name: Write Grafana Loki datasource
+  ansible.builtin.template:
+    src: grafana-loki-datasource.yml.j2
+    dest: /tmp/grafana-loki-datasource.yml
+    mode: "0644"
+  when:
+    - install_observability | bool
+    - deploy_centralized_logging | bool
+  tags:
+    - centralized-logging
+    - grafana
+
+- name: Provision Grafana Loki datasource
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - apply
+      - --filename
+      - /tmp/grafana-loki-datasource.yml
+  register: grafana_loki_datasource_apply
+  changed_when: >-
+    ' created' in grafana_loki_datasource_apply.stdout
+    or ' configured' in grafana_loki_datasource_apply.stdout
+  when:
+    - install_observability | bool
+    - deploy_centralized_logging | bool
+  tags:
+    - centralized-logging
+    - grafana
+
 - name: Find eligible Kubecost Intel nodes
   ansible.builtin.command:
     argv:

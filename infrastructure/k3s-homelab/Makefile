@@ -8,6 +8,8 @@ HELM_VERSION := $(shell cat .helm-version)
 SOURCE_GUARDRAILS := python3 scripts/sage-source-guardrails.py
 DEPLOYMENT_GUARDRAIL := python3 scripts/sage-deployment-guardrail.py
 K3S_GUARDRAIL := python3 scripts/sage-k3s-guardrail.py
+HELM_REPOSITORY_GUARDRAIL := python3 scripts/sage-helm-repository-guardrail.py
+SAGE_DISCOVERY_GUARDRAIL := python3 ../../scripts/sage/sage-change-discovery-guardrail.py
 HELM_LOCK_RECONCILE := $(VENV)/bin/python scripts/helm-lock-reconcile.py
 ANSIBLE_ACCESS_PREFLIGHT := $(VENV)/bin/python scripts/ansible-access-preflight.py
 UV_VERSION := $(shell cat .uv-version)
@@ -21,7 +23,8 @@ VAULT := --ask-vault-pass
 .PHONY: install controller-uv controller-helm controller-bootstrap \
         controller-core-preflight controller-helm-preflight \
         cluster-access-preflight controller-preflight \
-        source-guardrails k3s-release-guardrail deployment-guardrail \
+        sage-discovery-guardrail source-guardrails helm-repository-guardrail \
+        k3s-release-guardrail deployment-guardrail \
         helm-lock-reconcile ssh-auth-preflight privilege-preflight \
         ansible-access-preflight bootstrap-guardrails k3s-guardrails \
         cluster-guardrails guardrails \
@@ -58,6 +61,7 @@ controller-bootstrap: controller-uv controller-helm
 		-r requirements.yml
 	$(PREFLIGHT) --scope core
 	$(PREFLIGHT) --scope helm
+	$(SAGE_DISCOVERY_GUARDRAIL)
 	$(SOURCE_GUARDRAILS)
 
 controller-core-preflight:
@@ -72,7 +76,13 @@ cluster-access-preflight: controller-helm-preflight
 controller-preflight: controller-core-preflight controller-helm-preflight \
                       cluster-access-preflight
 
-source-guardrails:
+sage-discovery-guardrail:
+	$(SAGE_DISCOVERY_GUARDRAIL)
+
+helm-repository-guardrail:
+	$(HELM_REPOSITORY_GUARDRAIL)
+
+source-guardrails: sage-discovery-guardrail helm-repository-guardrail
 	$(SOURCE_GUARDRAILS)
 
 k3s-release-guardrail:
@@ -206,3 +216,8 @@ deploy: cluster-guardrails
 
 uninstall: recovery-guardrails confirm-uninstall
 	$(ANSIBLE) playbooks/uninstall.yml
+
+.PHONY: centralized-logging-render
+centralized-logging-render: controller-preflight
+	.venv/bin/ansible-playbook \
+		playbooks/validate-centralized-logging.yml

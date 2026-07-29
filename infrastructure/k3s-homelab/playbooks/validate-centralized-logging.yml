@@ -1,0 +1,90 @@
+---
+- name: Render staged centralized logging configuration
+  hosts: localhost
+  connection: local
+  become: false
+  gather_facts: false
+
+  vars_files:
+    - ../inventory/group_vars/all/main.yml
+
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+    # Override any inventory-level ansible_become connection variable.
+    ansible_become: false
+    centralized_logging_render_dir: >-
+      /tmp/kalaxy3-centralized-logging-render
+
+  pre_tasks:
+    - name: Require the repository-managed controller interpreter
+      ansible.builtin.assert:
+        that:
+          - >-
+            ansible_playbook_python
+            is match('^.*/\\.venv/bin/python$')
+          - ansible_python_interpreter == ansible_playbook_python
+        fail_msg: >-
+          Centralized logging validation must be launched from
+          infrastructure/k3s-homelab with .venv/bin/ansible-playbook.
+          ansible_playbook_python={{ ansible_playbook_python }}
+        success_msg: >-
+          Using repository-managed Python:
+          {{ ansible_playbook_python }}
+
+    - name: Require staged activation gate
+      ansible.builtin.assert:
+        that:
+          - not (deploy_centralized_logging | bool)
+        fail_msg: >-
+          Refusing render-only validation because
+          deploy_centralized_logging is not false.
+        success_msg: >-
+          Centralized logging remains staged and inactive.
+
+    - name: Recreate centralized logging render directory
+      ansible.builtin.file:
+        path: "{{ centralized_logging_render_dir }}"
+        state: absent
+
+    - name: Create centralized logging render directory
+      ansible.builtin.file:
+        path: "{{ centralized_logging_render_dir }}"
+        state: directory
+        mode: "0755"
+
+  tasks:
+    - name: Render Loki Helm values
+      ansible.builtin.template:
+        src: templates/loki-values.yml.j2
+        dest: >-
+          {{ centralized_logging_render_dir }}/loki-values.yml
+        mode: "0644"
+
+    - name: Render Fluent Bit Collector Helm values
+      ansible.builtin.template:
+        src: templates/fluent-bit-collector-values.yml.j2
+        dest: >-
+          {{ centralized_logging_render_dir }}/fluent-bit-values.yml
+        mode: "0644"
+
+    - name: Render Grafana Loki datasource
+      ansible.builtin.template:
+        src: templates/grafana-loki-datasource.yml.j2
+        dest: >-
+          {{
+            centralized_logging_render_dir
+          }}/grafana-loki-datasource.yml
+        mode: "0644"
+
+    - name: Validate rendered YAML
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - "{{ playbook_dir }}/../scripts/validate-centralized-logging-yaml.py"
+          - "{{ centralized_logging_render_dir }}"
+      register: centralized_logging_yaml_validation
+      changed_when: false
+
+    - name: Show rendered YAML validation
+      ansible.builtin.debug:
+        var: centralized_logging_yaml_validation.stdout_lines
