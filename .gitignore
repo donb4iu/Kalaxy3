@@ -234,3 +234,9 @@ infrastructure/k3s-homelab/.uv-cache/
 
 # Repository-local Helm runtime state
 infrastructure/k3s-homelab/.helm/
+
+
+# BEGIN KALAXY3 MKDOCS STAGED OUTPUT
+/.mkdocs-venv/
+/.mkdocs-work/
+# END KALAXY3 MKDOCS STAGED OUTPUT
