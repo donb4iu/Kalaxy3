@@ -11,6 +11,8 @@ SAGE_CANDIDATE_GUARDRAIL := $(PYTHON) scripts/sage/sage-candidate-lifecycle-guar
 SAGE_IMPROVEMENT_ACTIONS := $(PYTHON) scripts/sage/sage-improvement-actions.py
 SAGE_BASELINE_EXTRACT := $(PYTHON) scripts/sage/sage-baseline-extract.py
 SAGE_LEARNING_GUARDRAIL := $(PYTHON) scripts/sage/sage-learning-guardrail.py
+SAGE_POST_SESSION_REVIEW := $(PYTHON) scripts/sage/sage-post-session-review.py
+SAGE_POST_SESSION_REVIEW_GUARDRAIL := $(PYTHON) scripts/sage/sage-post-session-review-guardrail.py
 SAGE_DISCOVERY_GUARDRAIL := \
 	$(PYTHON) scripts/sage/sage-change-discovery-guardrail.py
 SAGE_INDEX := $(PYTHON) scripts/sage/sage-index.py
@@ -35,6 +37,7 @@ help:
 	  '  make sage-feedback-self-test' \
 	  '  make sage-candidate-self-test' \
 	  '  make sage-learning-self-test' \
+	  '  make sage-review-self-test' \
 	  '  SAGE_REQUEST="<request>" make sage-evidence-prepare' \
 	  '  SAGE_PACKAGE="<package.zip>" make sage-evidence-check'
 
@@ -76,12 +79,16 @@ sage-learning-self-test:
 	$(SAGE_BASELINE_EXTRACT) --self-test
 	$(SAGE_LEARNING_GUARDRAIL)
 
+sage-review-self-test:
+	$(SAGE_POST_SESSION_REVIEW) --self-test
+	$(SAGE_POST_SESSION_REVIEW_GUARDRAIL)
+
 sage-improvement-policy-check:
 	$(SAGE_IMPROVEMENT_GUARDRAIL)
 
 sage-guardrails: sage-self-test sage-discovery-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
-                 sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-improvement-policy-check sage-index-check
+                 sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check
 	@echo "Kalaxy3 repository SAGE guardrails: PASS"
 
 .PHONY: sage-evidence-brief sage-evidence-prepare \
@@ -110,3 +117,5 @@ sage-evidence-guardrail:
 .PHONY: sage-candidate-self-test
 
 .PHONY: sage-learning-self-test
+
+.PHONY: sage-review-self-test

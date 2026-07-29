@@ -398,6 +398,39 @@ The machine-readable authority is:
 
 ## Post-session review
 
+### Machine-readable review and lesson-to-control decisions
+
+A canonical post-session review must reference a canonical session record and
+preserve the implementation commit and evidence references.
+
+The review must answer every repository-owned post-session question, classify
+each failure as known or new, record whether applicable lessons were surfaced
+and used, and record whether the failure recurred or could have been detected
+before mutation.
+
+Delivery, operations, economics, and learning feedback remain separate. The
+review must not collapse them into a composite score.
+
+Every lesson referenced by a failure must receive exactly one explicit control
+decision:
+
+- create an evidence-backed improvement-action draft; or
+- record a reasoned no-action decision because an adequate control already
+  exists or the evidence does not justify another control.
+
+A create-action decision must produce a draft that conforms to the canonical
+improvement-action registration contract. Review validation never mutates the
+review or action registries. Review publication and action registration remain
+separate, explicit operations.
+
+The machine-readable authority is:
+
+- `sage-post-session-review-registry.json`;
+- `markdown/standards/sage-post-session-review-schema-v1.0.json`;
+- `scripts/sage/sage-post-session-review.py`;
+- `scripts/sage/sage-post-session-review-guardrail.py`.
+
+
 The review must answer:
 
 - What failed?

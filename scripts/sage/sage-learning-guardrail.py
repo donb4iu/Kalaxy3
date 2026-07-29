@@ -280,7 +280,7 @@ def mutation_tests(
     changed_commit = copy.deepcopy(baseline_registry)
     changed_commit["baselines"][0][
         "current_commit"
-    ] = "0" * 40
+    ] = FOUNDATION_BASELINE
     if not validate_baseline(
         changed_commit,
         baseline_tool,

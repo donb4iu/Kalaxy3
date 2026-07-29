@@ -142,7 +142,10 @@
                 "markdown/standards/sage-continuous-improvement-baseline-",
                 "scripts/sage/sage-improvement-actions",
                 "scripts/sage/sage-baseline-extract",
-                "scripts/sage/sage-learning"
+                "scripts/sage/sage-learning",
+                "sage-post-session-review-",
+                "markdown/standards/sage-post-session-review-",
+                "scripts/sage/sage-post-session-review"
             ],
             "requires": [
                 "repository-governance",
@@ -180,9 +183,14 @@
                 "markdown/standards/sage-continuous-improvement-baseline-schema-v1.0.json",
                 "scripts/sage/sage-improvement-actions.py",
                 "scripts/sage/sage-baseline-extract.py",
-                "scripts/sage/sage-learning-guardrail.py"
+                "scripts/sage/sage-learning-guardrail.py",
+                "sage-post-session-review-registry.json",
+                "markdown/standards/sage-post-session-review-schema-v1.0.json",
+                "scripts/sage/sage-post-session-review.py",
+                "scripts/sage/sage-post-session-review-guardrail.py"
             ],
             "baseline_checks": [
+                "make sage-review-self-test",
                 "make sage-learning-self-test",
                 "make sage-candidate-self-test",
                 "make sage-feedback-self-test",
@@ -192,6 +200,7 @@
                 "make sage-index-check"
             ],
             "required_validation": [
+                "make sage-review-self-test",
                 "make sage-learning-self-test",
                 "make sage-candidate-self-test",
                 "make sage-feedback-self-test",

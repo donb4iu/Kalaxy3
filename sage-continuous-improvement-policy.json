@@ -9,7 +9,8 @@
         "sessions": "sage-session-improvement-registry.json",
         "feedback_baselines": "sage-feedback-baseline-registry.json",
         "candidate_lifecycle": "sage-change-candidate-lifecycle-registry.json",
-        "improvement_baselines": "sage-continuous-improvement-baseline-registry.json"
+        "improvement_baselines": "sage-continuous-improvement-baseline-registry.json",
+        "post_session_reviews": "sage-post-session-review-registry.json"
     },
     "lesson_preflight_path": "scripts/sage/sage-lessons.py",
     "required_lesson_fields": [
@@ -268,6 +269,7 @@
         "candidate_lifecycle_schema": "markdown/standards/sage-change-candidate-lifecycle-schema-v1.0.json",
         "improvement_action_schema": "markdown/standards/sage-improvement-action-schema-v1.0.json",
         "continuous_improvement_baseline_schema": "markdown/standards/sage-continuous-improvement-baseline-schema-v1.0.json",
+        "post_session_review_schema": "markdown/standards/sage-post-session-review-schema-v1.0.json",
         "status": "implemented"
     },
     "feedback_compare_path": "scripts/sage/sage-feedback-compare.py",
@@ -415,5 +417,46 @@
         "composite_score_enabled": false,
         "baseline_commit": "20c06b2c1c6d3a5af5cc392d95f6743bd4ab8d82",
         "current_commit": "55a375c849afa4d59254447b3022a57738df7700"
+    },
+    "post_session_review_path": "scripts/sage/sage-post-session-review.py",
+    "post_session_review_guardrail_path": "scripts/sage/sage-post-session-review-guardrail.py",
+    "post_session_review_policy": {
+        "required_questions": [
+            "What failed?",
+            "Was the failure previously known?",
+            "Was an applicable lesson surfaced and used?",
+            "Why did any known failure recur?",
+            "Could the failure have been detected before mutation?",
+            "How did actual effort, cost, and operational behavior compare with predictions?",
+            "Was prediction confidence calibrated appropriately?",
+            "Should the result become a lesson, guardrail, preflight check, template, runbook, or explicit no-action decision?",
+            "Did the session measurably improve delivery, operations, economics, or learning?"
+        ],
+        "required_feedback_planes": [
+            "delivery",
+            "operations",
+            "economics",
+            "learning"
+        ],
+        "failure_classifications": [
+            "known",
+            "new"
+        ],
+        "control_types": [
+            "manual",
+            "template",
+            "preflight",
+            "guardrail",
+            "runbook",
+            "automation",
+            "no-action"
+        ],
+        "canonical_session_required": true,
+        "every_referenced_lesson_requires_control_decision": true,
+        "create_action_requires_draft": true,
+        "no_action_requires_rationale": true,
+        "action_registration_is_separate": true,
+        "review_registry_mutation_is_separate": true,
+        "composite_score_enabled": false
     }
 }
