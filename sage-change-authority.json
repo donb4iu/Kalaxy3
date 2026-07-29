@@ -438,6 +438,10 @@
                 "README.md",
                 "docs/",
                 "markdown/",
+                "mkdocs.yml",
+                "requirements-docs.txt",
+                "requirements-docs.lock.txt",
+                "scripts/docs/",
                 ".github/workflows/kalaxy3_build_publish.yml"
             ],
             "requires": [
@@ -448,6 +452,14 @@
             "authoritative_files": [
                 "README.md",
                 ".github/workflows/kalaxy3_build_publish.yml",
+                "mkdocs.yml",
+                "requirements-docs.txt",
+                "requirements-docs.lock.txt",
+                "Makefile",
+                "scripts/docs/prepare-mkdocs-source.py",
+                "scripts/docs/validate-mkdocs-build.py",
+                "scripts/docs/promote-mkdocs-site.py",
+                "scripts/docs/validate-mkdocs-publication.py",
                 "markdown/standards/kalaxy3-sage-evidence-publication-process.md"
             ],
             "baseline_checks": [
