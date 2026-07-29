@@ -1,407 +1,407 @@
 {
-  "schema_version": "1.0",
-  "always_contexts": [
-    "repository-governance",
-    "evidence"
-  ],
-  "contexts": [
-    {
-      "id": "repository-governance",
-      "priority": 10,
-      "match_terms": [
-        "sage",
-        "guardrail",
-        "governance",
-        "authority",
-        "repository",
-        "workflow",
-        "process",
-        "preflight",
-        "discovery"
-      ],
-      "path_prefixes": [
-        "AGENTS.md",
-        "SAGE.md",
-        "sage-change-authority.json",
-        "scripts/sage/",
-        "markdown/standards/",
-        "markdown/templates/"
-      ],
-      "requires": [],
-      "working_directory": ".",
-      "authoritative_files": [
-        "AGENTS.md",
-        "SAGE.md",
-        "sage-change-authority.json",
-        "markdown/standards/kalaxy3-sage-change-discovery-process.md"
-      ],
-      "baseline_checks": [
-        "make sage-discovery-guardrail"
-      ],
-      "required_validation": [
-        "make sage-self-test",
-        "make sage-discovery-guardrail",
-        "make sage-index-check"
-      ],
-      "evidence_process": [
-        "Record inferred contexts and authoritative files.",
-        "Preserve terminal output from required guardrails."
-      ]
-    },
-    {
-      "id": "evidence",
-      "priority": 20,
-      "match_terms": [
-        "evidence",
-        "record",
-        "benchmark",
-        "audit",
-        "validation",
-        "chronicle"
-      ],
-      "path_prefixes": [
-        "markdown/evidence/",
-        "markdown/benchmarks/",
-        "markdown/installation/",
-        "markdown/operations/",
-        "scripts/sage/"
-      ],
-      "requires": [],
-      "working_directory": ".",
-      "authoritative_files": [
-        "markdown/standards/kalaxy3-sage-evidence-record-standard.md",
-        "markdown/standards/kalaxy3-sage-evidence-publication-process.md",
-        "markdown/standards/sage-evidence-metadata-contract-v1.2.json",
-        "markdown/templates/sage-evidence-record-template.md",
-        "scripts/sage/sage-index.py",
-        "scripts/sage/sage-publish.py",
-        "sage-evidence-policy.json",
-        "scripts/sage/sage-evidence-orchestrator.py",
-        "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md"
-      ],
-      "baseline_checks": [
-        "make sage-index-check",
-        "make sage-evidence-guardrail"
-      ],
-      "required_validation": [
-        "make sage-index-check",
-        "make sage-evidence-self-test",
-        "make sage-evidence-guardrail"
-      ],
-      "evidence_process": [
-        "Apply the canonical evidence-generation request automatically; the requester need not enumerate SAGE mechanics.",
-        "Use the repository-owned SAGE standard and template.",
-        "Publish through scripts/sage/sage-publish.py.",
-        "Reconcile indexes through scripts/sage/sage-index.py."
-      ]
-    },
-    {
-      "id": "continuous-improvement",
-      "priority": 25,
-      "match_terms": [
-        "continuous improvement",
-        "lessons learned",
-        "experience-aware",
-        "prediction accuracy",
-        "forecast accuracy",
-        "t-shirt sizing",
-        "tshirt sizing",
-        "confidence calibration",
-        "candidate registry",
-        "process scorecard",
-        "avoidable rework",
-        "before and after cost",
-        "cost baseline",
-        "observability feedback",
-        "frequent push",
-        "frequent pushes",
-        "feature branch",
-        "staged implementation"
-      ],
-      "path_prefixes": [
-        "sage-continuous-improvement-",
-        "sage-change-candidate-",
-        "sage-lessons",
-        "sage-improvement-actions",
-        "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
-        "markdown/standards/sage-change-candidate-schema-",
-        "markdown/standards/sage-session-improvement-schema-",
-        "scripts/sage/sage-lessons",
-        "scripts/sage/sage-session",
-        "scripts/sage/sage-improvement",
-        "scripts/sage/sage-candidate"
-      ],
-      "requires": [
+    "schema_version": "1.0",
+    "always_contexts": [
         "repository-governance",
         "evidence"
-      ],
-      "working_directory": ".",
-      "authoritative_files": [
-        "AGENTS.md",
-        "SAGE.md",
-        "sage-change-authority.json",
-        "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
-        "markdown/standards/kalaxy3-sage-change-discovery-process.md",
-        "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md"
-      ],
-      "baseline_checks": [
-        "make sage-discovery-guardrail",
-        "make sage-index-check"
-      ],
-      "required_validation": [
-        "make sage-guardrails"
-      ],
-      "evidence_process": [
-        "Preserve versioned predictions before outcomes are known.",
-        "Capture delivery, operations, economics, and learning baselines.",
-        "Compare predicted and actual outcomes and evaluate confidence calibration.",
-        "Extract lessons and improvement actions from published evidence.",
-        "Push every cohesive validated commit to the active feature branch."
-      ]
-    },
-    {
-      "id": "helm-platform",
-      "priority": 30,
-      "match_terms": [
-        "helm",
-        "chart",
-        "release",
-        "helm repository",
-        "repository url",
-        "chart version"
-      ],
-      "path_prefixes": [
-        "infrastructure/k3s-homelab/helm-",
-        "infrastructure/k3s-homelab/playbooks/platform.yml",
-        "infrastructure/k3s-homelab/playbooks/tasks/",
-        "infrastructure/k3s-homelab/scripts/sage-deployment-guardrail.py",
-        "infrastructure/k3s-homelab/scripts/sage-source-guardrails.py"
-      ],
-      "requires": [
-        "repository-governance",
-        "evidence"
-      ],
-      "working_directory": "infrastructure/k3s-homelab",
-      "authoritative_files": [
-        "infrastructure/k3s-homelab/helm-repositories.json",
-        "infrastructure/k3s-homelab/helm-chart-lock.json",
-        "infrastructure/k3s-homelab/playbooks/platform.yml",
-        "infrastructure/k3s-homelab/scripts/sage-source-guardrails.py",
-        "infrastructure/k3s-homelab/scripts/sage-deployment-guardrail.py"
-      ],
-      "baseline_checks": [
-        "make helm-repository-guardrail",
-        "make source-guardrails",
-        "make deployment-guardrail"
-      ],
-      "required_validation": [
-        "make source-guardrails",
-        "make deployment-guardrail",
-        "make cluster-guardrails"
-      ],
-      "evidence_process": [
-        "Capture repository, chart-lock, render, and deployment evidence."
-      ]
-    },
-    {
-      "id": "observability",
-      "priority": 40,
-      "match_terms": [
-        "observability",
-        "prometheus",
-        "grafana",
-        "kubecost",
-        "metrics",
-        "monitoring",
-        "telemetry"
-      ],
-      "path_prefixes": [
-        "infrastructure/k3s-homelab/playbooks/tasks/observability.yml",
-        "infrastructure/k3s-homelab/playbooks/templates/",
-        "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml"
-      ],
-      "requires": [
-        "helm-platform",
-        "evidence"
-      ],
-      "working_directory": "infrastructure/k3s-homelab",
-      "authoritative_files": [
-        "infrastructure/k3s-homelab/playbooks/tasks/observability.yml",
-        "infrastructure/k3s-homelab/inventory/group_vars/all/main.yml",
-        "infrastructure/k3s-homelab/helm-chart-lock.json"
-      ],
-      "baseline_checks": [
-        "make source-guardrails",
-        "make deployment-guardrail"
-      ],
-      "required_validation": [
-        "make cluster-guardrails"
-      ],
-      "evidence_process": [
-        "Capture placement, health, requests, and Kubecost impact."
-      ]
-    },
-    {
-      "id": "centralized-logging",
-      "priority": 50,
-      "match_terms": [
-        "centralized logging",
-        "logging",
-        "loki",
-        "fluent bit",
-        "fluent-bit",
-        "log collection",
-        "log aggregation",
-        "opentelemetry",
-        "otel"
-      ],
-      "path_prefixes": [
-        "infrastructure/k3s-homelab/playbooks/templates/loki-",
-        "infrastructure/k3s-homelab/playbooks/templates/fluent-bit-",
-        "infrastructure/k3s-homelab/playbooks/templates/grafana-loki-",
-        "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml"
-      ],
-      "requires": [
-        "observability",
-        "helm-platform",
-        "storage",
-        "evidence"
-      ],
-      "working_directory": "infrastructure/k3s-homelab",
-      "authoritative_files": [
-        "infrastructure/k3s-homelab/playbooks/tasks/observability.yml",
-        "infrastructure/k3s-homelab/playbooks/templates/loki-values.yml.j2",
-        "infrastructure/k3s-homelab/playbooks/templates/fluent-bit-collector-values.yml.j2",
-        "infrastructure/k3s-homelab/playbooks/templates/grafana-loki-datasource.yml.j2",
-        "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml",
-        "infrastructure/k3s-homelab/scripts/validate-centralized-logging-yaml.py"
-      ],
-      "baseline_checks": [
-        "make helm-repository-guardrail",
-        "make source-guardrails",
-        "make deployment-guardrail",
-        "make centralized-logging-render"
-      ],
-      "required_validation": [
-        "make centralized-logging-render",
-        "make cluster-guardrails"
-      ],
-      "evidence_process": [
-        "Preserve pre-deployment render evidence.",
-        "Capture collector rollout and Loki placement.",
-        "Compare post-deployment Kubecost results with the baseline."
-      ]
-    },
-    {
-      "id": "storage",
-      "priority": 60,
-      "match_terms": [
-        "storage",
-        "longhorn",
-        "persistent volume",
-        "pvc",
-        "nfs",
-        "retention",
-        "volume"
-      ],
-      "path_prefixes": [
-        "infrastructure/k3s-homelab/playbooks/tasks/longhorn.yml",
-        "infrastructure/k3s-homelab/playbooks/tasks/network-storage.yml"
-      ],
-      "requires": [
-        "evidence"
-      ],
-      "working_directory": "infrastructure/k3s-homelab",
-      "authoritative_files": [
-        "infrastructure/k3s-homelab/playbooks/tasks/longhorn.yml",
-        "infrastructure/k3s-homelab/playbooks/tasks/network-storage.yml",
-        "infrastructure/k3s-homelab/inventory/group_vars/all/main.yml"
-      ],
-      "baseline_checks": [
-        "make cluster-guardrails"
-      ],
-      "required_validation": [
-        "make cluster-guardrails"
-      ],
-      "evidence_process": [
-        "Capture StorageClass, PVC, placement, retention, and recovery evidence."
-      ]
-    },
-    {
-      "id": "k3s-cluster",
-      "priority": 70,
-      "match_terms": [
-        "k3s",
-        "kubernetes",
-        "control plane",
-        "worker node",
-        "agent node",
-        "etcd",
-        "cluster node"
-      ],
-      "path_prefixes": [
-        "infrastructure/k3s-homelab/inventory/",
-        "infrastructure/k3s-homelab/playbooks/k3s.yml",
-        "infrastructure/k3s-homelab/playbooks/tasks/install-k3s.yml"
-      ],
-      "requires": [
-        "repository-governance",
-        "evidence"
-      ],
-      "working_directory": "infrastructure/k3s-homelab",
-      "authoritative_files": [
-        "infrastructure/k3s-homelab/k3s-platforms.json",
-        "infrastructure/k3s-homelab/playbooks/k3s.yml",
-        "infrastructure/k3s-homelab/playbooks/tasks/install-k3s.yml",
-        "infrastructure/k3s-homelab/scripts/sage-k3s-guardrail.py"
-      ],
-      "baseline_checks": [
-        "make k3s-guardrails"
-      ],
-      "required_validation": [
-        "make k3s-guardrails"
-      ],
-      "evidence_process": [
-        "Capture node identity, architecture, readiness, etcd, and recovery evidence."
-      ]
-    },
-    {
-      "id": "documentation",
-      "priority": 80,
-      "match_terms": [
-        "documentation",
-        "docs",
-        "daux",
-        "mkdocs",
-        "markdown",
-        "github pages",
-        "landing page"
-      ],
-      "path_prefixes": [
-        "README.md",
-        "docs/",
-        "markdown/",
-        ".github/workflows/kalaxy3_build_publish.yml"
-      ],
-      "requires": [
-        "repository-governance",
-        "evidence"
-      ],
-      "working_directory": ".",
-      "authoritative_files": [
-        "README.md",
-        ".github/workflows/kalaxy3_build_publish.yml",
-        "markdown/standards/kalaxy3-sage-evidence-publication-process.md"
-      ],
-      "baseline_checks": [
-        "python3 scripts/sage/sage-index.py check"
-      ],
-      "required_validation": [
-        "python3 scripts/sage/sage-index.py check"
-      ],
-      "evidence_process": [
-        "Capture generated-document validation and publication lineage."
-      ]
-    }
-  ]
+    ],
+    "contexts": [
+        {
+            "id": "repository-governance",
+            "priority": 10,
+            "match_terms": [
+                "sage",
+                "guardrail",
+                "governance",
+                "authority",
+                "repository",
+                "workflow",
+                "process",
+                "preflight",
+                "discovery"
+            ],
+            "path_prefixes": [
+                "AGENTS.md",
+                "SAGE.md",
+                "sage-change-authority.json",
+                "scripts/sage/",
+                "markdown/standards/",
+                "markdown/templates/"
+            ],
+            "requires": [],
+            "working_directory": ".",
+            "authoritative_files": [
+                "AGENTS.md",
+                "SAGE.md",
+                "sage-change-authority.json",
+                "markdown/standards/kalaxy3-sage-change-discovery-process.md"
+            ],
+            "baseline_checks": [
+                "make sage-discovery-guardrail"
+            ],
+            "required_validation": [
+                "make sage-self-test",
+                "make sage-discovery-guardrail",
+                "make sage-index-check"
+            ],
+            "evidence_process": [
+                "Record inferred contexts and authoritative files.",
+                "Preserve terminal output from required guardrails."
+            ]
+        },
+        {
+            "id": "evidence",
+            "priority": 20,
+            "match_terms": [
+                "evidence",
+                "record",
+                "benchmark",
+                "audit",
+                "validation",
+                "chronicle"
+            ],
+            "path_prefixes": [
+                "markdown/evidence/",
+                "markdown/benchmarks/",
+                "markdown/installation/",
+                "markdown/operations/",
+                "scripts/sage/"
+            ],
+            "requires": [],
+            "working_directory": ".",
+            "authoritative_files": [
+                "markdown/standards/kalaxy3-sage-evidence-record-standard.md",
+                "markdown/standards/kalaxy3-sage-evidence-publication-process.md",
+                "markdown/standards/sage-evidence-metadata-contract-v1.2.json",
+                "markdown/templates/sage-evidence-record-template.md",
+                "scripts/sage/sage-index.py",
+                "scripts/sage/sage-publish.py",
+                "sage-evidence-policy.json",
+                "scripts/sage/sage-evidence-orchestrator.py",
+                "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md"
+            ],
+            "baseline_checks": [
+                "make sage-index-check",
+                "make sage-evidence-guardrail"
+            ],
+            "required_validation": [
+                "make sage-index-check",
+                "make sage-evidence-self-test",
+                "make sage-evidence-guardrail"
+            ],
+            "evidence_process": [
+                "Apply the canonical evidence-generation request automatically; the requester need not enumerate SAGE mechanics.",
+                "Use the repository-owned SAGE standard and template.",
+                "Publish through scripts/sage/sage-publish.py.",
+                "Reconcile indexes through scripts/sage/sage-index.py."
+            ]
+        },
+        {
+            "id": "continuous-improvement",
+            "priority": 25,
+            "match_terms": [
+                "continuous improvement",
+                "lessons learned",
+                "experience-aware",
+                "prediction accuracy",
+                "forecast accuracy",
+                "t-shirt sizing",
+                "tshirt sizing",
+                "confidence calibration",
+                "candidate registry",
+                "process scorecard",
+                "avoidable rework",
+                "before and after cost",
+                "cost baseline",
+                "observability feedback",
+                "frequent push",
+                "frequent pushes",
+                "feature branch",
+                "staged implementation"
+            ],
+            "path_prefixes": [
+                "sage-continuous-improvement-",
+                "sage-change-candidate-",
+                "sage-lessons",
+                "sage-improvement-actions",
+                "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
+                "markdown/standards/sage-change-candidate-schema-",
+                "markdown/standards/sage-session-improvement-schema-",
+                "scripts/sage/sage-lessons",
+                "scripts/sage/sage-session",
+                "scripts/sage/sage-improvement",
+                "scripts/sage/sage-candidate"
+            ],
+            "requires": [
+                "repository-governance",
+                "evidence"
+            ],
+            "working_directory": ".",
+            "authoritative_files": [
+                "AGENTS.md",
+                "SAGE.md",
+                "sage-change-authority.json",
+                "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
+                "markdown/standards/kalaxy3-sage-change-discovery-process.md",
+                "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md"
+            ],
+            "baseline_checks": [
+                "make sage-discovery-guardrail",
+                "make sage-index-check"
+            ],
+            "required_validation": [
+                "make sage-guardrails"
+            ],
+            "evidence_process": [
+                "Preserve versioned predictions before outcomes are known.",
+                "Capture delivery, operations, economics, and learning baselines.",
+                "Compare predicted and actual outcomes and evaluate confidence calibration.",
+                "Extract lessons and improvement actions from published evidence.",
+                "Push every cohesive validated commit to the active feature branch."
+            ]
+        },
+        {
+            "id": "helm-platform",
+            "priority": 30,
+            "match_terms": [
+                "helm",
+                "chart",
+                "release",
+                "helm repository",
+                "repository url",
+                "chart version"
+            ],
+            "path_prefixes": [
+                "infrastructure/k3s-homelab/helm-",
+                "infrastructure/k3s-homelab/playbooks/platform.yml",
+                "infrastructure/k3s-homelab/playbooks/tasks/",
+                "infrastructure/k3s-homelab/scripts/sage-deployment-guardrail.py",
+                "infrastructure/k3s-homelab/scripts/sage-source-guardrails.py"
+            ],
+            "requires": [
+                "repository-governance",
+                "evidence"
+            ],
+            "working_directory": "infrastructure/k3s-homelab",
+            "authoritative_files": [
+                "infrastructure/k3s-homelab/helm-repositories.json",
+                "infrastructure/k3s-homelab/helm-chart-lock.json",
+                "infrastructure/k3s-homelab/playbooks/platform.yml",
+                "infrastructure/k3s-homelab/scripts/sage-source-guardrails.py",
+                "infrastructure/k3s-homelab/scripts/sage-deployment-guardrail.py"
+            ],
+            "baseline_checks": [
+                "make helm-repository-guardrail",
+                "make source-guardrails",
+                "make deployment-guardrail"
+            ],
+            "required_validation": [
+                "make source-guardrails",
+                "make deployment-guardrail",
+                "make cluster-guardrails"
+            ],
+            "evidence_process": [
+                "Capture repository, chart-lock, render, and deployment evidence."
+            ]
+        },
+        {
+            "id": "observability",
+            "priority": 40,
+            "match_terms": [
+                "observability",
+                "prometheus",
+                "grafana",
+                "kubecost",
+                "metrics",
+                "monitoring",
+                "telemetry"
+            ],
+            "path_prefixes": [
+                "infrastructure/k3s-homelab/playbooks/tasks/observability.yml",
+                "infrastructure/k3s-homelab/playbooks/templates/",
+                "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml"
+            ],
+            "requires": [
+                "helm-platform",
+                "evidence"
+            ],
+            "working_directory": "infrastructure/k3s-homelab",
+            "authoritative_files": [
+                "infrastructure/k3s-homelab/playbooks/tasks/observability.yml",
+                "infrastructure/k3s-homelab/inventory/group_vars/all/main.yml",
+                "infrastructure/k3s-homelab/helm-chart-lock.json"
+            ],
+            "baseline_checks": [
+                "make source-guardrails",
+                "make deployment-guardrail"
+            ],
+            "required_validation": [
+                "make cluster-guardrails"
+            ],
+            "evidence_process": [
+                "Capture placement, health, requests, and Kubecost impact."
+            ]
+        },
+        {
+            "id": "centralized-logging",
+            "priority": 50,
+            "match_terms": [
+                "centralized logging",
+                "logging",
+                "loki",
+                "fluent bit",
+                "fluent-bit",
+                "log collection",
+                "log aggregation",
+                "opentelemetry",
+                "otel"
+            ],
+            "path_prefixes": [
+                "infrastructure/k3s-homelab/playbooks/templates/loki-",
+                "infrastructure/k3s-homelab/playbooks/templates/fluent-bit-",
+                "infrastructure/k3s-homelab/playbooks/templates/grafana-loki-",
+                "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml"
+            ],
+            "requires": [
+                "observability",
+                "helm-platform",
+                "storage",
+                "evidence"
+            ],
+            "working_directory": "infrastructure/k3s-homelab",
+            "authoritative_files": [
+                "infrastructure/k3s-homelab/playbooks/tasks/observability.yml",
+                "infrastructure/k3s-homelab/playbooks/templates/loki-values.yml.j2",
+                "infrastructure/k3s-homelab/playbooks/templates/fluent-bit-collector-values.yml.j2",
+                "infrastructure/k3s-homelab/playbooks/templates/grafana-loki-datasource.yml.j2",
+                "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml",
+                "infrastructure/k3s-homelab/scripts/validate-centralized-logging-yaml.py"
+            ],
+            "baseline_checks": [
+                "make helm-repository-guardrail",
+                "make source-guardrails",
+                "make deployment-guardrail",
+                "make centralized-logging-render"
+            ],
+            "required_validation": [
+                "make centralized-logging-render",
+                "make cluster-guardrails"
+            ],
+            "evidence_process": [
+                "Preserve pre-deployment render evidence.",
+                "Capture collector rollout and Loki placement.",
+                "Compare post-deployment Kubecost results with the baseline."
+            ]
+        },
+        {
+            "id": "storage",
+            "priority": 60,
+            "match_terms": [
+                "storage",
+                "longhorn",
+                "persistent volume",
+                "pvc",
+                "nfs",
+                "retention",
+                "volume"
+            ],
+            "path_prefixes": [
+                "infrastructure/k3s-homelab/playbooks/tasks/longhorn.yml",
+                "infrastructure/k3s-homelab/playbooks/tasks/network-storage.yml"
+            ],
+            "requires": [
+                "evidence"
+            ],
+            "working_directory": "infrastructure/k3s-homelab",
+            "authoritative_files": [
+                "infrastructure/k3s-homelab/playbooks/tasks/longhorn.yml",
+                "infrastructure/k3s-homelab/playbooks/tasks/network-storage.yml",
+                "infrastructure/k3s-homelab/inventory/group_vars/all/main.yml"
+            ],
+            "baseline_checks": [
+                "make cluster-guardrails"
+            ],
+            "required_validation": [
+                "make cluster-guardrails"
+            ],
+            "evidence_process": [
+                "Capture StorageClass, PVC, placement, retention, and recovery evidence."
+            ]
+        },
+        {
+            "id": "k3s-cluster",
+            "priority": 70,
+            "match_terms": [
+                "k3s",
+                "kubernetes",
+                "control plane",
+                "worker node",
+                "agent node",
+                "etcd",
+                "cluster node"
+            ],
+            "path_prefixes": [
+                "infrastructure/k3s-homelab/inventory/",
+                "infrastructure/k3s-homelab/playbooks/k3s.yml",
+                "infrastructure/k3s-homelab/playbooks/tasks/install-k3s.yml"
+            ],
+            "requires": [
+                "repository-governance",
+                "evidence"
+            ],
+            "working_directory": "infrastructure/k3s-homelab",
+            "authoritative_files": [
+                "infrastructure/k3s-homelab/k3s-platforms.json",
+                "infrastructure/k3s-homelab/playbooks/k3s.yml",
+                "infrastructure/k3s-homelab/playbooks/tasks/install-k3s.yml",
+                "infrastructure/k3s-homelab/scripts/sage-k3s-guardrail.py"
+            ],
+            "baseline_checks": [
+                "make k3s-guardrails"
+            ],
+            "required_validation": [
+                "make k3s-guardrails"
+            ],
+            "evidence_process": [
+                "Capture node identity, architecture, readiness, etcd, and recovery evidence."
+            ]
+        },
+        {
+            "id": "documentation",
+            "priority": 80,
+            "match_terms": [
+                "documentation",
+                "docs",
+                "daux",
+                "mkdocs",
+                "markdown",
+                "github pages",
+                "landing page"
+            ],
+            "path_prefixes": [
+                "README.md",
+                "docs/",
+                "markdown/",
+                ".github/workflows/kalaxy3_build_publish.yml"
+            ],
+            "requires": [
+                "repository-governance",
+                "evidence"
+            ],
+            "working_directory": ".",
+            "authoritative_files": [
+                "README.md",
+                ".github/workflows/kalaxy3_build_publish.yml",
+                "markdown/standards/kalaxy3-sage-evidence-publication-process.md"
+            ],
+            "baseline_checks": [
+                "python3 scripts/sage/sage-index.py check"
+            ],
+            "required_validation": [
+                "python3 scripts/sage/sage-index.py check"
+            ],
+            "evidence_process": [
+                "Capture generated-document validation and publication lineage."
+            ]
+        }
+    ]
 }
