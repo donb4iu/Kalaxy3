@@ -181,6 +181,12 @@ def mutation_cases(
     ]
     cases.append(("unknown dependency", unknown))
 
+    missing_required = copy.deepcopy(payload)
+    del missing_required["contexts"][0]["match_terms"]
+    cases.append(
+        ("missing required context field", missing_required)
+    )
+
     empty = copy.deepcopy(payload)
     empty["contexts"] = []
     cases.append(("empty contexts", empty))

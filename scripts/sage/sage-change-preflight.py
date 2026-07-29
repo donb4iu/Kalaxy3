@@ -316,6 +316,19 @@ def run_self_tests(
             "repository-governance",
             "evidence",
         },
+        (
+            "agreed, make it so, but remember frequent pushes "
+            "to a feature branch is good practice"
+        ): {
+            "continuous-improvement",
+            "repository-governance",
+            "evidence",
+        },
+        "Add prediction accuracy and T-shirt sizing": {
+            "continuous-improvement",
+            "repository-governance",
+            "evidence",
+        },
     }
     failures: list[str] = []
 
@@ -343,6 +356,17 @@ def run_self_tests(
             ["README.md"],
             {
                 "documentation",
+                "repository-governance",
+                "evidence",
+            },
+        ),
+        "continuous-improvement path": (
+            [
+                "markdown/standards/"
+                "kalaxy3-sage-continuous-improvement-process.md"
+            ],
+            {
+                "continuous-improvement",
                 "repository-governance",
                 "evidence",
             },
