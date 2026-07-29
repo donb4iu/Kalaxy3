@@ -176,10 +176,17 @@
     - grafana
 
 - name: Provision Grafana Loki datasource
-  kubernetes.core.k8s:
-    state: present
-    src: /tmp/grafana-loki-datasource.yml
-    kubeconfig: "{{ kalaxy3_kubeconfig }}"
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - apply
+      - --filename
+      - /tmp/grafana-loki-datasource.yml
+  register: grafana_loki_datasource_apply
+  changed_when: >-
+    ' created' in grafana_loki_datasource_apply.stdout
+    or ' configured' in grafana_loki_datasource_apply.stdout
   when:
     - install_observability | bool
     - deploy_centralized_logging | bool
