@@ -58,6 +58,22 @@ REQUIRED_SIZING_DIMENSIONS: Final = [
     "cost_exposure",
     "dependency_complexity",
 ]
+REQUIRED_LESSON_FIELDS: Final = ['lesson_id',
+ 'title',
+ 'status',
+ 'contexts',
+ 'match_terms',
+ 'path_prefixes',
+ 'failure_signature',
+ 'symptoms',
+ 'root_cause',
+ 'known_resolution',
+ 'preventive_control',
+ 'preflight_detection',
+ 'first_evidence',
+ 'latest_evidence',
+ 'recurrence_count',
+ 'automation_status']
 CHANGE_ID_RE: Final = re.compile(
     r"^SAGE-CHANGE-[0-9]{8}-[0-9]{3}$"
 )
@@ -65,6 +81,20 @@ SESSION_ID_RE: Final = re.compile(
     r"^SAGE-SESSION-[0-9]{8}-[0-9]{3}$"
 )
 SHA_RE: Final = re.compile(r"^[0-9a-f]{40}$")
+
+LESSON_ID_RE: Final = re.compile(
+    r"^SAGE-LESSON-[0-9]{8}-[0-9]{3}$"
+)
+REQUIRED_SEED_LESSONS: Final = {
+    "SAGE-LESSON-20260728-001",
+    "SAGE-LESSON-20260728-002",
+    "SAGE-LESSON-20260728-003",
+    "SAGE-LESSON-20260728-004",
+    "SAGE-LESSON-20260728-005",
+    "SAGE-LESSON-20260728-006",
+    "SAGE-LESSON-20260728-007",
+    "SAGE-LESSON-20260728-008",
+}
 
 FOUNDATION_CHANGE_ID: Final = "SAGE-CHANGE-20260728-001"
 FOUNDATION_REQUEST: Final = (
@@ -236,6 +266,54 @@ def validate_policy(payload: Any) -> list[str]:
                 failures.append(
                     f"registry path does not exist: {relative}"
                 )
+
+    lesson_preflight_path = payload.get(
+        "lesson_preflight_path"
+    )
+    if not isinstance(lesson_preflight_path, str):
+        failures.append(
+            "lesson_preflight_path must be a string"
+        )
+    elif not (ROOT / lesson_preflight_path).is_file():
+        failures.append(
+            "lesson_preflight_path does not exist: "
+            f"{lesson_preflight_path}"
+        )
+
+    required_lesson_fields = payload.get(
+        "required_lesson_fields"
+    )
+    if required_lesson_fields != REQUIRED_LESSON_FIELDS:
+        failures.append(
+            "required_lesson_fields changed"
+        )
+
+    automation_statuses = payload.get(
+        "lesson_automation_statuses"
+    )
+    if automation_statuses != [
+        "manual",
+        "template",
+        "preflight",
+        "guardrail",
+        "runbook",
+        "automated",
+    ]:
+        failures.append(
+            "lesson_automation_statuses changed"
+        )
+
+    surface_statuses = payload.get(
+        "lesson_surface_statuses"
+    )
+    if surface_statuses != [
+        "accepted",
+        "automated",
+        "validated",
+    ]:
+        failures.append(
+            "lesson_surface_statuses changed"
+        )
     return failures
 
 
@@ -382,6 +460,175 @@ def validate_candidate_registry(
         failures.append(
             "foundational discovery prediction v1 "
             "must appear exactly once"
+        )
+    return failures
+
+
+def validate_lesson_registry(
+    payload: Any,
+    policy: dict[str, Any],
+) -> list[str]:
+    """Validate canonical machine-readable lessons."""
+    failures = validate_registry_header(
+        payload,
+        registry_type="lessons",
+        collection="lessons",
+    )
+    if not isinstance(payload, dict):
+        return failures
+
+    lessons = payload.get("lessons")
+    if not isinstance(lessons, list) or not lessons:
+        failures.append(
+            "lesson registry must include seed lessons"
+        )
+        return failures
+
+    identifiers: list[str] = []
+    required_fields = set(policy["required_lesson_fields"])
+    valid_statuses = set(policy["lesson_statuses"])
+    valid_automation = set(
+        policy["lesson_automation_statuses"]
+    )
+
+    for item in lessons:
+        if not isinstance(item, dict):
+            failures.append("lesson entry must be an object")
+            continue
+
+        identifier = str(item.get("lesson_id", ""))
+        identifiers.append(identifier)
+
+        if set(item) != required_fields:
+            failures.append(
+                f"{identifier}: lesson fields must match policy"
+            )
+        if not LESSON_ID_RE.fullmatch(identifier):
+            failures.append(
+                f"{identifier}: lesson_id invalid"
+            )
+        if item.get("status") not in valid_statuses:
+            failures.append(
+                f"{identifier}: lesson status invalid"
+            )
+        if item.get(
+            "automation_status"
+        ) not in valid_automation:
+            failures.append(
+                f"{identifier}: automation status invalid"
+            )
+
+        for key in (
+            "title",
+            "failure_signature",
+            "root_cause",
+        ):
+            value = item.get(key)
+            if not isinstance(value, str) or not value:
+                failures.append(
+                    f"{identifier}: {key} required"
+                )
+
+        for key in (
+            "contexts",
+            "match_terms",
+            "symptoms",
+            "known_resolution",
+            "preventive_control",
+            "preflight_detection",
+            "first_evidence",
+            "latest_evidence",
+        ):
+            value = item.get(key)
+            if (
+                not isinstance(value, list)
+                or not value
+                or not all(
+                    isinstance(entry, str) and entry
+                    for entry in value
+                )
+            ):
+                failures.append(
+                    f"{identifier}: {key} must be "
+                    "a non-empty string list"
+                )
+            elif len(value) != len(set(value)):
+                failures.append(
+                    f"{identifier}: {key} contains duplicates"
+                )
+
+        prefixes = item.get("path_prefixes")
+        if not isinstance(prefixes, list) or not all(
+            isinstance(entry, str)
+            for entry in prefixes
+        ):
+            failures.append(
+                f"{identifier}: path_prefixes invalid"
+            )
+        elif len(prefixes) != len(set(prefixes)):
+            failures.append(
+                f"{identifier}: path_prefixes contain duplicates"
+            )
+
+        recurrence = item.get("recurrence_count")
+        if (
+            not isinstance(recurrence, int)
+            or isinstance(recurrence, bool)
+            or recurrence < 1
+        ):
+            failures.append(
+                f"{identifier}: recurrence_count invalid"
+            )
+
+    if len(identifiers) != len(set(identifiers)):
+        failures.append(
+            "lesson identifiers must be unique"
+        )
+
+    missing_seed = sorted(
+        REQUIRED_SEED_LESSONS - set(identifiers)
+    )
+    if missing_seed:
+        failures.append(
+            f"required seed lessons missing: {missing_seed}"
+        )
+
+    heredoc = [
+        item
+        for item in lessons
+        if isinstance(item, dict)
+        and item.get("lesson_id")
+        == "SAGE-LESSON-20260728-001"
+    ]
+    if len(heredoc) != 1:
+        failures.append(
+            "heredoc lesson must appear exactly once"
+        )
+    elif not any(
+        "downloadable" in value.lower()
+        for value in heredoc[0]["preventive_control"]
+    ):
+        failures.append(
+            "heredoc lesson must require downloadable scripts"
+        )
+
+    remote = [
+        item
+        for item in lessons
+        if isinstance(item, dict)
+        and item.get("lesson_id")
+        == "SAGE-LESSON-20260728-005"
+    ]
+    if len(remote) != 1:
+        failures.append(
+            "remote-state lesson must appear exactly once"
+        )
+    elif not any(
+        "origin/main" in value
+        for value in remote[0]["preflight_detection"]
+    ):
+        failures.append(
+            "remote-state lesson must check origin/main"
         )
     return failures
 
@@ -1154,6 +1401,7 @@ def mutation_tests(
     candidate_schema: dict[str, Any],
     session_schema: dict[str, Any],
     candidate_registry: dict[str, Any],
+    lesson_registry: dict[str, Any],
 ) -> list[str]:
     failures: list[str] = []
 
@@ -1272,6 +1520,48 @@ def mutation_tests(
                 f"candidate registry negative test accepted {label}"
             )
 
+    lesson_cases: list[
+        tuple[str, dict[str, Any]]
+    ] = []
+
+    duplicate_lesson = copy.deepcopy(lesson_registry)
+    duplicate_lesson["lessons"].append(
+        copy.deepcopy(duplicate_lesson["lessons"][0])
+    )
+    lesson_cases.append(
+        ("duplicate lesson identifier", duplicate_lesson)
+    )
+
+    missing_control = copy.deepcopy(lesson_registry)
+    missing_control["lessons"][0][
+        "preventive_control"
+    ] = []
+    lesson_cases.append(
+        ("lesson without preventive control", missing_control)
+    )
+
+    zero_recurrence = copy.deepcopy(lesson_registry)
+    zero_recurrence["lessons"][0][
+        "recurrence_count"
+    ] = 0
+    lesson_cases.append(
+        ("lesson with zero recurrence", zero_recurrence)
+    )
+
+    unknown_status = copy.deepcopy(lesson_registry)
+    unknown_status["lessons"][0]["status"] = "unknown"
+    lesson_cases.append(
+        ("lesson with unknown status", unknown_status)
+    )
+
+    for label, registry in lesson_cases:
+        if not validate_lesson_registry(
+            registry, policy
+        ):
+            failures.append(
+                f"lesson negative test accepted {label}"
+            )
+
     session_cases: list[
         tuple[str, dict[str, Any]]
     ] = []
@@ -1335,6 +1625,9 @@ def main() -> int:
         candidate_registry = load_json(
             REGISTRIES["change_candidates"][0]
         )
+        lesson_registry = load_json(
+            REGISTRIES["lessons"][0]
+        )
 
         failures.extend(validate_policy(policy))
         failures.extend(
@@ -1352,23 +1645,24 @@ def main() -> int:
                 candidate_registry, policy
             )
         )
-
-        for key in (
-            "lessons",
-            "improvement_actions",
-        ):
-            (
-                path,
-                registry_type,
-                collection,
-            ) = REGISTRIES[key]
-            failures.extend(
-                validate_empty_registry(
-                    load_json(path),
-                    registry_type=registry_type,
-                    collection=collection,
-                )
+        failures.extend(
+            validate_lesson_registry(
+                lesson_registry, policy
             )
+        )
+
+        (
+            action_path,
+            action_type,
+            action_collection,
+        ) = REGISTRIES["improvement_actions"]
+        failures.extend(
+            validate_empty_registry(
+                load_json(action_path),
+                registry_type=action_type,
+                collection=action_collection,
+            )
+        )
 
         failures.extend(
             validate_candidate_instance(
@@ -1386,6 +1680,7 @@ def main() -> int:
                 candidate_schema,
                 session_schema,
                 candidate_registry,
+                lesson_registry,
             )
         )
     except (OSError, ValueError, TypeError) as error:
@@ -1407,11 +1702,13 @@ def main() -> int:
     print("PASS representative candidate and session records")
     print("PASS foundational change candidate registry")
     print("PASS discovery prediction v1 remains immutable")
+    print("PASS machine-readable lesson registry")
+    print("PASS required seed lessons and preventive controls")
     print("PASS multidimensional sizing and confidence policy")
     print("PASS cost, observability, and process-metric policy")
     print("PASS frequent cohesive feature-branch push policy")
     print(
-        "PASS empty canonical lesson and action registries"
+        "PASS canonical lesson and empty action registries"
     )
     print(
         "PASS continuous-improvement mutation negative tests"

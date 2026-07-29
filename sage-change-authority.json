@@ -149,7 +149,8 @@
                 "sage-improvement-actions.json",
                 "scripts/sage/sage-continuous-improvement-guardrail.py",
                 "markdown/standards/sage-change-candidate-schema-v1.0.json",
-                "markdown/standards/sage-session-improvement-schema-v1.0.json"
+                "markdown/standards/sage-session-improvement-schema-v1.0.json",
+                "scripts/sage/sage-lessons.py"
             ],
             "baseline_checks": [
                 "make sage-improvement-policy-check",

@@ -160,6 +160,17 @@ ready once.
 
 ## Lessons and improvement actions
 
+### Experience-aware preflight
+
+Repository-root `sage-preflight`, `sage-changed`, and `sage-self-test`
+must load `sage-lessons.json` through `scripts/sage/sage-lessons.py`.
+Applicable accepted, automated, and validated lessons must be surfaced
+before implementation begins. A malformed lesson registry fails closed.
+
+The preflight report must preserve the lesson identifier, failure signature,
+preventive controls, and pre-mutation detection guidance. An applicable
+lesson that is not used must be explained during post-session review.
+
 A lesson converts evidence into reusable engineering memory.
 
 A lesson should identify:

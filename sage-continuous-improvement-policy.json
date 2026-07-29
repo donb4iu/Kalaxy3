@@ -7,6 +7,38 @@
         "lessons": "sage-lessons.json",
         "improvement_actions": "sage-improvement-actions.json"
     },
+    "lesson_preflight_path": "scripts/sage/sage-lessons.py",
+    "required_lesson_fields": [
+        "lesson_id",
+        "title",
+        "status",
+        "contexts",
+        "match_terms",
+        "path_prefixes",
+        "failure_signature",
+        "symptoms",
+        "root_cause",
+        "known_resolution",
+        "preventive_control",
+        "preflight_detection",
+        "first_evidence",
+        "latest_evidence",
+        "recurrence_count",
+        "automation_status"
+    ],
+    "lesson_automation_statuses": [
+        "manual",
+        "template",
+        "preflight",
+        "guardrail",
+        "runbook",
+        "automated"
+    ],
+    "lesson_surface_statuses": [
+        "accepted",
+        "automated",
+        "validated"
+    ],
     "required_feedback_planes": [
         "delivery",
         "operations",

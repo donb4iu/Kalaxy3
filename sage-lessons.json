@@ -1,5 +1,386 @@
 {
     "schema_version": "1.0",
     "registry_type": "lessons",
-    "lessons": []
+    "lessons": [
+        {
+            "lesson_id": "SAGE-LESSON-20260728-001",
+            "title": "Avoid heredocs for long interactive terminal payloads",
+            "status": "accepted",
+            "contexts": [
+                "repository-governance",
+                "documentation",
+                "continuous-improvement"
+            ],
+            "match_terms": [
+                "heredoc",
+                "large pasted shell block",
+                "multiline shell",
+                "terminal paste",
+                "downloadable script"
+            ],
+            "path_prefixes": [],
+            "failure_signature": "An interactive shell remains at a heredoc continuation prompt because a long pasted payload was truncated or its delimiter was not received.",
+            "symptoms": [
+                "The prompt changes to heredoc>.",
+                "Only the first part of a generated file is visible in the terminal.",
+                "Commands after the heredoc never execute."
+            ],
+            "root_cause": "Large nested multiline payloads are fragile when pasted into an interactive shell, especially when they contain Markdown fences, quotes, or additional heredocs.",
+            "known_resolution": [
+                "Interrupt the incomplete heredoc.",
+                "Verify repository state before retrying.",
+                "Deliver the implementation as a downloadable script.",
+                "Use a short one-line script invocation."
+            ],
+            "preventive_control": [
+                "Do not use heredocs for large Kalaxy3 terminal workflows.",
+                "Generate downloadable, self-validating scripts instead.",
+                "Keep direct terminal commands short and read-only when possible."
+            ],
+            "preflight_detection": [
+                "Flag requests that propose heredocs or large multiline terminal pastes.",
+                "Require a downloadable script when generated content is substantial."
+            ],
+            "first_evidence": [
+                "terminal-session:2026-07-28-continuous-improvement-heredoc-001"
+            ],
+            "latest_evidence": [
+                "terminal-session:2026-07-28-downloadable-script-recovery-001"
+            ],
+            "recurrence_count": 2,
+            "automation_status": "template"
+        },
+        {
+            "lesson_id": "SAGE-LESSON-20260728-002",
+            "title": "Do not use zsh special parameter names as loop variables",
+            "status": "accepted",
+            "contexts": [
+                "repository-governance",
+                "continuous-improvement"
+            ],
+            "match_terms": [
+                "zsh",
+                "for path",
+                "path variable",
+                "command not found",
+                "pyenv"
+            ],
+            "path_prefixes": [],
+            "failure_signature": "Commands such as git, grep, and python3 become unavailable after a zsh loop assigns filenames to the variable path.",
+            "symptoms": [
+                "git, grep, and python3 report command not found.",
+                "The prompt hook reports pyenv command not found.",
+                "PATH contains filenames from the loop instead of executable directories."
+            ],
+            "root_cause": "In zsh, path is a special array tied directly to PATH. Assigning to path replaces the executable search path.",
+            "known_resolution": [
+                "Start a fresh login shell with exec /bin/zsh -l.",
+                "Use names such as FILE_PATH or ITEM_PATH instead of path.",
+                "Verify command -v git, grep, python3, and bash."
+            ],
+            "preventive_control": [
+                "Reserve path and other shell-special names in zsh workflows.",
+                "Use uppercase descriptive loop variables in pasted shell commands."
+            ],
+            "preflight_detection": [
+                "Reject generated zsh loops matching for path in.",
+                "Lint shell snippets for assignments to zsh special parameters."
+            ],
+            "first_evidence": [
+                "terminal-session:2026-07-28-zsh-path-corruption-001"
+            ],
+            "latest_evidence": [
+                "terminal-session:2026-07-28-zsh-path-recovery-001"
+            ],
+            "recurrence_count": 1,
+            "automation_status": "template"
+        },
+        {
+            "lesson_id": "SAGE-LESSON-20260728-003",
+            "title": "Preserve porcelain status prefixes when parsing Git state",
+            "status": "accepted",
+            "contexts": [
+                "repository-governance",
+                "continuous-improvement"
+            ],
+            "match_terms": [
+                "git status --porcelain",
+                "porcelain parser",
+                "changed path parser",
+                "status prefix",
+                "age-change-authority"
+            ],
+            "path_prefixes": [
+                "scripts/sage/"
+            ],
+            "failure_signature": "A changed-path validator drops the first filename character and reports a false scope mismatch.",
+            "symptoms": [
+                "sage-change-authority.json is displayed as age-change-authority.json.",
+                "A valid one-file correction fails changed-path validation."
+            ],
+            "root_cause": "The parser stripped leading whitespace before removing the two-character Git status plus separator.",
+            "known_resolution": [
+                "Use git diff --name-only, git diff --cached --name-only, and git ls-files.",
+                "When porcelain output is required, preserve the leading status columns."
+            ],
+            "preventive_control": [
+                "Prefer dedicated Git name-only commands over manual porcelain slicing.",
+                "Test parsers with both staged and unstaged single-character-leading filenames."
+            ],
+            "preflight_detection": [
+                "Mutation-test status lines beginning with a leading space.",
+                "Require expected and actual path-set comparison before mutation."
+            ],
+            "first_evidence": [
+                "terminal-session:2026-07-28-porcelain-prefix-bug-001"
+            ],
+            "latest_evidence": [
+                "terminal-session:2026-07-28-porcelain-parser-recovery-001"
+            ],
+            "recurrence_count": 1,
+            "automation_status": "guardrail"
+        },
+        {
+            "lesson_id": "SAGE-LESSON-20260728-004",
+            "title": "Preserve repository formatting to avoid review-obscuring churn",
+            "status": "validated",
+            "contexts": [
+                "repository-governance",
+                "continuous-improvement"
+            ],
+            "match_terms": [
+                "json formatting",
+                "formatting correction",
+                "large diff",
+                "normalize json",
+                "review churn"
+            ],
+            "path_prefixes": [
+                "sage-change-authority.json",
+                "sage-continuous-improvement-policy.json"
+            ],
+            "failure_signature": "A semantically small JSON change appears as hundreds of insertions and deletions because the entire file was reformatted.",
+            "symptoms": [
+                "Commit statistics are much larger than the intended change.",
+                "Reviewers cannot distinguish semantic edits from whitespace churn."
+            ],
+            "root_cause": "The writer used a different indentation convention than the repository-owned file.",
+            "known_resolution": [
+                "Compare parsed JSON before and after to confirm semantic scope.",
+                "Restore the repository's existing indentation.",
+                "Validate the correction with git diff -w."
+            ],
+            "preventive_control": [
+                "Detect and preserve the existing file's serialization style.",
+                "Review numstat and whitespace-insensitive diffs before committing."
+            ],
+            "preflight_detection": [
+                "Fail when a small semantic edit rewrites most of a canonical registry.",
+                "Compare parsed payloads to expected semantic transformations."
+            ],
+            "first_evidence": [
+                "commit:b7ff64d2a5bff672aeb7c814c37e7fb8283f6b64"
+            ],
+            "latest_evidence": [
+                "commit:cb6a60bf23d83d22688b2705cabba91bc3b30233"
+            ],
+            "recurrence_count": 1,
+            "automation_status": "guardrail"
+        },
+        {
+            "lesson_id": "SAGE-LESSON-20260728-005",
+            "title": "Fetch and revalidate remote state before every cohesive mutation",
+            "status": "validated",
+            "contexts": [
+                "repository-governance",
+                "evidence",
+                "continuous-improvement"
+            ],
+            "match_terms": [
+                "feature branch",
+                "frequent push",
+                "frequent pushes",
+                "origin/main",
+                "git fetch",
+                "remote state",
+                "branch synchronization"
+            ],
+            "path_prefixes": [
+                ".github/workflows/"
+            ],
+            "failure_signature": "A local implementation is based on stale main or stale feature-branch state after automation or another actor advances the remote.",
+            "symptoms": [
+                "Local and remote SHAs differ unexpectedly.",
+                "Generated-document automation advances origin/main after publication.",
+                "A subsequent commit is built against an obsolete baseline."
+            ],
+            "root_cause": "Remote state was assumed rather than fetched and compared immediately before mutation.",
+            "known_resolution": [
+                "Run git fetch origin.",
+                "Compare local HEAD, origin/feature branch, and origin/main to expected SHAs.",
+                "Stop and rediscover authority when the baseline advances."
+            ],
+            "preventive_control": [
+                "Require clean, synchronized feature branches before every cohesive edit.",
+                "Push each validated cohesive commit immediately.",
+                "Revalidate when origin/main changes."
+            ],
+            "preflight_detection": [
+                "Check origin/main and the active feature branch against the expected SHAs before mutation.",
+                "Check exact local and remote SHAs before mutation.",
+                "Fail closed on nonzero feature-branch divergence."
+            ],
+            "first_evidence": [
+                "SAGE-K3-OBS-20260728-003"
+            ],
+            "latest_evidence": [
+                "commit:fbeedfbe827e967bac9530522d44b814bc9b6bd4"
+            ],
+            "recurrence_count": 2,
+            "automation_status": "preflight"
+        },
+        {
+            "lesson_id": "SAGE-LESSON-20260728-006",
+            "title": "Use the repository kubeconfig instead of assuming the k3s default path",
+            "status": "accepted",
+            "contexts": [
+                "k3s-cluster",
+                "observability",
+                "centralized-logging"
+            ],
+            "match_terms": [
+                "kubeconfig",
+                "/etc/rancher/k3s/k3s.yaml",
+                "kubectl",
+                "cluster validation"
+            ],
+            "path_prefixes": [
+                "infrastructure/k3s-homelab/playbooks/"
+            ],
+            "failure_signature": "Controller-side Kubernetes validation fails because the workflow assumes a server-local k3s kubeconfig path.",
+            "symptoms": [
+                "kubectl cannot reach the cluster from the controller.",
+                "The expected /etc/rancher/k3s/k3s.yaml file is absent locally."
+            ],
+            "root_cause": "The controller and k3s server have different filesystem and credential contexts.",
+            "known_resolution": [
+                "Use the repository-owned controller kubeconfig.",
+                "Pass KUBECONFIG explicitly to controller-side commands.",
+                "Use remote k3s kubectl only for remote-host validation."
+            ],
+            "preventive_control": [
+                "Separate controller and remote execution paths.",
+                "Never infer kubeconfig location from k3s defaults."
+            ],
+            "preflight_detection": [
+                "Verify the selected kubeconfig exists before cluster commands.",
+                "Print the active kubectl context during validation."
+            ],
+            "first_evidence": [
+                "SAGE-K3-OBS-20260728-002"
+            ],
+            "latest_evidence": [
+                "SAGE-K3-OBS-20260728-003"
+            ],
+            "recurrence_count": 1,
+            "automation_status": "preflight"
+        },
+        {
+            "lesson_id": "SAGE-LESSON-20260728-007",
+            "title": "Do not use standard input for both Python code and piped data",
+            "status": "accepted",
+            "contexts": [
+                "repository-governance",
+                "centralized-logging",
+                "continuous-improvement"
+            ],
+            "match_terms": [
+                "stdin",
+                "piped json",
+                "python -",
+                "pipe python",
+                "standard input"
+            ],
+            "path_prefixes": [],
+            "failure_signature": "A Python command receives either its program text or piped JSON, but not both, causing empty input or syntax failures.",
+            "symptoms": [
+                "The JSON parser receives no data.",
+                "Python interprets piped JSON as source code.",
+                "A validation pipeline fails despite valid upstream output."
+            ],
+            "root_cause": "python - consumes standard input as program source, leaving no independent standard-input channel for piped data.",
+            "known_resolution": [
+                "Use python -c for inline code that reads stdin.",
+                "Write code to a temporary or downloadable script.",
+                "Pass data through a file or command argument."
+            ],
+            "preventive_control": [
+                "Do not combine a Python-source heredoc with piped JSON.",
+                "Choose one explicit channel for code and another for data."
+            ],
+            "preflight_detection": [
+                "Flag pipelines combining a pipe with python - and a heredoc.",
+                "Test pipelines with representative nonempty JSON."
+            ],
+            "first_evidence": [
+                "terminal-session:2026-07-27-stdin-code-data-conflict-001"
+            ],
+            "latest_evidence": [
+                "terminal-session:2026-07-27-stdin-code-data-recovery-001"
+            ],
+            "recurrence_count": 1,
+            "automation_status": "template"
+        },
+        {
+            "lesson_id": "SAGE-LESSON-20260728-008",
+            "title": "Use stabilization windows before classifying logging startup failures",
+            "status": "validated",
+            "contexts": [
+                "observability",
+                "centralized-logging",
+                "storage"
+            ],
+            "match_terms": [
+                "loki",
+                "fluent bit",
+                "429",
+                "old timestamps",
+                "startup pressure",
+                "stabilization window"
+            ],
+            "path_prefixes": [
+                "infrastructure/k3s-homelab/playbooks/templates/loki-",
+                "infrastructure/k3s-homelab/playbooks/templates/fluent-bit-",
+                "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml"
+            ],
+            "failure_signature": "Immediate post-deployment logging checks report transient 429 responses, old timestamps, or startup pressure that clears after the system stabilizes.",
+            "symptoms": [
+                "Collectors retry during Loki startup.",
+                "Recent-query checks initially return old data.",
+                "Resources become ready but telemetry is not yet representative."
+            ],
+            "root_cause": "Readiness and useful steady-state behavior occur on different timelines for stateful logging components.",
+            "known_resolution": [
+                "Separate immediate readiness from stabilization validation.",
+                "Repeat log freshness and error checks after the stabilization window.",
+                "Record both transient and steady-state behavior."
+            ],
+            "preventive_control": [
+                "Require baseline, immediate, stabilization, and trend windows.",
+                "Do not classify transient startup pressure as a persistent defect."
+            ],
+            "preflight_detection": [
+                "Require an explicit stabilization duration in logging validation plans.",
+                "Check restart counts, recent timestamps, and errors after stabilization."
+            ],
+            "first_evidence": [
+                "SAGE-K3-OBS-20260728-002"
+            ],
+            "latest_evidence": [
+                "SAGE-K3-OBS-20260728-003"
+            ],
+            "recurrence_count": 1,
+            "automation_status": "runbook"
+        }
+    ]
 }

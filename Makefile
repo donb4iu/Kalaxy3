@@ -2,6 +2,7 @@
 
 PYTHON ?= python3
 SAGE_PREFLIGHT := $(PYTHON) scripts/sage/sage-change-preflight.py
+SAGE_LESSONS := $(PYTHON) scripts/sage/sage-lessons.py
 SAGE_DISCOVERY_GUARDRAIL := \
 	$(PYTHON) scripts/sage/sage-change-discovery-guardrail.py
 SAGE_INDEX := $(PYTHON) scripts/sage/sage-index.py
@@ -31,12 +32,15 @@ sage-preflight:
 	  exit 2; \
 	}
 	$(SAGE_PREFLIGHT) --request "$$SAGE_REQUEST"
+	$(SAGE_LESSONS) --request "$$SAGE_REQUEST"
 
 sage-changed:
 	$(SAGE_PREFLIGHT) --changed
+	$(SAGE_LESSONS) --changed
 
 sage-self-test:
 	$(SAGE_PREFLIGHT) --self-test
+	$(SAGE_LESSONS) --self-test
 
 sage-discovery-guardrail:
 	$(SAGE_DISCOVERY_GUARDRAIL)
