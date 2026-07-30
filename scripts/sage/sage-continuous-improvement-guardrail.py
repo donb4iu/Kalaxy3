@@ -727,7 +727,7 @@ def validate_session_score_schema(
     schema: Any,
     policy: dict[str, Any],
 ) -> list[str]:
-    """Validate the deterministic session scorecard schema."""
+    # Validate the deterministic scalar-neutral scorecard schema.
     failures: list[str] = []
     if not isinstance(schema, dict):
         return ["session scorecard schema must be an object"]
@@ -790,10 +790,17 @@ def validate_session_score_schema(
             "scorecard derived metrics must reject unknown properties"
         )
 
-    score = schema.get("$defs", {}).get(
-        "prediction_score", {}
-    )
+    definitions = schema.get("$defs", {})
+    score = definitions.get("prediction_score", {})
     score_properties = score.get("properties", {})
+    if score.get("additionalProperties") is not False:
+        failures.append(
+            "prediction scores must reject unknown properties"
+        )
+    if set(score.get("required", [])) != set(score_properties):
+        failures.append(
+            "prediction score fields changed"
+        )
     if score_properties.get(
         "stage", {}
     ).get("enum") != policy.get("prediction_stages"):
@@ -808,15 +815,65 @@ def validate_session_score_schema(
         failures.append(
             "scorecard confidence levels changed"
         )
+    if score_properties.get("actual", {}).get("type") != [
+        "number",
+        "null",
+    ]:
+        failures.append(
+            "prediction actual must allow number or null"
+        )
     if score_properties.get(
         "range_result", {}
     ).get("enum") != [
         "in-range",
         "below-range",
         "above-range",
+        "inconclusive",
     ]:
         failures.append(
             "scorecard range results changed"
+        )
+    for field in (
+        "signed_error",
+        "absolute_error",
+        "range_distance",
+    ):
+        if score_properties.get(field, {}).get("type") != [
+            "number",
+            "null",
+        ]:
+            failures.append(
+                f"prediction {field} must allow number or null"
+            )
+
+    expected_summary_fields = [
+        "total",
+        "conclusive",
+        "in_range",
+        "outside_range",
+        "inconclusive",
+        "range_hit_rate",
+    ]
+    bucket = definitions.get("confidence_bucket", {})
+    if bucket.get("additionalProperties") is not False:
+        failures.append(
+            "confidence buckets must reject unknown properties"
+        )
+    if bucket.get("required") != expected_summary_fields:
+        failures.append(
+            "confidence-bucket fields changed"
+        )
+
+    summary = definitions.get("prediction_summary", {})
+    if summary.get("additionalProperties") is not False:
+        failures.append(
+            "prediction summary must reject unknown properties"
+        )
+    if summary.get("required") != (
+        expected_summary_fields + ["by_confidence"]
+    ):
+        failures.append(
+            "prediction-summary fields changed"
         )
     return failures
 
@@ -1855,6 +1912,49 @@ def mutation_tests(
             "unknown live-session measurements were accepted as zero"
         )
 
+    non_nullable_prediction = copy.deepcopy(
+        session_score_schema
+    )
+    non_nullable_prediction["$defs"]["prediction_score"][
+        "properties"
+    ]["actual"]["type"] = "number"
+    if not validate_session_score_schema(
+        non_nullable_prediction, policy
+    ):
+        failures.append(
+            "non-nullable prediction actual was accepted"
+        )
+
+    no_inconclusive_result = copy.deepcopy(
+        session_score_schema
+    )
+    no_inconclusive_result["$defs"]["prediction_score"][
+        "properties"
+    ]["range_result"]["enum"] = [
+        "in-range",
+        "below-range",
+        "above-range",
+    ]
+    if not validate_session_score_schema(
+        no_inconclusive_result, policy
+    ):
+        failures.append(
+            "prediction schema without inconclusive was accepted"
+        )
+
+    missing_inconclusive_summary = copy.deepcopy(
+        session_score_schema
+    )
+    missing_inconclusive_summary["$defs"][
+        "prediction_summary"
+    ]["required"].remove("inconclusive")
+    if not validate_session_score_schema(
+        missing_inconclusive_summary, policy
+    ):
+        failures.append(
+            "prediction summary without inconclusive was accepted"
+        )
+
     return failures
 
 def main() -> int:
@@ -1956,6 +2056,7 @@ def main() -> int:
     print("PASS immutable versioned prediction policy")
     print("PASS candidate and session schema contracts")
     print("PASS deterministic session scorecard contract")
+    print("PASS scalar-neutral prediction closeout contract")
     print("PASS unavailable session measurements remain nullable")
     print("PASS representative candidate and session records")
     print("PASS foundational change candidate registry")

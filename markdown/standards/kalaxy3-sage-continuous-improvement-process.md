@@ -91,12 +91,19 @@ Derived rates use these rules:
 - lesson usage is applicable lessons used divided by applicable lessons;
 - a zero denominator produces `null`, not a misleading zero.
 
-Prediction scoring uses the recorded point estimate, inclusive range, actual
-value, and confidence. Signed error is actual minus the point estimate.
-Absolute error is the magnitude of signed error. Percentage error is absolute
-error divided by the absolute actual value and is `null` when actual is zero.
-Range distance is zero inside the range and otherwise measures distance to the
-nearest range boundary.
+Prediction scoring compares a declared subject using its declared scalar and
+unit. Time is one possible unit, but it is not privileged: steps, counts,
+complexity points, cost deltas, validation burden, or another explicit scalar
+may be used. The actual value must measure the same subject and unit as the
+prediction; an available but different metric must never be substituted.
+
+When the matching actual scalar is unavailable, `actual`, signed error,
+absolute error, percentage error, and range distance remain `null`, and the
+range result is `inconclusive`. Conclusive range-hit rates exclude those
+unavailable comparisons while retaining explicit total, conclusive, and
+inconclusive counts. For measured actuals, signed error is actual minus the
+point estimate. Percentage error remains `null` when the measured actual is
+zero.
 
 Range-hit rates must be retained by confidence level so calibration can be
 evaluated across comparable sessions. The scorer must not collapse delivery,
