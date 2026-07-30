@@ -29,7 +29,7 @@
         },
         {
             "change_id": "SAGE-CHANGE-20260729-001",
-            "current_status": "decision-ready",
+            "current_status": "sequenced",
             "branch": "feature/sage-metrics-pilot",
             "baseline_commit": "88428fa62e7feaa35c50ae5bb3707aaf51130f8c",
             "execution_scope": "repository-only",
@@ -82,6 +82,22 @@
                         "commit:ada9d15d1c0870f38a2c7df07d4ec0d999436a4d"
                     ],
                     "candidate_commit": "ada9d15d1c0870f38a2c7df07d4ec0d999436a4d"
+                },
+                {
+                    "sequence": 4,
+                    "from_status": "decision-ready",
+                    "to_status": "sequenced",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-07-29T23:48:43-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Sequence the repository-only pilot using its recorded implementation outline and validation plan.",
+                    "validation_references": [
+                        "candidate:implementation-outline",
+                        "candidate:validation-plan",
+                        "session:SAGE-SESSION-20260729-001",
+                        "commit:8ae552f0382209e99bf54472caf818567dec6248"
+                    ],
+                    "candidate_commit": "8ae552f0382209e99bf54472caf818567dec6248"
                 }
             ]
         }
