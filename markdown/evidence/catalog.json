@@ -1,7 +1,7 @@
 {
-  "catalog_fingerprint": "72d26c660e51b074c62657d1ebaf48011bde5d04cb7532b12a78a590abade6e3",
+  "catalog_fingerprint": "6bfe276928690cad070281edfe4153d6bb8bae3d35d4aa6c7be2bbad05d9feac",
   "catalog_schema_version": "1.0",
-  "record_count": 31,
+  "record_count": 32,
   "records": [
     {
       "completed_at": "2026-07-25T21:01:00-05:00",
@@ -208,6 +208,34 @@
       ],
       "title": "Kalaxy3 SAGE Continuous-Improvement Foundation Staged Implementation Evidence",
       "valid_as_of": "2026-07-29"
+    },
+    {
+      "completed_at": "2026-07-29T23:52:25-05:00",
+      "confidence": "high",
+      "evidence_id": "SAGE-K3-SAGE-20260729-002",
+      "metadata_source": "authoritative",
+      "migration_status": "current",
+      "nav_order": 270,
+      "nav_section": "governance",
+      "nav_title": "Validate the first SAGE metrics pilot",
+      "owner": "Kalaxy3 architecture",
+      "primary_subject": "SAGE continuous improvement metrics pilot",
+      "record_class": "sage-current",
+      "schema_version": "1.2",
+      "source_path": "markdown/governance/kalaxy3-sage-metrics-pilot-evidence.md",
+      "status": "validated",
+      "summary": "Documents the first repository-owned live SAGE metrics pilot, truthful null handling, scalar-neutral predictions, repository-only lifecycle validation, and closed deployment gate.",
+      "tags": [
+        "sage",
+        "continuous-improvement",
+        "metrics-pilot",
+        "active-session",
+        "prediction-scoring",
+        "repository-only",
+        "governance"
+      ],
+      "title": "Kalaxy3 SAGE Fully Instrumented Metrics Pilot Implementation Evidence",
+      "valid_as_of": "2026-07-30"
     },
     {
       "completed_at": "2026-06-01T19:16:12-05:00",
