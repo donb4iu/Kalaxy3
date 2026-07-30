@@ -48,6 +48,7 @@
     "session_score_path": "scripts/sage/sage-session-score.py",
     "active_session_path": "scripts/sage/sage-active-session.py",
     "active_session_guardrail_path": "scripts/sage/sage-active-session-guardrail.py",
+    "session_close_path": "scripts/sage/sage-session-close.py",
     "required_session_raw_metrics": [
         "commands_executed",
         "commands_failed",
