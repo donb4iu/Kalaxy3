@@ -428,6 +428,10 @@ Unknown values are represented as `null`. A numeric zero means the value was
 measured and the measured result was zero. Missing or unmeasured values must
 never be silently converted to zero.
 
+This rule continues into completed-session scorecards. Avoidable rework and
+prompt-to-validated-change duration remain `null` when no measurement exists;
+session completion does not manufacture a numeric value.
+
 The canonical ledger stores non-sensitive command labels and command digests.
 Raw command text may be retained only after redaction review. Credentials,
 tokens, passwords, and secret values are prohibited.

@@ -104,7 +104,7 @@ def require_number(
     return number
 
 
-def validate_raw_metrics(raw: Any) -> dict[str, float | int]:
+def validate_raw_metrics(raw: Any) -> dict[str, float | int | None]:
     """Validate raw session measurements and cross-field invariants."""
     if not isinstance(raw, dict):
         raise ValueError("raw_metrics must be an object")
@@ -113,15 +113,19 @@ def validate_raw_metrics(raw: Any) -> dict[str, float | int]:
             "raw_metrics must preserve the canonical field order"
         )
 
-    validated: dict[str, float | int] = {}
+    validated: dict[str, float | int | None] = {}
+    nullable_metrics = {
+        "avoidable_rework_minutes",
+        "prompt_to_validated_change_minutes",
+    }
     for key in RAW_METRICS:
+        if key in nullable_metrics and raw[key] is None:
+            validated[key] = None
+            continue
         validated[key] = require_number(
             raw[key],
             label=f"raw_metrics.{key}",
-            integer=key not in {
-                "avoidable_rework_minutes",
-                "prompt_to_validated_change_minutes",
-            },
+            integer=key not in nullable_metrics,
         )
 
     invariants = [
@@ -556,6 +560,28 @@ def self_test() -> list[str]:
             "zero denominators must produce null rates"
         )
 
+    unavailable_measurements = representative_input()
+    unavailable_measurements["raw_metrics"][
+        "avoidable_rework_minutes"
+    ] = None
+    unavailable_measurements["raw_metrics"][
+        "prompt_to_validated_change_minutes"
+    ] = None
+    unavailable_result = score_session(unavailable_measurements)
+    if (
+        unavailable_result["raw_metrics"][
+            "avoidable_rework_minutes"
+        ]
+        is not None
+        or unavailable_result["raw_metrics"][
+            "prompt_to_validated_change_minutes"
+        ]
+        is not None
+    ):
+        failures.append(
+            "unavailable session measurements must remain null"
+        )
+
     negative_cases: list[tuple[str, dict[str, Any]]] = []
 
     failed_gt_total = representative_input()
@@ -640,6 +666,9 @@ def main() -> int:
         )
         print(
             "PASS zero denominators and zero actuals return null"
+        )
+        print(
+            "PASS unavailable raw measurements remain null"
         )
         print(
             "PASS confidence-bucket range-hit summaries"

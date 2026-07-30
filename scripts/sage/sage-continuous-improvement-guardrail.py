@@ -765,6 +765,18 @@ def validate_session_score_schema(
         failures.append(
             "scorecard raw metrics must reject unknown properties"
         )
+    raw_properties = raw.get("properties", {})
+    for metric in (
+        "avoidable_rework_minutes",
+        "prompt_to_validated_change_minutes",
+    ):
+        if raw_properties.get(metric, {}).get("type") != [
+            "number",
+            "null",
+        ]:
+            failures.append(
+                f"scorecard {metric} must allow number or null"
+            )
 
     derived = properties.get("derived_metrics", {})
     if derived.get("required") != policy.get(
@@ -1816,6 +1828,22 @@ def mutation_tests(
         failures.append(
             "session scorecard schema weakening was accepted"
         )
+    for metric in (
+        "avoidable_rework_minutes",
+        "prompt_to_validated_change_minutes",
+    ):
+        non_nullable_score_schema = copy.deepcopy(
+            session_score_schema
+        )
+        non_nullable_score_schema["properties"]["raw_metrics"][
+            "properties"
+        ][metric]["type"] = "number"
+        if not validate_session_score_schema(
+            non_nullable_score_schema, policy
+        ):
+            failures.append(
+                f"non-nullable scorecard metric accepted: {metric}"
+            )
     weakened_live_policy = copy.deepcopy(policy)
     weakened_live_policy[
         "live_session_measurement_policy"
@@ -1928,6 +1956,7 @@ def main() -> int:
     print("PASS immutable versioned prediction policy")
     print("PASS candidate and session schema contracts")
     print("PASS deterministic session scorecard contract")
+    print("PASS unavailable session measurements remain nullable")
     print("PASS representative candidate and session records")
     print("PASS foundational change candidate registry")
     print("PASS discovery prediction v1 remains immutable")

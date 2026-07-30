@@ -94,11 +94,17 @@
                     "minimum": 0
                 },
                 "avoidable_rework_minutes": {
-                    "type": "number",
+                    "type": [
+                        "number",
+                        "null"
+                    ],
                     "minimum": 0
                 },
                 "prompt_to_validated_change_minutes": {
-                    "type": "number",
+                    "type": [
+                        "number",
+                        "null"
+                    ],
                     "minimum": 0
                 }
             }
