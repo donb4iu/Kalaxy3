@@ -1,5 +1,32 @@
 {
     "schema_version": "1.0",
     "registry_type": "active-sessions",
-    "sessions": []
+    "sessions": [
+        {
+            "schema_version": "1.0",
+            "session_id": "SAGE-SESSION-20260729-001",
+            "change_id": "SAGE-CHANGE-20260729-001",
+            "status": "active",
+            "branch": "feature/sage-metrics-pilot",
+            "baseline_commit": "88428fa62e7feaa35c50ae5bb3707aaf51130f8c",
+            "started_at": "2026-07-29T21:05:35-05:00",
+            "measurement_boundary": {
+                "included_from": "The first command executed through ~/Downloads/sage-metrics-run.py",
+                "excluded_prior_commands": [
+                    "Repository synchronization",
+                    "Initial SAGE preflight",
+                    "Feature-branch creation",
+                    "Feature-branch publication",
+                    "This external metrics-ledger bootstrap"
+                ],
+                "reason": "The repository did not yet provide a live session recorder. These commands remain contextual evidence but are excluded from canonical raw command counts."
+            },
+            "prediction_versions": [
+                1
+            ],
+            "runtime_ledger": ".sage/active-sessions/SAGE-SESSION-20260729-001/events.jsonl",
+            "command_storage_policy": "label-and-digest-only",
+            "deployment_gate": "closed"
+        }
+    ]
 }
