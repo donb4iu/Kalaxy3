@@ -25,7 +25,7 @@ SECRET_PATTERNS: Final = (
     re.compile(r"(?i)\bauthorization:\s*bearer\s+\S+"),
     re.compile(
         r"(?i)\b(api[_-]?key|access[_-]?token|password)"
-        r"\s*[:=]\s*[^\s<>{}]+"
+        r"\s*[:=]\s*(?!\$\{\{\s*secrets\.)[^\s<>{}]+"
     ),
 )
 
@@ -736,6 +736,14 @@ def self_test() -> list[str]:
     )
     if not secret_findings(synthetic_secret):
         failures.append("Secret scanner negative test failed")
+
+    github_secret_reference = (
+        "pass" + "word: ${{ secrets.DOCKERHUB_TOKEN }}"
+    )
+    if secret_findings(github_secret_reference):
+        failures.append(
+            "GitHub Actions secret reference false-positive"
+        )
     return failures
 
 
