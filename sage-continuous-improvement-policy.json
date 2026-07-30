@@ -7,6 +7,7 @@
         "lessons": "sage-lessons.json",
         "improvement_actions": "sage-improvement-actions.json",
         "sessions": "sage-session-improvement-registry.json",
+        "active_sessions": "sage-active-session-registry.json",
         "feedback_baselines": "sage-feedback-baseline-registry.json",
         "candidate_lifecycle": "sage-change-candidate-lifecycle-registry.json",
         "improvement_baselines": "sage-continuous-improvement-baseline-registry.json",
@@ -45,6 +46,8 @@
         "validated"
     ],
     "session_score_path": "scripts/sage/sage-session-score.py",
+    "active_session_path": "scripts/sage/sage-active-session.py",
+    "active_session_guardrail_path": "scripts/sage/sage-active-session-guardrail.py",
     "required_session_raw_metrics": [
         "commands_executed",
         "commands_failed",
@@ -316,6 +319,7 @@
     "contracts": {
         "change_candidate_schema": "markdown/standards/sage-change-candidate-schema-v1.0.json",
         "session_improvement_schema": "markdown/standards/sage-session-improvement-schema-v1.0.json",
+        "active_session_schema": "markdown/standards/sage-active-session-schema-v1.0.json",
         "session_scorecard_schema": "markdown/standards/sage-session-scorecard-schema-v1.0.json",
         "feedback_comparison_schema": "markdown/standards/sage-feedback-comparison-schema-v1.0.json",
         "candidate_lifecycle_schema": "markdown/standards/sage-change-candidate-lifecycle-schema-v1.0.json",

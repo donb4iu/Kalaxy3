@@ -240,3 +240,6 @@ infrastructure/k3s-homelab/.helm/
 /.mkdocs-venv/
 /.mkdocs-work/
 # END KALAXY3 MKDOCS STAGED OUTPUT
+
+# SAGE local active-session runtime ledgers
+.sage/active-sessions/

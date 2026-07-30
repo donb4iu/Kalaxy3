@@ -435,6 +435,35 @@ tokens, passwords, and secret values are prohibited.
 The live-session measurement policy does not create a composite score and does
 not open any deployment or activation gate.
 
+### Repository-owned active sessions
+
+An active session is separate from the completed session-improvement registry.
+The active-session registry contains only sessions that are currently being
+measured. A completed session is created later, after implementation,
+validation, prediction comparison, and post-session review are available.
+
+The repository-owned recorder supports four operations:
+
+- `start` registers a declared measurement boundary and opens the local event
+  ledger;
+- `run` executes one classified command and stores only its non-sensitive
+  label, SHA-256 command digest, timing, outcome, lesson use, and correction
+  metadata;
+- `note` records a baseline, observation, decision, limitation, or evidence
+  gap;
+- `status` summarizes raw active-session events without inventing missing
+  measurements.
+
+Runtime ledgers are written under `.sage/active-sessions/` and are excluded
+from Git. The tracked active-session registry stores the session identity,
+branch, baseline commit, prediction versions, measurement boundary, and local
+ledger location. Credentials, secret values, and raw command text are not
+permitted in the canonical event format.
+
+Starting or closing a session is an explicit mutation. The recorder does not
+open a deployment gate, activate a staged implementation, or mutate the
+cluster.
+
 ## Post-session review
 
 ### Machine-readable review and lesson-to-control decisions

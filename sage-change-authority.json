@@ -199,7 +199,10 @@
                 "scripts/sage/sage-learning",
                 "sage-post-session-review-",
                 "markdown/standards/sage-post-session-review-",
-                "scripts/sage/sage-post-session-review"
+                "scripts/sage/sage-post-session-review",
+                "sage-active-session-",
+                "markdown/standards/sage-active-session-",
+                "scripts/sage/sage-active-session"
             ],
             "requires": [
                 "repository-governance",
@@ -241,9 +244,14 @@
                 "sage-post-session-review-registry.json",
                 "markdown/standards/sage-post-session-review-schema-v1.0.json",
                 "scripts/sage/sage-post-session-review.py",
-                "scripts/sage/sage-post-session-review-guardrail.py"
+                "scripts/sage/sage-post-session-review-guardrail.py",
+                "sage-active-session-registry.json",
+                "markdown/standards/sage-active-session-schema-v1.0.json",
+                "scripts/sage/sage-active-session.py",
+                "scripts/sage/sage-active-session-guardrail.py"
             ],
             "baseline_checks": [
+                "make sage-active-session-self-test",
                 "make sage-review-self-test",
                 "make sage-learning-self-test",
                 "make sage-candidate-self-test",
@@ -254,6 +262,7 @@
                 "make sage-index-check"
             ],
             "required_validation": [
+                "make sage-active-session-self-test",
                 "make sage-review-self-test",
                 "make sage-learning-self-test",
                 "make sage-candidate-self-test",
