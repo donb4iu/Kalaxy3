@@ -79,8 +79,32 @@ def load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def registry_count(path: Path, collection: str) -> int:
-    payload = load_json(path)
+def repository_relative(path: Path) -> str:
+    return path.relative_to(ROOT).as_posix()
+
+
+def load_json_at_commit(
+    path: Path,
+    commit: str,
+) -> Any | None:
+    try:
+        payload = git_output(
+            "show",
+            f"{commit}:{repository_relative(path)}",
+        )
+    except subprocess.CalledProcessError:
+        return None
+    return json.loads(payload)
+
+
+def registry_count(
+    path: Path,
+    collection: str,
+    commit: str,
+) -> int:
+    payload = load_json_at_commit(path, commit)
+    if payload is None:
+        return 0
     values = payload.get(collection)
     if not isinstance(values, list):
         raise ValueError(
@@ -153,9 +177,15 @@ def git_metrics(
     }
 
 
-def registry_metrics() -> dict[str, int]:
+def registry_metrics(
+    current_commit: str,
+) -> dict[str, int]:
     return {
-        key: registry_count(path, collection)
+        key: registry_count(
+            path,
+            collection,
+            current_commit,
+        )
         for key, (path, collection) in REGISTRIES.items()
     }
 
@@ -183,10 +213,21 @@ def session_process_metrics(
 
 def prediction_reference(
     change_id: str,
+    current_commit: str,
 ) -> dict[str, Any]:
-    candidates = load_json(
-        REGISTRIES["change_candidates"][0]
-    )["candidates"]
+    payload = load_json_at_commit(
+        REGISTRIES["change_candidates"][0],
+        current_commit,
+    )
+    if payload is None:
+        return {
+            "status": "unavailable",
+            "reason": (
+                "The change-candidate registry did not exist at "
+                f"commit {current_commit}."
+            ),
+        }
+    candidates = payload["candidates"]
     matches = [
         item
         for item in candidates
@@ -234,7 +275,7 @@ def extract_baseline(
         captured_at.replace("Z", "+00:00")
     )
 
-    metrics = registry_metrics()
+    metrics = registry_metrics(current_commit)
     process = session_process_metrics(
         metrics["sessions"]
     )
@@ -253,7 +294,8 @@ def extract_baseline(
         "registry_metrics": metrics,
         "process_metrics": process,
         "prediction_reference": prediction_reference(
-            change_id
+            change_id,
+            current_commit,
         ),
         "measurement_quality": {
             "git": "measured",
