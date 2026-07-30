@@ -183,7 +183,7 @@
             "change_id": "SAGE-CHANGE-20260729-001",
             "title": "Add live SAGE session metrics and metrics-pilot discovery",
             "request": "Begin the first fully instrumented Kalaxy3 SAGE metrics pilot. Register the change, prediction, baseline, and canonical session before implementation. Capture raw delivery and learning metrics from the first command onward, preserve operations and economics as separate feedback planes, keep unavailable measurements null, and do not enable a composite score or open any deployment gate.",
-            "status": "sized",
+            "status": "decision-ready",
             "branch": "feature/sage-metrics-pilot",
             "baseline_commit": "88428fa62e7feaa35c50ae5bb3707aaf51130f8c",
             "contexts": [
