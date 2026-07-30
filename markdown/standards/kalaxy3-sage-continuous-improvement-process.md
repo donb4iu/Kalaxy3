@@ -460,6 +460,11 @@ branch, baseline commit, prediction versions, measurement boundary, and local
 ledger location. Credentials, secret values, and raw command text are not
 permitted in the canonical event format.
 
+Command events also preserve whether a known failure was encountered and
+whether that known failure recurred. These are separate from the command's
+exit status: a command can fail for a new reason, or succeed while still
+revealing a previously documented failure pattern.
+
 Starting or closing a session is an explicit mutation. The recorder does not
 open a deployment gate, activate a staged implementation, or mutate the
 cluster.

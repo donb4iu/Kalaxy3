@@ -355,6 +355,16 @@ def summarize(
             for event in commands
             if event["failure_detected_pre_mutation"]
         ),
+        "known_failures_encountered": sum(
+            1
+            for event in commands
+            if event["known_failure_encountered"]
+        ),
+        "known_failures_recurred": sum(
+            1
+            for event in commands
+            if event["known_failure_recurred"]
+        ),
         "applicable_lessons": len(applicable),
         "applicable_lessons_used": len(used),
         "avoidable_rework_minutes": rework_total,
@@ -517,6 +527,12 @@ def handle_run(args: argparse.Namespace) -> int:
         "failure_detected_pre_mutation": (
             args.failure_detected_pre_mutation
         ),
+        "known_failure_encountered": (
+            args.known_failure_encountered
+        ),
+        "known_failure_recurred": (
+            args.known_failure_recurred
+        ),
         "applicable_lesson_ids": applicable,
         "used_lesson_ids": used,
         "avoidable_rework_minutes": (
@@ -625,6 +641,8 @@ def self_test() -> list[str]:
             "manual_correction_reason": None,
             "mutation_opportunity": True,
             "failure_detected_pre_mutation": False,
+            "known_failure_encountered": False,
+            "known_failure_recurred": False,
             "applicable_lesson_ids": [],
             "used_lesson_ids": [],
             "avoidable_rework_minutes": None,
@@ -635,6 +653,10 @@ def self_test() -> list[str]:
             failures.append("command count changed")
         if summary["avoidable_rework_minutes"] is not None:
             failures.append("unknown rework did not remain null")
+        if summary["known_failures_encountered"] != 0:
+            failures.append("known-failure encounter count changed")
+        if summary["known_failures_recurred"] != 0:
+            failures.append("known-failure recurrence count changed")
 
         unsafe = dict(event)
         unsafe["command_text"] = "secret"
@@ -706,6 +728,14 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
     )
     run_parser.add_argument(
+        "--known-failure-encountered",
+        action="store_true",
+    )
+    run_parser.add_argument(
+        "--known-failure-recurred",
+        action="store_true",
+    )
+    run_parser.add_argument(
         "--applicable-lesson",
         action="append",
         default=[],
@@ -766,6 +796,7 @@ def main() -> int:
         print("PASS duplicate session rejection")
         print("PASS label-and-digest-only command storage")
         print("PASS unknown measurements remain null")
+        print("PASS known-failure metrics are preserved")
         print("PASS unsafe raw command data is rejected")
         print("Kalaxy3 SAGE active-session self-test: PASS")
         return 0

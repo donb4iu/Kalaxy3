@@ -96,6 +96,14 @@ def validate_schema(payload: Any) -> list[str]:
     ).get("properties", {})
     if "command" in command_properties or "command_text" in command_properties:
         failures.append("raw command field added to event schema")
+    required_known_failure_fields = {
+        "known_failure_encountered",
+        "known_failure_recurred",
+    }
+    if not required_known_failure_fields.issubset(
+        set(command_properties)
+    ):
+        failures.append("known-failure event fields are incomplete")
     return failures
 
 
@@ -212,7 +220,7 @@ def main() -> int:
 
     print("PASS canonical active-session policy references")
     print("PASS active-session and event schema contract")
-    print("PASS empty active-session registry")
+    print("PASS valid active-session registry")
     print("PASS authority and path classification")
     print("PASS local runtime ledger exclusion")
     print("PASS duplicate and open-gate mutation negatives")

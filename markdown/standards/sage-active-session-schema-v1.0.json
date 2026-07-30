@@ -113,6 +113,8 @@
                 "manual_correction_reason",
                 "mutation_opportunity",
                 "failure_detected_pre_mutation",
+                "known_failure_encountered",
+                "known_failure_recurred",
                 "applicable_lesson_ids",
                 "used_lesson_ids",
                 "avoidable_rework_minutes"
@@ -184,6 +186,12 @@
                     "type": "boolean"
                 },
                 "failure_detected_pre_mutation": {
+                    "type": "boolean"
+                },
+                "known_failure_encountered": {
+                    "type": "boolean"
+                },
+                "known_failure_recurred": {
                     "type": "boolean"
                 },
                 "applicable_lesson_ids": {
