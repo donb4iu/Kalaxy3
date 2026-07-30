@@ -29,7 +29,7 @@
         },
         {
             "change_id": "SAGE-CHANGE-20260729-001",
-            "current_status": "discovery-needed",
+            "current_status": "sized",
             "branch": "feature/sage-metrics-pilot",
             "baseline_commit": "88428fa62e7feaa35c50ae5bb3707aaf51130f8c",
             "execution_scope": "repository-only",
@@ -50,6 +50,22 @@
                         "make:sage-guardrails@f1d1116c58924e3987115085f0fb0af3fbcbebf5"
                     ],
                     "candidate_commit": "f1d1116c58924e3987115085f0fb0af3fbcbebf5"
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "discovery-needed",
+                    "to_status": "sized",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-07-29T23:48:35-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Accept the registered multidimensional sizing and its explicit confidence basis for the repository-only pilot.",
+                    "validation_references": [
+                        "candidate:sizing",
+                        "candidate:discovery-prediction-v1",
+                        "session:SAGE-SESSION-20260729-001",
+                        "commit:235174a258eab319d6d643487e80af6ddba24ea8"
+                    ],
+                    "candidate_commit": "235174a258eab319d6d643487e80af6ddba24ea8"
                 }
             ]
         }
