@@ -96,6 +96,54 @@
             ]
         },
         {
+            "id": "evidence-orchestration",
+            "priority": 22,
+            "match_terms": [
+                "evidence orchestration",
+                "evidence orchestrator",
+                "evidence generation",
+                "evidence package",
+                "canonical evidence request",
+                "sage evidence prepare",
+                "sage evidence brief",
+                "secret reference"
+            ],
+            "path_prefixes": [
+                "sage-evidence-policy.json",
+                "scripts/sage/sage-evidence-orchestrator.py",
+                "scripts/sage/sage-evidence-orchestration-guardrail.py",
+                "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md"
+            ],
+            "requires": [
+                "repository-governance",
+                "evidence"
+            ],
+            "working_directory": ".",
+            "authoritative_files": [
+                "sage-evidence-policy.json",
+                "scripts/sage/sage-evidence-orchestrator.py",
+                "scripts/sage/sage-evidence-orchestration-guardrail.py",
+                "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md",
+                "markdown/standards/kalaxy3-sage-evidence-record-standard.md",
+                "markdown/standards/sage-evidence-metadata-contract-v1.2.json"
+            ],
+            "baseline_checks": [
+                "make sage-index-check",
+                "make sage-evidence-guardrail"
+            ],
+            "required_validation": [
+                "make sage-index-check",
+                "make sage-evidence-self-test",
+                "make sage-evidence-guardrail"
+            ],
+            "evidence_process": [
+                "Preserve original requester language and the canonical generation request.",
+                "Capture authority files and supplied terminal evidence without exposing credentials.",
+                "Produce the repository-owned generation-input bundle before package publication.",
+                "Publish only through scripts/sage/sage-publish.py."
+            ]
+        },
+        {
             "id": "continuous-improvement",
             "priority": 25,
             "match_terms": [
