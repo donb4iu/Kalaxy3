@@ -26,6 +26,32 @@
                 }
             ],
             "execution_scope": "repository-only"
+        },
+        {
+            "change_id": "SAGE-CHANGE-20260729-001",
+            "current_status": "discovery-needed",
+            "branch": "feature/sage-metrics-pilot",
+            "baseline_commit": "88428fa62e7feaa35c50ae5bb3707aaf51130f8c",
+            "execution_scope": "repository-only",
+            "deployment_gate_required": true,
+            "revalidation_required": true,
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "discovery-needed",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-07-29T23:44:12-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register the fully instrumented metrics pilot as repository-only while preserving its current discovery-needed status and closed deployment gate.",
+                    "validation_references": [
+                        "commit:f1d1116c58924e3987115085f0fb0af3fbcbebf5",
+                        "session:SAGE-SESSION-20260729-001",
+                        "make:sage-guardrails@f1d1116c58924e3987115085f0fb0af3fbcbebf5"
+                    ],
+                    "candidate_commit": "f1d1116c58924e3987115085f0fb0af3fbcbebf5"
+                }
+            ]
         }
     ]
 }
