@@ -5,6 +5,7 @@ SAGE_PREFLIGHT := $(PYTHON) scripts/sage/sage-change-preflight.py
 SAGE_LESSONS := $(PYTHON) scripts/sage/sage-lessons.py
 SAGE_SESSION_SCORE := $(PYTHON) scripts/sage/sage-session-score.py
 SAGE_ACTIVE_SESSION := $(PYTHON) scripts/sage/sage-active-session.py
+SAGE_SESSION_CLOSE := $(PYTHON) scripts/sage/sage-session-close.py
 SAGE_ACTIVE_SESSION_GUARDRAIL := $(PYTHON) scripts/sage/sage-active-session-guardrail.py
 SAGE_FEEDBACK_COMPARE := $(PYTHON) scripts/sage/sage-feedback-compare.py
 SAGE_FEEDBACK_GUARDRAIL := $(PYTHON) scripts/sage/sage-feedback-guardrail.py
@@ -69,6 +70,9 @@ sage-active-session-self-test:
 	$(SAGE_ACTIVE_SESSION) --self-test
 	$(SAGE_ACTIVE_SESSION_GUARDRAIL)
 
+sage-session-close-self-test:
+	$(SAGE_SESSION_CLOSE) --self-test
+
 sage-session-self-test:
 	$(SAGE_SESSION_SCORE) --self-test
 
@@ -94,7 +98,7 @@ sage-improvement-policy-check:
 
 sage-guardrails: sage-self-test sage-discovery-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
-                 sage-active-session-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check
+                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check
 	@echo "Kalaxy3 repository SAGE guardrails: PASS"
 
 .PHONY: sage-evidence-brief sage-evidence-prepare \
@@ -183,3 +187,4 @@ docs-mkdocs-generate: docs-mkdocs-stage
 		--destination docs
 	@echo "Kalaxy3 MkDocs generated documentation: PASS"
 # END KALAXY3 MKDOCS STAGED TARGETS
+.PHONY: sage-session-close-self-test

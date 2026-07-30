@@ -473,7 +473,7 @@ The active-session registry contains only sessions that are currently being
 measured. A completed session is created later, after implementation,
 validation, prediction comparison, and post-session review are available.
 
-The repository-owned recorder supports four operations:
+The repository-owned active-session workflow supports five operations:
 
 - `start` registers a declared measurement boundary and opens the local event
   ledger;
@@ -483,7 +483,10 @@ The repository-owned recorder supports four operations:
 - `note` records a baseline, observation, decision, limitation, or evidence
   gap;
 - `status` summarizes raw active-session events without inventing missing
-  measurements.
+  measurements;
+- `close` validates a completed-session draft, self-records the terminal
+  repository-mutation event, and moves the session from the active registry
+  to the completed-session registry.
 
 Runtime ledgers are written under `.sage/active-sessions/` and are excluded
 from Git. The tracked active-session registry stores the session identity,
@@ -499,6 +502,16 @@ revealing a previously documented failure pattern.
 Starting or closing a session is an explicit mutation. The recorder does not
 open a deployment gate, activate a staged implementation, or mutate the
 cluster.
+
+The repository-owned close command is dry-run by default and requires
+explicit `--apply`. It must be invoked directly rather than as a child of
+`sage-active-session.py run`, because the close operation removes the active
+registry entry after recording its own terminal command event. Before apply,
+it requires a clean synchronized feature branch, a validated repository-only
+candidate, a closed deployment gate, published evidence references, and a
+completed-session draft whose unavailable measurements remain `null`. The
+ledger and both registries are restored if validation or registry mutation
+fails.
 
 ## Post-session review
 

@@ -288,6 +288,14 @@ def validate_policy(payload: Any) -> list[str]:
                 f"{label} does not exist: {relative}"
             )
 
+    session_close_path = payload.get("session_close_path")
+    if session_close_path != (
+        "scripts/sage/sage-session-close.py"
+    ):
+        failures.append("session_close_path changed")
+    elif not (ROOT / session_close_path).is_file():
+        failures.append("session close script is missing")
+
     session_score_path = payload.get("session_score_path")
     if session_score_path != (
         "scripts/sage/sage-session-score.py"
