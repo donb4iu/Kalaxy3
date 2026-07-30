@@ -24,7 +24,8 @@
                     ],
                     "candidate_commit": "fbeedfbe827e967bac9530522d44b814bc9b6bd4"
                 }
-            ]
+            ],
+            "execution_scope": "repository-only"
         }
     ]
 }

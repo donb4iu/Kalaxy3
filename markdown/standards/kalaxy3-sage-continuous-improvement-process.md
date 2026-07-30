@@ -298,7 +298,9 @@ state, cluster state, cost baselines, and telemetry may change.
 Candidate status is governed by an append-only lifecycle registry rather
 than an unrecorded status edit.
 
-The lifecycle is:
+The lifecycle begins with the same discovery, sizing, decision, sequencing, and
+staged-implementation states for every candidate. The terminal path then
+depends on execution scope:
 
 ```text
 discovery-needed
@@ -306,13 +308,15 @@ discovery-needed
   → decision-ready
   → sequenced
   → staged-implementation
-  → active
-  → validated
-  → closed
+      → active → validated → closed       (deployment)
+      → validated → closed                (repository-only)
 ```
 
-Supported rework transitions return a candidate to the nearest appropriate
-earlier state. `superseded` and `closed` are terminal.
+Repository-only validation does not mean activation. It confirms that the
+committed repository change passed its declared repository validation while
+the deployment gate remained closed. Supported rework transitions return a
+candidate to the nearest appropriate earlier state. `superseded` and `closed`
+are terminal.
 
 Every transition must preserve:
 
@@ -335,6 +339,18 @@ A staged implementation cannot become active unless:
 - the local and remote feature branch are synchronized;
 - validation evidence is supplied;
 - the expected commit matches `HEAD`.
+
+A staged implementation may move directly to `validated` only when its
+lifecycle is explicitly registered as `repository-only`, its deployment gate
+is closed, revalidation is current, the candidate branch is checked out and
+synchronized, validation references are supplied, and the expected commit
+matches `HEAD`. This path must not create an `active` event or claim deployment
+or cluster validation.
+
+Lifecycle registration is also dry-run by default and requires explicit
+`--apply`. Registration records the candidate's current status, execution
+scope, branch, baseline, validation references, and candidate commit without
+advancing the candidate.
 
 The foundational continuous-improvement candidate remains a staged
 implementation with a closed deployment gate. This capability does not

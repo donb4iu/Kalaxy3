@@ -385,6 +385,7 @@
             "staged-implementation": [
                 "sequenced",
                 "active",
+                "validated",
                 "superseded"
             ],
             "active": [
@@ -412,7 +413,17 @@
         "dry_run_default": true,
         "apply_requires_explicit_flag": true,
         "rollback_on_write_failure": true,
-        "staged_term": "staged implementation"
+        "staged_term": "staged implementation",
+        "required_repository_only_validation_conditions": [
+            "lifecycle-scope-repository-only",
+            "deployment-gate-closed",
+            "revalidation-current",
+            "candidate-branch-checked-out",
+            "feature-branch-synchronized",
+            "validation-reference-present",
+            "expected-head-matches",
+            "active-status-bypassed"
+        ]
     },
     "improvement_action_path": "scripts/sage/sage-improvement-actions.py",
     "baseline_extract_path": "scripts/sage/sage-baseline-extract.py",
