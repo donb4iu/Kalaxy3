@@ -29,7 +29,7 @@
         },
         {
             "change_id": "SAGE-CHANGE-20260729-001",
-            "current_status": "staged-implementation",
+            "current_status": "validated",
             "branch": "feature/sage-metrics-pilot",
             "baseline_commit": "88428fa62e7feaa35c50ae5bb3707aaf51130f8c",
             "execution_scope": "repository-only",
@@ -115,6 +115,27 @@
                         "commit:47201cb6385e35bfe79984745ab1b1715a1c59ad"
                     ],
                     "candidate_commit": "47201cb6385e35bfe79984745ab1b1715a1c59ad"
+                },
+                {
+                    "sequence": 6,
+                    "from_status": "staged-implementation",
+                    "to_status": "validated",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-07-29T23:52:25-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Validate the staged repository-only metrics pilot after the full repository-owned SAGE test and guardrail suite passed, while preserving the closed deployment gate and without claiming activation or cluster validation.",
+                    "validation_references": [
+                        "commit:ea3c707dbb8f781b36d45732c69d2e393af4c437",
+                        "make:sage-candidate-self-test",
+                        "make:sage-improvement-policy-check",
+                        "make:sage-session-self-test",
+                        "make:sage-active-session-self-test",
+                        "make:sage-review-self-test",
+                        "make:sage-learning-self-test",
+                        "make:sage-guardrails",
+                        "session:SAGE-SESSION-20260729-001"
+                    ],
+                    "candidate_commit": "ea3c707dbb8f781b36d45732c69d2e393af4c437"
                 }
             ]
         }
