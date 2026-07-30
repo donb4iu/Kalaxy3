@@ -432,6 +432,10 @@ This rule continues into completed-session scorecards. Avoidable rework and
 prompt-to-validated-change duration remain `null` when no measurement exists;
 session completion does not manufacture a numeric value.
 
+Post-session failure reviews apply the same rule. A failed command does not
+prove a measured amount of avoidable rework; the per-failure value remains
+`null` unless that duration was explicitly measured.
+
 The canonical ledger stores non-sensitive command labels and command digests.
 Raw command text may be retained only after redaction review. Credentials,
 tokens, passwords, and secret values are prohibited.

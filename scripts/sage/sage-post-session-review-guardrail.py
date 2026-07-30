@@ -141,6 +141,17 @@ def validate_schema(payload: Any) -> list[str]:
             failures.append(
                 f"post-session schema definition missing: {key}"
             )
+    failure_rework = (
+        payload.get("$defs", {})
+        .get("failure", {})
+        .get("properties", {})
+        .get("avoidable_rework_minutes", {})
+    )
+    if failure_rework.get("type") != ["number", "null"]:
+        failures.append(
+            "post-session failure rework must allow number or null"
+        )
+
     return failures
 
 
@@ -243,6 +254,15 @@ def mutation_tests(
         failures.append(
             "review tool accepted coupled registration policy"
         )
+    non_nullable = copy.deepcopy(schema)
+    non_nullable["$defs"]["failure"]["properties"][
+        "avoidable_rework_minutes"
+    ]["type"] = "number"
+    if not validate_schema(non_nullable):
+        failures.append(
+            "non-nullable post-session failure rework was accepted"
+        )
+
     return failures
 
 
@@ -288,6 +308,7 @@ def main() -> int:
     print("PASS empty canonical post-session review registry")
     print("PASS canonical questions and session linkage")
     print("PASS known-failure and lesson-use review contract")
+    print("PASS unavailable failure rework remains nullable")
     print("PASS four-plane feedback review contract")
     print("PASS lesson-to-control decision coverage")
     print("PASS action registration remains a separate mutation")
