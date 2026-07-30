@@ -112,6 +112,8 @@ SESSION_ID_RE: Final = re.compile(
 )
 SHA_RE: Final = re.compile(r"^[0-9a-f]{40}$")
 
+LIVE_SESSION_MEASUREMENT_POLICY: Final = {'command_inclusion': {'rule': 'Count engineering, repository mutation, validation, evidence, commit, and push commands executed through the canonical session recorder.', 'counted_command_classes': ['discovery', 'implementation', 'repository-mutation', 'validation', 'evidence', 'commit', 'push', 'recovery'], 'excluded_command_classes': ['commands executed before the declared measurement boundary', 'unrecorded shell navigation', 'unrecorded terminal display-only commands', 'commands intentionally excluded with a recorded rationale'], 'unrecorded_commands_are_not_inferred': True}, 'time_measurement': {'command_runtime_seconds': 'measured-by-recorder', 'session_elapsed_minutes': 'measured-from-declared-session-start-to-completion', 'active_human_effort_minutes': 'unavailable-unless-explicitly-timed', 'waiting_time_minutes': 'unavailable-unless-explicitly-classified', 'do_not_equate_command_runtime_with_human_effort': True}, 'manual_correction': {'definition': 'An explicit unplanned adjustment or recovery performed because a prior command, implementation assumption, validation result, or tool behavior was incorrect.', 'ordinary_planned_iteration_is_not_a_correction': True, 'requires_reason': True}, 'failed_safety_check': {'count_as_failed_command': True, 'count_as_pre_mutation_detection_when_applicable': True, 'interpretation': 'A failed safety check is negative delivery friction and positive risk detection when it prevents an invalid commit, push, activation, or cluster mutation.'}, 'missing_measurements': {'representation': None, 'zero_means_measured_zero': True, 'unknown_must_not_be_converted_to_zero': True, 'requires_limitation_or_evidence_gap': True}, 'secret_handling': {'store_non_sensitive_command_label': True, 'store_command_digest': True, 'raw_command_storage_requires_redaction_review': True, 'credentials_and_secret_values_prohibited': True}, 'composite_score_enabled': False}
+
 LESSON_ID_RE: Final = re.compile(
     r"^SAGE-LESSON-[0-9]{8}-[0-9]{3}$"
 )
@@ -395,6 +397,13 @@ def validate_policy(payload: Any) -> list[str]:
         failures.append(
             "lesson_surface_statuses changed"
         )
+    if payload.get(
+        "live_session_measurement_policy"
+    ) != LIVE_SESSION_MEASUREMENT_POLICY:
+        failures.append(
+            "live_session_measurement_policy changed"
+        )
+
     return failures
 
 
@@ -1807,6 +1816,17 @@ def mutation_tests(
         failures.append(
             "session scorecard schema weakening was accepted"
         )
+    weakened_live_policy = copy.deepcopy(policy)
+    weakened_live_policy[
+        "live_session_measurement_policy"
+    ]["missing_measurements"][
+        "representation"
+    ] = 0
+    if not validate_policy(weakened_live_policy):
+        failures.append(
+            "unknown live-session measurements were accepted as zero"
+        )
+
     return failures
 
 def main() -> int:
@@ -1916,6 +1936,7 @@ def main() -> int:
     print("PASS multidimensional sizing and confidence policy")
     print("PASS cost, observability, and process-metric policy")
     print("PASS session rate and prediction scoring policy")
+    print("PASS live-session measurement semantics")
     print("PASS frequent cohesive feature-branch push policy")
     print(
         "PASS canonical lesson and empty action/session registries"

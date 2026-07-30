@@ -396,6 +396,45 @@ The machine-readable authority is:
 - `scripts/sage/sage-baseline-extract.py`;
 - `scripts/sage/sage-learning-guardrail.py`.
 
+## Live-session measurement semantics
+
+The live-session recorder measures only commands that pass through the
+canonical recording boundary. It counts engineering, repository mutation,
+validation, evidence, commit, push, and recovery commands. Commands that ran
+before the declared boundary, unrecorded shell navigation, and unrecorded
+display-only commands are not reconstructed later.
+
+The recorder preserves two different clocks:
+
+- command runtime records how long a command process ran;
+- session elapsed time records the wall-clock interval from the declared
+  session start through completion.
+
+Neither value is automatically equivalent to active human effort. Active human
+effort and waiting time remain unavailable unless they are explicitly timed
+and classified.
+
+A manual correction is an unplanned adjustment or recovery caused by an
+incorrect earlier command, implementation assumption, validation result, or
+tool behavior. Planned implementation iteration is not automatically a manual
+correction.
+
+A failed safety or validation command remains a failed command. When that
+failure prevents an invalid commit, push, activation, or cluster mutation, it
+also counts as successful pre-mutation detection. These two classifications
+measure different outcomes and must both be preserved.
+
+Unknown values are represented as `null`. A numeric zero means the value was
+measured and the measured result was zero. Missing or unmeasured values must
+never be silently converted to zero.
+
+The canonical ledger stores non-sensitive command labels and command digests.
+Raw command text may be retained only after redaction review. Credentials,
+tokens, passwords, and secret values are prohibited.
+
+The live-session measurement policy does not create a composite score and does
+not open any deployment or activation gate.
+
 ## Post-session review
 
 ### Machine-readable review and lesson-to-control decisions

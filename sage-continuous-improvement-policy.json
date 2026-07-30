@@ -239,6 +239,58 @@
         "require_prediction_actual_comparison": true,
         "allow_composite_score_before_baseline": false
     },
+    "live_session_measurement_policy": {
+        "command_inclusion": {
+            "rule": "Count engineering, repository mutation, validation, evidence, commit, and push commands executed through the canonical session recorder.",
+            "counted_command_classes": [
+                "discovery",
+                "implementation",
+                "repository-mutation",
+                "validation",
+                "evidence",
+                "commit",
+                "push",
+                "recovery"
+            ],
+            "excluded_command_classes": [
+                "commands executed before the declared measurement boundary",
+                "unrecorded shell navigation",
+                "unrecorded terminal display-only commands",
+                "commands intentionally excluded with a recorded rationale"
+            ],
+            "unrecorded_commands_are_not_inferred": true
+        },
+        "time_measurement": {
+            "command_runtime_seconds": "measured-by-recorder",
+            "session_elapsed_minutes": "measured-from-declared-session-start-to-completion",
+            "active_human_effort_minutes": "unavailable-unless-explicitly-timed",
+            "waiting_time_minutes": "unavailable-unless-explicitly-classified",
+            "do_not_equate_command_runtime_with_human_effort": true
+        },
+        "manual_correction": {
+            "definition": "An explicit unplanned adjustment or recovery performed because a prior command, implementation assumption, validation result, or tool behavior was incorrect.",
+            "ordinary_planned_iteration_is_not_a_correction": true,
+            "requires_reason": true
+        },
+        "failed_safety_check": {
+            "count_as_failed_command": true,
+            "count_as_pre_mutation_detection_when_applicable": true,
+            "interpretation": "A failed safety check is negative delivery friction and positive risk detection when it prevents an invalid commit, push, activation, or cluster mutation."
+        },
+        "missing_measurements": {
+            "representation": null,
+            "zero_means_measured_zero": true,
+            "unknown_must_not_be_converted_to_zero": true,
+            "requires_limitation_or_evidence_gap": true
+        },
+        "secret_handling": {
+            "store_non_sensitive_command_label": true,
+            "store_command_digest": true,
+            "raw_command_storage_requires_redaction_review": true,
+            "credentials_and_secret_values_prohibited": true
+        },
+        "composite_score_enabled": false
+    },
     "post_session_questions": [
         "What failed?",
         "Was the failure previously known?",
