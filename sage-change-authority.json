@@ -164,7 +164,13 @@
                 "frequent push",
                 "frequent pushes",
                 "feature branch",
-                "staged implementation"
+                "staged implementation",
+                "metrics pilot",
+                "session metrics",
+                "raw session metrics",
+                "live session metrics",
+                "metric capture",
+                "active session"
             ],
             "path_prefixes": [
                 "sage-continuous-improvement-",
