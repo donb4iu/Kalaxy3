@@ -399,7 +399,7 @@ def main() -> int:
         return 1
 
     print("PASS canonical improvement-action lifecycle policy")
-    print("PASS empty evidence-backed action registry")
+    print("PASS evidence-backed action registry")
     print("PASS append-only dry-run action tooling")
     print("PASS deterministic repository baseline extraction")
     print("PASS unavailable process metrics remain null")

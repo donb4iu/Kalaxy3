@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import importlib.util
+
 import copy
 import json
 import re
@@ -450,21 +452,98 @@ def validate_registry_header(
     return failures
 
 
-def validate_empty_registry(
+def load_action_tool() -> Any:
+    action_tool_path = (
+        ROOT / "scripts/sage/sage-improvement-actions.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "sage_improvement_actions_continuous_guardrail",
+        action_tool_path,
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(
+            "could not load improvement-action tool"
+        )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def validate_action_registry(
     payload: Any,
     *,
+    policy: dict[str, Any],
     registry_type: str,
     collection: str,
 ) -> list[str]:
-    """Validate a registry that has not yet been populated."""
     failures = validate_registry_header(
         payload,
         registry_type=registry_type,
         collection=collection,
     )
-    if isinstance(payload, dict) and payload.get(collection) != []:
+    if failures:
+        return failures
+
+    try:
+        action_tool = load_action_tool()
+    except RuntimeError as error:
+        return [str(error)]
+
+    failures.extend(
+        action_tool.validate_registry(payload, policy)
+    )
+    return failures
+
+
+def validate_action_registry_contract(
+    policy: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    try:
+        action_tool = load_action_tool()
+        empty_registry = {
+            "schema_version": "1.0",
+            "registry_type": "improvement-actions",
+            "actions": [],
+        }
+        populated, action = action_tool.plan_registration(
+            empty_registry,
+            policy,
+            action_tool.representative_draft(),
+            recorded_at="2026-07-31T00:00:00-05:00",
+            actor="continuous-guardrail-self-test",
+            reason=(
+                "Validate populated improvement-action registry."
+            ),
+            evidence_references=[
+                "self-test:populated-action-registry",
+            ],
+        )
+        populated_failures = action_tool.validate_registry(
+            populated,
+            policy,
+        )
+        failures.extend(
+            f"populated action registry: {failure}"
+            for failure in populated_failures
+        )
+        if action.get("current_status") != "identified":
+            failures.append(
+                "populated action registry initial status changed"
+            )
+
+        malformed = json.loads(json.dumps(populated))
+        malformed["actions"][0]["history"][0]["sequence"] = 2
+        if not action_tool.validate_registry(
+            malformed,
+            policy,
+        ):
+            failures.append(
+                "malformed populated action registry was accepted"
+            )
+    except (OSError, RuntimeError, TypeError, ValueError) as error:
         failures.append(
-            f"{registry_type} registry must remain empty"
+            f"populated action registry contract failed: {error}"
         )
     return failures
 
@@ -2069,11 +2148,15 @@ def main() -> int:
             action_collection,
         ) = REGISTRIES["improvement_actions"]
         failures.extend(
-            validate_empty_registry(
+            validate_action_registry(
                 load_json(action_path),
+                policy=policy,
                 registry_type=action_registry_type,
                 collection=action_collection,
             )
+        )
+        failures.extend(
+            validate_action_registry_contract(policy)
         )
 
         session_path, _, _ = REGISTRIES["sessions"]
@@ -2134,7 +2217,7 @@ def main() -> int:
     print("PASS live-session measurement semantics")
     print("PASS frequent cohesive feature-branch push policy")
     print(
-        "PASS canonical lesson, empty action, and valid session registries"
+        "PASS canonical lesson, valid action, and valid session registries"
     )
     print(
         "PASS continuous-improvement mutation negative tests"
