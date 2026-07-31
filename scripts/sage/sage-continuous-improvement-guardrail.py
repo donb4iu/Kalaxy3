@@ -1592,6 +1592,59 @@ def representative_candidate() -> dict[str, Any]:
     }
 
 
+
+def validate_session_registry(
+    registry: Any,
+    policy: dict[str, Any],
+) -> list[str]:
+    # Validate empty or populated completed-session registries.
+    failures: list[str] = []
+    if not isinstance(registry, dict):
+        return ["session-improvements registry must be an object"]
+
+    expected_keys = {
+        "schema_version",
+        "registry_type",
+        "sessions",
+    }
+    if set(registry) != expected_keys:
+        failures.append(
+            "session-improvements registry keys must be "
+            "schema_version, registry_type, sessions"
+        )
+    if registry.get("schema_version") != "1.0":
+        failures.append(
+            "session-improvements schema_version must be 1.0"
+        )
+    if registry.get("registry_type") != "session-improvements":
+        failures.append(
+            "session-improvements registry_type mismatch"
+        )
+
+    sessions = registry.get("sessions")
+    if not isinstance(sessions, list):
+        failures.append(
+            "session-improvements sessions must be a list"
+        )
+        return failures
+
+    identifiers: list[str] = []
+    for index, item in enumerate(sessions):
+        item_failures = validate_session_instance(item, policy)
+        failures.extend(
+            f"sessions[{index}]: {failure}"
+            for failure in item_failures
+        )
+        if isinstance(item, dict):
+            identifiers.append(str(item.get("session_id", "")))
+
+    if len(identifiers) != len(set(identifiers)):
+        failures.append(
+            "session-improvements identifiers must be unique"
+        )
+    return failures
+
+
 def representative_session() -> dict[str, Any]:
     return {
         "schema_version": "1.0",
@@ -2010,22 +2063,26 @@ def main() -> int:
             )
         )
 
-        for key in (
-            "improvement_actions",
-            "sessions",
-        ):
-            (
-                path,
-                registry_type,
-                collection,
-            ) = REGISTRIES[key]
-            failures.extend(
-                validate_empty_registry(
-                    load_json(path),
-                    registry_type=registry_type,
-                    collection=collection,
-                )
+        (
+            action_path,
+            action_registry_type,
+            action_collection,
+        ) = REGISTRIES["improvement_actions"]
+        failures.extend(
+            validate_empty_registry(
+                load_json(action_path),
+                registry_type=action_registry_type,
+                collection=action_collection,
             )
+        )
+
+        session_path, _, _ = REGISTRIES["sessions"]
+        failures.extend(
+            validate_session_registry(
+                load_json(session_path),
+                policy,
+            )
+        )
 
         failures.extend(
             validate_candidate_instance(
@@ -2077,7 +2134,7 @@ def main() -> int:
     print("PASS live-session measurement semantics")
     print("PASS frequent cohesive feature-branch push policy")
     print(
-        "PASS canonical lesson and empty action/session registries"
+        "PASS canonical lesson, empty action, and valid session registries"
     )
     print(
         "PASS continuous-improvement mutation negative tests"

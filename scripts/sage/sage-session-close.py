@@ -141,7 +141,9 @@ def run(
         env=command_environment(),
     )
     if result.returncode != 0:
-        detail = result.stderr.strip() or result.stdout.strip()
+        detail = (result.stderr or "").strip() or (
+            result.stdout or ""
+        ).strip()
         raise ValueError(
             f"command failed ({result.returncode}): "
             f"{' '.join(args)}: {detail}"
@@ -230,6 +232,46 @@ def unique_strings(value: Any, label: str, *, nonempty: bool) -> list[str]:
     ):
         raise ValueError(f"{label} must contain unique nonempty strings")
     return value
+
+
+
+def numeric_prediction_range_result(
+    predicted: Any,
+    actual: Any,
+) -> str | None:
+    # Return the inclusive-range result for numeric scalar data.
+    if isinstance(actual, bool) or not isinstance(
+        actual,
+        (int, float),
+    ):
+        return None
+    if not math.isfinite(float(actual)):
+        raise ValueError("numeric prediction actual must be finite")
+    if not isinstance(predicted, dict):
+        return None
+
+    lower = predicted.get(
+        "minimum",
+        predicted.get("min"),
+    )
+    upper = predicted.get(
+        "maximum",
+        predicted.get("max"),
+    )
+    for value in (lower, upper):
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+        ):
+            return None
+    if float(lower) > float(upper):
+        raise ValueError(
+            "numeric prediction minimum cannot exceed maximum"
+        )
+    if float(lower) <= float(actual) <= float(upper):
+        return "in-range"
+    return "outside-range"
 
 
 def validate_completed_record(record: Any) -> dict[str, Any]:
@@ -332,6 +374,24 @@ def validate_completed_record(record: Any) -> dict[str, Any]:
         if item["actual"] is None and item["result"] != "inconclusive":
             raise ValueError(
                 "unavailable prediction actual must be inconclusive"
+            )
+        expected_range_result = numeric_prediction_range_result(
+            item["predicted"],
+            item["actual"],
+        )
+        if (
+            expected_range_result is not None
+            and item["result"] != expected_range_result
+        ):
+            raise ValueError(
+                "numeric prediction result must match inclusive range"
+            )
+        if (
+            expected_range_result == "in-range"
+            and "range-too-narrow" in classifications
+        ):
+            raise ValueError(
+                "in-range prediction cannot be range-too-narrow"
             )
 
     cost = record["cost_comparison"]
@@ -987,6 +1047,54 @@ def self_test() -> list[str]:
     else:
         failures.append("unavailable prediction actual was scored conclusively")
 
+    numeric = representative_draft()
+    numeric["completed_at"] = "2026-07-30T01:00:00-05:00"
+    numeric_evaluation = numeric["prediction_evaluations"][0]
+    numeric_evaluation["actual"] = 6
+    numeric_evaluation["result"] = "in-range"
+    try:
+        validate_completed_record(numeric)
+    except ValueError as error:
+        failures.append(
+            f"valid numeric in-range prediction was rejected: {error}"
+        )
+
+    stale = copy.deepcopy(numeric)
+    stale_evaluation = stale["prediction_evaluations"][0]
+    stale_evaluation["result"] = "outside-range"
+    stale_evaluation["error_classifications"] = [
+        "range-too-narrow"
+    ]
+    try:
+        validate_completed_record(stale)
+    except ValueError:
+        pass
+    else:
+        failures.append(
+            "stale numeric prediction result was accepted"
+        )
+
+    try:
+        run(
+            [
+                sys.executable,
+                "-c",
+                "raise SystemExit(1)",
+            ]
+        )
+    except ValueError as error:
+        if "command failed (1)" not in str(error):
+            failures.append(
+                "uncaptured command failure message changed"
+            )
+    except Exception as error:
+        failures.append(
+            "uncaptured command failure raised "
+            f"{type(error).__name__}: {error}"
+        )
+    else:
+        failures.append("failing command unexpectedly succeeded")
+
     registry = {
         "schema_version": "1.0",
         "registry_type": "session-improvements",
@@ -1041,6 +1149,8 @@ def main() -> int:
         print("PASS completed-session schema contract")
         print("PASS final active-session summary token replacement")
         print("PASS unavailable prediction actual remains inconclusive")
+        print("PASS numeric prediction results match inclusive ranges")
+        print("PASS uncaptured command failures render safely")
         print("PASS completed registry uniqueness and field validation")
         print("PASS fsync-backed registry serialization")
         print("PASS close remains dry-run unless --apply is explicit")
