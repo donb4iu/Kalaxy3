@@ -370,7 +370,7 @@ def validate_review(
                 )
 
         minutes = item.get("avoidable_rework_minutes")
-        if (
+        if minutes is not None and (
             not isinstance(minutes, (int, float))
             or isinstance(minutes, bool)
             or minutes < 0
@@ -850,6 +850,26 @@ def run_self_tests(
             failures.append(
                 f"negative test accepted {label}"
             )
+    nullable_rework = representative_review(
+        policy["post_session_review_policy"]["required_questions"]
+    )
+    nullable_rework["failures"][0][
+        "avoidable_rework_minutes"
+    ] = None
+    nullable_failures, _ = validate_review(
+        nullable_rework,
+        policy=policy,
+        lessons=lessons,
+        actions=actions,
+        sessions=representative_sessions(),
+        action_tool=action_tool,
+    )
+    if nullable_failures:
+        failures.append(
+            "unavailable failure rework was rejected: "
+            + "; ".join(nullable_failures)
+        )
+
     return failures
 
 
@@ -899,6 +919,7 @@ def main() -> int:
             print("PASS canonical post-session questions")
             print("PASS canonical session linkage")
             print("PASS known-failure and lesson-use review")
+            print("PASS unavailable failure rework remains null")
             print("PASS four-plane feedback review")
             print("PASS lesson-to-control decision coverage")
             print("PASS action drafts validated without mutation")

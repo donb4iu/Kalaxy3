@@ -177,6 +177,182 @@
                     "the workstream is selected for activation"
                 ]
             }
+        },
+        {
+            "schema_version": "1.0",
+            "change_id": "SAGE-CHANGE-20260729-001",
+            "title": "Add live SAGE session metrics and metrics-pilot discovery",
+            "request": "Begin the first fully instrumented Kalaxy3 SAGE metrics pilot. Register the change, prediction, baseline, and canonical session before implementation. Capture raw delivery and learning metrics from the first command onward, preserve operations and economics as separate feedback planes, keep unavailable measurements null, and do not enable a composite score or open any deployment gate.",
+            "status": "validated",
+            "branch": "feature/sage-metrics-pilot",
+            "baseline_commit": "88428fa62e7feaa35c50ae5bb3707aaf51130f8c",
+            "contexts": [
+                "repository-governance",
+                "evidence",
+                "continuous-improvement"
+            ],
+            "dependencies": [
+                "SAGE-CHANGE-20260728-001"
+            ],
+            "predictions": [
+                {
+                    "stage": "discovery",
+                    "version": 1,
+                    "recorded_at": "2026-07-29T21:05:35-05:00",
+                    "estimate": {
+                        "overall_size": "S",
+                        "active_hours": 6,
+                        "elapsed_days": 1
+                    },
+                    "range": {
+                        "active_hours_min": 4,
+                        "active_hours_max": 12,
+                        "elapsed_days_min": 1,
+                        "elapsed_days_max": 2
+                    },
+                    "confidence": "medium",
+                    "confidence_basis": [
+                        "Continuous-improvement schemas, registries, scoring, and guardrails already exist.",
+                        "The missing work is limited to live event capture, metrics-pilot discovery classification, registry integration, and validation.",
+                        "The current tools have no supported live-session registration interface, creating bootstrap uncertainty."
+                    ],
+                    "assumptions": [
+                        "The first pilot remains repository-only and does not mutate the cluster.",
+                        "Raw events are captured externally until the repository-owned recorder is committed.",
+                        "Operations and economics remain separate and may be recorded as no-change or unavailable."
+                    ],
+                    "known_unknowns": [
+                        "Whether the current schemas need a distinct active-session or event-ledger contract.",
+                        "How much command metadata can be captured without recording secrets.",
+                        "Whether candidate registration needs a new repository-owned append-only tool."
+                    ],
+                    "failure_conditions": [
+                        "Repository mutations occur outside the metrics runner after this bootstrap.",
+                        "The pilot invents historical command counts for the excluded pre-ledger work.",
+                        "A composite score or deployment gate is enabled."
+                    ]
+                }
+            ],
+            "sizing": {
+                "overall": "S",
+                "dimensions": {
+                    "implementation_effort": "S",
+                    "elapsed_duration": "S",
+                    "technical_uncertainty": "M",
+                    "operational_risk": "XS",
+                    "blast_radius": "XS",
+                    "validation_burden": "M",
+                    "cost_exposure": "XS",
+                    "dependency_complexity": "S"
+                },
+                "confidence": {
+                    "rating": "medium",
+                    "basis": [
+                        "The continuous-improvement foundation, candidate registry, scoring, and guardrails already exist.",
+                        "The repository lacks a canonical active-session ledger and live command-event recorder.",
+                        "The pilot is repository-only and keeps the deployment gate closed."
+                    ]
+                }
+            },
+            "expected_value": {
+                "delivery": "high",
+                "operations": "medium",
+                "economics": "medium",
+                "learning": "very-high"
+            },
+            "cost": {
+                "baseline_references": [
+                    "SAGE-K3-SAGE-20260729-001",
+                    "SAGE-K3-DOCS-20260729-001"
+                ],
+                "one_time_change_cost": {
+                    "measurement": "active engineering time",
+                    "estimate_hours": 6,
+                    "range_hours": {
+                        "minimum": 4,
+                        "maximum": 12
+                    },
+                    "measurement_type": "estimated"
+                },
+                "recurring_run_rate_delta": {
+                    "estimate_usd_per_month": 0.0,
+                    "measurement_type": "estimated",
+                    "basis": "The pilot adds repository tooling and no cluster workload."
+                },
+                "unit_economics": {
+                    "planned_units": [
+                        "engineering minutes per validated change",
+                        "commands per validated change",
+                        "avoidable rework minutes per session",
+                        "known-failure recurrence per session"
+                    ],
+                    "measurement_type": "measured"
+                },
+                "avoidable_rework_cost": {
+                    "baseline_status": "measurement-started",
+                    "measurement_type": "measured",
+                    "initial_target": "Establish the first canonical session baseline without claiming savings."
+                },
+                "measurement_provenance": [
+                    "~/Downloads/kalaxy3-sage-metrics-pilot-session/session-context.json",
+                    "~/Downloads/kalaxy3-sage-metrics-pilot-session/events.jsonl",
+                    "repository-owned Git and SAGE guardrail output"
+                ],
+                "confidence": "medium"
+            },
+            "observability": {
+                "baseline_references": [
+                    "SAGE-K3-SAGE-20260729-001"
+                ],
+                "signals": [
+                    "commands executed, failed, and retried",
+                    "manual corrections",
+                    "first-pass phase success",
+                    "known-failure recurrence",
+                    "pre-mutation failure detection",
+                    "applicable lesson usage",
+                    "avoidable rework minutes",
+                    "prompt-to-validated-change lead time",
+                    "repository guardrail pass rate"
+                ],
+                "observation_windows": [
+                    "baseline",
+                    "immediate",
+                    "stabilization",
+                    "trend",
+                    "economic"
+                ]
+            },
+            "implementation_outline": [
+                "Register the metrics pilot candidate and its immutable discovery prediction.",
+                "Classify metrics-pilot and live-session requests as continuous-improvement work.",
+                "Add a canonical active-session event ledger and repository-owned live metrics recorder.",
+                "Import the bootstrap external ledger without inventing excluded historical command counts.",
+                "Close the session into the canonical session registry, score predictions, and perform the post-session review.",
+                "Publish implementation evidence and derive evidence-backed improvement actions."
+            ],
+            "validation_plan": [
+                "Require the exact metrics-pilot request to infer continuous-improvement before further mutation.",
+                "Validate candidate schema and registry contracts.",
+                "Preserve raw event data and keep unavailable measurements null.",
+                "Run session, feedback, candidate, learning, review, and full root SAGE guardrails.",
+                "Commit and push every cohesive validated change.",
+                "Keep the deployment gate closed and perform no cluster mutation."
+            ],
+            "deployment_gate": {
+                "status": "closed",
+                "reason": "The metrics pilot is repository-only and must not activate workloads or mutate the cluster."
+            },
+            "revalidation": {
+                "valid_until": "2026-08-28",
+                "triggers": [
+                    "origin/main advances",
+                    "the active-session schema changes",
+                    "the session scoring contract changes",
+                    "the raw metrics ledger format changes",
+                    "the pilot scope expands beyond repository tooling"
+                ]
+            }
         }
     ]
 }

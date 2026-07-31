@@ -104,7 +104,7 @@ def require_number(
     return number
 
 
-def validate_raw_metrics(raw: Any) -> dict[str, float | int]:
+def validate_raw_metrics(raw: Any) -> dict[str, float | int | None]:
     """Validate raw session measurements and cross-field invariants."""
     if not isinstance(raw, dict):
         raise ValueError("raw_metrics must be an object")
@@ -113,15 +113,19 @@ def validate_raw_metrics(raw: Any) -> dict[str, float | int]:
             "raw_metrics must preserve the canonical field order"
         )
 
-    validated: dict[str, float | int] = {}
+    validated: dict[str, float | int | None] = {}
+    nullable_metrics = {
+        "avoidable_rework_minutes",
+        "prompt_to_validated_change_minutes",
+    }
     for key in RAW_METRICS:
+        if key in nullable_metrics and raw[key] is None:
+            validated[key] = None
+            continue
         validated[key] = require_number(
             raw[key],
             label=f"raw_metrics.{key}",
-            integer=key not in {
-                "avoidable_rework_minutes",
-                "prompt_to_validated_change_minutes",
-            },
+            integer=key not in nullable_metrics,
         )
 
     invariants = [
@@ -196,7 +200,7 @@ def derive_metrics(
 
 
 def validate_prediction(item: Any) -> dict[str, Any]:
-    """Validate one raw prediction/actual comparison."""
+    # Validate one scalar prediction/actual comparison.
     if not isinstance(item, dict):
         raise ValueError("prediction must be an object")
     if set(item) != PREDICTION_FIELDS:
@@ -224,12 +228,11 @@ def validate_prediction(item: Any) -> dict[str, Any]:
     if confidence not in CONFIDENCE_LEVELS:
         raise ValueError(f"invalid prediction confidence: {confidence}")
 
-    numbers = {}
+    numbers: dict[str, float] = {}
     for key in (
         "predicted_point",
         "predicted_min",
         "predicted_max",
-        "actual",
     ):
         value = item[key]
         if isinstance(value, bool) or not isinstance(
@@ -239,6 +242,17 @@ def validate_prediction(item: Any) -> dict[str, Any]:
         if not math.isfinite(float(value)):
             raise ValueError(f"prediction {key} must be finite")
         numbers[key] = float(value)
+
+    actual = item["actual"]
+    if actual is not None:
+        if isinstance(actual, bool) or not isinstance(
+            actual, (int, float)
+        ):
+            raise ValueError(
+                "prediction actual must be numeric or null"
+            )
+        if not math.isfinite(float(actual)):
+            raise ValueError("prediction actual must be finite")
 
     if numbers["predicted_min"] > numbers["predicted_max"]:
         raise ValueError(
@@ -276,8 +290,29 @@ def validate_prediction(item: Any) -> dict[str, Any]:
 
 
 def score_prediction(item: dict[str, Any]) -> dict[str, Any]:
-    """Calculate point and range errors for one prediction."""
+    # Score one declared scalar without privileging time.
     validate_prediction(item)
+
+    if item["actual"] is None:
+        return {
+            "stage": item["stage"],
+            "version": item["version"],
+            "subject": item["subject"],
+            "unit": item["unit"],
+            "confidence": item["confidence"],
+            "predicted_point": item["predicted_point"],
+            "predicted_min": item["predicted_min"],
+            "predicted_max": item["predicted_max"],
+            "actual": None,
+            "range_result": "inconclusive",
+            "signed_error": None,
+            "absolute_error": None,
+            "percentage_error": None,
+            "range_distance": None,
+            "error_classifications": (
+                item["error_classifications"]
+            ),
+        }
 
     point = float(item["predicted_point"])
     minimum = float(item["predicted_min"])
@@ -324,38 +359,46 @@ def score_prediction(item: dict[str, Any]) -> dict[str, Any]:
 def summarize_predictions(
     scores: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Aggregate range hits without creating a composite quality score."""
-    total = len(scores)
-    in_range = sum(
-        score["range_result"] == "in-range"
-        for score in scores
-    )
-
-    by_confidence: dict[str, Any] = {}
-    for level in CONFIDENCE_LEVELS:
-        bucket = [
-            score
-            for score in scores
-            if score["confidence"] == level
-        ]
-        bucket_hits = sum(
+    # Summarize conclusive and unavailable scalar comparisons.
+    def summarize_bucket(
+        bucket: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        total = len(bucket)
+        conclusive = sum(
+            score["range_result"] != "inconclusive"
+            for score in bucket
+        )
+        in_range = sum(
             score["range_result"] == "in-range"
             for score in bucket
         )
-        by_confidence[level] = {
-            "total": len(bucket),
-            "in_range": bucket_hits,
+        outside_range = conclusive - in_range
+        inconclusive = total - conclusive
+        return {
+            "total": total,
+            "conclusive": conclusive,
+            "in_range": in_range,
+            "outside_range": outside_range,
+            "inconclusive": inconclusive,
             "range_hit_rate": ratio(
-                bucket_hits,
-                len(bucket),
+                in_range,
+                conclusive,
             ),
         }
 
+    overall = summarize_bucket(scores)
+    by_confidence = {
+        level: summarize_bucket(
+            [
+                score
+                for score in scores
+                if score["confidence"] == level
+            ]
+        )
+        for level in CONFIDENCE_LEVELS
+    }
     return {
-        "total": total,
-        "in_range": in_range,
-        "outside_range": total - in_range,
-        "range_hit_rate": ratio(in_range, total),
+        **overall,
         "by_confidence": by_confidence,
     }
 
@@ -556,6 +599,28 @@ def self_test() -> list[str]:
             "zero denominators must produce null rates"
         )
 
+    unavailable_measurements = representative_input()
+    unavailable_measurements["raw_metrics"][
+        "avoidable_rework_minutes"
+    ] = None
+    unavailable_measurements["raw_metrics"][
+        "prompt_to_validated_change_minutes"
+    ] = None
+    unavailable_result = score_session(unavailable_measurements)
+    if (
+        unavailable_result["raw_metrics"][
+            "avoidable_rework_minutes"
+        ]
+        is not None
+        or unavailable_result["raw_metrics"][
+            "prompt_to_validated_change_minutes"
+        ]
+        is not None
+    ):
+        failures.append(
+            "unavailable session measurements must remain null"
+        )
+
     negative_cases: list[tuple[str, dict[str, Any]]] = []
 
     failed_gt_total = representative_input()
@@ -602,6 +667,57 @@ def self_test() -> list[str]:
         failures.append(
             f"negative scorer test accepted {label}"
         )
+    unavailable_actual = representative_input()
+    unavailable_actual["predictions"][0]["subject"] = (
+        "implementation effort"
+    )
+    unavailable_actual["predictions"][0]["unit"] = "steps"
+    unavailable_actual["predictions"][0]["actual"] = None
+    unavailable_result = score_session(unavailable_actual)
+    unavailable_score = unavailable_result["prediction_scores"][0]
+    unavailable_summary = unavailable_result[
+        "prediction_summary"
+    ]
+    if (
+        unavailable_score["subject"] != "implementation effort"
+        or unavailable_score["unit"] != "steps"
+        or unavailable_score["actual"] is not None
+        or unavailable_score["range_result"] != "inconclusive"
+        or any(
+            unavailable_score[key] is not None
+            for key in (
+                "signed_error",
+                "absolute_error",
+                "percentage_error",
+                "range_distance",
+            )
+        )
+        or unavailable_summary["total"] != 3
+        or unavailable_summary["conclusive"] != 2
+        or unavailable_summary["in_range"] != 1
+        or unavailable_summary["outside_range"] != 1
+        or unavailable_summary["inconclusive"] != 1
+        or unavailable_summary["range_hit_rate"] != 0.5
+        or unavailable_summary["by_confidence"]["medium"][
+            "range_hit_rate"
+        ]
+        is not None
+    ):
+        failures.append(
+            "scalar-neutral unavailable prediction scoring changed"
+        )
+
+    boolean_actual = representative_input()
+    boolean_actual["predictions"][0]["actual"] = True
+    try:
+        score_session(boolean_actual)
+    except ValueError:
+        pass
+    else:
+        failures.append(
+            "boolean prediction actual was accepted"
+        )
+
     return failures
 
 
@@ -639,7 +755,13 @@ def main() -> int:
             "PASS point and inclusive-range prediction scoring"
         )
         print(
+            "PASS scalar-neutral predictions allow unavailable actuals"
+        )
+        print(
             "PASS zero denominators and zero actuals return null"
+        )
+        print(
+            "PASS unavailable raw measurements remain null"
         )
         print(
             "PASS confidence-bucket range-hit summaries"

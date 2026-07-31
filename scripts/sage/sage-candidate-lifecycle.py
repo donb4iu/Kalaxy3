@@ -92,10 +92,13 @@ def validate_policy(policy: Any) -> list[str]:
                 failures.append(
                     f"allowed transitions invalid for {source}"
                 )
+        if "validated" not in transitions.get(
+            "staged-implementation", []
+        ):
+            failures.append(
+                "repository-only staged validation path missing"
+            )
 
-    required_activation = lifecycle.get(
-        "required_activation_conditions"
-    )
     expected_activation = [
         "deployment-gate-open",
         "pre-deployment-prediction-recorded",
@@ -105,8 +108,27 @@ def validate_policy(policy: Any) -> list[str]:
         "validation-reference-present",
         "expected-head-matches",
     ]
-    if required_activation != expected_activation:
+    if lifecycle.get(
+        "required_activation_conditions"
+    ) != expected_activation:
         failures.append("activation conditions changed")
+
+    expected_repository_only = [
+        "lifecycle-scope-repository-only",
+        "deployment-gate-closed",
+        "revalidation-current",
+        "candidate-branch-checked-out",
+        "feature-branch-synchronized",
+        "validation-reference-present",
+        "expected-head-matches",
+        "active-status-bypassed",
+    ]
+    if lifecycle.get(
+        "required_repository_only_validation_conditions"
+    ) != expected_repository_only:
+        failures.append(
+            "repository-only validation conditions changed"
+        )
 
     for key in (
         "history_append_only",
@@ -232,6 +254,7 @@ def validate_lifecycle_registry(
             "current_status",
             "branch",
             "baseline_commit",
+            "execution_scope",
             "deployment_gate_required",
             "revalidation_required",
             "history",
@@ -268,6 +291,13 @@ def validate_lifecycle_registry(
         ):
             failures.append(
                 f"{change_id}: candidate and lifecycle baseline differ"
+            )
+        if item.get("execution_scope") not in (
+            "repository-only",
+            "deployment",
+        ):
+            failures.append(
+                f"{change_id}: execution_scope invalid"
             )
         if item.get("deployment_gate_required") is not True:
             failures.append(
@@ -473,6 +503,203 @@ def activation_failures(
     return failures
 
 
+def repository_state_failures(
+    candidate: dict[str, Any],
+    *,
+    current_branch: str,
+    head: str,
+    remote_head: str,
+    expected_head: str,
+    validation_references: Sequence[str],
+    today: date,
+) -> list[str]:
+    failures: list[str] = []
+
+    valid_until = candidate.get(
+        "revalidation", {}
+    ).get("valid_until")
+    try:
+        if parse_date(
+            str(valid_until),
+            "revalidation.valid_until",
+        ) < today:
+            failures.append("candidate revalidation has expired")
+    except ValueError as error:
+        failures.append(str(error))
+
+    if current_branch != candidate.get("branch"):
+        failures.append(
+            "candidate branch is not checked out"
+        )
+    if head != remote_head:
+        failures.append(
+            "feature branch is not synchronized"
+        )
+    if expected_head != head:
+        failures.append(
+            "expected HEAD does not match current HEAD"
+        )
+    if not validation_references:
+        failures.append(
+            "at least one validation reference is required"
+        )
+    return failures
+
+
+def repository_only_validation_failures(
+    candidate: dict[str, Any],
+    lifecycle: dict[str, Any],
+    *,
+    current_branch: str,
+    head: str,
+    remote_head: str,
+    expected_head: str,
+    validation_references: Sequence[str],
+    today: date,
+) -> list[str]:
+    failures = repository_state_failures(
+        candidate,
+        current_branch=current_branch,
+        head=head,
+        remote_head=remote_head,
+        expected_head=expected_head,
+        validation_references=validation_references,
+        today=today,
+    )
+    if lifecycle.get("execution_scope") != "repository-only":
+        failures.append(
+            "lifecycle scope is not repository-only"
+        )
+    if candidate.get("deployment_gate", {}).get(
+        "status"
+    ) != "closed":
+        failures.append(
+            "repository-only validation requires a closed deployment gate"
+        )
+    if lifecycle.get("current_status") != "staged-implementation":
+        failures.append(
+            "repository-only validation must begin from staged-implementation"
+        )
+    return failures
+
+
+def plan_registration(
+    candidate_registry: dict[str, Any],
+    lifecycle_registry: dict[str, Any],
+    policy: dict[str, Any],
+    *,
+    change_id: str,
+    execution_scope: str,
+    actor: str,
+    reason: str,
+    validation_references: Sequence[str],
+    recorded_at: str,
+    candidate_commit: str,
+    current_branch: str,
+    remote_head: str,
+    expected_head: str,
+    today: date,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    candidate = candidate_by_id(
+        candidate_registry,
+        change_id,
+    )
+    if execution_scope not in (
+        "repository-only",
+        "deployment",
+    ):
+        raise ValueError(
+            "execution scope must be repository-only or deployment"
+        )
+
+    existing = [
+        item
+        for item in lifecycle_registry.get("lifecycles", [])
+        if isinstance(item, dict)
+        and item.get("change_id") == change_id
+    ]
+    if existing:
+        raise ValueError(
+            f"lifecycle already exists for {change_id}"
+        )
+
+    require_nonempty_string(actor, "actor")
+    require_nonempty_string(reason, "reason")
+    if (
+        not validation_references
+        or len(validation_references)
+        != len(set(validation_references))
+        or not all(
+            isinstance(value, str) and value
+            for value in validation_references
+        )
+    ):
+        raise ValueError(
+            "validation references must be unique and non-empty"
+        )
+    parse_timestamp(recorded_at, "recorded_at")
+
+    failures = repository_state_failures(
+        candidate,
+        current_branch=current_branch,
+        head=candidate_commit,
+        remote_head=remote_head,
+        expected_head=expected_head,
+        validation_references=validation_references,
+        today=today,
+    )
+    if (
+        execution_scope == "repository-only"
+        and candidate.get("deployment_gate", {}).get(
+            "status"
+        )
+        != "closed"
+    ):
+        failures.append(
+            "repository-only registration requires a closed deployment gate"
+        )
+    if failures:
+        raise ValueError(
+            "registration blocked: " + "; ".join(failures)
+        )
+
+    updated_lifecycles = copy.deepcopy(lifecycle_registry)
+    event = {
+        "sequence": 1,
+        "from_status": None,
+        "to_status": candidate["status"],
+        "transition_type": "initial-registration",
+        "recorded_at": recorded_at,
+        "actor": actor,
+        "reason": reason,
+        "validation_references": list(validation_references),
+        "candidate_commit": candidate_commit,
+    }
+    updated_lifecycles["lifecycles"].append(
+        {
+            "change_id": change_id,
+            "current_status": candidate["status"],
+            "branch": candidate["branch"],
+            "baseline_commit": candidate["baseline_commit"],
+            "execution_scope": execution_scope,
+            "deployment_gate_required": True,
+            "revalidation_required": True,
+            "history": [event],
+        }
+    )
+
+    validation_failures = validate_lifecycle_registry(
+        updated_lifecycles,
+        candidate_registry,
+        policy,
+    )
+    if validation_failures:
+        raise ValueError(
+            "planned registration is invalid: "
+            + "; ".join(validation_failures)
+        )
+    return updated_lifecycles, event
+
 def plan_transition(
     candidate_registry: dict[str, Any],
     lifecycle_registry: dict[str, Any],
@@ -546,6 +773,26 @@ def plan_transition(
         if failures:
             raise ValueError(
                 "activation blocked: " + "; ".join(failures)
+            )
+
+    if (
+        from_status == "staged-implementation"
+        and to_status == "validated"
+    ):
+        failures = repository_only_validation_failures(
+            candidate,
+            lifecycle,
+            current_branch=current_branch,
+            head=candidate_commit,
+            remote_head=remote_head,
+            expected_head=expected_head,
+            validation_references=validation_references,
+            today=today,
+        )
+        if failures:
+            raise ValueError(
+                "repository-only validation blocked: "
+                + "; ".join(failures)
             )
 
     updated_candidates = copy.deepcopy(candidate_registry)
@@ -681,6 +928,7 @@ def representative_policy() -> dict[str, Any]:
                 "staged-implementation": [
                     "sequenced",
                     "active",
+                    "validated",
                     "superseded",
                 ],
                 "active": [
@@ -702,6 +950,16 @@ def representative_policy() -> dict[str, Any]:
                 "feature-branch-synchronized",
                 "validation-reference-present",
                 "expected-head-matches",
+            ],
+            "required_repository_only_validation_conditions": [
+                "lifecycle-scope-repository-only",
+                "deployment-gate-closed",
+                "revalidation-current",
+                "candidate-branch-checked-out",
+                "feature-branch-synchronized",
+                "validation-reference-present",
+                "expected-head-matches",
+                "active-status-bypassed",
             ],
             "history_append_only": True,
             "candidate_status_must_match_lifecycle": True,
@@ -752,6 +1010,7 @@ def representative_lifecycle_registry() -> dict[str, Any]:
                 "current_status": "staged-implementation",
                 "branch": "feature/sage-continuous-improvement",
                 "baseline_commit": "0" * 40,
+                "execution_scope": "repository-only",
                 "deployment_gate_required": True,
                 "revalidation_required": True,
                 "history": [
@@ -819,28 +1078,18 @@ def run_self_tests() -> list[str]:
                 "closed gate failure reason changed"
             )
 
-    active_candidates = copy.deepcopy(candidates)
-    active_candidate = active_candidates["candidates"][0]
-    active_candidate["deployment_gate"]["status"] = "open"
-    active_candidate["predictions"].append(
-        {
-            "stage": "pre-deployment",
-            "version": 1,
-        }
-    )
-
     try:
-        planned_candidates, planned_lifecycles, event = (
+        validated_candidates, validated_lifecycles, event = (
             plan_transition(
-                active_candidates,
+                candidates,
                 lifecycles,
                 policy,
                 change_id="SAGE-CHANGE-20260728-001",
-                to_status="active",
+                to_status="validated",
                 actor="self-test",
-                reason="All activation controls passed.",
+                reason="Repository-only validation passed.",
                 validation_references=[
-                    "self-test:guardrails-pass"
+                    "self-test:repository-guardrails-pass"
                 ],
                 recorded_at="2026-07-28T22:10:00-05:00",
                 candidate_commit="2" * 40,
@@ -852,33 +1101,40 @@ def run_self_tests() -> list[str]:
                 today=date(2026, 7, 28),
             )
         )
-        if planned_candidates["candidates"][0]["status"] != "active":
-            failures.append("planned candidate status changed")
-        if planned_lifecycles["lifecycles"][0][
+        if validated_candidates["candidates"][0][
+            "status"
+        ] != "validated":
+            failures.append(
+                "repository-only candidate was not validated"
+            )
+        if validated_lifecycles["lifecycles"][0][
             "current_status"
-        ] != "active":
-            failures.append("planned lifecycle status changed")
-        if event["sequence"] != 2:
-            failures.append("planned event sequence changed")
+        ] != "validated":
+            failures.append(
+                "repository-only lifecycle was not validated"
+            )
+        if event["from_status"] != "staged-implementation":
+            failures.append(
+                "repository-only validation source changed"
+            )
     except ValueError as error:
         failures.append(
-            f"valid activation plan failed: {error}"
+            f"valid repository-only transition failed: {error}"
         )
 
-    if candidates != original_candidates:
-        failures.append("dry-run planning mutated candidates")
-    if lifecycles != original_lifecycles:
-        failures.append("dry-run planning mutated lifecycles")
-
+    deployment_scope = copy.deepcopy(lifecycles)
+    deployment_scope["lifecycles"][0][
+        "execution_scope"
+    ] = "deployment"
     try:
         plan_transition(
             candidates,
-            lifecycles,
+            deployment_scope,
             policy,
             change_id="SAGE-CHANGE-20260728-001",
-            to_status="closed",
+            to_status="validated",
             actor="self-test",
-            reason="Invalid transition.",
+            reason="Invalid repository-only path.",
             validation_references=["self-test"],
             recorded_at="2026-07-28T22:10:00-05:00",
             candidate_commit="2" * 40,
@@ -889,9 +1145,62 @@ def run_self_tests() -> list[str]:
             expected_head="2" * 40,
             today=date(2026, 7, 28),
         )
-        failures.append("invalid transition was accepted")
-    except ValueError:
-        pass
+        failures.append(
+            "deployment scope bypassed activation"
+        )
+    except ValueError as error:
+        if "not repository-only" not in str(error):
+            failures.append(
+                "repository-only scope failure reason changed"
+            )
+
+    registration_candidates = copy.deepcopy(candidates)
+    registration_candidates["candidates"][0][
+        "status"
+    ] = "discovery-needed"
+    empty_lifecycles = {
+        "schema_version": "1.0",
+        "registry_type": "change-candidate-lifecycle",
+        "lifecycles": [],
+    }
+    try:
+        registered, event = plan_registration(
+            registration_candidates,
+            empty_lifecycles,
+            policy,
+            change_id="SAGE-CHANGE-20260728-001",
+            execution_scope="repository-only",
+            actor="self-test",
+            reason="Register repository-only candidate.",
+            validation_references=["self-test"],
+            recorded_at="2026-07-28T22:00:00-05:00",
+            candidate_commit="2" * 40,
+            current_branch=(
+                "feature/sage-continuous-improvement"
+            ),
+            remote_head="2" * 40,
+            expected_head="2" * 40,
+            today=date(2026, 7, 28),
+        )
+        if registered["lifecycles"][0][
+            "execution_scope"
+        ] != "repository-only":
+            failures.append(
+                "repository-only registration scope changed"
+            )
+        if event["transition_type"] != "initial-registration":
+            failures.append(
+                "registration event type changed"
+            )
+    except ValueError as error:
+        failures.append(
+            f"valid lifecycle registration failed: {error}"
+        )
+
+    if candidates != original_candidates:
+        failures.append("dry-run planning mutated candidates")
+    if lifecycles != original_lifecycles:
+        failures.append("dry-run planning mutated lifecycles")
 
     mismatched = copy.deepcopy(lifecycles)
     mismatched["lifecycles"][0]["current_status"] = "active"
@@ -901,6 +1210,15 @@ def run_self_tests() -> list[str]:
         policy,
     ):
         failures.append("status mismatch negative test failed")
+
+    invalid_scope = copy.deepcopy(lifecycles)
+    invalid_scope["lifecycles"][0]["execution_scope"] = "unknown"
+    if not validate_lifecycle_registry(
+        invalid_scope,
+        candidates,
+        policy,
+    ):
+        failures.append("invalid scope negative test failed")
 
     sequence_gap = copy.deepcopy(lifecycles)
     sequence_gap["lifecycles"][0]["history"][0][
@@ -943,7 +1261,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--status", action="store_true")
+    parser.add_argument("--register", action="store_true")
     parser.add_argument("--change-id")
+    parser.add_argument("--execution-scope")
     parser.add_argument("--to-status")
     parser.add_argument("--actor")
     parser.add_argument("--reason")
@@ -972,9 +1292,9 @@ def main() -> int:
             return 1
         print("PASS canonical candidate lifecycle policy")
         print("PASS append-only contiguous transition history")
-        print("PASS dry-run transition planning")
+        print("PASS dry-run lifecycle registration")
+        print("PASS guarded repository-only validation path")
         print("PASS closed deployment gate blocks activation")
-        print("PASS pre-deployment prediction required")
         print("PASS branch, remote, and expected HEAD checks")
         print("PASS lifecycle mutation negative tests")
         print(
@@ -1007,18 +1327,38 @@ def main() -> int:
             candidates,
             args.change_id,
         )
-        lifecycle = lifecycle_by_id(
-            lifecycles,
-            args.change_id,
-        )
+        matching_lifecycles = [
+            item
+            for item in lifecycles.get("lifecycles", [])
+            if isinstance(item, dict)
+            and item.get("change_id") == args.change_id
+        ]
 
         if args.status:
-            render_status(candidate, lifecycle)
+            if matching_lifecycles:
+                render_status(
+                    candidate,
+                    matching_lifecycles[0],
+                )
+            else:
+                print(
+                    json.dumps(
+                        {
+                            "candidate": candidate,
+                            "lifecycle": None,
+                        },
+                        indent=4,
+                    )
+                )
             return 0
 
-        if not args.to_status:
+        if args.register and args.to_status:
             raise ValueError(
-                "use --status or provide --to-status"
+                "--register and --to-status are mutually exclusive"
+            )
+        if not args.register and not args.to_status:
+            raise ValueError(
+                "use --status, --register, or provide --to-status"
             )
 
         head = git_output("rev-parse", "HEAD")
@@ -1035,13 +1375,13 @@ def main() -> int:
         )
         expected_head = args.expected_head or ""
 
-        planned_candidates, planned_lifecycles, event = (
-            plan_transition(
+        if args.register:
+            planned_lifecycles, event = plan_registration(
                 candidates,
                 lifecycles,
                 policy,
                 change_id=args.change_id,
-                to_status=args.to_status,
+                execution_scope=args.execution_scope or "",
                 actor=args.actor or "",
                 reason=args.reason or "",
                 validation_references=(
@@ -1054,7 +1394,28 @@ def main() -> int:
                 expected_head=expected_head,
                 today=date.today(),
             )
-        )
+            planned_candidates = candidates
+        else:
+            planned_candidates, planned_lifecycles, event = (
+                plan_transition(
+                    candidates,
+                    lifecycles,
+                    policy,
+                    change_id=args.change_id,
+                    to_status=args.to_status,
+                    actor=args.actor or "",
+                    reason=args.reason or "",
+                    validation_references=(
+                        args.validation_reference
+                    ),
+                    recorded_at=recorded_at,
+                    candidate_commit=head,
+                    current_branch=branch,
+                    remote_head=remote_head,
+                    expected_head=expected_head,
+                    today=date.today(),
+                )
+            )
 
         print(
             json.dumps(
@@ -1082,7 +1443,7 @@ def main() -> int:
             planned_lifecycles,
         )
         print(
-            "APPLIED candidate and lifecycle registry transition"
+            "APPLIED candidate and lifecycle registry mutation"
         )
         return 0
     except (

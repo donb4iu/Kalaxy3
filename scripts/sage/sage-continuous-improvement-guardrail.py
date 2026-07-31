@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import importlib.util
+
 import copy
 import json
 import re
@@ -111,6 +113,8 @@ SESSION_ID_RE: Final = re.compile(
     r"^SAGE-SESSION-[0-9]{8}-[0-9]{3}$"
 )
 SHA_RE: Final = re.compile(r"^[0-9a-f]{40}$")
+
+LIVE_SESSION_MEASUREMENT_POLICY: Final = {'command_inclusion': {'rule': 'Count engineering, repository mutation, validation, evidence, commit, and push commands executed through the canonical session recorder.', 'counted_command_classes': ['discovery', 'implementation', 'repository-mutation', 'validation', 'evidence', 'commit', 'push', 'recovery'], 'excluded_command_classes': ['commands executed before the declared measurement boundary', 'unrecorded shell navigation', 'unrecorded terminal display-only commands', 'commands intentionally excluded with a recorded rationale'], 'unrecorded_commands_are_not_inferred': True}, 'time_measurement': {'command_runtime_seconds': 'measured-by-recorder', 'session_elapsed_minutes': 'measured-from-declared-session-start-to-completion', 'active_human_effort_minutes': 'unavailable-unless-explicitly-timed', 'waiting_time_minutes': 'unavailable-unless-explicitly-classified', 'do_not_equate_command_runtime_with_human_effort': True}, 'manual_correction': {'definition': 'An explicit unplanned adjustment or recovery performed because a prior command, implementation assumption, validation result, or tool behavior was incorrect.', 'ordinary_planned_iteration_is_not_a_correction': True, 'requires_reason': True}, 'failed_safety_check': {'count_as_failed_command': True, 'count_as_pre_mutation_detection_when_applicable': True, 'interpretation': 'A failed safety check is negative delivery friction and positive risk detection when it prevents an invalid commit, push, activation, or cluster mutation.'}, 'missing_measurements': {'representation': None, 'zero_means_measured_zero': True, 'unknown_must_not_be_converted_to_zero': True, 'requires_limitation_or_evidence_gap': True}, 'secret_handling': {'store_non_sensitive_command_label': True, 'store_command_digest': True, 'raw_command_storage_requires_redaction_review': True, 'credentials_and_secret_values_prohibited': True}, 'composite_score_enabled': False}
 
 LESSON_ID_RE: Final = re.compile(
     r"^SAGE-LESSON-[0-9]{8}-[0-9]{3}$"
@@ -286,6 +290,14 @@ def validate_policy(payload: Any) -> list[str]:
                 f"{label} does not exist: {relative}"
             )
 
+    session_close_path = payload.get("session_close_path")
+    if session_close_path != (
+        "scripts/sage/sage-session-close.py"
+    ):
+        failures.append("session_close_path changed")
+    elif not (ROOT / session_close_path).is_file():
+        failures.append("session close script is missing")
+
     session_score_path = payload.get("session_score_path")
     if session_score_path != (
         "scripts/sage/sage-session-score.py"
@@ -395,6 +407,13 @@ def validate_policy(payload: Any) -> list[str]:
         failures.append(
             "lesson_surface_statuses changed"
         )
+    if payload.get(
+        "live_session_measurement_policy"
+    ) != LIVE_SESSION_MEASUREMENT_POLICY:
+        failures.append(
+            "live_session_measurement_policy changed"
+        )
+
     return failures
 
 
@@ -433,21 +452,98 @@ def validate_registry_header(
     return failures
 
 
-def validate_empty_registry(
+def load_action_tool() -> Any:
+    action_tool_path = (
+        ROOT / "scripts/sage/sage-improvement-actions.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "sage_improvement_actions_continuous_guardrail",
+        action_tool_path,
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(
+            "could not load improvement-action tool"
+        )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def validate_action_registry(
     payload: Any,
     *,
+    policy: dict[str, Any],
     registry_type: str,
     collection: str,
 ) -> list[str]:
-    """Validate a registry that has not yet been populated."""
     failures = validate_registry_header(
         payload,
         registry_type=registry_type,
         collection=collection,
     )
-    if isinstance(payload, dict) and payload.get(collection) != []:
+    if failures:
+        return failures
+
+    try:
+        action_tool = load_action_tool()
+    except RuntimeError as error:
+        return [str(error)]
+
+    failures.extend(
+        action_tool.validate_registry(payload, policy)
+    )
+    return failures
+
+
+def validate_action_registry_contract(
+    policy: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    try:
+        action_tool = load_action_tool()
+        empty_registry = {
+            "schema_version": "1.0",
+            "registry_type": "improvement-actions",
+            "actions": [],
+        }
+        populated, action = action_tool.plan_registration(
+            empty_registry,
+            policy,
+            action_tool.representative_draft(),
+            recorded_at="2026-07-31T00:00:00-05:00",
+            actor="continuous-guardrail-self-test",
+            reason=(
+                "Validate populated improvement-action registry."
+            ),
+            evidence_references=[
+                "self-test:populated-action-registry",
+            ],
+        )
+        populated_failures = action_tool.validate_registry(
+            populated,
+            policy,
+        )
+        failures.extend(
+            f"populated action registry: {failure}"
+            for failure in populated_failures
+        )
+        if action.get("current_status") != "identified":
+            failures.append(
+                "populated action registry initial status changed"
+            )
+
+        malformed = json.loads(json.dumps(populated))
+        malformed["actions"][0]["history"][0]["sequence"] = 2
+        if not action_tool.validate_registry(
+            malformed,
+            policy,
+        ):
+            failures.append(
+                "malformed populated action registry was accepted"
+            )
+    except (OSError, RuntimeError, TypeError, ValueError) as error:
         failures.append(
-            f"{registry_type} registry must remain empty"
+            f"populated action registry contract failed: {error}"
         )
     return failures
 
@@ -718,7 +814,7 @@ def validate_session_score_schema(
     schema: Any,
     policy: dict[str, Any],
 ) -> list[str]:
-    """Validate the deterministic session scorecard schema."""
+    # Validate the deterministic scalar-neutral scorecard schema.
     failures: list[str] = []
     if not isinstance(schema, dict):
         return ["session scorecard schema must be an object"]
@@ -756,6 +852,18 @@ def validate_session_score_schema(
         failures.append(
             "scorecard raw metrics must reject unknown properties"
         )
+    raw_properties = raw.get("properties", {})
+    for metric in (
+        "avoidable_rework_minutes",
+        "prompt_to_validated_change_minutes",
+    ):
+        if raw_properties.get(metric, {}).get("type") != [
+            "number",
+            "null",
+        ]:
+            failures.append(
+                f"scorecard {metric} must allow number or null"
+            )
 
     derived = properties.get("derived_metrics", {})
     if derived.get("required") != policy.get(
@@ -769,10 +877,17 @@ def validate_session_score_schema(
             "scorecard derived metrics must reject unknown properties"
         )
 
-    score = schema.get("$defs", {}).get(
-        "prediction_score", {}
-    )
+    definitions = schema.get("$defs", {})
+    score = definitions.get("prediction_score", {})
     score_properties = score.get("properties", {})
+    if score.get("additionalProperties") is not False:
+        failures.append(
+            "prediction scores must reject unknown properties"
+        )
+    if set(score.get("required", [])) != set(score_properties):
+        failures.append(
+            "prediction score fields changed"
+        )
     if score_properties.get(
         "stage", {}
     ).get("enum") != policy.get("prediction_stages"):
@@ -787,15 +902,65 @@ def validate_session_score_schema(
         failures.append(
             "scorecard confidence levels changed"
         )
+    if score_properties.get("actual", {}).get("type") != [
+        "number",
+        "null",
+    ]:
+        failures.append(
+            "prediction actual must allow number or null"
+        )
     if score_properties.get(
         "range_result", {}
     ).get("enum") != [
         "in-range",
         "below-range",
         "above-range",
+        "inconclusive",
     ]:
         failures.append(
             "scorecard range results changed"
+        )
+    for field in (
+        "signed_error",
+        "absolute_error",
+        "range_distance",
+    ):
+        if score_properties.get(field, {}).get("type") != [
+            "number",
+            "null",
+        ]:
+            failures.append(
+                f"prediction {field} must allow number or null"
+            )
+
+    expected_summary_fields = [
+        "total",
+        "conclusive",
+        "in_range",
+        "outside_range",
+        "inconclusive",
+        "range_hit_rate",
+    ]
+    bucket = definitions.get("confidence_bucket", {})
+    if bucket.get("additionalProperties") is not False:
+        failures.append(
+            "confidence buckets must reject unknown properties"
+        )
+    if bucket.get("required") != expected_summary_fields:
+        failures.append(
+            "confidence-bucket fields changed"
+        )
+
+    summary = definitions.get("prediction_summary", {})
+    if summary.get("additionalProperties") is not False:
+        failures.append(
+            "prediction summary must reject unknown properties"
+        )
+    if summary.get("required") != (
+        expected_summary_fields + ["by_confidence"]
+    ):
+        failures.append(
+            "prediction-summary fields changed"
         )
     return failures
 
@@ -1506,6 +1671,59 @@ def representative_candidate() -> dict[str, Any]:
     }
 
 
+
+def validate_session_registry(
+    registry: Any,
+    policy: dict[str, Any],
+) -> list[str]:
+    # Validate empty or populated completed-session registries.
+    failures: list[str] = []
+    if not isinstance(registry, dict):
+        return ["session-improvements registry must be an object"]
+
+    expected_keys = {
+        "schema_version",
+        "registry_type",
+        "sessions",
+    }
+    if set(registry) != expected_keys:
+        failures.append(
+            "session-improvements registry keys must be "
+            "schema_version, registry_type, sessions"
+        )
+    if registry.get("schema_version") != "1.0":
+        failures.append(
+            "session-improvements schema_version must be 1.0"
+        )
+    if registry.get("registry_type") != "session-improvements":
+        failures.append(
+            "session-improvements registry_type mismatch"
+        )
+
+    sessions = registry.get("sessions")
+    if not isinstance(sessions, list):
+        failures.append(
+            "session-improvements sessions must be a list"
+        )
+        return failures
+
+    identifiers: list[str] = []
+    for index, item in enumerate(sessions):
+        item_failures = validate_session_instance(item, policy)
+        failures.extend(
+            f"sessions[{index}]: {failure}"
+            for failure in item_failures
+        )
+        if isinstance(item, dict):
+            identifiers.append(str(item.get("session_id", "")))
+
+    if len(identifiers) != len(set(identifiers)):
+        failures.append(
+            "session-improvements identifiers must be unique"
+        )
+    return failures
+
+
 def representative_session() -> dict[str, Any]:
     return {
         "schema_version": "1.0",
@@ -1807,6 +2025,76 @@ def mutation_tests(
         failures.append(
             "session scorecard schema weakening was accepted"
         )
+    for metric in (
+        "avoidable_rework_minutes",
+        "prompt_to_validated_change_minutes",
+    ):
+        non_nullable_score_schema = copy.deepcopy(
+            session_score_schema
+        )
+        non_nullable_score_schema["properties"]["raw_metrics"][
+            "properties"
+        ][metric]["type"] = "number"
+        if not validate_session_score_schema(
+            non_nullable_score_schema, policy
+        ):
+            failures.append(
+                f"non-nullable scorecard metric accepted: {metric}"
+            )
+    weakened_live_policy = copy.deepcopy(policy)
+    weakened_live_policy[
+        "live_session_measurement_policy"
+    ]["missing_measurements"][
+        "representation"
+    ] = 0
+    if not validate_policy(weakened_live_policy):
+        failures.append(
+            "unknown live-session measurements were accepted as zero"
+        )
+
+    non_nullable_prediction = copy.deepcopy(
+        session_score_schema
+    )
+    non_nullable_prediction["$defs"]["prediction_score"][
+        "properties"
+    ]["actual"]["type"] = "number"
+    if not validate_session_score_schema(
+        non_nullable_prediction, policy
+    ):
+        failures.append(
+            "non-nullable prediction actual was accepted"
+        )
+
+    no_inconclusive_result = copy.deepcopy(
+        session_score_schema
+    )
+    no_inconclusive_result["$defs"]["prediction_score"][
+        "properties"
+    ]["range_result"]["enum"] = [
+        "in-range",
+        "below-range",
+        "above-range",
+    ]
+    if not validate_session_score_schema(
+        no_inconclusive_result, policy
+    ):
+        failures.append(
+            "prediction schema without inconclusive was accepted"
+        )
+
+    missing_inconclusive_summary = copy.deepcopy(
+        session_score_schema
+    )
+    missing_inconclusive_summary["$defs"][
+        "prediction_summary"
+    ]["required"].remove("inconclusive")
+    if not validate_session_score_schema(
+        missing_inconclusive_summary, policy
+    ):
+        failures.append(
+            "prediction summary without inconclusive was accepted"
+        )
+
     return failures
 
 def main() -> int:
@@ -1854,22 +2142,30 @@ def main() -> int:
             )
         )
 
-        for key in (
-            "improvement_actions",
-            "sessions",
-        ):
-            (
-                path,
-                registry_type,
-                collection,
-            ) = REGISTRIES[key]
-            failures.extend(
-                validate_empty_registry(
-                    load_json(path),
-                    registry_type=registry_type,
-                    collection=collection,
-                )
+        (
+            action_path,
+            action_registry_type,
+            action_collection,
+        ) = REGISTRIES["improvement_actions"]
+        failures.extend(
+            validate_action_registry(
+                load_json(action_path),
+                policy=policy,
+                registry_type=action_registry_type,
+                collection=action_collection,
             )
+        )
+        failures.extend(
+            validate_action_registry_contract(policy)
+        )
+
+        session_path, _, _ = REGISTRIES["sessions"]
+        failures.extend(
+            validate_session_registry(
+                load_json(session_path),
+                policy,
+            )
+        )
 
         failures.extend(
             validate_candidate_instance(
@@ -1908,6 +2204,8 @@ def main() -> int:
     print("PASS immutable versioned prediction policy")
     print("PASS candidate and session schema contracts")
     print("PASS deterministic session scorecard contract")
+    print("PASS scalar-neutral prediction closeout contract")
+    print("PASS unavailable session measurements remain nullable")
     print("PASS representative candidate and session records")
     print("PASS foundational change candidate registry")
     print("PASS discovery prediction v1 remains immutable")
@@ -1916,9 +2214,10 @@ def main() -> int:
     print("PASS multidimensional sizing and confidence policy")
     print("PASS cost, observability, and process-metric policy")
     print("PASS session rate and prediction scoring policy")
+    print("PASS live-session measurement semantics")
     print("PASS frequent cohesive feature-branch push policy")
     print(
-        "PASS canonical lesson and empty action/session registries"
+        "PASS canonical lesson, valid action, and valid session registries"
     )
     print(
         "PASS continuous-improvement mutation negative tests"

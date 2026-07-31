@@ -91,12 +91,19 @@ Derived rates use these rules:
 - lesson usage is applicable lessons used divided by applicable lessons;
 - a zero denominator produces `null`, not a misleading zero.
 
-Prediction scoring uses the recorded point estimate, inclusive range, actual
-value, and confidence. Signed error is actual minus the point estimate.
-Absolute error is the magnitude of signed error. Percentage error is absolute
-error divided by the absolute actual value and is `null` when actual is zero.
-Range distance is zero inside the range and otherwise measures distance to the
-nearest range boundary.
+Prediction scoring compares a declared subject using its declared scalar and
+unit. Time is one possible unit, but it is not privileged: steps, counts,
+complexity points, cost deltas, validation burden, or another explicit scalar
+may be used. The actual value must measure the same subject and unit as the
+prediction; an available but different metric must never be substituted.
+
+When the matching actual scalar is unavailable, `actual`, signed error,
+absolute error, percentage error, and range distance remain `null`, and the
+range result is `inconclusive`. Conclusive range-hit rates exclude those
+unavailable comparisons while retaining explicit total, conclusive, and
+inconclusive counts. For measured actuals, signed error is actual minus the
+point estimate. Percentage error remains `null` when the measured actual is
+zero.
 
 Range-hit rates must be retained by confidence level so calibration can be
 evaluated across comparable sessions. The scorer must not collapse delivery,
@@ -291,7 +298,9 @@ state, cluster state, cost baselines, and telemetry may change.
 Candidate status is governed by an append-only lifecycle registry rather
 than an unrecorded status edit.
 
-The lifecycle is:
+The lifecycle begins with the same discovery, sizing, decision, sequencing, and
+staged-implementation states for every candidate. The terminal path then
+depends on execution scope:
 
 ```text
 discovery-needed
@@ -299,13 +308,15 @@ discovery-needed
   → decision-ready
   → sequenced
   → staged-implementation
-  → active
-  → validated
-  → closed
+      → active → validated → closed       (deployment)
+      → validated → closed                (repository-only)
 ```
 
-Supported rework transitions return a candidate to the nearest appropriate
-earlier state. `superseded` and `closed` are terminal.
+Repository-only validation does not mean activation. It confirms that the
+committed repository change passed its declared repository validation while
+the deployment gate remained closed. Supported rework transitions return a
+candidate to the nearest appropriate earlier state. `superseded` and `closed`
+are terminal.
 
 Every transition must preserve:
 
@@ -328,6 +339,18 @@ A staged implementation cannot become active unless:
 - the local and remote feature branch are synchronized;
 - validation evidence is supplied;
 - the expected commit matches `HEAD`.
+
+A staged implementation may move directly to `validated` only when its
+lifecycle is explicitly registered as `repository-only`, its deployment gate
+is closed, revalidation is current, the candidate branch is checked out and
+synchronized, validation references are supplied, and the expected commit
+matches `HEAD`. This path must not create an `active` event or claim deployment
+or cluster validation.
+
+Lifecycle registration is also dry-run by default and requires explicit
+`--apply`. Registration records the candidate's current status, execution
+scope, branch, baseline, validation references, and candidate commit without
+advancing the candidate.
 
 The foundational continuous-improvement candidate remains a staged
 implementation with a closed deployment gate. This capability does not
@@ -395,6 +418,100 @@ The machine-readable authority is:
 - `scripts/sage/sage-improvement-actions.py`;
 - `scripts/sage/sage-baseline-extract.py`;
 - `scripts/sage/sage-learning-guardrail.py`.
+
+## Live-session measurement semantics
+
+The live-session recorder measures only commands that pass through the
+canonical recording boundary. It counts engineering, repository mutation,
+validation, evidence, commit, push, and recovery commands. Commands that ran
+before the declared boundary, unrecorded shell navigation, and unrecorded
+display-only commands are not reconstructed later.
+
+The recorder preserves two different clocks:
+
+- command runtime records how long a command process ran;
+- session elapsed time records the wall-clock interval from the declared
+  session start through completion.
+
+Neither value is automatically equivalent to active human effort. Active human
+effort and waiting time remain unavailable unless they are explicitly timed
+and classified.
+
+A manual correction is an unplanned adjustment or recovery caused by an
+incorrect earlier command, implementation assumption, validation result, or
+tool behavior. Planned implementation iteration is not automatically a manual
+correction.
+
+A failed safety or validation command remains a failed command. When that
+failure prevents an invalid commit, push, activation, or cluster mutation, it
+also counts as successful pre-mutation detection. These two classifications
+measure different outcomes and must both be preserved.
+
+Unknown values are represented as `null`. A numeric zero means the value was
+measured and the measured result was zero. Missing or unmeasured values must
+never be silently converted to zero.
+
+This rule continues into completed-session scorecards. Avoidable rework and
+prompt-to-validated-change duration remain `null` when no measurement exists;
+session completion does not manufacture a numeric value.
+
+Post-session failure reviews apply the same rule. A failed command does not
+prove a measured amount of avoidable rework; the per-failure value remains
+`null` unless that duration was explicitly measured.
+
+The canonical ledger stores non-sensitive command labels and command digests.
+Raw command text may be retained only after redaction review. Credentials,
+tokens, passwords, and secret values are prohibited.
+
+The live-session measurement policy does not create a composite score and does
+not open any deployment or activation gate.
+
+### Repository-owned active sessions
+
+An active session is separate from the completed session-improvement registry.
+The active-session registry contains only sessions that are currently being
+measured. A completed session is created later, after implementation,
+validation, prediction comparison, and post-session review are available.
+
+The repository-owned active-session workflow supports five operations:
+
+- `start` registers a declared measurement boundary and opens the local event
+  ledger;
+- `run` executes one classified command and stores only its non-sensitive
+  label, SHA-256 command digest, timing, outcome, lesson use, and correction
+  metadata;
+- `note` records a baseline, observation, decision, limitation, or evidence
+  gap;
+- `status` summarizes raw active-session events without inventing missing
+  measurements;
+- `close` validates a completed-session draft, self-records the terminal
+  repository-mutation event, and moves the session from the active registry
+  to the completed-session registry.
+
+Runtime ledgers are written under `.sage/active-sessions/` and are excluded
+from Git. The tracked active-session registry stores the session identity,
+branch, baseline commit, prediction versions, measurement boundary, and local
+ledger location. Credentials, secret values, and raw command text are not
+permitted in the canonical event format.
+
+Command events also preserve whether a known failure was encountered and
+whether that known failure recurred. These are separate from the command's
+exit status: a command can fail for a new reason, or succeed while still
+revealing a previously documented failure pattern.
+
+Starting or closing a session is an explicit mutation. The recorder does not
+open a deployment gate, activate a staged implementation, or mutate the
+cluster.
+
+The repository-owned close command is dry-run by default and requires
+explicit `--apply`. It must be invoked directly rather than as a child of
+`sage-active-session.py run`, because the close operation removes the active
+registry entry after recording its own terminal command event. Before apply,
+it requires a clean synchronized feature branch, a validated repository-only
+candidate, a closed deployment gate, published evidence references, and a
+completed-session draft whose unavailable measurements remain `null`. The
+ledger and both registries are restored if validation or registry mutation
+fails.
 
 ## Post-session review
 

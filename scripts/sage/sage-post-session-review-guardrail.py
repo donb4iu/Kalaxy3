@@ -98,17 +98,67 @@ def validate_policy(payload: Any) -> list[str]:
 
 
 def validate_registry(payload: Any) -> list[str]:
-    expected = {
-        "schema_version": "1.0",
-        "registry_type": "post-session-reviews",
-        "reviews": [],
+    failures: list[str] = []
+    if not isinstance(payload, dict):
+        return ["post-session review registry must be an object"]
+
+    expected_keys = {
+        "schema_version",
+        "registry_type",
+        "reviews",
     }
-    if payload != expected:
-        return [
-            "post-session review registry must begin "
-            "canonical and empty"
-        ]
-    return []
+    if set(payload) != expected_keys:
+        failures.append(
+            "post-session review registry fields changed"
+        )
+    if payload.get("schema_version") != "1.0":
+        failures.append(
+            "post-session review registry schema_version changed"
+        )
+    if payload.get("registry_type") != "post-session-reviews":
+        failures.append(
+            "post-session review registry_type changed"
+        )
+
+    reviews = payload.get("reviews")
+    if not isinstance(reviews, list):
+        failures.append(
+            "post-session review registry reviews must be an array"
+        )
+        return failures
+
+    review_ids: list[str] = []
+    session_ids: list[str] = []
+    for index, review in enumerate(reviews):
+        if not isinstance(review, dict):
+            failures.append(
+                f"post-session review {index} must be an object"
+            )
+            continue
+        review_id = review.get("review_id")
+        session_id = review.get("session_id")
+        if not isinstance(review_id, str) or not review_id:
+            failures.append(
+                f"post-session review {index} review_id missing"
+            )
+        else:
+            review_ids.append(review_id)
+        if not isinstance(session_id, str) or not session_id:
+            failures.append(
+                f"post-session review {index} session_id missing"
+            )
+        else:
+            session_ids.append(session_id)
+
+    if len(review_ids) != len(set(review_ids)):
+        failures.append(
+            "post-session review IDs must be unique"
+        )
+    if len(session_ids) != len(set(session_ids)):
+        failures.append(
+            "post-session review session IDs must be unique"
+        )
+    return failures
 
 
 def validate_schema(payload: Any) -> list[str]:
@@ -141,6 +191,17 @@ def validate_schema(payload: Any) -> list[str]:
             failures.append(
                 f"post-session schema definition missing: {key}"
             )
+    failure_rework = (
+        payload.get("$defs", {})
+        .get("failure", {})
+        .get("properties", {})
+        .get("avoidable_rework_minutes", {})
+    )
+    if failure_rework.get("type") != ["number", "null"]:
+        failures.append(
+            "post-session failure rework must allow number or null"
+        )
+
     return failures
 
 
@@ -243,6 +304,15 @@ def mutation_tests(
         failures.append(
             "review tool accepted coupled registration policy"
         )
+    non_nullable = copy.deepcopy(schema)
+    non_nullable["$defs"]["failure"]["properties"][
+        "avoidable_rework_minutes"
+    ]["type"] = "number"
+    if not validate_schema(non_nullable):
+        failures.append(
+            "non-nullable post-session failure rework was accepted"
+        )
+
     return failures
 
 
@@ -253,12 +323,109 @@ def main() -> int:
         policy = load_json(POLICY_PATH)
         registry = load_json(REGISTRY_PATH)
         schema = load_json(SCHEMA_PATH)
+        lessons = load_json(ROOT / "sage-lessons.json")
+        actions = load_json(ROOT / "sage-improvement-actions.json")
+        sessions = load_json(
+            ROOT / "sage-session-improvement-registry.json"
+        )
+        action_tool = tool.load_action_tool()
 
         failures.extend(validate_policy(policy))
         failures.extend(tool.validate_policy(policy))
         failures.extend(validate_registry(registry))
         failures.extend(validate_schema(schema))
         failures.extend(validate_expected_git_diagnostics())
+
+        reviews = (
+            registry.get("reviews", [])
+            if isinstance(registry, dict)
+            else []
+        )
+        action_items = (
+            actions.get("actions", [])
+            if isinstance(actions, dict)
+            else []
+        )
+        registered_actions = {
+            item.get("action_id"): item
+            for item in action_items
+            if isinstance(item, dict)
+            and isinstance(item.get("action_id"), str)
+        }
+        draft_fields = (
+            "action_id",
+            "title",
+            "source_lessons",
+            "source_sessions",
+            "owner",
+            "priority",
+            "target_control_type",
+            "desired_outcome",
+            "acceptance_criteria",
+            "measurement_plan",
+        )
+
+        for index, review in enumerate(reviews):
+            if not isinstance(review, dict):
+                continue
+
+            review_drafts = [
+                decision.get("action_draft")
+                for decision in review.get(
+                    "control_decisions",
+                    [],
+                )
+                if isinstance(decision, dict)
+                and isinstance(
+                    decision.get("action_draft"),
+                    dict,
+                )
+            ]
+            draft_ids = {
+                draft.get("action_id")
+                for draft in review_drafts
+                if isinstance(draft.get("action_id"), str)
+            }
+
+            actions_before_registration = copy.deepcopy(actions)
+            if isinstance(actions_before_registration, dict):
+                actions_before_registration["actions"] = [
+                    item
+                    for item in actions_before_registration.get(
+                        "actions",
+                        [],
+                    )
+                    if not (
+                        isinstance(item, dict)
+                        and item.get("action_id") in draft_ids
+                    )
+                ]
+
+            review_failures, derived_drafts = tool.validate_review(
+                review,
+                policy=policy,
+                lessons=lessons,
+                actions=actions_before_registration,
+                sessions=sessions,
+                action_tool=action_tool,
+            )
+            failures.extend(
+                f"review {index}: {failure}"
+                for failure in review_failures
+            )
+
+            for draft in derived_drafts:
+                action_id = draft.get("action_id")
+                registered = registered_actions.get(action_id)
+                if registered is None:
+                    continue
+                for field in draft_fields:
+                    if registered.get(field) != draft.get(field):
+                        failures.append(
+                            "registered action differs from review "
+                            f"draft {action_id}: {field}"
+                        )
+
         failures.extend(
             mutation_tests(
                 tool,
@@ -285,12 +452,14 @@ def main() -> int:
         return 1
 
     print("PASS canonical post-session review policy")
-    print("PASS empty canonical post-session review registry")
+    print("PASS canonical post-session review registry")
     print("PASS canonical questions and session linkage")
     print("PASS known-failure and lesson-use review contract")
+    print("PASS unavailable failure rework remains nullable")
     print("PASS four-plane feedback review contract")
     print("PASS lesson-to-control decision coverage")
     print("PASS action registration remains a separate mutation")
+    print("PASS registered actions match review drafts")
     print("PASS expected negative Git tests remain quiet")
     print("PASS post-session policy mutation negative tests")
     print(

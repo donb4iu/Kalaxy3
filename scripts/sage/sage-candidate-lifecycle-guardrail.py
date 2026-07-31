@@ -57,8 +57,24 @@ def validate_schema(payload: Any) -> list[str]:
         failures.append(
             "lifecycle schema required fields must equal properties"
         )
-    if "transition" not in payload.get("$defs", {}):
+    definitions = payload.get("$defs", {})
+    if "transition" not in definitions:
         failures.append("lifecycle transition contract missing")
+    lifecycle = definitions.get("lifecycle", {})
+    scope = lifecycle.get("properties", {}).get(
+        "execution_scope", {}
+    )
+    if scope.get("enum") != [
+        "repository-only",
+        "deployment",
+    ]:
+        failures.append(
+            "lifecycle execution-scope contract changed"
+        )
+    if "execution_scope" not in lifecycle.get("required", []):
+        failures.append(
+            "lifecycle execution_scope must be required"
+        )
     return failures
 
 
@@ -109,6 +125,12 @@ def validate_foundation(
     ).get("status") != "closed":
         failures.append(
             "foundational deployment gate must remain closed"
+        )
+    if lifecycle.get(
+        "execution_scope"
+    ) != "repository-only":
+        failures.append(
+            "foundational lifecycle must remain repository-only"
         )
     if len(lifecycle.get("history", [])) != 1:
         failures.append(
@@ -197,6 +219,28 @@ def mutation_tests(
             "weakened lifecycle schema was accepted"
         )
 
+    invalid_scope = copy.deepcopy(lifecycles)
+    invalid_scope["lifecycles"][0][
+        "execution_scope"
+    ] = "unknown"
+    if not tool.validate_lifecycle_registry(
+        invalid_scope,
+        candidates,
+        policy,
+    ):
+        failures.append(
+            "invalid execution scope was accepted"
+        )
+
+    no_repository_path = copy.deepcopy(policy)
+    no_repository_path["candidate_lifecycle_policy"][
+        "allowed_transitions"
+    ]["staged-implementation"].remove("validated")
+    if not tool.validate_policy(no_repository_path):
+        failures.append(
+            "missing repository-only validation path was accepted"
+        )
+
     altered_policy = copy.deepcopy(policy)
     altered_policy["candidate_lifecycle_policy"][
         "dry_run_default"
@@ -264,6 +308,7 @@ def main() -> int:
     print("PASS foundational staged implementation")
     print("PASS closed deployment gate preserved")
     print("PASS activation prerequisites fail closed")
+    print("PASS repository-only validation bypass is guarded")
     print("PASS lifecycle policy mutation negative tests")
     print(
         "Kalaxy3 SAGE candidate lifecycle guardrail: PASS"

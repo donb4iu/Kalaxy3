@@ -24,6 +24,119 @@
                     ],
                     "candidate_commit": "fbeedfbe827e967bac9530522d44b814bc9b6bd4"
                 }
+            ],
+            "execution_scope": "repository-only"
+        },
+        {
+            "change_id": "SAGE-CHANGE-20260729-001",
+            "current_status": "validated",
+            "branch": "feature/sage-metrics-pilot",
+            "baseline_commit": "88428fa62e7feaa35c50ae5bb3707aaf51130f8c",
+            "execution_scope": "repository-only",
+            "deployment_gate_required": true,
+            "revalidation_required": true,
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "discovery-needed",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-07-29T23:44:12-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register the fully instrumented metrics pilot as repository-only while preserving its current discovery-needed status and closed deployment gate.",
+                    "validation_references": [
+                        "commit:f1d1116c58924e3987115085f0fb0af3fbcbebf5",
+                        "session:SAGE-SESSION-20260729-001",
+                        "make:sage-guardrails@f1d1116c58924e3987115085f0fb0af3fbcbebf5"
+                    ],
+                    "candidate_commit": "f1d1116c58924e3987115085f0fb0af3fbcbebf5"
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "discovery-needed",
+                    "to_status": "sized",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-07-29T23:48:35-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Accept the registered multidimensional sizing and its explicit confidence basis for the repository-only pilot.",
+                    "validation_references": [
+                        "candidate:sizing",
+                        "candidate:discovery-prediction-v1",
+                        "session:SAGE-SESSION-20260729-001",
+                        "commit:235174a258eab319d6d643487e80af6ddba24ea8"
+                    ],
+                    "candidate_commit": "235174a258eab319d6d643487e80af6ddba24ea8"
+                },
+                {
+                    "sequence": 3,
+                    "from_status": "sized",
+                    "to_status": "decision-ready",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-07-29T23:48:39-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Mark the repository-only pilot decision-ready because its request, sizing, expected value, constraints, dependencies, and closed deployment gate are explicit.",
+                    "validation_references": [
+                        "candidate:expected-value",
+                        "candidate:dependencies",
+                        "candidate:deployment-gate-closed",
+                        "commit:ada9d15d1c0870f38a2c7df07d4ec0d999436a4d"
+                    ],
+                    "candidate_commit": "ada9d15d1c0870f38a2c7df07d4ec0d999436a4d"
+                },
+                {
+                    "sequence": 4,
+                    "from_status": "decision-ready",
+                    "to_status": "sequenced",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-07-29T23:48:43-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Sequence the repository-only pilot using its recorded implementation outline and validation plan.",
+                    "validation_references": [
+                        "candidate:implementation-outline",
+                        "candidate:validation-plan",
+                        "session:SAGE-SESSION-20260729-001",
+                        "commit:8ae552f0382209e99bf54472caf818567dec6248"
+                    ],
+                    "candidate_commit": "8ae552f0382209e99bf54472caf818567dec6248"
+                },
+                {
+                    "sequence": 5,
+                    "from_status": "sequenced",
+                    "to_status": "staged-implementation",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-07-29T23:48:48-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Record the committed, reviewable, repository-only pilot implementation as staged after repository validation, without activation or cluster mutation.",
+                    "validation_references": [
+                        "branch:feature/sage-metrics-pilot",
+                        "make:sage-candidate-self-test",
+                        "make:sage-improvement-policy-check",
+                        "make:sage-guardrails",
+                        "commit:47201cb6385e35bfe79984745ab1b1715a1c59ad"
+                    ],
+                    "candidate_commit": "47201cb6385e35bfe79984745ab1b1715a1c59ad"
+                },
+                {
+                    "sequence": 6,
+                    "from_status": "staged-implementation",
+                    "to_status": "validated",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-07-29T23:52:25-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Validate the staged repository-only metrics pilot after the full repository-owned SAGE test and guardrail suite passed, while preserving the closed deployment gate and without claiming activation or cluster validation.",
+                    "validation_references": [
+                        "commit:ea3c707dbb8f781b36d45732c69d2e393af4c437",
+                        "make:sage-candidate-self-test",
+                        "make:sage-improvement-policy-check",
+                        "make:sage-session-self-test",
+                        "make:sage-active-session-self-test",
+                        "make:sage-review-self-test",
+                        "make:sage-learning-self-test",
+                        "make:sage-guardrails",
+                        "session:SAGE-SESSION-20260729-001"
+                    ],
+                    "candidate_commit": "ea3c707dbb8f781b36d45732c69d2e393af4c437"
+                }
             ]
         }
     ]
