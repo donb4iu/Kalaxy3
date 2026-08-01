@@ -188,7 +188,7 @@
                 "SAGE-LESSON-20260728-001"
             ],
             "source_sessions": [],
-            "current_status": "accepted",
+            "current_status": "implemented",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -229,6 +229,25 @@
                     "evidence_references": [
                         "lesson:SAGE-LESSON-20260728-001",
                         "terminal-session:2026-08-01-file-delivery-guardrail-whitespace-bug-001"
+                    ]
+                },
+                {
+                    "sequence": 3,
+                    "from_status": "accepted",
+                    "to_status": "implemented",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T17:16:16-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The file-based execution delivery contract and guardrail are implemented. The recovery request now classifies through the repository-owned continuous-improvement mapping.",
+                    "evidence_references": [
+                        "commit:31ce752a300f3497a689f353ed8792af444e0a33",
+                        "commit:c1ddc64f9f924f54e39d85d47637a53125d011a9",
+                        "commit:a2399013da8f81c6adcf37d5fd7ec3ac68c6d9f2",
+                        "commit:5816c38cfa958aa841faee0781d4df3e8b959cfd",
+                        "terminal-session:2026-08-01-file-delivery-recovery-preflight-unclassified-001",
+                        "path:AGENTS.md",
+                        "path:scripts/sage/sage-file-delivery-guardrail.py",
+                        "path:sage-change-authority.json"
                     ]
                 }
             ]
