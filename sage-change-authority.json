@@ -725,19 +725,29 @@
                 "SAGE.md",
                 "markdown/standards/kalaxy3-sage-change-discovery-process.md",
                 "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
+                "markdown/standards/kalaxy3-sage-workflow-primitives-process.md",
                 "markdown/standards/kalaxy3-sage-workflow-support-process.md",
+                "markdown/standards/sage-workflow-primitives-schema-v1.0.json",
                 "sage-change-authority.json",
+                "sage-workflow-primitives.json",
                 "scripts/sage/sage-action-id.py",
                 "scripts/sage/sage-python-static-guardrail.py",
+                "scripts/sage/sage-workflow-primitives-guardrail.py",
+                "scripts/sage/sage-workflow-primitives-self-test.py",
                 "scripts/sage/sage-workflow-support-guardrail.py",
-                "scripts/sage/sage_identifiers.py"
+                "scripts/sage/sage-workflow-usage.py",
+                "scripts/sage/sage_identifiers.py",
+                "scripts/sage/workflow/",
+                "scripts/sage/workflows/"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail",
                 "make sage-learning-self-test",
                 "make sage-index-check",
                 "make sage-workflow-support-self-test",
-                "make sage-workflow-support-guardrail"
+                "make sage-workflow-support-guardrail",
+                "make sage-workflow-self-test",
+                "make sage-workflow-guardrail"
             ],
             "required_validation": [
                 "make sage-workflow-self-test",
@@ -746,7 +756,8 @@
                 "make sage-guardrails",
                 "make sage-index-check",
                 "make sage-workflow-support-self-test",
-                "make sage-workflow-support-guardrail"
+                "make sage-workflow-support-guardrail",
+                "make sage-workflow-usage"
             ],
             "evidence_process": [
                 "Record primitive versions used by each workflow.",

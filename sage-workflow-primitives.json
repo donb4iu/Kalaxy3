@@ -1,0 +1,269 @@
+{
+    "schema_version": "1.0",
+    "framework_version": "0.2.0",
+    "status": "pilot",
+    "principles": [
+        "single-responsibility primitives",
+        "thin declarative compositions",
+        "explicit dry-run and apply",
+        "fail-closed repository state",
+        "exact mutation scopes",
+        "structured label-and-digest logging",
+        "secret redaction",
+        "bounded command execution",
+        "atomic evidence writes",
+        "runtime-path integration tests",
+        "versioned evolution from failure evidence",
+        "candidate Makefile parsing before replacement"
+    ],
+    "primitives": [
+        {
+            "primitive_id": "catalog.registry",
+            "version": "1.0.0",
+            "module": "workflow.catalog",
+            "symbol": "PrimitiveCatalog",
+            "side_effects": "read-only primitive registry validation",
+            "idempotency": "deterministic read-only load",
+            "logging": "consumed by event and closeout primitives",
+            "failure_mode": "unknown or duplicate primitives fail closed",
+            "tests": [
+                "load",
+                "unknown primitive rejection",
+                "version selection"
+            ],
+            "maturity": "pilot"
+        },
+        {
+            "primitive_id": "logging.events",
+            "version": "1.1.0",
+            "module": "workflow.logging",
+            "symbol": "JsonlEventLogger",
+            "side_effects": "append-only local JSONL event evidence",
+            "idempotency": "events are append-only and sequenced",
+            "logging": "label, digest, primitive ID and primitive version",
+            "failure_mode": "write or fsync failure stops execution",
+            "tests": [
+                "required fields",
+                "redaction",
+                "version provenance",
+                "fsync"
+            ],
+            "maturity": "pilot"
+        },
+        {
+            "primitive_id": "command.run",
+            "version": "1.0.0",
+            "module": "workflow.runner",
+            "symbol": "CommandRunner",
+            "side_effects": "declared by CommandSpec",
+            "idempotency": "caller-declared; bounded by expected codes and timeout",
+            "logging": "command label, digest, duration, return code, output digest",
+            "failure_mode": "fail closed with WorkflowCommandError",
+            "tests": [
+                "success",
+                "expected failure",
+                "timeout",
+                "redaction"
+            ],
+            "maturity": "pilot"
+        },
+        {
+            "primitive_id": "git.repository",
+            "version": "1.0.0",
+            "module": "workflow.git",
+            "symbol": "GitRepository",
+            "side_effects": "fetch, exact-scope commit, and push",
+            "idempotency": "clean synchronized state and exact path scope required",
+            "logging": "delegated to command.run as git.repository events",
+            "failure_mode": "fail closed before or immediately after mutation",
+            "tests": [
+                "temporary remote synchronization",
+                "exact-scope commit and push"
+            ],
+            "maturity": "pilot"
+        },
+        {
+            "primitive_id": "sage.discovery",
+            "version": "1.0.0",
+            "module": "workflow.discovery",
+            "symbol": "SageDiscovery",
+            "side_effects": "read-only discovery and local retrieval receipt",
+            "idempotency": "repeatable for unchanged repository state",
+            "logging": "delegated to command.run",
+            "failure_mode": "unclassified or missing authority fails closed",
+            "tests": [
+                "preflight parser",
+                "authority existence"
+            ],
+            "maturity": "pilot"
+        },
+        {
+            "primitive_id": "sage.action-lifecycle",
+            "version": "1.1.0",
+            "module": "workflow.lifecycle",
+            "symbol": "ImprovementActionClient",
+            "side_effects": "canonical ID allocation, registration, and transitions",
+            "idempotency": "dry-run first; explicit apply; clean tree required",
+            "logging": "delegated to command.run",
+            "failure_mode": "canonical action tooling or exact-scope check fails closed",
+            "tests": [
+                "allocation adapter",
+                "registration adapter",
+                "transition adapter"
+            ],
+            "maturity": "pilot"
+        },
+        {
+            "primitive_id": "makefile.compose",
+            "version": "1.0.0",
+            "module": "workflow.makefile",
+            "symbol": "MakefileDocument",
+            "side_effects": "in-memory Makefile composition only",
+            "idempotency": "adding an existing dependency is a no-op",
+            "logging": "caller records candidate validation",
+            "failure_mode": "malformed continuation or duplicate target fails closed",
+            "tests": [
+                "single-line target",
+                "multiline continuation",
+                "GNU Make dry-run"
+            ],
+            "maturity": "pilot"
+        },
+        {
+            "primitive_id": "validation.plan",
+            "version": "1.0.0",
+            "module": "workflow.validation",
+            "symbol": "ValidationPlan",
+            "side_effects": "those declared by ordered validation commands",
+            "idempotency": "validation commands must be repeatable",
+            "logging": "one command event stream per validation",
+            "failure_mode": "first failed validation stops the plan",
+            "tests": [
+                "ordered success",
+                "first failure stops"
+            ],
+            "maturity": "pilot"
+        },
+        {
+            "primitive_id": "evidence.closeout",
+            "version": "1.1.0",
+            "module": "workflow.evidence",
+            "symbol": "CloseoutWriter",
+            "side_effects": "atomic local JSON closeout",
+            "idempotency": "timestamped immutable output",
+            "logging": "event-log digest and exact used primitive versions",
+            "failure_mode": "catalog, atomic write, or fsync failure stops closeout",
+            "tests": [
+                "atomic write",
+                "used primitive manifest",
+                "event-log digest"
+            ],
+            "maturity": "pilot"
+        },
+        {
+            "primitive_id": "usage.summary",
+            "version": "1.0.0",
+            "module": "workflow.usage",
+            "symbol": "UsageAnalyzer",
+            "side_effects": "read-only structured log aggregation",
+            "idempotency": "deterministic for an unchanged log set",
+            "logging": "summarizes pass and failure events by primitive version",
+            "failure_mode": "invalid JSONL fails closed",
+            "tests": [
+                "workflow count",
+                "success count",
+                "failure count"
+            ],
+            "maturity": "pilot"
+        },
+        {
+            "primitive_id": "workflow.composition",
+            "version": "1.1.0",
+            "module": "workflow.composition",
+            "symbol": "Workflow",
+            "side_effects": "only through registered composed primitives",
+            "idempotency": "derived from declared steps",
+            "logging": "workflow and step lifecycle with primitive versions",
+            "failure_mode": "first failed step stops workflow and records failure",
+            "tests": [
+                "registered steps",
+                "ordered steps",
+                "failure propagation"
+            ],
+            "maturity": "pilot"
+        }
+    ],
+    "composition_policy": {
+        "wrapper_root": "scripts/sage/workflows",
+        "required_manifest_constant": "PRIMITIVES_USED",
+        "forbidden_direct_imports": [
+            "subprocess",
+            "shlex"
+        ],
+        "forbidden_helper_definitions": [
+            "run",
+            "output",
+            "changed_paths",
+            "commit_and_push",
+            "fetch_and_require_sync",
+            "next_action_id",
+            "allocate_action_id",
+            "insert_recipe"
+        ],
+        "require_registered_primitive_ids": true,
+        "require_thin_wrapper": true
+    },
+    "logging_policy": {
+        "format": "jsonl",
+        "append_only": true,
+        "fsync": true,
+        "raw_command_arguments_stored": false,
+        "raw_command_output_stored": false,
+        "primitive_version_required": true,
+        "required_fields": [
+            "timestamp",
+            "workflow_id",
+            "sequence",
+            "event",
+            "status",
+            "primitive_id",
+            "primitive_version"
+        ]
+    },
+    "mutation_policy": {
+        "explicit_apply_required": true,
+        "dry_run_first": true,
+        "clean_tree_required": true,
+        "remote_sync_required": true,
+        "exact_path_scope_required": true,
+        "atomic_file_write_required": true,
+        "candidate_makefile_parse_required": true
+    },
+    "evolution_policy": {
+        "failure_updates_primitive_and_regression_test": true,
+        "primitive_version_bump_required_for_behavior_change": true,
+        "wrapper_only_root_cause_patch_forbidden": true,
+        "execution_evidence_records_primitive_versions": true,
+        "maturity_thresholds": {
+            "pilot": "0-2 successful production executions",
+            "validated": "3-9 successful production executions with no open recurrence",
+            "stable": "10 or more successful production executions with measured reuse"
+        }
+    },
+    "usage_policy": {
+        "event_log_root": "~/.local/state/kalaxy3/sage-workflows",
+        "summary_command": "python3 scripts/sage/sage-workflow-usage.py",
+        "do_not_backfill_unobserved_executions": true,
+        "promote_maturity_only_from_observed_versioned_events": true
+    },
+    "required_metrics": [
+        "primitive_reuse_ratio",
+        "direct_execution_violations",
+        "successful_executions_by_primitive_version",
+        "failures_by_primitive_version",
+        "known_failure_recurrences",
+        "wrapper_only_defects",
+        "time_to_validated_implementation",
+        "avoidable_rework"
+    ]
+}

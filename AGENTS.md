@@ -131,3 +131,20 @@ validation.
 
 A primitive root cause must be fixed in the primitive with a regression test;
 wrapper-only root-cause patches are prohibited.
+
+## Reusable workflow composition contract
+
+New Kalaxy3 operator workflows MUST be thin compositions under
+`scripts/sage/workflows/` using versioned primitives from
+`scripts/sage/workflow/`.
+
+Do not recreate command execution, Git synchronization, changed-path checks,
+SAGE discovery, action lifecycle, Makefile composition, validation, structured
+logging, usage aggregation, or closeout logic in workflow wrappers.
+
+Tracked compositions declare `PRIMITIVES_USED`, may not import `subprocess`,
+and must pass `make sage-workflow-self-test` and
+`make sage-workflow-guardrail`.
+
+A primitive defect is corrected in the primitive with a version increment and
+regression test. Wrapper-only root-cause patches are prohibited.
