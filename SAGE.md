@@ -102,3 +102,14 @@ SAGE_PACKAGE=~/Downloads/<package>.zip make sage-evidence-check
 
 The requester need not know the SAGE standard, schema, template, metadata,
 navigation, artifact, checksum, or publication commands.
+
+## Actionable failure recovery
+
+The authoritative failure-response contract is
+`markdown/standards/kalaxy3-sage-actionable-failure-contract.md`.
+
+Guardrails fail closed and provide a repository-owned recovery path. When
+the correct path cannot be determined, SAGE identifies the uncertainty,
+directs the operator to repository discovery, preserves the failure as
+evidence, and reports a systemic capability gap instead of suggesting an
+undocumented workaround.

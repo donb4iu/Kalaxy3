@@ -56,7 +56,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test:
+sage-self-test: sage-actionable-failure-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 
@@ -188,3 +188,7 @@ docs-mkdocs-generate: docs-mkdocs-stage
 	@echo "Kalaxy3 MkDocs generated documentation: PASS"
 # END KALAXY3 MKDOCS STAGED TARGETS
 .PHONY: sage-session-close-self-test
+
+.PHONY: sage-actionable-failure-self-test
+sage-actionable-failure-self-test:
+	python3 scripts/sage/sage-actionable-failure-self-test.py

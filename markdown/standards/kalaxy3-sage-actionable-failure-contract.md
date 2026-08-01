@@ -1,0 +1,57 @@
+# Kalaxy3 SAGE actionable failure contract
+
+## Purpose
+
+A SAGE-controlled failure MUST guide an operator who knows only the action
+they attempted. Guardrails MUST NOT depend on remembered conversations,
+undocumented lifecycle state, prior branch history, or assumed repository
+expertise.
+
+## Required response sections
+
+Every actionable failure MUST provide these labeled sections:
+
+1. `SAGE ACTION BLOCKED`
+2. `Attempted action`
+3. `Detected state`
+4. `Why this is invalid`
+5. `Likely intended outcome`
+6. `Confirm the correct approach`
+7. `Allowed actions`
+8. `Prohibited actions`
+9. `Canonical recovery`
+10. `SAGE integrity requirements`
+11. `Repository gap`
+
+The likely intention MUST be labeled as an inference. The detected state
+MUST come from repository or runtime evidence.
+
+## Recovery behavior
+
+The failure MUST provide an exact repository-owned command or Make target.
+It MUST also name the authoritative repository paths that explain the
+current lifecycle and recovery process.
+
+When SAGE cannot determine a canonical recovery path, it MUST:
+
+- state the uncertainty explicitly;
+- provide the repository-owned discovery command that resolves it;
+- identify the missing capability as a systemic repository gap;
+- preserve failed-path evidence for evaluation;
+- prohibit substitution of undocumented or ad hoc commands.
+
+## Integrity behavior
+
+Recovery guidance MUST preserve:
+
+- repository-owned tooling and pinned dependencies;
+- authoritative configuration and lifecycle gates;
+- required discovery, source, deployment, cluster, and evidence guardrails;
+- failed and successful terminal evidence;
+- generated-index and publication lineage;
+- rollback authority;
+- frequent cohesive validated commits and immediate pushes.
+
+A guardrail MUST NOT recommend bypassing assertions, weakening validation,
+changing a lifecycle gate only to satisfy a validator, using unmanaged
+tooling, or editing generated evidence directly.

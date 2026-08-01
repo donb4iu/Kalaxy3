@@ -66,3 +66,20 @@ SAGE_PACKAGE=~/Downloads/<package>.zip make sage-evidence-check
 
 Do not ask the requester to restate schema, template, metadata, evidence,
 navigation, checksum, or publication requirements.
+
+## Actionable SAGE failures
+
+SAGE guardrails follow
+`markdown/standards/kalaxy3-sage-actionable-failure-contract.md`.
+
+A failure must be self-contained for an operator who knows only the action
+they attempted. It must explain the detected state, why the action is
+invalid, the inferred goal, how to confirm the authoritative approach,
+the exact recovery command, allowed and prohibited actions, and the SAGE
+integrity requirements that remain mandatory.
+
+Validate this contract with:
+
+```bash
+make sage-actionable-failure-self-test
+```

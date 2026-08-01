@@ -33,7 +33,8 @@
                 "AGENTS.md",
                 "SAGE.md",
                 "sage-change-authority.json",
-                "markdown/standards/kalaxy3-sage-change-discovery-process.md"
+                "markdown/standards/kalaxy3-sage-change-discovery-process.md",
+                "markdown/standards/kalaxy3-sage-actionable-failure-contract.md"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
