@@ -278,7 +278,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "implemented",
+            "current_status": "validated",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -343,6 +343,23 @@
                         "path:scripts/sage/sage_identifiers.py",
                         "path:scripts/sage/sage-python-static-guardrail.py",
                         "path:scripts/sage/sage-workflow-support-guardrail.py"
+                    ]
+                },
+                {
+                    "sequence": 4,
+                    "from_status": "implemented",
+                    "to_status": "validated",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T18:17:16-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Canonical allocator tests, undefined-global tests, duplicate implementation guardrail, candidate Makefile parsing, real action registration, root SAGE self-tests, repository guardrails, and evidence index all passed.",
+                    "evidence_references": [
+                        "commit:d3b059c6ce1fe02c6de4f800a4ce17aa0d7e59e7",
+                        "make:sage-workflow-support-self-test",
+                        "make:sage-workflow-support-guardrail",
+                        "make:sage-self-test",
+                        "make:sage-guardrails",
+                        "make:sage-index-check"
                     ]
                 }
             ]
