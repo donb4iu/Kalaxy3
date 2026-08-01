@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "algorithm_version": "deterministic-token-overlap-v1",
+  "algorithm_version": "deterministic-token-overlap-v2",
   "default_limit": 10,
   "minimum_score": 3,
   "allowed_dispositions": [
@@ -144,5 +144,10 @@
       "source_type": "post_session_review"
     }
   ],
-  "minimum_matched_terms": 1
+  "minimum_matched_terms": 1,
+  "quality_fields": {
+    "maximum_applicable_facts": 5,
+    "confidence_missing_value": "not-recorded",
+    "recency_policy": "explicit-source-fields-only; relevance-score-first; recency-descending-tie-breaker"
+  }
 }

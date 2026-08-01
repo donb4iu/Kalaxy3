@@ -237,6 +237,208 @@ def production_failure_registry_test() -> None:
             "production failure count does not match mapping"
         )
 
+def quality_fields_test(
+    repo: Path,
+    policy_path: Path,
+) -> None:
+    """Require exact facts and explicit metadata provenance."""
+    catalog_path = repo / "markdown/evidence/catalog.json"
+    catalog = load_json(catalog_path)
+    record = next(
+        item
+        for item in catalog["records"]
+        if item["evidence_id"] == "OBS-001"
+    )
+    record.update(
+        {
+            "confidence": "high",
+            "valid_as_of": "2026-07-31",
+            "completed_at": "2026-07-31T20:00:00-05:00",
+            "nav_section": "operations",
+            "source_path": "markdown/operations/fixture.md",
+        }
+    )
+    write_json(catalog_path, catalog)
+
+    evidence_payload = retrieve(
+        repo=repo,
+        policy_path=policy_path,
+        request="Grafana logging runtime validation",
+        limit=10,
+    )
+    evidence_identifiers = [
+        item["identifier"]
+        for item in evidence_payload["results"]
+    ]
+    if "OBS-001" not in evidence_identifiers:
+        raise AssertionError(
+            "Evidence fixture was excluded unexpectedly: "
+            f"{evidence_identifiers}"
+        )
+    result = next(
+        item
+        for item in evidence_payload["results"]
+        if item["identifier"] == "OBS-001"
+    )
+    if result["confidence"] != {
+        "value": "high",
+        "source_field": "confidence",
+        "basis": "explicit-source-field",
+    }:
+        raise AssertionError(
+            f"explicit confidence was not preserved: "
+            f"{result['confidence']}"
+        )
+    if result["recency"] != {
+        "value": "2026-07-31",
+        "source_field": "valid_as_of",
+        "basis": "explicit-source-field",
+    }:
+        raise AssertionError(
+            f"explicit recency was not preserved: "
+            f"{result['recency']}"
+        )
+    if (
+        result["source_section"]["navigation_section"]
+        != "operations"
+    ):
+        raise AssertionError(
+            "navigation source section was not preserved"
+        )
+    if not result["applicable_facts"]:
+        raise AssertionError("exact applicable facts are missing")
+    for fact in result["applicable_facts"]:
+        if fact["value"] not in retrieval_module.scalar_text(
+            record
+        ):
+            raise AssertionError(
+                f"fact is not an exact source value: {fact}"
+            )
+        if not fact["matched_terms"]:
+            raise AssertionError(
+                f"fact has no request overlap: {fact}"
+            )
+    validate_result(
+        evidence_payload,
+        load_json(policy_path),
+    )
+
+    lesson_payload = retrieve(
+        repo=repo,
+        policy_path=policy_path,
+        request="Use live runtime validation lesson",
+        limit=10,
+    )
+    lesson_identifiers = [
+        item["identifier"]
+        for item in lesson_payload["results"]
+    ]
+    if "LESSON-001" not in lesson_identifiers:
+        raise AssertionError(
+            "Lesson fixture did not satisfy its domain-valid request: "
+            f"{lesson_identifiers}"
+        )
+    lesson = next(
+        item
+        for item in lesson_payload["results"]
+        if item["identifier"] == "LESSON-001"
+    )
+    if lesson["confidence"]["basis"] != "not-recorded":
+        raise AssertionError(
+            "missing lesson confidence was inferred"
+        )
+    if lesson["recency"]["basis"] != "not-recorded":
+        raise AssertionError(
+            "missing lesson recency was inferred"
+        )
+    validate_result(
+        lesson_payload,
+        load_json(policy_path),
+    )
+
+
+def recency_tie_break_test() -> None:
+    """Require explicit recency only after equal relevance."""
+    with tempfile.TemporaryDirectory(
+        prefix="sage-retrieval-recency-test-"
+    ) as directory:
+        repo = Path(directory)
+        policy = fixture_policy()
+        policy["sources"] = [
+            {
+                "path": "markdown/evidence/catalog.json",
+                "source_type": "evidence",
+            }
+        ]
+        write_json(
+            repo / "sage-evidence-retrieval-policy.json",
+            policy,
+        )
+        common = {
+            "title": "Grafana runtime validation",
+            "summary": "Grafana runtime validation evidence.",
+            "status": "validated",
+            "confidence": "high",
+            "nav_section": "operations",
+        }
+        write_json(
+            repo / "markdown/evidence/catalog.json",
+            {
+                "records": [
+                    {
+                        **common,
+                        "evidence_id": "OLDER",
+                        "valid_as_of": "2026-07-01",
+                    },
+                    {
+                        **common,
+                        "evidence_id": "NEWER",
+                        "valid_as_of": "2026-08-01",
+                    },
+                ]
+            },
+        )
+        payload = retrieve(
+            repo=repo,
+            policy_path=(
+                repo / "sage-evidence-retrieval-policy.json"
+            ),
+            request="Grafana runtime validation",
+            limit=2,
+        )
+        identifiers = [
+            item["identifier"]
+            for item in payload["results"]
+        ]
+        if identifiers != ["NEWER", "OLDER"]:
+            raise AssertionError(
+                f"explicit recency tie-break failed: {identifiers}"
+            )
+
+
+def production_schema_quality_test() -> None:
+    """Require the repository schema to enforce quality fields."""
+    root = Path(__file__).resolve().parents[2]
+    schema = load_json(
+        root
+        / "markdown/standards/"
+        / "sage-evidence-retrieval-result-schema-v1.0.json"
+    )
+    item_schema = (
+        schema["properties"]["results"]["items"]
+    )
+    required = set(item_schema["required"])
+    expected = {
+        "confidence",
+        "applicable_facts",
+        "source_section",
+        "recency",
+    }
+    if not expected.issubset(required):
+        raise AssertionError(
+            f"schema quality fields missing: {required}"
+        )
+
 def main() -> int:
     """Run all tests without site packages or network access."""
     with tempfile.TemporaryDirectory(
@@ -248,8 +450,11 @@ def main() -> int:
         disposition_test(repo, policy_path)
         negative_test(repo, policy_path)
         no_overlap_test(repo, policy_path)
+        quality_fields_test(repo, policy_path)
 
+    recency_tie_break_test()
     production_failure_registry_test()
+    production_schema_quality_test()
     print("SAGE evidence retrieval self-test: PASS")
     return 0
 

@@ -82,3 +82,31 @@ summary.
 A result with no match is valid: classify the failure as new and inspect
 repository authority before retrying. A second failure in the same class
 requires a lesson or improvement action before another speculative attempt.
+
+## Retrieval quality fields
+
+Every ranked result must expose relevance, confidence, exact applicable facts,
+source location, and recency without inventing metadata.
+
+- Relevance remains the deterministic score, matched terms, matched request
+  groups, and score reasons.
+- `confidence` copies the record's explicit `confidence` field. When the source
+  record has no confidence field, the result says `not-recorded`; confidence is
+  never inferred from source type, status, identifier, or ranking.
+- `applicable_facts` contains exact scalar values copied from the source record.
+  Every value includes its exact JSON field path and the literal request terms
+  that matched it. Retrieval does not paraphrase these facts.
+- `source_section` identifies the first applicable fact's exact record field,
+  plus an explicit navigation section and source document when the record
+  supplies them.
+- `recency` uses explicit ISO date or timestamp fields only. Evidence prefers
+  `valid_as_of`; post-session reviews use `recorded_at`; improvement actions may
+  use `history[*].recorded_at`. Missing recency is `not-recorded`. Dates are
+  never inferred from identifiers, file names, Git metadata, or filesystem
+  modification times.
+- Explicit recency is a tie-breaker only after relevance score. It cannot make
+  an irrelevant record relevant or outweigh stronger literal relevance.
+
+The source-only test suite must prove exact fact provenance, non-inference for
+missing confidence and dates, explicit recency tie-breaking, production failure
+registry support, and schema enforcement.

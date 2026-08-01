@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import hashlib
 import json
 import re
@@ -275,6 +277,307 @@ def group_matches(
     }
 
 
+def atomic_source_values(
+    value: Any,
+    path: str,
+) -> list[tuple[str, str]]:
+    """Flatten exact scalar source values with deterministic JSON paths."""
+    if value is None:
+        return []
+    if isinstance(value, bool):
+        return [(path, "true" if value else "false")]
+    if isinstance(value, (int, float)):
+        return [(path, str(value))]
+    if isinstance(value, str):
+        return [(path, value)] if value.strip() else []
+    if isinstance(value, list):
+        values: list[tuple[str, str]] = []
+        for index, item in enumerate(value):
+            values.extend(
+                atomic_source_values(item, f"{path}[{index}]")
+            )
+        return values
+    if isinstance(value, dict):
+        values = []
+        for key in sorted(value):
+            child_path = f"{path}.{key}" if path else key
+            values.extend(
+                atomic_source_values(value[key], child_path)
+            )
+        return values
+    return []
+
+
+def fact_field_priority(source_type: str) -> tuple[str, ...]:
+    """Return deterministic source-specific fact fields."""
+    priorities = {
+        "evidence": (
+            "summary",
+            "primary_subject",
+            "status",
+            "migration_status",
+        ),
+        "lesson": (
+            "known_resolution",
+            "preventive_control",
+            "preflight_detection",
+            "root_cause",
+            "failure_signature",
+            "symptoms",
+        ),
+        "failure": (
+            "canonical_recovery",
+            "why_invalid",
+            "likely_intended_outcome",
+            "allowed_actions",
+            "confirm_correct_approach",
+            "repository_gap",
+            "detected_state",
+            "prohibited_actions",
+        ),
+        "improvement_action": (
+            "desired_outcome",
+            "acceptance_criteria",
+            "measurement_plan",
+            "current_status",
+            "history",
+        ),
+        "post_session_review": (
+            "summary",
+            "control_decisions",
+            "questions",
+            "failures",
+            "feedback_planes",
+        ),
+    }
+    return priorities.get(
+        source_type,
+        ("summary", "title", "status"),
+    )
+
+
+def exact_applicable_facts(
+    record: Mapping[str, Any],
+    source_type: str,
+    terms: set[str],
+    policy: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Select exact source values that overlap the literal request."""
+    candidates: list[tuple[int, int, str, str, list[str]]] = []
+    seen: set[tuple[str, str]] = set()
+    stopwords = policy["stopwords"]
+
+    def consider(
+        source_field: str,
+        value: Any,
+        priority: int,
+    ) -> None:
+        for path, exact_value in atomic_source_values(
+            value,
+            source_field,
+        ):
+            key = (path, exact_value)
+            if key in seen:
+                continue
+            seen.add(key)
+            overlap = sorted(
+                tokenize(exact_value, stopwords) & terms
+            )
+            if not overlap:
+                continue
+            candidates.append(
+                (
+                    -len(overlap),
+                    priority,
+                    path,
+                    exact_value,
+                    overlap,
+                )
+            )
+
+    for priority, field in enumerate(
+        fact_field_priority(source_type)
+    ):
+        if field in record:
+            consider(field, record[field], priority)
+
+    fallback_priority = len(fact_field_priority(source_type)) + 100
+    for field in sorted(record):
+        consider(field, record[field], fallback_priority)
+
+    candidates.sort(
+        key=lambda item: (
+            item[0],
+            item[1],
+            item[2],
+            item[3],
+        )
+    )
+    maximum = int(
+        policy.get("quality_fields", {}).get(
+            "maximum_applicable_facts",
+            5,
+        )
+    )
+    return [
+        {
+            "source_field": path,
+            "value": exact_value,
+            "matched_terms": overlap,
+        }
+        for _, _, path, exact_value, overlap
+        in candidates[:maximum]
+    ]
+
+
+def explicit_confidence(
+    record: Mapping[str, Any],
+    policy: Mapping[str, Any],
+) -> dict[str, str]:
+    """Copy explicit confidence without inference."""
+    value = scalar_text(record.get("confidence")).strip()
+    if value:
+        return {
+            "value": value,
+            "source_field": "confidence",
+            "basis": "explicit-source-field",
+        }
+    missing = str(
+        policy.get("quality_fields", {}).get(
+            "confidence_missing_value",
+            "not-recorded",
+        )
+    )
+    return {
+        "value": missing,
+        "source_field": "",
+        "basis": "not-recorded",
+    }
+
+
+def parse_explicit_date(value: Any) -> datetime | None:
+    """Parse an explicit ISO date or timestamp."""
+    text = scalar_text(value).strip()
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(
+            text.replace("Z", "+00:00")
+        )
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def explicit_recency(
+    record: Mapping[str, Any],
+    source_type: str,
+) -> dict[str, str]:
+    """Return recency using explicit source-field precedence."""
+    preferred = {
+        "evidence": (
+            "valid_as_of",
+            "completed_at",
+            "updated_at",
+            "created_at",
+        ),
+        "post_session_review": (
+            "recorded_at",
+            "updated_at",
+            "created_at",
+        ),
+    }.get(
+        source_type,
+        (
+            "valid_as_of",
+            "recorded_at",
+            "completed_at",
+            "updated_at",
+            "created_at",
+        ),
+    )
+
+    for field in preferred:
+        exact_value = scalar_text(record.get(field)).strip()
+        if parse_explicit_date(exact_value) is not None:
+            return {
+                "value": exact_value,
+                "source_field": field,
+                "basis": "explicit-source-field",
+            }
+
+    if source_type == "improvement_action":
+        history = record.get("history")
+        candidates: list[tuple[datetime, int, str]] = []
+        if isinstance(history, list):
+            for index, item in enumerate(history):
+                if not isinstance(item, dict):
+                    continue
+                exact_value = scalar_text(
+                    item.get("recorded_at")
+                ).strip()
+                parsed = parse_explicit_date(exact_value)
+                if parsed is not None:
+                    candidates.append(
+                        (parsed, index, exact_value)
+                    )
+        if candidates:
+            _, index, exact_value = max(
+                candidates,
+                key=lambda item: (
+                    item[0],
+                    item[1],
+                    item[2],
+                ),
+            )
+            return {
+                "value": exact_value,
+                "source_field": (
+                    f"history[{index}].recorded_at"
+                ),
+                "basis": "explicit-source-field",
+            }
+
+    return {
+        "value": "",
+        "source_field": "",
+        "basis": "not-recorded",
+    }
+
+
+def recency_sort_value(recency: Mapping[str, Any]) -> float:
+    """Return a deterministic numeric tie-break value."""
+    if recency.get("basis") != "explicit-source-field":
+        return float("-inf")
+    parsed = parse_explicit_date(recency.get("value"))
+    if parsed is None:
+        return float("-inf")
+    return parsed.timestamp()
+
+
+def exact_source_section(
+    record: Mapping[str, Any],
+    facts: list[dict[str, Any]],
+) -> dict[str, str]:
+    """Identify the exact record field and navigation location."""
+    record_field = (
+        str(facts[0]["source_field"])
+        if facts
+        else ""
+    )
+    navigation = scalar_text(record.get("nav_section")).strip()
+    source_document = scalar_text(
+        record.get("source_path")
+        or record.get("record_path")
+    ).strip()
+    return {
+        "record_field": record_field,
+        "navigation_section": navigation,
+        "source_document": source_document,
+    }
+
 def score_record(
     record: Mapping[str, Any],
     *,
@@ -318,6 +621,19 @@ def score_record(
     if score < int(policy["minimum_score"]):
         return None
 
+    facts = exact_applicable_facts(
+        record,
+        source_type,
+        terms,
+        policy,
+    )
+    if not facts:
+        return None
+
+    confidence = explicit_confidence(record, policy)
+    recency = explicit_recency(record, source_type)
+    section = exact_source_section(record, facts)
+
     return {
         "rank": 0,
         "source_type": source_type,
@@ -330,6 +646,10 @@ def score_record(
         "matched_terms": sorted(matched),
         "matched_groups": sorted(groups),
         "reasons": reasons,
+        "confidence": confidence,
+        "applicable_facts": facts,
+        "source_section": section,
+        "recency": recency,
         "disposition": "pending",
         "disposition_rationale": "",
     }
@@ -389,6 +709,7 @@ def retrieve(
     candidates.sort(
         key=lambda item: (
             -int(item["score"]),
+            -recency_sort_value(item["recency"]),
             item["identifier"],
             item["source_path"],
         )
@@ -413,7 +734,7 @@ def validate_result(
     *,
     require_final: bool = False,
 ) -> None:
-    """Validate structure and evidence-use dispositions."""
+    """Validate structure, quality fields, and dispositions."""
     required = {
         "schema_version",
         "algorithm_version",
@@ -424,25 +745,168 @@ def validate_result(
     }
     missing = sorted(required - set(payload))
     if missing:
-        raise RetrievalError(f"retrieval result missing fields: {missing}")
+        raise RetrievalError(
+            f"retrieval result missing fields: {missing}"
+        )
+
+    if payload.get("algorithm_version") != policy.get(
+        "algorithm_version"
+    ):
+        raise RetrievalError(
+            "retrieval algorithm version does not match policy"
+        )
 
     allowed = set(policy["allowed_dispositions"])
-    for expected_rank, result in enumerate(payload["results"], start=1):
+    quality_required = {
+        "confidence",
+        "applicable_facts",
+        "source_section",
+        "recency",
+    }
+    for expected_rank, result in enumerate(
+        payload["results"],
+        start=1,
+    ):
         if result.get("rank") != expected_rank:
-            raise RetrievalError("retrieval ranks must be contiguous")
+            raise RetrievalError(
+                "retrieval ranks must be contiguous"
+            )
+
+        missing_quality = sorted(
+            quality_required - set(result)
+        )
+        if missing_quality:
+            raise RetrievalError(
+                f"{result.get('identifier')} missing quality fields: "
+                f"{missing_quality}"
+            )
+
+        confidence = result.get("confidence")
+        if not isinstance(confidence, dict):
+            raise RetrievalError(
+                f"{result.get('identifier')} confidence must be an object"
+            )
+        confidence_basis = confidence.get("basis")
+        if confidence_basis not in {
+            "explicit-source-field",
+            "not-recorded",
+        }:
+            raise RetrievalError(
+                f"{result.get('identifier')} confidence basis is invalid"
+            )
+        if (
+            confidence_basis == "explicit-source-field"
+            and (
+                not str(confidence.get("value", "")).strip()
+                or confidence.get("source_field") != "confidence"
+            )
+        ):
+            raise RetrievalError(
+                f"{result.get('identifier')} explicit confidence "
+                "lacks source provenance"
+            )
+        if (
+            confidence_basis == "not-recorded"
+            and str(confidence.get("source_field", "")).strip()
+        ):
+            raise RetrievalError(
+                f"{result.get('identifier')} inferred confidence "
+                "is prohibited"
+            )
+
+        facts = result.get("applicable_facts")
+        if not isinstance(facts, list) or not facts:
+            raise RetrievalError(
+                f"{result.get('identifier')} needs exact applicable facts"
+            )
+        for fact in facts:
+            if not isinstance(fact, dict):
+                raise RetrievalError(
+                    f"{result.get('identifier')} fact must be an object"
+                )
+            if (
+                not str(fact.get("source_field", "")).strip()
+                or not str(fact.get("value", "")).strip()
+                or not isinstance(fact.get("matched_terms"), list)
+                or not fact.get("matched_terms")
+            ):
+                raise RetrievalError(
+                    f"{result.get('identifier')} fact lacks exact "
+                    "source value or request overlap"
+                )
+
+        section = result.get("source_section")
+        if not isinstance(section, dict):
+            raise RetrievalError(
+                f"{result.get('identifier')} source section "
+                "must be an object"
+            )
+        if not str(section.get("record_field", "")).strip():
+            raise RetrievalError(
+                f"{result.get('identifier')} source section "
+                "lacks record field"
+            )
+        if section.get("record_field") != facts[0].get(
+            "source_field"
+        ):
+            raise RetrievalError(
+                f"{result.get('identifier')} primary source section "
+                "does not match the first exact fact"
+            )
+
+        recency = result.get("recency")
+        if not isinstance(recency, dict):
+            raise RetrievalError(
+                f"{result.get('identifier')} recency must be an object"
+            )
+        recency_basis = recency.get("basis")
+        if recency_basis not in {
+            "explicit-source-field",
+            "not-recorded",
+        }:
+            raise RetrievalError(
+                f"{result.get('identifier')} recency basis is invalid"
+            )
+        if recency_basis == "explicit-source-field":
+            if (
+                not str(recency.get("value", "")).strip()
+                or not str(
+                    recency.get("source_field", "")
+                ).strip()
+                or parse_explicit_date(
+                    recency.get("value")
+                ) is None
+            ):
+                raise RetrievalError(
+                    f"{result.get('identifier')} explicit recency "
+                    "is invalid"
+                )
+        elif (
+            str(recency.get("value", "")).strip()
+            or str(recency.get("source_field", "")).strip()
+        ):
+            raise RetrievalError(
+                f"{result.get('identifier')} inferred recency "
+                "is prohibited"
+            )
+
         disposition = result.get("disposition")
         if disposition not in allowed:
             raise RetrievalError(
                 f"unsupported disposition: {disposition!r}"
             )
-        rationale = str(result.get("disposition_rationale", "")).strip()
+        rationale = str(
+            result.get("disposition_rationale", "")
+        ).strip()
         if disposition != "pending" and not rationale:
             raise RetrievalError(
-                f"{result.get('identifier')} disposition needs rationale"
+                f"{result.get('identifier')} disposition "
+                "needs rationale"
             )
         if require_final and disposition == "pending":
             raise RetrievalError(
-                f"{result.get('identifier')} disposition is still pending"
+                f"{result.get('identifier')} disposition "
+                "is still pending"
             )
 
 
