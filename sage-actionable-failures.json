@@ -8,12 +8,13 @@
       "likely_intended_outcome": "SAGE infers that the operator intended to validate the repository-owned centralized-logging configuration.",
       "confirm_correct_approach": [
         "From the Kalaxy3 repository root, run SAGE_REQUEST='Validate centralized logging' make sage-preflight.",
-        "Confirm that infrastructure/k3s-homelab/.venv/bin/ansible-playbook exists."
+        "Confirm that infrastructure/k3s-homelab/.venv/bin/ansible-playbook exists in the operator runtime; source-only CI validates repository authority without requiring generated virtual-environment files."
       ],
       "allowed_actions": [
         "Use the repository-managed virtual environment.",
         "Run repository discovery and inspect its authoritative files.",
-        "Preserve this failed invocation as terminal evidence."
+        "Preserve this failed invocation as terminal evidence.",
+        "Provision the repository virtual environment through the repository-owned bootstrap when the runtime prerequisite is absent."
       ],
       "prohibited_actions": [
         "Do not bypass the interpreter assertion.",
@@ -25,7 +26,6 @@
           "working_directory": "infrastructure/k3s-homelab",
           "command": ".venv/bin/ansible-playbook -i inventory/hosts.yml playbooks/validate-centralized-logging.yml",
           "required_paths": [
-            "infrastructure/k3s-homelab/.venv/bin/ansible-playbook",
             "infrastructure/k3s-homelab/inventory/hosts.yml",
             "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml"
           ]

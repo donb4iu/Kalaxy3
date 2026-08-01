@@ -26,6 +26,12 @@ REQUIRED_ENTRY_KEYS: Final = {
     "repository_gap",
 }
 FAILURE_ID_PATTERN: Final = re.compile(r"^[a-z0-9_]+(?:\.[a-z0-9_]+)+$")
+RUNTIME_ONLY_PATH_PARTS: Final = {
+    ".venv",
+    ".tools",
+    ".helm",
+    "__pycache__",
+}
 
 
 class ActionableFailureError(RuntimeError):
@@ -96,6 +102,48 @@ def require_text_list(value: Any, field: str) -> tuple[str, ...]:
     )
 
 
+def validate_required_repository_path(
+    value: Any,
+    field: str,
+) -> str:
+    """Require a portable source-tree authority path."""
+    text = require_text(value, field)
+    path = Path(text)
+    if path.is_absolute():
+        raise ActionableFailureError(
+            f"{field} must be repository-relative: {text}"
+        )
+    if ".." in path.parts:
+        raise ActionableFailureError(
+            f"{field} must not traverse outside the repository: {text}"
+        )
+    runtime_parts = sorted(
+        set(path.parts) & RUNTIME_ONLY_PATH_PARTS
+    )
+    if runtime_parts:
+        raise ActionableFailureError(
+            f"{field} is a runtime prerequisite, not a required "
+            f"repository path: {text}"
+        )
+    return text
+
+
+def require_repository_path_list(
+    value: Any,
+    field: str,
+) -> tuple[str, ...]:
+    """Return nonempty source-controlled recovery authority paths."""
+    if not isinstance(value, list) or not value:
+        raise ActionableFailureError(f"{field} must be a nonempty list")
+    return tuple(
+        validate_required_repository_path(
+            item,
+            f"{field}[{index}]",
+        )
+        for index, item in enumerate(value)
+    )
+
+
 def parse_recovery_steps(value: Any) -> tuple[RecoveryStep, ...]:
     """Parse repository-owned recovery steps."""
     if not isinstance(value, list) or not value:
@@ -118,7 +166,7 @@ def parse_recovery_steps(value: Any) -> tuple[RecoveryStep, ...]:
                     item.get("command"),
                     f"canonical_recovery[{index}].command",
                 ),
-                required_paths=require_text_list(
+                required_paths=require_repository_path_list(
                     item.get("required_paths"),
                     f"canonical_recovery[{index}].required_paths",
                 ),

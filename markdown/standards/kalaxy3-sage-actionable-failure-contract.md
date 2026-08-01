@@ -102,3 +102,19 @@ A generic `yaml.safe_load` failure on an unrelated encrypted value is a
 validator-runtime defect, not evidence that the target system is invalid.
 The real repository file and a synthetic tagged document must both be
 covered by exercised regression tests.
+
+## Repository authority and runtime prerequisites
+
+`canonical_recovery.required_paths` identifies repository-relative source
+authority needed to understand and execute recovery. These paths must remain
+valid in a source-only checkout such as continuous integration.
+
+Generated or environment-provisioned paths, including `.venv`, `.tools`,
+`.helm`, and cache directories, are runtime prerequisites rather than
+repository authority. They may appear in the canonical command and
+explanatory recovery text, but MUST NOT be required to exist merely to
+validate the catalog.
+
+Guardrails must validate source authority independently from operator-runtime
+provisioning. A source-only CI regression with no generated virtual
+environment is required whenever this boundary changes.

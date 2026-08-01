@@ -170,6 +170,65 @@ def test_validator_runner_entry_path() -> None:
                 f"Validator runner output is missing {marker!r}"
             )
 
+def test_required_path_classification(module: ModuleType) -> None:
+    """Separate source authority from runtime prerequisites."""
+    valid = "infrastructure/k3s-homelab/inventory/hosts.yml"
+    observed = module.validate_required_repository_path(
+        valid,
+        "test.required_path",
+    )
+    if observed != valid:
+        raise RuntimeError("Valid repository path was changed")
+
+    invalid = (
+        "infrastructure/k3s-homelab/.venv/bin/ansible-playbook",
+        "../outside-repository",
+        "/absolute/runtime/path",
+    )
+    for candidate in invalid:
+        try:
+            module.validate_required_repository_path(
+                candidate,
+                "test.required_path",
+            )
+        except module.ActionableFailureError:
+            continue
+        raise RuntimeError(
+            f"Runtime or nonportable path was accepted: {candidate}"
+        )
+
+
+def test_source_only_recovery_catalog(module: ModuleType) -> None:
+    """Require the real catalog to pass without generated .venv files."""
+    catalog = module.load_catalog(CATALOG_PATH)
+    module.validate_catalog(catalog)
+    entry = catalog["failures"][
+        "centralized_logging.unmanaged_controller_interpreter"
+    ]
+    step = entry["canonical_recovery"][0]
+    if any(".venv" in item for item in step["required_paths"]):
+        raise RuntimeError(
+            "Runtime virtualenv path remains in required_paths"
+        )
+    if ".venv/bin/ansible-playbook" not in step["command"]:
+        raise RuntimeError(
+            "Canonical repository-managed Ansible command was lost"
+        )
+
+    mutation = copy.deepcopy(catalog)
+    mutation["failures"][
+        "centralized_logging.unmanaged_controller_interpreter"
+    ]["canonical_recovery"][0]["required_paths"].append(
+        "infrastructure/k3s-homelab/.venv/bin/ansible-playbook"
+    )
+    try:
+        module.validate_catalog(mutation)
+    except module.ActionableFailureError:
+        return
+    raise RuntimeError(
+        "Catalog accepted a generated runtime path as repository authority"
+    )
+
 def main() -> int:
     """Run reusable actionable-failure regression tests."""
     module = load_module()
@@ -178,10 +237,13 @@ def main() -> int:
     test_negative_catalog_mutation(module)
     test_validator_runtime_failure(module)
     test_validator_runner_entry_path()
+    test_required_path_classification(module)
+    test_source_only_recovery_catalog(module)
     print("PASS reusable actionable-failure renderer")
     print("PASS original incident regression cases")
     print("PASS actionable-failure negative mutation tests")
     print("PASS validator bootstrap/runtime failure regression")
+    print("PASS source-only recovery-path portability regression")
     print("Kalaxy3 SAGE actionable failure self-test: PASS")
     return 0
 
