@@ -155,6 +155,16 @@ def main() -> int:
         print(f"SAGE validator runtime: PASS ({arguments.validator_id})")
         return 0
 
+    combined = f"{result.stdout}\n{result.stderr}"
+    if "SAGE ACTION BLOCKED" in combined:
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
+        print(
+            "SAGE child actionable failure: PASSTHROUGH",
+            file=sys.stderr,
+        )
+        return 2
+
     summary = trim_failure(result.stdout, result.stderr)
     try:
         message = render_shared(

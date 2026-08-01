@@ -41,7 +41,9 @@
                 "scripts/sage/sage-actionable-failure-guardrail.py",
                 "scripts/sage/sage-actionable-failure-self-test.py",
                 "scripts/sage/sage_actionable_failure.py",
-                "scripts/sage/sage-validator-runner.py"
+                "scripts/sage/sage-validator-runner.py",
+                "scripts/sage/sage_yaml_metadata.py",
+                "scripts/sage/sage-yaml-metadata-self-test.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
@@ -59,7 +61,8 @@
                 "make sage-actionable-failure-self-test",
                 "make sage-actionable-failure-guardrail",
                 "make sage-actionable-failure-audit",
-                "make sage-validator-runtime-self-test"
+                "make sage-validator-runtime-self-test",
+                "make sage-yaml-metadata-self-test"
             ]
         },
         {
@@ -408,7 +411,9 @@
                 "infrastructure/k3s-homelab/playbooks/templates/fluent-bit-collector-values.yml.j2",
                 "infrastructure/k3s-homelab/playbooks/templates/grafana-loki-datasource.yml.j2",
                 "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml",
-                "infrastructure/k3s-homelab/scripts/validate-centralized-logging-yaml.py"
+                "infrastructure/k3s-homelab/scripts/validate-centralized-logging-yaml.py",
+                "infrastructure/k3s-homelab/scripts/validate-centralized-logging-runtime.py",
+                "infrastructure/k3s-homelab/scripts/validate-centralized-logging-runtime-self-test.py"
             ],
             "baseline_checks": [
                 "make helm-repository-guardrail",
@@ -424,6 +429,10 @@
                 "Preserve pre-deployment render evidence.",
                 "Capture collector rollout and Loki placement.",
                 "Compare post-deployment Kubecost results with the baseline."
+            ],
+            "required_validation_after_editing": [
+                "make centralized-logging-runtime-self-test",
+                "make centralized-logging-runtime-validate"
             ]
         },
         {

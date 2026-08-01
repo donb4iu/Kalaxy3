@@ -12,6 +12,16 @@
       ],
       "adapter": "catalog-cli",
       "notes": "Original incident migrated to the shared catalog and CLI adapter."
+    },
+    {
+      "path": "infrastructure/k3s-homelab/scripts/validate-centralized-logging-runtime.py",
+      "family": "python",
+      "status": "migrated",
+      "failure_ids": [
+        "centralized_logging.runtime_requires_active_gate"
+      ],
+      "adapter": "sage-validator-runner",
+      "notes": "Active centralized-logging runtime validator; internal failures use the shared SAGE validator runner."
     }
   ]
 }

@@ -85,3 +85,20 @@ canonical repair command, and require an exercised runtime regression test.
 
 `py_compile` is a syntax check only. Validator changes require execution of
 their real import, reporting, and terminal-output paths.
+
+## Encrypted and tagged configuration metadata
+
+Validators that need non-secret configuration metadata MUST NOT require
+decryption of unrelated secrets. Repository YAML can contain `!vault` or
+other application-specific tags while also containing ordinary lifecycle,
+placement, or feature-gate values.
+
+Such validators must use the repository-owned opaque-tag metadata loader.
+Unknown tagged values are represented only by their tag, cannot be coerced
+to booleans, and must not expose their payload in output. Validators must
+still require ordinary values to have their expected concrete types.
+
+A generic `yaml.safe_load` failure on an unrelated encrypted value is a
+validator-runtime defect, not evidence that the target system is invalid.
+The real repository file and a synthetic tagged document must both be
+covered by exercised regression tests.

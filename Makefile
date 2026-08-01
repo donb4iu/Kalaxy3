@@ -56,7 +56,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test
+sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-self-test sage-yaml-metadata-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 
@@ -204,3 +204,15 @@ sage-actionable-failure-audit:
 .PHONY: sage-validator-runtime-self-test
 sage-validator-runtime-self-test:
 	python3 scripts/sage/sage-validator-runner.py --validator-id sage.actionable_failure_self_test --attempted-action 'Validate the SAGE failure framework.' --working-directory . --recovery-command 'python3 scripts/sage/sage-actionable-failure-self-test.py' --authoritative-path scripts/sage/sage-actionable-failure-self-test.py -- python3 scripts/sage/sage-actionable-failure-self-test.py
+
+.PHONY: centralized-logging-runtime-self-test
+centralized-logging-runtime-self-test:
+	$(MAKE) -C infrastructure/k3s-homelab centralized-logging-runtime-self-test
+
+.PHONY: centralized-logging-runtime-validate
+centralized-logging-runtime-validate:
+	$(MAKE) -C infrastructure/k3s-homelab centralized-logging-runtime-validate
+
+.PHONY: sage-yaml-metadata-self-test
+sage-yaml-metadata-self-test:
+	python3 scripts/sage/sage-yaml-metadata-self-test.py
