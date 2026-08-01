@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "coverage_policy": "report_unregistered",
+  "validators": [
+    {
+      "path": "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml",
+      "family": "ansible",
+      "status": "planned",
+      "failure_ids": [
+        "centralized_logging.unmanaged_controller_interpreter",
+        "centralized_logging.render_validator_after_activation"
+      ],
+      "adapter": "catalog-cli",
+      "notes": "Original incident and first migration regression case."
+    }
+  ]
+}

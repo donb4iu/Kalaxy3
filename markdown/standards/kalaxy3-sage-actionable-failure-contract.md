@@ -55,3 +55,33 @@ Recovery guidance MUST preserve:
 A guardrail MUST NOT recommend bypassing assertions, weakening validation,
 changing a lifecycle gate only to satisfy a validator, using unmanaged
 tooling, or editing generated evidence directly.
+
+## Reusable implementation
+
+The repository-wide implementation consists of:
+
+- `scripts/sage/sage_actionable_failure.py` for strict rendering;
+- `sage-actionable-failures.json` for contextual recovery knowledge;
+- `sage-actionable-failure-registry.json` for migration coverage;
+- `scripts/sage/sage-actionable-failure-guardrail.py` for authority checks;
+- `scripts/sage/sage-actionable-failure-audit.py` for uncovered validators.
+
+An observed incident is a required regression case, but the primary design
+target is the broader validator-failure class. New recovery commands must be
+verified against existing repository paths or Make targets. Uncovered
+validators remain visible in the audit until migrated or explicitly exempted.
+
+## Validator bootstrap and runtime failures
+
+A validator can fail before it evaluates the target system. Import errors,
+missing runtime names, dependency mismatches, invalid interpreters, working
+directory errors, and uncaught internal exceptions are a separate failure
+class.
+
+Such a failure MUST NOT be reported as a target-system validation result.
+SAGE must preserve the traceback, identify that validation did not complete,
+explain how to verify the approved validator environment, provide the
+canonical repair command, and require an exercised runtime regression test.
+
+`py_compile` is a syntax check only. Validator changes require execution of
+their real import, reporting, and terminal-output paths.

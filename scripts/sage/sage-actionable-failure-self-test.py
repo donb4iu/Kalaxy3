@@ -1,23 +1,19 @@
 #!/usr/bin/env python3
-"""Validate the Kalaxy3 actionable SAGE failure contract."""
+"""Test the reusable Kalaxy3 SAGE actionable-failure framework."""
 
 from __future__ import annotations
 
-import re
+import copy
+import importlib.util
+import subprocess
+import sys
 from pathlib import Path
-from typing import Final
+from types import ModuleType
+from typing import Any, Final
 
 ROOT: Final = Path(__file__).resolve().parents[2]
-STANDARD: Final = (
-    ROOT
-    / "markdown/standards/"
-    "kalaxy3-sage-actionable-failure-contract.md"
-)
-PLAYBOOK: Final = (
-    ROOT
-    / "infrastructure/k3s-homelab/playbooks/"
-    "validate-centralized-logging.yml"
-)
+MODULE_PATH: Final = ROOT / "scripts/sage/sage_actionable_failure.py"
+CATALOG_PATH: Final = ROOT / "sage-actionable-failures.json"
 REQUIRED_SECTIONS: Final = (
     "SAGE ACTION BLOCKED",
     "Attempted action",
@@ -33,62 +29,159 @@ REQUIRED_SECTIONS: Final = (
 )
 
 
-def require_markers(text: str, source: str) -> None:
-    """Require every actionable-failure section in the supplied text."""
-    missing = [marker for marker in REQUIRED_SECTIONS if marker not in text]
-    if missing:
-        raise RuntimeError(
-            f"{source}: missing failure sections: {', '.join(missing)}"
-        )
-
-
-def validate_standard() -> None:
-    """Validate the authoritative Markdown contract."""
-    text = STANDARD.read_text(encoding="utf-8")
-    require_markers(text, str(STANDARD))
-    for marker in (
-        "MUST NOT depend on remembered conversations",
-        "frequent cohesive validated commits",
-        "systemic repository gap",
-    ):
-        if marker not in text:
-            raise RuntimeError(f"{STANDARD}: missing marker {marker!r}")
-    print("PASS actionable failure standard")
-
-
-def validate_playbook() -> None:
-    """Validate actionable interpreter and lifecycle failures."""
-    text = PLAYBOOK.read_text(encoding="utf-8")
-    messages = re.findall(
-        r"fail_msg:\s*[>|]-?\s*\n(?P<body>(?:\s{10,}.*\n)+)",
-        text,
+def load_module() -> ModuleType:
+    """Load the shared actionable-failure module."""
+    spec = importlib.util.spec_from_file_location(
+        "kalaxy3_sage_actionable_failure",
+        MODULE_PATH,
     )
-    actionable = [
-        message
-        for message in messages
-        if "SAGE ACTION BLOCKED" in message
-    ]
-    if len(actionable) < 2:
-        raise RuntimeError(
-            f"{PLAYBOOK}: expected two actionable failure messages"
-        )
-    for index, message in enumerate(actionable, start=1):
-        require_markers(message, f"{PLAYBOOK} failure {index}")
-    for marker in (
-        "make centralized-logging-render",
-        "make centralized-logging-runtime-validate",
-        "Do not bypass this assertion",
-        "make sage-preflight",
-    ):
-        if marker not in text:
-            raise RuntimeError(f"{PLAYBOOK}: missing marker {marker!r}")
-    print("PASS centralized logging actionable failures")
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Cannot load module: {MODULE_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
+
+def require_sections(message: str) -> None:
+    """Require the complete rendered failure contract."""
+    missing = [item for item in REQUIRED_SECTIONS if item not in message]
+    if missing:
+        raise RuntimeError(f"Rendered failure is missing: {missing}")
+
+
+def test_real_catalog(module: ModuleType) -> None:
+    """Render both original incident failures from the real catalog."""
+    catalog = module.load_catalog(CATALOG_PATH)
+    module.validate_catalog(catalog)
+    values = {
+        "centralized_logging.unmanaged_controller_interpreter": {
+            "ansible_playbook_python": "/usr/local/bin/python"
+        },
+        "centralized_logging.render_validator_after_activation": {
+            "deploy_centralized_logging": "true"
+        },
+    }
+    for failure_id, variables in values.items():
+        failure = module.catalog_failure(
+            catalog, failure_id, variables
+        )
+        require_sections(module.render_failure(failure))
+
+
+def test_missing_variable(module: ModuleType) -> None:
+    """Reject rendering when detected-state variables are absent."""
+    catalog = module.load_catalog(CATALOG_PATH)
+    try:
+        module.catalog_failure(
+            catalog,
+            "centralized_logging.unmanaged_controller_interpreter",
+            {},
+        )
+    except module.ActionableFailureError:
+        return
+    raise RuntimeError("Missing template variable was accepted")
+
+
+def test_negative_catalog_mutation(module: ModuleType) -> None:
+    """Reject a catalog entry with missing recovery authority."""
+    catalog: dict[str, Any] = module.load_catalog(CATALOG_PATH)
+    mutation = copy.deepcopy(catalog)
+    entry = next(iter(mutation["failures"].values()))
+    del entry["prohibited_actions"]
+    try:
+        module.validate_catalog(mutation)
+    except module.ActionableFailureError:
+        return
+    raise RuntimeError("Invalid catalog mutation was accepted")
+
+
+def test_validator_runtime_failure(module: ModuleType) -> None:
+    """Exercise the generic validator-runtime failure model."""
+    failure = module.validator_runtime_failure(
+        validator_id="sage.self_test",
+        attempted_action="Validate the SAGE failure framework.",
+        command=(sys.executable, "-c", "raise RuntimeError('boom')"),
+        exit_code=1,
+        error_summary="RuntimeError: boom",
+        working_directory=".",
+        recovery_command=(
+            "python3 scripts/sage/sage-actionable-failure-self-test.py"
+        ),
+        authoritative_paths=(
+            "scripts/sage/sage-actionable-failure-self-test.py",
+        ),
+        integrity_requirements=(
+            "Preserve the traceback as regression evidence.",
+        ),
+    )
+    message = module.render_failure(failure)
+    require_sections(message)
+    for marker in (
+        "RuntimeError: boom",
+        "Do not treat py_compile as sufficient",
+        "validator-bootstrap or dependency gap",
+    ):
+        if marker not in message:
+            raise RuntimeError(
+                f"Validator runtime failure is missing {marker!r}"
+            )
+
+
+def test_validator_runner_entry_path() -> None:
+    """Exercise the actual subprocess failure and rendering path."""
+    command = (
+        sys.executable,
+        str(ROOT / "scripts/sage/sage-validator-runner.py"),
+        "--validator-id",
+        "sage.dynamic_import_regression",
+        "--attempted-action",
+        "Exercise a validator runtime path.",
+        "--working-directory",
+        ".",
+        "--recovery-command",
+        "python3 scripts/sage/sage-actionable-failure-self-test.py",
+        "--authoritative-path",
+        "scripts/sage/sage-actionable-failure-self-test.py",
+        "--",
+        sys.executable,
+        "-c",
+        "raise RuntimeError('simulated dataclass bootstrap failure')",
+    )
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 2:
+        raise RuntimeError(
+            f"Validator runner returned {result.returncode}, expected 2"
+        )
+    require_sections(result.stderr)
+    for marker in (
+        "simulated dataclass bootstrap failure",
+        "SAGE ACTION BLOCKED",
+        "Do not report a pass",
+    ):
+        if marker not in result.stderr:
+            raise RuntimeError(
+                f"Validator runner output is missing {marker!r}"
+            )
 
 def main() -> int:
-    """Run actionable-failure contract regression checks."""
-    validate_standard()
-    validate_playbook()
+    """Run reusable actionable-failure regression tests."""
+    module = load_module()
+    test_real_catalog(module)
+    test_missing_variable(module)
+    test_negative_catalog_mutation(module)
+    test_validator_runtime_failure(module)
+    test_validator_runner_entry_path()
+    print("PASS reusable actionable-failure renderer")
+    print("PASS original incident regression cases")
+    print("PASS actionable-failure negative mutation tests")
+    print("PASS validator bootstrap/runtime failure regression")
     print("Kalaxy3 SAGE actionable failure self-test: PASS")
     return 0
 

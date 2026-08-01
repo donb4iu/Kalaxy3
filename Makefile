@@ -56,7 +56,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-actionable-failure-self-test
+sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 
@@ -192,3 +192,15 @@ docs-mkdocs-generate: docs-mkdocs-stage
 .PHONY: sage-actionable-failure-self-test
 sage-actionable-failure-self-test:
 	python3 scripts/sage/sage-actionable-failure-self-test.py
+
+.PHONY: sage-actionable-failure-guardrail
+sage-actionable-failure-guardrail:
+	python3 scripts/sage/sage-actionable-failure-guardrail.py
+
+.PHONY: sage-actionable-failure-audit
+sage-actionable-failure-audit:
+	python3 scripts/sage/sage-actionable-failure-audit.py
+
+.PHONY: sage-validator-runtime-self-test
+sage-validator-runtime-self-test:
+	python3 scripts/sage/sage-validator-runner.py --validator-id sage.actionable_failure_self_test --attempted-action 'Validate the SAGE failure framework.' --working-directory . --recovery-command 'python3 scripts/sage/sage-actionable-failure-self-test.py' --authoritative-path scripts/sage/sage-actionable-failure-self-test.py -- python3 scripts/sage/sage-actionable-failure-self-test.py

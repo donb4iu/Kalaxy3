@@ -34,7 +34,14 @@
                 "SAGE.md",
                 "sage-change-authority.json",
                 "markdown/standards/kalaxy3-sage-change-discovery-process.md",
-                "markdown/standards/kalaxy3-sage-actionable-failure-contract.md"
+                "markdown/standards/kalaxy3-sage-actionable-failure-contract.md",
+                "sage-actionable-failure-registry.json",
+                "sage-actionable-failures.json",
+                "scripts/sage/sage-actionable-failure-audit.py",
+                "scripts/sage/sage-actionable-failure-guardrail.py",
+                "scripts/sage/sage-actionable-failure-self-test.py",
+                "scripts/sage/sage_actionable_failure.py",
+                "scripts/sage/sage-validator-runner.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
@@ -47,6 +54,12 @@
             "evidence_process": [
                 "Record inferred contexts and authoritative files.",
                 "Preserve terminal output from required guardrails."
+            ],
+            "required_validation_after_editing": [
+                "make sage-actionable-failure-self-test",
+                "make sage-actionable-failure-guardrail",
+                "make sage-actionable-failure-audit",
+                "make sage-validator-runtime-self-test"
             ]
         },
         {
