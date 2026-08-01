@@ -372,7 +372,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "implemented",
+            "current_status": "validated",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -436,6 +436,24 @@
                         "path:sage-workflow-primitives.json",
                         "path:scripts/sage/workflow/",
                         "path:scripts/sage/workflows/validate-repository.py"
+                    ]
+                },
+                {
+                    "sequence": 4,
+                    "from_status": "implemented",
+                    "to_status": "validated",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T18:33:03-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Primitive runtime tests, canonical lifecycle adapters, candidate Makefile parsing, static validation, root SAGE checks, usage evidence, and the read-only pilot all passed.",
+                    "evidence_references": [
+                        "commit:aaf1ed187985fdf831f2a6637237f9cbf14971cc",
+                        "make:sage-workflow-self-test",
+                        "make:sage-workflow-guardrail",
+                        "make:sage-self-test",
+                        "make:sage-guardrails",
+                        "workflow:sage.repository-validation",
+                        "output-sha256:98ac69dff912244a42d8f25df2f691fe58e6ec74c396a3d651c67454fb388e14"
                     ]
                 }
             ]
