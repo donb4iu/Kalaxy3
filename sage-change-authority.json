@@ -697,7 +697,14 @@
                 "workflow composition",
                 "composition guardrail",
                 "primitive registry",
-                "structured logging"
+                "structured logging",
+                "workflow support",
+                "canonical workflow support",
+                "workflow-support primitives",
+                "action id allocator",
+                "improvement-action id allocation",
+                "undefined global",
+                "runtime-name validation"
             ],
             "path_prefixes": [
                 "sage-workflow-primitives.json",
