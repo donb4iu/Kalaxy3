@@ -43,7 +43,8 @@
                 "scripts/sage/sage_actionable_failure.py",
                 "scripts/sage/sage-validator-runner.py",
                 "scripts/sage/sage_yaml_metadata.py",
-                "scripts/sage/sage-yaml-metadata-self-test.py"
+                "scripts/sage/sage-yaml-metadata-self-test.py",
+                "scripts/sage/sage-yaml-metadata-source-self-test.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
@@ -62,7 +63,8 @@
                 "make sage-actionable-failure-guardrail",
                 "make sage-actionable-failure-audit",
                 "make sage-validator-runtime-self-test",
-                "make sage-yaml-metadata-self-test"
+                "make sage-yaml-metadata-self-test",
+                "make sage-yaml-metadata-source-self-test"
             ]
         },
         {

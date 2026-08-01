@@ -135,3 +135,18 @@ closeout, but source-only CI must not require that generated environment.
 
 Neither tier replaces the other. Source-only tests protect portability and
 bootstrap integrity; operator-runtime tests protect real execution behavior.
+
+## YAML metadata test tiers
+
+YAML metadata validation follows the same source-only and operator-runtime
+boundary as other validators.
+
+The source-only test runs with `python3 -S`. It validates pure metadata types,
+opaque tagged-value behavior, and actionable failure when PyYAML is absent.
+It does not parse repository YAML.
+
+The operator-runtime test runs through the repository-managed homelab `.venv`.
+It parses synthetic tagged YAML and proves that `!vault` and unknown tags
+remain opaque without exposing their payloads. Repository CI guardrails use
+the source-only tier; implementation and evidence closeout retain the
+operator-runtime tier.
