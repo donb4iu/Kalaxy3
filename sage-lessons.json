@@ -45,10 +45,11 @@
                 "terminal-session:2026-07-28-continuous-improvement-heredoc-001"
             ],
             "latest_evidence": [
-                "terminal-session:2026-07-28-downloadable-script-recovery-001"
+                "terminal-session:2026-07-28-downloadable-script-recovery-001",
+                "terminal-session:2026-08-01-file-based-execution-recurrence-001"
             ],
-            "recurrence_count": 2,
-            "automation_status": "template"
+            "recurrence_count": 3,
+            "automation_status": "guardrail"
         },
         {
             "lesson_id": "SAGE-LESSON-20260728-002",
