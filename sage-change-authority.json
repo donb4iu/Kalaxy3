@@ -687,6 +687,56 @@
                 "Record the selected authority decision, actual outcome, and calibration.",
                 "Do not claim autonomy beyond the delegated domain and level."
             ]
+        },
+        {
+            "id": "workflow-primitives",
+            "priority": 100,
+            "match_terms": [
+                "workflow primitives",
+                "reusable workflow",
+                "workflow composition",
+                "composition guardrail",
+                "primitive registry",
+                "structured logging"
+            ],
+            "path_prefixes": [
+                "sage-workflow-primitives.json",
+                "scripts/sage/workflow/",
+                "scripts/sage/workflows/",
+                "scripts/sage/sage-workflow-primitives",
+                "markdown/standards/sage-workflow-primitives",
+                "markdown/standards/kalaxy3-sage-workflow-primitives"
+            ],
+            "requires": [
+                "repository-governance",
+                "evidence",
+                "continuous-improvement"
+            ],
+            "working_directory": ".",
+            "authoritative_files": [
+                "AGENTS.md",
+                "SAGE.md",
+                "sage-change-authority.json",
+                "markdown/standards/kalaxy3-sage-change-discovery-process.md",
+                "markdown/standards/kalaxy3-sage-continuous-improvement-process.md"
+            ],
+            "baseline_checks": [
+                "make sage-discovery-guardrail",
+                "make sage-learning-self-test",
+                "make sage-index-check"
+            ],
+            "required_validation": [
+                "make sage-workflow-self-test",
+                "make sage-workflow-guardrail",
+                "make sage-self-test",
+                "make sage-guardrails",
+                "make sage-index-check"
+            ],
+            "evidence_process": [
+                "Record primitive versions used by each workflow.",
+                "Preserve structured event-log and closeout digests.",
+                "Measure reuse, recurrence, and avoidable rework."
+            ]
         }
     ]
 }
