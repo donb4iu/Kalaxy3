@@ -363,6 +363,53 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260801-006",
+            "title": "Establish reusable SAGE workflow primitives framework",
+            "source_lessons": [
+                "SAGE-LESSON-20260728-005",
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "Kalaxy3 workflows compose versioned, tested repository primitives instead of recreating command, Git, discovery, lifecycle, Makefile, validation, logging, and evidence logic.",
+            "acceptance_criteria": [
+                "A pilot-maturity versioned primitive registry exists.",
+                "Runtime tests exercise commands, timeouts, redaction, Git, action lifecycle, Make composition, closeout, and usage aggregation.",
+                "Tracked compositions cannot import subprocess or duplicate primitive helpers.",
+                "Structured events and closeouts record primitive versions.",
+                "The candidate Makefile is parsed before repository replacement.",
+                "A read-only repository-validation pilot completes through the framework.",
+                "Root SAGE self-tests and guardrails enforce the framework."
+            ],
+            "measurement_plan": [
+                "Measure successes and failures by primitive version.",
+                "Measure primitive reuse ratio for subsequent workflows.",
+                "Require zero direct-execution violations in tracked compositions.",
+                "Track known-failure recurrence and wrapper-only corrections.",
+                "Promote maturity only from observed versioned executions."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-01T18:31:32-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register the reusable workflow-primitives framework after canonical workflow support was validated.",
+                    "evidence_references": [
+                        "commit:dee3ba913fe4b763b83360f5fdcc60db65af04e4",
+                        "action:SAGE-ACTION-20260801-005",
+                        "path:scripts/sage/sage_identifiers.py",
+                        "path:scripts/sage/sage-python-static-guardrail.py"
+                    ]
+                }
+            ]
         }
     ]
 }
