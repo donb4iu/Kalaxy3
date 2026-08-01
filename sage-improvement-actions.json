@@ -42,6 +42,46 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260801-001",
+            "title": "Enforce failure-triggered SAGE retrieval before retry",
+            "source_lessons": [
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "Every repository validator failure consults prior evidence, lessons, actionable failures, and canonical recovery before another corrective attempt, with a local receipt.",
+            "acceptance_criteria": [
+                "Every nonzero validator result retrieves before retry guidance.",
+                "The gate writes source counts and ranked results to a receipt.",
+                "Tests load every production dotted-key failure record.",
+                "A second same-class failure requires a lesson or action."
+            ],
+            "measurement_plan": [
+                "Measure receipts across the next ten validator failures.",
+                "Track attempts made before the first retrieval receipt.",
+                "Track recurrence and avoidable rework after activation."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-01T01:56:32-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register the preventive control required by SAGE-LESSON-20260801-001.",
+                    "evidence_references": [
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "commit:dd4ec760f108cc214a065976191e629d278592e5",
+                        "report:kalaxy3-failure-triggered-retrieval-implementation-contract-20260801-014527"
+                    ]
+                }
+            ]
         }
     ]
 }
