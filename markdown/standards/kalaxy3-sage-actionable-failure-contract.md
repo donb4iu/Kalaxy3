@@ -118,3 +118,20 @@ validate the catalog.
 Guardrails must validate source authority independently from operator-runtime
 provisioning. A source-only CI regression with no generated virtual
 environment is required whenever this boundary changes.
+
+## Source-only and operator-runtime validator tests
+
+Validator testing has two distinct execution tiers.
+
+A **source-only contract test** runs in a clean checkout with no generated
+`.venv`, no cluster credentials, and no optional runtime packages. It validates
+imports, pure logic, lifecycle contracts, and required entry points. Repository
+CI guardrails must use this tier.
+
+An **operator-runtime test** runs through the repository-managed `.venv` and
+may parse inventory, use pinned dependencies, inspect the cluster, and exercise
+live APIs. It remains required before evidence publication and deployment
+closeout, but source-only CI must not require that generated environment.
+
+Neither tier replaces the other. Source-only tests protect portability and
+bootstrap integrity; operator-runtime tests protect real execution behavior.

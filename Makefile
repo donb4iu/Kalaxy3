@@ -56,7 +56,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-self-test sage-yaml-metadata-self-test
+sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 
@@ -216,3 +216,7 @@ centralized-logging-runtime-validate:
 .PHONY: sage-yaml-metadata-self-test
 sage-yaml-metadata-self-test:
 	python3 scripts/sage/sage-yaml-metadata-self-test.py
+
+.PHONY: centralized-logging-runtime-source-self-test
+centralized-logging-runtime-source-self-test:
+	$(MAKE) -C infrastructure/k3s-homelab centralized-logging-runtime-source-self-test

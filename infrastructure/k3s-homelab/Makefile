@@ -229,3 +229,7 @@ centralized-logging-runtime-self-test:
 .PHONY: centralized-logging-runtime-validate
 centralized-logging-runtime-validate:
 	python3 ../../scripts/sage/sage-validator-runner.py --validator-id centralized_logging.runtime --attempted-action 'Validate active centralized logging.' --working-directory infrastructure/k3s-homelab --recovery-command 'make centralized-logging-runtime-validate' --authoritative-path infrastructure/k3s-homelab/inventory/group_vars/all/main.yml --authoritative-path infrastructure/k3s-homelab/helm-chart-lock.json --authoritative-path infrastructure/k3s-homelab/scripts/validate-centralized-logging-runtime.py --integrity-requirement 'Preserve activation state, chart locks, storage, and logs.' -- .venv/bin/python scripts/validate-centralized-logging-runtime.py
+
+.PHONY: centralized-logging-runtime-source-self-test
+centralized-logging-runtime-source-self-test:
+	python3 -S scripts/validate-centralized-logging-runtime-source-self-test.py

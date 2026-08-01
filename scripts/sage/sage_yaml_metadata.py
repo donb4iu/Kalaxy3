@@ -6,8 +6,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
-import yaml
-
 
 class YamlMetadataError(RuntimeError):
     """Represent an invalid repository metadata document."""
@@ -33,29 +31,45 @@ class OpaqueTaggedValue:
         )
 
 
-class MetadataSafeLoader(yaml.SafeLoader):
-    """Parse safe YAML while treating unknown tags as opaque metadata."""
+def _yaml_module() -> Any:
+    """Import PyYAML only when metadata parsing is actually requested."""
+    try:
+        import yaml
+    except ModuleNotFoundError as error:
+        raise YamlMetadataError(
+            "PyYAML is required for repository YAML metadata parsing. "
+            "Use the repository-managed runtime for parsing operations."
+        ) from error
+    return yaml
 
 
-def _construct_opaque_tag(
-    loader: MetadataSafeLoader,
-    tag_suffix: str,
-    node: yaml.Node,
-) -> OpaqueTaggedValue:
-    """Discard an unknown tagged payload and retain only its tag."""
-    del loader, node
-    return OpaqueTaggedValue(tag_suffix)
+def _metadata_loader() -> type[Any]:
+    """Build a safe loader that turns unknown tags into opaque values."""
+    yaml = _yaml_module()
 
+    class MetadataSafeLoader(yaml.SafeLoader):
+        """Treat unknown YAML tags as opaque metadata."""
 
-MetadataSafeLoader.add_multi_constructor("", _construct_opaque_tag)
+    def construct_opaque_tag(
+        loader: Any,
+        tag_suffix: str,
+        node: Any,
+    ) -> OpaqueTaggedValue:
+        """Discard an unknown tagged payload and retain only its tag."""
+        del loader, node
+        return OpaqueTaggedValue(tag_suffix)
+
+    MetadataSafeLoader.add_multi_constructor("", construct_opaque_tag)
+    return MetadataSafeLoader
 
 
 def load_yaml_metadata(path: Path) -> dict[str, Any]:
     """Load YAML metadata without decrypting unrelated tagged values."""
+    yaml = _yaml_module()
     try:
         payload = yaml.load(
             path.read_text(encoding="utf-8"),
-            Loader=MetadataSafeLoader,
+            Loader=_metadata_loader(),
         )
     except yaml.YAMLError as error:
         raise YamlMetadataError(

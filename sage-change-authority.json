@@ -413,7 +413,8 @@
                 "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml",
                 "infrastructure/k3s-homelab/scripts/validate-centralized-logging-yaml.py",
                 "infrastructure/k3s-homelab/scripts/validate-centralized-logging-runtime.py",
-                "infrastructure/k3s-homelab/scripts/validate-centralized-logging-runtime-self-test.py"
+                "infrastructure/k3s-homelab/scripts/validate-centralized-logging-runtime-self-test.py",
+                "infrastructure/k3s-homelab/scripts/validate-centralized-logging-runtime-source-self-test.py"
             ],
             "baseline_checks": [
                 "make helm-repository-guardrail",
@@ -432,7 +433,8 @@
             ],
             "required_validation_after_editing": [
                 "make centralized-logging-runtime-self-test",
-                "make centralized-logging-runtime-validate"
+                "make centralized-logging-runtime-validate",
+                "make centralized-logging-runtime-source-self-test"
             ]
         },
         {
