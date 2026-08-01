@@ -1194,6 +1194,13 @@
               "recovery": "Normalize Makefile to exactly one trailing newline.",
               "avoidable_rework": true,
               "retrieval_receipt": "/Users/donbuddenbaum/Downloads/kalaxy3-capability-intelligence-format-failure-retrieval-20260801-154040.json"
+            },
+            {
+              "failure_class": "generated-capability-cockpit-misclassified-as-legacy-evidence",
+              "observed_at": "2026-08-01T16:21:34-05:00",
+              "impact": "The generated capability cockpit was discovered under markdown/architecture and inferred as historical legacy evidence. Its Git-derived completed_at changed after the same commit that regenerated it, leaving catalog.json and catalog.csv stale on the feature branch and again inside GitHub's synthetic pull-request merge.",
+              "recovery": "Use the legacy registry exclude_paths authority to keep the generated cockpit in documentation while removing its false evidence classification. Enforce stability after normal commits and identical-tree merge commits.",
+              "avoidable_rework": true
             }
           ],
           "prediction_calibration": {
@@ -1202,7 +1209,10 @@
               "Repository paths, commit count, validation commands, and automation time are measurable.",
               "Human engineering effort remains unavailable and inconclusive.",
               "The implementation required a canonical generated-index reconciliation, correction of one overly strict continuation-state validator, and one nonsemantic Makefile end-of-file normalization.",
-              "Operational decision value requires future branch choices and outcomes."
+              "Operational decision value requires future branch choices and outcomes.",
+              "The initial synthetic-merge-only diagnosis was incomplete; the normal feature commit reproduced the same stale catalog.",
+              "The proposed --no-merges date heuristic was rejected before mutation because it could not remove the normal-commit self-reference.",
+              "Generated operational views must be classified separately from historical evidence records."
             ]
           },
           "commit_refs": [

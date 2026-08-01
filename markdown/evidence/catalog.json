@@ -1,28 +1,8 @@
 {
-  "catalog_fingerprint": "b5d0774d15df0d73d3e87683cfb437cc2122f336c04b28918ffcf0ec4b2323d5",
+  "catalog_fingerprint": "6a5a883214a13cbac0a721effeae3399d1c01b9de5555186be798cd46b11e727",
   "catalog_schema_version": "1.0",
-  "record_count": 36,
+  "record_count": 35,
   "records": [
-    {
-      "completed_at": "2026-08-01T15:23:06-05:00",
-      "confidence": "low",
-      "evidence_id": "LEGACY-K3-F0069923AD",
-      "metadata_source": "inferred",
-      "migration_status": "not-started",
-      "nav_order": 500,
-      "nav_section": "architecture",
-      "nav_title": "Capability Intelligence",
-      "owner": "not-captured",
-      "primary_subject": "SAGE Capability Intelligence",
-      "record_class": "legacy-evidence",
-      "schema_version": "not-applicable",
-      "source_path": "markdown/architecture/kalaxy3-sage-capability-intelligence.md",
-      "status": "historical",
-      "summary": "- Preferred target: KALAXY3-TARGET-2026-08-001 - Target status: proposed - Target confidence: medium - Captured: 2026-08-01T14:45:00-05:00",
-      "tags": [],
-      "title": "Kalaxy3 SAGE Capability Intelligence",
-      "valid_as_of": "2026-08-01"
-    },
     {
       "completed_at": "2026-07-25T21:01:00-05:00",
       "confidence": "high",
@@ -885,7 +865,6 @@
   "registry_path": "markdown/evidence/legacy-record-registry.json",
   "sage_current_schema": "1.2",
   "warnings": [
-    "CURATION: markdown/architecture/kalaxy3-sage-capability-intelligence.md needs registry review",
     "CURATION: markdown/installation/k3s-api-ha-kube-vip.md needs registry review",
     "CURATION: markdown/installation/k3s-etcd-baseline-backup-evidence.md needs registry review",
     "CURATION: markdown/installation/kalaxy3-amd64-02-k3s-longhorn-node-addition.md needs registry review",
@@ -906,7 +885,6 @@
     "CURATION: markdown/installation/ubuntu-node-provisioning-fixed.md needs registry review",
     "CURATION: markdown/operations/kalaxy3-sage-canonical-metadata-contract-evidence.md needs registry review",
     "CURATION: markdown/operations/kalaxy3-sage-evidence-publication-process-evidence.md needs registry review",
-    "LEGACY: markdown/architecture/kalaxy3-sage-capability-intelligence.md indexed as legacy-evidence with inferred metadata",
     "LEGACY: markdown/installation/k3s-api-ha-kube-vip.md indexed as legacy-evidence with inferred metadata",
     "LEGACY: markdown/installation/k3s-etcd-baseline-backup-evidence.md indexed as legacy-evidence with inferred metadata",
     "LEGACY: markdown/installation/kalaxy3-amd64-02-k3s-longhorn-node-addition.md indexed as legacy-evidence with inferred metadata",

@@ -1,6 +1,5 @@
 # Evidence by section
 
-- [Architecture](architecture.md)
 - [Benchmarks](benchmarks.md)
 - [Finops](finops.md)
 - [Governance](governance.md)

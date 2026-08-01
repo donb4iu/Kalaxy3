@@ -4,7 +4,6 @@
 
 | Section | Record | Summary | Class | Status | Valid as of |
 |---|---|---|---|---|---|
-| architecture | [Capability Intelligence](../../architecture/kalaxy3-sage-capability-intelligence.md) | - Preferred target: KALAXY3-TARGET-2026-08-001 - Target status: proposed - Target confidence: medium - Captured: 2026-08-01T14:45:00-05:00 | legacy-evidence | historical | 2026-08-01 |
 | installation | [AMD64 NoCloud Seed USB Helper](../../installation/old/amd64-nocloud-seed-helper.md) | This guide creates one script that prepares the amd64 NoCloud seed USB for Ubuntu Server autoinstall. | legacy-evidence | historical | 2026-06-01 |
 | installation | [AMD64 Node and Longhorn installation and Rebuild Guide](../../installation/kalaxy3-amd64-node-and-longhorn-installation-evidence.md) | Project: Kalaxy3 Completed: July 19, 2026, America/Chicago Kubernetes timestamps: July 20, 2026 UTC Target path: markdown/installation/kalaxy3-amd64-node-and-longhorn-installation-evidence.md Node: amd64-01 Node address: 192.168.2.61 K3s version: v1.36.2+k3s1 Longhorn version: v1.12.0 | legacy-evidence | historical | 2026-07-19 |
 | installation | [amd64-02 K3s and Longhorn Node Addition](../../installation/kalaxy3-amd64-02-k3s-longhorn-node-addition.md) | This document chronicles the addition of amd64-02 to the Kalaxy3 cluster as: | legacy-evidence | historical | 2026-07-21 |
