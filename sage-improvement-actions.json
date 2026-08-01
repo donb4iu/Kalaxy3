@@ -372,7 +372,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -407,6 +407,19 @@
                         "action:SAGE-ACTION-20260801-005",
                         "path:scripts/sage/sage_identifiers.py",
                         "path:scripts/sage/sage-python-static-guardrail.py"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T18:31:38-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The operator explicitly authorized immediate installation of the reusable workflow-primitives framework.",
+                    "evidence_references": [
+                        "commit:32715a62974f30c28969db492f3e0d599cbc78db",
+                        "commit:dee3ba913fe4b763b83360f5fdcc60db65af04e4"
                     ]
                 }
             ]
