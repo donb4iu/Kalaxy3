@@ -7,6 +7,8 @@ import json
 import tempfile
 from pathlib import Path
 
+import sage_evidence_retrieval as retrieval_module
+
 from sage_evidence_retrieval import (
     RetrievalError,
     load_json,
@@ -78,14 +80,13 @@ def build_fixture(repo: Path) -> Path:
     write_json(
         repo / "sage-actionable-failures.json",
         {
-            "failures": [
-                {
-                    "failure_id": "FAIL-001",
-                    "title": "Operator runtime dependency missing",
+            "failures": {
+                "FAIL-001": {
+                    "title": "Grafana operator runtime dependency missing",
                     "tags": ["grafana", "runtime", "guardrail"],
                     "status": "closed",
                 }
-            ]
+            }
         },
     )
     write_json(repo / "sage-improvement-actions.json", {"actions": []})
@@ -97,7 +98,7 @@ def build_fixture(repo: Path) -> Path:
 
 
 def positive_test(repo: Path, policy_path: Path) -> None:
-    """Require relevant evidence and failures to rank first."""
+    """Require relevant evidence and keyed failures to rank first."""
     request = (
         "Add a Grafana dashboard for Prometheus metrics and logging health"
     )
@@ -124,6 +125,15 @@ def positive_test(repo: Path, policy_path: Path) -> None:
         raise AssertionError(
             f"unexpected positive ranking: {identifiers}"
         )
+
+    failure_source = next(
+        source
+        for source in first["sources"]
+        if source["source_type"] == "failure"
+    )
+    if failure_source["records_loaded"] != 1:
+        raise AssertionError("keyed failure registry was not loaded")
+
     validate_result(first, load_json(policy_path))
 
 
@@ -175,6 +185,58 @@ def negative_test(repo: Path, policy_path: Path) -> None:
         )
 
 
+def no_overlap_test(repo: Path, policy_path: Path) -> None:
+    """Require bonuses alone to be unable to create relevance."""
+    payload = retrieve(
+        repo=repo,
+        policy_path=policy_path,
+        request="Rotate internal TLS certificates",
+        limit=10,
+    )
+    if payload["results"]:
+        raise AssertionError(
+            "source or status bonuses admitted unrelated records"
+        )
+
+
+def production_failure_registry_test() -> None:
+    """Exercise the actual dotted-key actionable-failure registry."""
+    root = Path(__file__).resolve().parents[2]
+    payload = retrieval_module.load_json(
+        root / "sage-actionable-failures.json"
+    )
+    failures = payload.get("failures")
+    if not isinstance(failures, dict):
+        raise AssertionError(
+            "production actionable failures must be a mapping"
+        )
+
+    records = retrieval_module.extract_records(
+        payload,
+        "failure",
+    )
+    identifiers = {
+        retrieval_module.identifier(
+            record,
+            "failure",
+            index,
+        )
+        for index, record in enumerate(records, start=1)
+    }
+    required = {
+        "centralized_logging.render_validator_after_activation",
+        "centralized_logging.runtime_requires_active_gate",
+        "centralized_logging.unmanaged_controller_interpreter",
+    }
+    if not required.issubset(identifiers):
+        raise AssertionError(
+            f"production failure identifiers missing: {identifiers}"
+        )
+    if len(records) != len(failures):
+        raise AssertionError(
+            "production failure count does not match mapping"
+        )
+
 def main() -> int:
     """Run all tests without site packages or network access."""
     with tempfile.TemporaryDirectory(
@@ -185,7 +247,9 @@ def main() -> int:
         positive_test(repo, policy_path)
         disposition_test(repo, policy_path)
         negative_test(repo, policy_path)
+        no_overlap_test(repo, policy_path)
 
+    production_failure_registry_test()
     print("SAGE evidence retrieval self-test: PASS")
     return 0
 

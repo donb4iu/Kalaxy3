@@ -430,6 +430,64 @@
             ],
             "recurrence_count": 3,
             "automation_status": "manual"
+        },
+        {
+            "lesson_id": "SAGE-LESSON-20260801-001",
+            "title": "Retrieve repository experience after the first unexpected failure",
+            "status": "accepted",
+            "contexts": [
+                "repository-governance",
+                "continuous-improvement"
+            ],
+            "match_terms": [
+                "first failure",
+                "retry",
+                "repeated parser error",
+                "evidence retrieval",
+                "lesson usage",
+                "actionable failure",
+                "canonical recovery",
+                "speculative fix",
+                "production schema",
+                "formatted command output"
+            ],
+            "path_prefixes": [
+                "scripts/sage/",
+                "sage-actionable-failures.json",
+                "sage-lessons.json"
+            ],
+            "failure_signature": "An unexpected implementation or validation failure is followed by another correction without first retrieving prior evidence, lessons, actionable failures, and canonical recovery or inspecting the authoritative production contract.",
+            "symptoms": [
+                "Multiple recovery helpers fail on related parser assumptions.",
+                "Synthetic fixtures pass while production loads zero records.",
+                "Formatted command output is treated as a stable interface.",
+                "Avoidable rework accumulates before evidence is consulted."
+            ],
+            "root_cause": "The first failure was treated as an isolated defect rather than a trigger to consult SAGE engineering memory and repository authority before another mutation.",
+            "known_resolution": [
+                "Stop further mutation after the first unexpected failure.",
+                "Retrieve evidence, lessons, failures, and canonical recovery.",
+                "Inspect the authoritative production contract.",
+                "Build the correction and regression from that contract."
+            ],
+            "preventive_control": [
+                "Validator failures invoke retrieval before retry guidance.",
+                "Write a local receipt showing consulted ranked experience.",
+                "A second same-class failure requires a lesson or action."
+            ],
+            "preflight_detection": [
+                "Require a retrieval receipt before retry guidance.",
+                "Test the actual dotted-key actionable-failure registry.",
+                "Reject relevance created only by ranking bonuses."
+            ],
+            "first_evidence": [
+                "terminal-session:2026-08-01-grafana-retrieval-recovery-recurrence-001"
+            ],
+            "latest_evidence": [
+                "report:kalaxy3-failure-triggered-retrieval-implementation-contract-20260801-014527"
+            ],
+            "recurrence_count": 4,
+            "automation_status": "guardrail"
         }
     ]
 }

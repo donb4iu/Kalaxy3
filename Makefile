@@ -56,7 +56,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test
+sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 
@@ -238,3 +238,18 @@ sage-evidence-retrieve:
 
 sage-evidence-retrieval-self-test:
 	$(SAGE_EVIDENCE_RETRIEVAL_SELF_TEST)
+
+# Failure-triggered SAGE retrieval
+SAGE_FAILURE_RETRIEVAL ?= python3 scripts/sage/sage-failure-retrieval-gate.py
+
+sage-failure-retrieval:
+	@test -n "$${SAGE_FAILURE:-}" || { \
+	  echo 'Usage: SAGE_FAILURE="<failure>" make sage-failure-retrieval'; \
+	  exit 2; \
+	}
+	$(SAGE_FAILURE_RETRIEVAL) --failure "$$SAGE_FAILURE"
+
+sage-failure-retrieval-self-test:
+	python3 -S scripts/sage/sage-failure-retrieval-gate.py --self-test
+
+.PHONY: sage-failure-retrieval sage-failure-retrieval-self-test

@@ -49,14 +49,19 @@
     "in",
     "is",
     "it",
+    "kalaxy3",
     "of",
     "on",
+    "operations",
     "or",
     "repository",
+    "repository-provisioned",
+    "shows",
     "that",
     "the",
     "this",
     "to",
+    "whether",
     "with"
   ],
   "term_groups": {
@@ -94,8 +99,6 @@
     ],
     "kubecost": [
       "kubecost",
-      "cost",
-      "costs",
       "finops",
       "allocation"
     ],
@@ -140,5 +143,6 @@
       "path": "sage-post-session-review-registry.json",
       "source_type": "post_session_review"
     }
-  ]
+  ],
+  "minimum_matched_terms": 1
 }

@@ -103,8 +103,41 @@ def looks_like_record(value: Any) -> bool:
     )
 
 
-def extract_records(payload: Any) -> list[Mapping[str, Any]]:
-    """Extract identified records from registry container shapes."""
+def extract_records(
+    payload: Any,
+    source_type: str | None = None,
+) -> list[Mapping[str, Any]]:
+    """Extract records, including the production failure container."""
+    if source_type == "failure" and isinstance(payload, dict):
+        failures = payload.get("failures")
+        if isinstance(failures, dict):
+            records: list[Mapping[str, Any]] = []
+            for failure_id in sorted(failures):
+                value = failures[failure_id]
+                if not isinstance(value, dict):
+                    continue
+                candidate = dict(value)
+                candidate.setdefault("failure_id", failure_id)
+                candidate.setdefault(
+                    "title",
+                    str(
+                        value.get("attempted_action")
+                        or value.get("likely_intended_outcome")
+                        or failure_id
+                    ),
+                )
+                candidate.setdefault(
+                    "summary",
+                    str(
+                        value.get("why_invalid")
+                        or value.get("repository_gap")
+                        or value.get("detected_state")
+                        or ""
+                    ),
+                )
+                records.append(candidate)
+            return records
+
     records: list[Mapping[str, Any]] = []
 
     def visit(value: Any) -> None:
@@ -198,7 +231,7 @@ def field_score(
     terms: set[str],
     policy: Mapping[str, Any],
 ) -> tuple[int, set[str], list[str]]:
-    """Score configured fields and explain contributions."""
+    """Score each matched term once using its strongest configured field."""
     score = 0
     matched: set[str] = set()
     reasons: list[str] = []
@@ -208,14 +241,21 @@ def field_score(
             text = scalar_text(record)
         else:
             text = key_values(record, FIELD_KEYS.get(field, (field,)))
-        overlap = tokenize(text, policy["stopwords"]) & terms
+
+        overlap = (
+            tokenize(text, policy["stopwords"])
+            & terms
+            - matched
+        )
         if not overlap:
             continue
+
         contribution = len(overlap) * int(weight)
         score += contribution
         matched.update(overlap)
         reasons.append(
-            f"{field} matched {', '.join(sorted(overlap))} (+{contribution})"
+            f"{field} matched {', '.join(sorted(overlap))} "
+            f"(+{contribution})"
         )
 
     return score, matched, reasons
@@ -245,15 +285,24 @@ def score_record(
     active_groups: set[str],
     policy: Mapping[str, Any],
 ) -> dict[str, Any] | None:
-    """Return one candidate or None below the threshold."""
+    """Return a relevant ranked candidate or None."""
     record_id = identifier(record, source_type, index)
-    score, matched, reasons = field_score(record, terms, policy)
+    base_score, matched, reasons = field_score(record, terms, policy)
+    groups = group_matches(record, active_groups, policy)
 
+    minimum_terms = int(policy.get("minimum_matched_terms", 1))
+    if len(matched) < minimum_terms:
+        return None
+
+    domain_groups = active_groups - {"validation", "evidence"}
+    if domain_groups and not (groups & domain_groups):
+        return None
+
+    score = base_score
     source_weight = int(policy["source_weights"].get(source_type, 0))
     score += source_weight
     reasons.append(f"source type {source_type} (+{source_weight})")
 
-    groups = group_matches(record, active_groups, policy)
     if groups:
         bonus = len(groups) * 3
         score += bonus
@@ -299,7 +348,7 @@ def load_candidates(
     for source in policy["sources"]:
         relative = source["path"]
         source_type = source["source_type"]
-        records = extract_records(load_json(repo / relative))
+        records = extract_records(load_json(repo / relative), source_type)
         source_summary.append(
             {
                 "path": relative,
