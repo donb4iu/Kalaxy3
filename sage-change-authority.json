@@ -163,65 +163,65 @@
             ]
         },
         {
-          "id": "evidence-retrieval",
-          "priority": 24,
-          "match_terms": [
-            "evidence retrieval",
-            "retrieve evidence",
-            "retrieval result",
-            "evidence use",
-            "applied evidence",
-            "rejected evidence",
-            "reviewed-not-applicable",
-            "engineering experience"
-          ],
-          "path_prefixes": [
-            "sage-evidence-retrieval-",
-            "scripts/sage/sage-evidence-retrieval",
-            "scripts/sage/sage_evidence_retrieval",
-            "markdown/standards/kalaxy3-sage-evidence-retrieval",
-            "markdown/standards/sage-evidence-retrieval-"
-          ],
-          "requires": [
-            "repository-governance",
-            "evidence",
-            "continuous-improvement"
-          ],
-          "working_directory": ".",
-          "authoritative_files": [
-            "sage-evidence-retrieval-policy.json",
-            "markdown/standards/kalaxy3-sage-evidence-retrieval-process.md",
-            "markdown/standards/sage-evidence-retrieval-result-schema-v1.0.json",
-            "scripts/sage/sage_evidence_retrieval.py",
-            "scripts/sage/sage-evidence-retrieval.py",
-            "scripts/sage/sage-evidence-retrieval-self-test.py",
-            "markdown/evidence/catalog.json",
-            "sage-lessons.json",
-            "sage-actionable-failures.json",
-            "sage-improvement-actions.json",
-            "sage-post-session-review-registry.json",
-            "scripts/sage/sage-failure-retrieval-gate.py",
-            "scripts/sage/sage-validator-runner.py"
-          ],
-          "baseline_checks": [
-            "make sage-failure-retrieval-self-test",
-            "make sage-evidence-retrieval-self-test",
-            "make sage-index-check"
-          ],
-          "required_validation": [
-            "make sage-failure-retrieval-self-test",
-            "make sage-evidence-retrieval-self-test",
-            "make sage-self-test",
-            "make sage-discovery-guardrail",
-            "make sage-index-check"
-          ],
-          "evidence_process": [
-            "Preserve the literal retrieval request.",
-            "Preserve ranked candidates and deterministic score reasons.",
-            "Finalize every candidate disposition with rationale.",
-            "Record recurrence, rework, and time to validated implementation at session closeout.",
-            "After the first unexpected failure, retrieve repository evidence, lessons, actionable failures, and canonical recovery before another corrective mutation."
-          ]
+            "id": "evidence-retrieval",
+            "priority": 24,
+            "match_terms": [
+                "evidence retrieval",
+                "retrieve evidence",
+                "retrieval result",
+                "evidence use",
+                "applied evidence",
+                "rejected evidence",
+                "reviewed-not-applicable",
+                "engineering experience"
+            ],
+            "path_prefixes": [
+                "sage-evidence-retrieval-",
+                "scripts/sage/sage-evidence-retrieval",
+                "scripts/sage/sage_evidence_retrieval",
+                "markdown/standards/kalaxy3-sage-evidence-retrieval",
+                "markdown/standards/sage-evidence-retrieval-"
+            ],
+            "requires": [
+                "repository-governance",
+                "evidence",
+                "continuous-improvement"
+            ],
+            "working_directory": ".",
+            "authoritative_files": [
+                "sage-evidence-retrieval-policy.json",
+                "markdown/standards/kalaxy3-sage-evidence-retrieval-process.md",
+                "markdown/standards/sage-evidence-retrieval-result-schema-v1.0.json",
+                "scripts/sage/sage_evidence_retrieval.py",
+                "scripts/sage/sage-evidence-retrieval.py",
+                "scripts/sage/sage-evidence-retrieval-self-test.py",
+                "markdown/evidence/catalog.json",
+                "sage-lessons.json",
+                "sage-actionable-failures.json",
+                "sage-improvement-actions.json",
+                "sage-post-session-review-registry.json",
+                "scripts/sage/sage-failure-retrieval-gate.py",
+                "scripts/sage/sage-validator-runner.py"
+            ],
+            "baseline_checks": [
+                "make sage-failure-retrieval-self-test",
+                "make sage-evidence-retrieval-self-test",
+                "make sage-index-check"
+            ],
+            "required_validation": [
+                "make sage-failure-retrieval-self-test",
+                "make sage-evidence-retrieval-self-test",
+                "make sage-self-test",
+                "make sage-discovery-guardrail",
+                "make sage-index-check"
+            ],
+            "evidence_process": [
+                "Preserve the literal retrieval request.",
+                "Preserve ranked candidates and deterministic score reasons.",
+                "Finalize every candidate disposition with rationale.",
+                "Record recurrence, rework, and time to validated implementation at session closeout.",
+                "After the first unexpected failure, retrieve repository evidence, lessons, actionable failures, and canonical recovery before another corrective mutation."
+            ]
         },
         {
             "id": "continuous-improvement",
@@ -622,6 +622,67 @@
             ],
             "evidence_process": [
                 "Capture generated-document validation and publication lineage."
+            ]
+        },
+        {
+            "id": "capability-intelligence",
+            "priority": 90,
+            "match_terms": [
+                "capability intelligence",
+                "capability-intelligence",
+                "capability target",
+                "preferred target",
+                "current capability state",
+                "federated authority",
+                "decision branch",
+                "alternative branch",
+                "WAR",
+                "well-architected",
+                "CAF",
+                "rebuild-forward",
+                "mission drift"
+            ],
+            "path_prefixes": [
+                "sage-capability-intelligence.json",
+                "scripts/sage/sage-capability-intelligence",
+                "markdown/standards/kalaxy3-sage-capability-intelligence",
+                "markdown/standards/sage-capability-intelligence",
+                "markdown/architecture/kalaxy3-sage-capability-intelligence"
+            ],
+            "requires": [
+                "continuous-improvement",
+                "evidence",
+                "evidence-retrieval",
+                "repository-governance"
+            ],
+            "working_directory": ".",
+            "authoritative_files": [
+                "AGENTS.md",
+                "SAGE.md",
+                "sage-change-authority.json",
+                "markdown/standards/kalaxy3-sage-change-discovery-process.md",
+                "markdown/standards/kalaxy3-sage-evidence-record-standard.md",
+                "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
+                "scripts/sage/sage-change-preflight.py",
+                "scripts/sage/sage-change-discovery-guardrail.py"
+            ],
+            "baseline_checks": [
+                "make sage-discovery-guardrail",
+                "make sage-index-check",
+                "make sage-evidence-guardrail",
+                "make sage-self-test"
+            ],
+            "required_validation": [
+                "make sage-discovery-guardrail",
+                "make sage-index-check",
+                "make sage-self-test"
+            ],
+            "evidence_process": [
+                "Preserve the versioned mission, target, and current capability picture.",
+                "Preserve consulted authority assertions and visible conflicts.",
+                "Preserve immutable branch predictions before outcomes.",
+                "Record the selected authority decision, actual outcome, and calibration.",
+                "Do not claim autonomy beyond the delegated domain and level."
             ]
         }
     ]
