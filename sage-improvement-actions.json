@@ -188,7 +188,7 @@
                 "SAGE-LESSON-20260728-001"
             ],
             "source_sessions": [],
-            "current_status": "implemented",
+            "current_status": "validated",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -248,6 +248,24 @@
                         "path:AGENTS.md",
                         "path:scripts/sage/sage-file-delivery-guardrail.py",
                         "path:sage-change-authority.json"
+                    ]
+                },
+                {
+                    "sequence": 4,
+                    "from_status": "implemented",
+                    "to_status": "validated",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T17:16:32-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The original literal request classifies, and the dedicated file-delivery guardrail, root SAGE self-test, discovery guardrail, evidence guardrail, learning guardrail, and evidence index all pass.",
+                    "evidence_references": [
+                        "commit:289c8fb50cc4921b9d4f465bd2642280c503375d",
+                        "make:sage-preflight",
+                        "make:sage-file-delivery-guardrail",
+                        "make:sage-self-test",
+                        "make:sage-discovery-guardrail",
+                        "make:sage-evidence-guardrail",
+                        "make:sage-index-check"
                     ]
                 }
             ]
