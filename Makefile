@@ -56,7 +56,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test
+sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 
@@ -224,3 +224,17 @@ centralized-logging-runtime-source-self-test:
 .PHONY: sage-yaml-metadata-source-self-test
 sage-yaml-metadata-source-self-test:
 	python3 -S scripts/sage/sage-yaml-metadata-source-self-test.py
+
+# Deterministic SAGE evidence retrieval
+SAGE_EVIDENCE_RETRIEVAL ?= python3 scripts/sage/sage-evidence-retrieval.py
+SAGE_EVIDENCE_RETRIEVAL_SELF_TEST ?= python3 scripts/sage/sage-evidence-retrieval-self-test.py
+
+sage-evidence-retrieve:
+	@test -n "$${SAGE_REQUEST:-}" || { \
+	  echo 'Usage: SAGE_REQUEST="<request>" make sage-evidence-retrieve'; \
+	  exit 2; \
+	}
+	$(SAGE_EVIDENCE_RETRIEVAL) retrieve --request "$$SAGE_REQUEST"
+
+sage-evidence-retrieval-self-test:
+	$(SAGE_EVIDENCE_RETRIEVAL_SELF_TEST)
