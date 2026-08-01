@@ -488,9 +488,10 @@
                 "report:kalaxy3-failure-triggered-retrieval-implementation-contract-20260801-014527",
                 "terminal-session:2026-08-01-file-delivery-recovery-preflight-unclassified-001",
                 "terminal-session:2026-08-01-canonical-workflow-support-preflight-unclassified-001",
-                "terminal-session:2026-08-01-workflow-support-makefile-continuation-001"
+                "terminal-session:2026-08-01-workflow-support-makefile-continuation-001",
+                "terminal-session:2026-08-01-workflow-bootstrap-undefined-name-001"
             ],
-            "recurrence_count": 7,
+            "recurrence_count": 8,
             "automation_status": "guardrail"
         },
         {
