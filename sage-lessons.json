@@ -488,6 +488,63 @@
             ],
             "recurrence_count": 4,
             "automation_status": "guardrail"
+        },
+        {
+            "lesson_id": "SAGE-LESSON-20260801-002",
+            "title": "Align retrieval quality fixtures with production relevance gates",
+            "status": "accepted",
+            "contexts": [
+                "repository-governance",
+                "continuous-improvement",
+                "evidence-retrieval"
+            ],
+            "match_terms": [
+                "retrieval fixture",
+                "domain group",
+                "quality field",
+                "candidate inclusion",
+                "StopIteration",
+                "synthetic fixture",
+                "relevance gate",
+                "Grafana logging"
+            ],
+            "path_prefixes": [
+                "scripts/sage/sage-evidence-retrieval-self-test.py",
+                "scripts/sage/sage_evidence_retrieval.py",
+                "sage-evidence-retrieval-policy.json"
+            ],
+            "failure_signature": "A retrieval quality test expects a record under a request whose active domain groups the record does not satisfy, so production relevance filtering removes the record before metadata assertions run.",
+            "symptoms": [
+                "A candidate-specific next call raises StopIteration.",
+                "The fixture record exists in the source registry.",
+                "The request activates Grafana or logging domain gates.",
+                "The lesson fixture contains validation terms but no Grafana or logging terms."
+            ],
+            "root_cause": "The test combined quality-field assertions for records from different relevance domains in one query and assumed all fixtures would be returned.",
+            "known_resolution": [
+                "Use a Grafana and logging query for the evidence record.",
+                "Use a lesson and validation query for the lesson record.",
+                "Validate each payload independently under production domain-group semantics.",
+                "Report candidate identifiers before candidate-specific metadata assertions."
+            ],
+            "preventive_control": [
+                "Generated retrieval helpers must exercise the complete production relevance gate in a detached worktree.",
+                "Test fixtures must state the request and expected active groups for every asserted candidate.",
+                "Quality-field tests must not use an unguarded next call for a candidate whose inclusion has not been asserted."
+            ],
+            "preflight_detection": [
+                "Run the source-only retrieval suite against the patched production policy in a detached worktree.",
+                "Assert fixture request groups before candidate-specific metadata checks.",
+                "Include the observed candidate identifier set when a required fixture is absent."
+            ],
+            "first_evidence": [
+                "terminal-session:2026-08-01-retrieval-quality-recency-precedence-failure-001"
+            ],
+            "latest_evidence": [
+                "terminal-session:2026-08-01-retrieval-quality-domain-gate-fixture-failure-002"
+            ],
+            "recurrence_count": 2,
+            "automation_status": "guardrail"
         }
     ]
 }
