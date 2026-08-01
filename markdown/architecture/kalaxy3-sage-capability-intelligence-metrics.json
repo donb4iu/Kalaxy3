@@ -168,8 +168,8 @@
   },
   "decision_cycle": {
     "selected_branch_id": "branch.capability-intelligence-v0.1",
-    "actual_outcome_recorded": false,
-    "calibration_status": "pending"
+    "actual_outcome_recorded": true,
+    "calibration_status": "initial-outcome-recorded-with-rework"
   },
   "composite_score_enabled": false
 }

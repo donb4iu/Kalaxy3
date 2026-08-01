@@ -997,7 +997,7 @@
       {
         "branch_id": "branch.capability-intelligence-v0.1",
         "title": "Build the synchronized capability-intelligence walking skeleton",
-        "status": "selected",
+        "status": "validated",
         "consulted_authority_ids": [
           "operator-intent",
           "repository-desired-state",
@@ -1125,7 +1125,93 @@
           "time_to_useful_evidence": "one validated repository change"
         },
         "prediction_digest": "95c638a31f83938aaa0398cbe397aafcc117e0cd0e7add8d2ccac2a63f298d5a",
-        "actual_outcome": null
+        "actual_outcome": {
+          "observed_at": "2026-08-01T15:40:52-05:00",
+          "status": "validated-repository-foundation",
+          "actual_impact": [
+            {
+              "capability_id": "governance.capability-intelligence",
+              "dimension": "functional-outcome",
+              "result": "A complete mission, target, current-state, federated-authority, alternative-branch, prediction, outcome, and learning picture now renders from repository-owned data.",
+              "confidence": "high"
+            }
+          ],
+          "actual_effort": [
+            {
+              "subject": "engineering_effort",
+              "actual": null,
+              "unit": "hours",
+              "comparison": "inconclusive",
+              "rationale": "Automation runtime does not measure human engineering effort."
+            },
+            {
+              "subject": "repository_paths_changed",
+              "actual": 23,
+              "unit": "paths",
+              "comparison": "measured",
+              "rationale": "Unique capability, governance, action, and generated-index paths in the implementation."
+            },
+            {
+              "subject": "validated_commits",
+              "actual": 5,
+              "unit": "commits",
+              "comparison": "measured",
+              "rationale": "Two failure-learning commits, classifier-validated discovery, core foundation, and final integration."
+            },
+            {
+              "subject": "validation_entrypoints",
+              "actual": 20,
+              "unit": "commands",
+              "comparison": "measured",
+              "rationale": "Counted repository-owned validation entry points run by the continuation helper."
+            },
+            {
+              "subject": "automation_elapsed_time",
+              "actual": 0.22,
+              "unit": "minutes",
+              "comparison": "measured-not-human-effort",
+              "rationale": "Continuation-helper elapsed time only."
+            }
+          ],
+          "unexpected_effects": [
+            {
+              "failure_class": "generated-evidence-catalog-stale",
+              "impact": "The new capability-intelligence documents required the repository-owned generated evidence catalog to be reconciled before final integration.",
+              "recovery": "python3 scripts/sage/sage-index.py reconcile",
+              "avoidable_rework": true,
+              "retrieval_receipt": "/Users/donbuddenbaum/Downloads/kalaxy3-capability-intelligence-format-failure-retrieval-20260801-154040.json"
+            },
+            {
+              "failure_class": "continuation-state-validator-rejected-expected-untracked-generated-files",
+              "impact": "The continuation helper treated all untracked files as invalid even though two canonical generated-index paths were new and expected in the exact dirty-path contract.",
+              "recovery": "Allow exactly the two expected generated-index paths and continue to reject every other untracked path.",
+              "avoidable_rework": true,
+              "retrieval_receipt": "/Users/donbuddenbaum/Downloads/kalaxy3-capability-intelligence-format-failure-retrieval-20260801-154040.json"
+            },
+            {
+              "failure_class": "makefile-extra-blank-line-at-eof",
+              "impact": "All functional and governance validations passed, but the final source-format check rejected one extra blank line at the end of Makefile.",
+              "recovery": "Normalize Makefile to exactly one trailing newline.",
+              "avoidable_rework": true,
+              "retrieval_receipt": "/Users/donbuddenbaum/Downloads/kalaxy3-capability-intelligence-format-failure-retrieval-20260801-154040.json"
+            }
+          ],
+          "prediction_calibration": {
+            "status": "partially-comparable-with-rework",
+            "notes": [
+              "Repository paths, commit count, validation commands, and automation time are measurable.",
+              "Human engineering effort remains unavailable and inconclusive.",
+              "The implementation required a canonical generated-index reconciliation, correction of one overly strict continuation-state validator, and one nonsemantic Makefile end-of-file normalization.",
+              "Operational decision value requires future branch choices and outcomes."
+            ]
+          },
+          "commit_refs": [
+            "55a947fc6a82459a8ef26187d3a0d6f7c79b3563",
+            "f8134680639e12fd81e0561f0658314cb69d00a6",
+            "8252ff60a2924bdae2ccbca5183ce17180ec8429",
+            "6689f21c35f819fbde9a2a279fa5a296a3f3446b"
+          ]
+        }
       },
       {
         "branch_id": "branch.operations-dashboard-first",
@@ -1387,7 +1473,7 @@
         "actual_outcome": null
       }
     ],
-    "actual_outcome_recorded": false,
-    "calibration_status": "pending"
+    "actual_outcome_recorded": true,
+    "calibration_status": "initial-outcome-recorded-with-rework"
   }
 }

@@ -113,3 +113,22 @@ the correct path cannot be determined, SAGE identifies the uncertainty,
 directs the operator to repository discovery, preserves the failure as
 evidence, and reports a systemic capability gap instead of suggesting an
 undocumented workaround.
+
+## Capability intelligence and federated decisions
+
+SAGE renders the versioned Kalaxy3 mission, preferred target, current
+multidimensional capability state, WAR and CAF lenses, federated authority
+assertions, conflicts, alternative branches, immutable predictions, selected
+decisions, actual outcomes, and learning.
+
+SAGE is a decision partner rather than the sole authority. Unknown and immature
+dimensions remain visible and reduce certainty without becoming false success
+or failure. Rebuild-forward assurance preserves required capability outcomes
+while allowing a better successor implementation.
+
+```console
+make sage-capability-intelligence-render
+make sage-capability-intelligence-check
+make sage-capability-intelligence-self-test
+make sage-capability-intelligence-guardrail
+```

@@ -657,25 +657,23 @@
             ],
             "working_directory": ".",
             "authoritative_files": [
-                "AGENTS.md",
-                "SAGE.md",
-                "sage-change-authority.json",
-                "markdown/standards/kalaxy3-sage-change-discovery-process.md",
-                "markdown/standards/kalaxy3-sage-evidence-record-standard.md",
-                "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
-                "scripts/sage/sage-change-preflight.py",
-                "scripts/sage/sage-change-discovery-guardrail.py"
+                "sage-capability-intelligence.json",
+                "markdown/standards/sage-capability-intelligence-schema-v1.0.json",
+                "markdown/standards/kalaxy3-sage-capability-intelligence-process.md",
+                "scripts/sage/sage-capability-intelligence.py",
+                "scripts/sage/sage-capability-intelligence-guardrail.py"
             ],
             "baseline_checks": [
-                "make sage-discovery-guardrail",
-                "make sage-index-check",
-                "make sage-evidence-guardrail",
-                "make sage-self-test"
+                "make sage-capability-intelligence-self-test",
+                "make sage-capability-intelligence-check",
+                "make sage-index-check"
             ],
             "required_validation": [
+                "make sage-capability-intelligence-self-test",
+                "make sage-capability-intelligence-guardrail",
+                "make sage-self-test",
                 "make sage-discovery-guardrail",
-                "make sage-index-check",
-                "make sage-self-test"
+                "make sage-index-check"
             ],
             "evidence_process": [
                 "Preserve the versioned mission, target, and current capability picture.",

@@ -253,3 +253,23 @@ sage-failure-retrieval-self-test:
 	python3 -S scripts/sage/sage-failure-retrieval-gate.py --self-test
 
 .PHONY: sage-failure-retrieval sage-failure-retrieval-self-test
+
+.PHONY: sage-capability-intelligence-render \
+	sage-capability-intelligence-check \
+	sage-capability-intelligence-self-test \
+	sage-capability-intelligence-guardrail
+
+sage-capability-intelligence-render:
+	python3 scripts/sage/sage-capability-intelligence.py render
+	python3 scripts/sage/sage-capability-intelligence.py metrics
+
+sage-capability-intelligence-check:
+	python3 scripts/sage/sage-capability-intelligence.py check
+	python3 scripts/sage/sage-capability-intelligence.py render --check
+	python3 scripts/sage/sage-capability-intelligence.py metrics --check
+
+sage-capability-intelligence-self-test:
+	python3 scripts/sage/sage-capability-intelligence.py self-test
+
+sage-capability-intelligence-guardrail:
+	python3 scripts/sage/sage-capability-intelligence-guardrail.py

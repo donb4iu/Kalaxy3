@@ -83,3 +83,18 @@ Validate this contract with:
 ```bash
 make sage-actionable-failure-self-test
 ```
+
+## Capability-intelligence guardrail
+
+Changes affecting mission outcomes, capabilities, target architecture,
+authority ownership, alternative decisions, estimates, or rebuild-forward
+continuity must run the repository-owned capability-intelligence guardrail.
+
+Preserve source assertions, SAGE inference, predictions, authority decisions,
+and observed outcomes as distinct records. Never silently override a scoped
+authority. Never replace unknowns with fabricated scores. Predictions remain
+scalar-neutral and immutable before outcomes.
+
+```console
+make sage-capability-intelligence-guardrail
+```

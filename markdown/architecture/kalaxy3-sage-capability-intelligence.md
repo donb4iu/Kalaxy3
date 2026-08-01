@@ -188,14 +188,14 @@ No opaque overall score is used. Unknowns, blockers, confidence, and the lowest 
 
 | Branch | Status | Confidence | Risk | Reversibility | Expected value |
 |---|---|---|---|---|---|
-| `branch.capability-intelligence-v0.1` | selected | medium | medium | high | very-high |
+| `branch.capability-intelligence-v0.1` | validated | medium | medium | high | very-high |
 | `branch.operations-dashboard-first` | considered | medium | medium | high | medium |
 | `branch.reconciliation-method-first` | considered | low | high | medium | uncertain |
 | `branch.do-nothing` | retained-baseline | high | medium | high | low |
 
 Selected branch: `branch.capability-intelligence-v0.1`
-Actual outcome recorded: `False`
-Calibration status: `pending`
+Actual outcome recorded: `True`
+Calibration status: `initial-outcome-recorded-with-rework`
 
 ## Federated authority
 
