@@ -485,9 +485,10 @@
                 "terminal-session:2026-08-01-grafana-retrieval-recovery-recurrence-001"
             ],
             "latest_evidence": [
-                "report:kalaxy3-failure-triggered-retrieval-implementation-contract-20260801-014527"
+                "report:kalaxy3-failure-triggered-retrieval-implementation-contract-20260801-014527",
+                "terminal-session:2026-08-01-file-delivery-recovery-preflight-unclassified-001"
             ],
-            "recurrence_count": 4,
+            "recurrence_count": 5,
             "automation_status": "guardrail"
         },
         {
