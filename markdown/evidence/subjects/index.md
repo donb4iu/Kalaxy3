@@ -20,6 +20,8 @@
 - [Observability](observability.md)
 - [Protected Longhorn](protected-longhorn.md)
 - [Protected Traefik Dashboard Installation](protected-traefik-dashboard-installation.md)
+- [SAGE actionable failures](sage-actionable-failures.md)
+- [SAGE CI portability](sage-ci-portability.md)
 - [SAGE continuous improvement](sage-continuous-improvement.md)
 - [SAGE continuous improvement metrics pilot](sage-continuous-improvement-metrics-pilot.md)
 - [SAGE continuous-improvement closeout](sage-continuous-improvement-closeout.md)

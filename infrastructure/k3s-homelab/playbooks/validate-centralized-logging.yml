@@ -16,28 +16,71 @@
       /tmp/kalaxy3-centralized-logging-render
 
   pre_tasks:
+    - name: Build SAGE recovery for unmanaged controller interpreter
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - >-
+            {{
+              playbook_dir
+            }}/../../../scripts/sage/sage_actionable_failure.py
+          - render
+          - --catalog
+          - >-
+            {{
+              playbook_dir
+            }}/../../../sage-actionable-failures.json
+          - --failure-id
+          - centralized_logging.unmanaged_controller_interpreter
+          - --set
+          - >-
+            ansible_playbook_python={{
+              ansible_playbook_python
+            }}
+      register: sage_unmanaged_controller_failure
+      changed_when: false
+
     - name: Require the repository-managed controller interpreter
       ansible.builtin.assert:
         that:
           - >-
             ansible_playbook_python
-            is match('^.*/\\.venv/bin/python$')
+            is match('^.*/\.venv/bin/python$')
           - ansible_python_interpreter == ansible_playbook_python
-        fail_msg: >-
-          Centralized logging validation must be launched from
-          infrastructure/k3s-homelab with .venv/bin/ansible-playbook.
-          ansible_playbook_python={{ ansible_playbook_python }}
+        fail_msg: "{{ sage_unmanaged_controller_failure.stdout }}"
         success_msg: >-
           Using repository-managed Python:
           {{ ansible_playbook_python }}
+
+    - name: Build SAGE recovery for active logging lifecycle
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - >-
+            {{
+              playbook_dir
+            }}/../../../scripts/sage/sage_actionable_failure.py
+          - render
+          - --catalog
+          - >-
+            {{
+              playbook_dir
+            }}/../../../sage-actionable-failures.json
+          - --failure-id
+          - centralized_logging.render_validator_after_activation
+          - --set
+          - >-
+            deploy_centralized_logging={{
+              deploy_centralized_logging | bool
+            }}
+      register: sage_active_logging_failure
+      changed_when: false
 
     - name: Require staged activation gate
       ansible.builtin.assert:
         that:
           - not (deploy_centralized_logging | bool)
-        fail_msg: >-
-          Refusing render-only validation because
-          deploy_centralized_logging is not false.
+        fail_msg: "{{ sage_active_logging_failure.stdout }}"
         success_msg: >-
           Centralized logging remains staged and inactive.
 

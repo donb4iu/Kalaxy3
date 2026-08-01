@@ -1,0 +1,132 @@
+{
+  "schema_version": "1.0",
+  "failures": {
+    "centralized_logging.unmanaged_controller_interpreter": {
+      "attempted_action": "Render staged centralized-logging configuration.",
+      "detected_state": "ansible_playbook_python={ansible_playbook_python}; the repository-managed .venv interpreter is required.",
+      "why_invalid": "Global or Homebrew Ansible can use different dependency versions and produce non-reproducible validation evidence.",
+      "likely_intended_outcome": "SAGE infers that the operator intended to validate the repository-owned centralized-logging configuration.",
+      "confirm_correct_approach": [
+        "From the Kalaxy3 repository root, run SAGE_REQUEST='Validate centralized logging' make sage-preflight.",
+        "Confirm that infrastructure/k3s-homelab/.venv/bin/ansible-playbook exists in the operator runtime; source-only CI validates repository authority without requiring generated virtual-environment files."
+      ],
+      "allowed_actions": [
+        "Use the repository-managed virtual environment.",
+        "Run repository discovery and inspect its authoritative files.",
+        "Preserve this failed invocation as terminal evidence.",
+        "Provision the repository virtual environment through the repository-owned bootstrap when the runtime prerequisite is absent."
+      ],
+      "prohibited_actions": [
+        "Do not bypass the interpreter assertion.",
+        "Do not use global, Homebrew, or otherwise unpinned Ansible.",
+        "Do not edit generated evidence directly."
+      ],
+      "canonical_recovery": [
+        {
+          "working_directory": "infrastructure/k3s-homelab",
+          "command": ".venv/bin/ansible-playbook -i inventory/hosts.yml playbooks/validate-centralized-logging.yml",
+          "required_paths": [
+            "infrastructure/k3s-homelab/inventory/hosts.yml",
+            "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml"
+          ]
+        }
+      ],
+      "integrity_requirements": [
+        "Preserve repository-managed tooling and pinned dependencies.",
+        "Preserve authoritative configuration, guardrail output, and terminal evidence.",
+        "Commit and push small cohesive validated checkpoints."
+      ],
+      "authoritative_paths": [
+        "markdown/standards/kalaxy3-sage-actionable-failure-contract.md",
+        "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml",
+        "infrastructure/k3s-homelab/inventory/group_vars/all/main.yml"
+      ],
+      "repository_gap": "If the repository-managed interpreter or canonical invocation is missing, record a systemic tooling or documentation gap instead of substituting an ad hoc command."
+    },
+    "centralized_logging.render_validator_after_activation": {
+      "attempted_action": "Run render-only validation for staged centralized logging.",
+      "detected_state": "deploy_centralized_logging={deploy_centralized_logging}; this validator requires the inactive staged state.",
+      "why_invalid": "Changing the activation gate merely to satisfy a render-only validator or bypassing the assertion would falsify lifecycle state and weaken SAGE evidence integrity.",
+      "likely_intended_outcome": "SAGE infers that the operator intended to validate the health and usefulness of the active centralized-logging deployment.",
+      "confirm_correct_approach": [
+        "From the Kalaxy3 repository root, run SAGE_REQUEST='Validate active centralized logging' make sage-preflight.",
+        "Confirm the activation gate in infrastructure/k3s-homelab/inventory/group_vars/all/main.yml.",
+        "Review the deployment evidence for the previously validated runtime checks."
+      ],
+      "allowed_actions": [
+        "Run repository discovery for the active lifecycle state.",
+        "Inspect repository-owned deployment evidence and current runtime state.",
+        "Preserve failed and successful validation evidence.",
+        "Record and correct a missing active-state validator as a systemic repository gap."
+      ],
+      "prohibited_actions": [
+        "Do not set deploy_centralized_logging=false merely to satisfy this playbook.",
+        "Do not bypass the lifecycle assertion.",
+        "Do not substitute undocumented kubectl, Helm, or global Ansible workflows.",
+        "Do not discard the failed-path evidence."
+      ],
+      "canonical_recovery": [
+        {
+          "working_directory": "infrastructure/k3s-homelab",
+          "command": "make centralized-logging-runtime-validate",
+          "required_paths": [
+            "infrastructure/k3s-homelab/Makefile",
+            "infrastructure/k3s-homelab/scripts/validate-centralized-logging-runtime.py"
+          ]
+        }
+      ],
+      "integrity_requirements": [
+        "Preserve the true activation state, chart locks, storage state, and rollback authority.",
+        "Run the discovery, source, deployment, cluster, index, and evidence guardrails required for the resulting change.",
+        "Use frequent cohesive validated commits and immediate pushes."
+      ],
+      "authoritative_paths": [
+        "markdown/standards/kalaxy3-sage-actionable-failure-contract.md",
+        "infrastructure/k3s-homelab/inventory/group_vars/all/main.yml",
+        "markdown/operations/kalaxy3-centralized-logging-deployment-evidence.md"
+      ],
+      "repository_gap": "If runtime validation cannot run through the canonical target, preserve its actionable failure and correct the reported gap."
+    },
+    "centralized_logging.runtime_requires_active_gate": {
+      "attempted_action": "Validate active centralized logging.",
+      "detected_state": "deploy_centralized_logging={deploy_centralized_logging}; the active runtime validator requires the repository activation gate to be true.",
+      "why_invalid": "Runtime validation before activation cannot establish the health or usefulness of a deployment that remains staged.",
+      "likely_intended_outcome": "SAGE infers that the operator intended either staged render validation or the repository-owned activation workflow.",
+      "confirm_correct_approach": [
+        "Confirm the activation gate in infrastructure/k3s-homelab/inventory/group_vars/all/main.yml.",
+        "From the repository root, run SAGE_REQUEST='Validate centralized logging' make sage-preflight."
+      ],
+      "allowed_actions": [
+        "Run staged render validation while the activation gate is false.",
+        "Follow the repository-owned activation workflow when deployment is intended.",
+        "Preserve this lifecycle mismatch as terminal evidence."
+      ],
+      "prohibited_actions": [
+        "Do not enable centralized logging merely to satisfy this validator.",
+        "Do not bypass the activation gate.",
+        "Do not report runtime validation as complete."
+      ],
+      "canonical_recovery": [
+        {
+          "working_directory": "infrastructure/k3s-homelab",
+          "command": "make centralized-logging-render",
+          "required_paths": [
+            "infrastructure/k3s-homelab/Makefile",
+            "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml"
+          ]
+        }
+      ],
+      "integrity_requirements": [
+        "Preserve the true lifecycle state and repository authority.",
+        "Use repository-managed tooling and required guardrails.",
+        "Commit and push small cohesive validated checkpoints."
+      ],
+      "authoritative_paths": [
+        "markdown/standards/kalaxy3-sage-actionable-failure-contract.md",
+        "infrastructure/k3s-homelab/inventory/group_vars/all/main.yml",
+        "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml"
+      ],
+      "repository_gap": "If staged validation or activation has no canonical repository entry point, record and correct that lifecycle capability gap."
+    }
+  }
+}

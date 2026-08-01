@@ -12,14 +12,16 @@ with curated or inferred metadata and an explicit migration state.
 | Classification | Count |
 |---|---:|
 | legacy-evidence | 17 |
-| sage-current | 13 |
+| sage-current | 15 |
 | sage-legacy | 3 |
-| **Total** | **33** |
+| **Total** | **35** |
 
 ## Start here
 
 | Section | Record | Summary | Class | Status | Valid as of |
 |---|---|---|---|---|---|
+| governance | [Validate PR #5 source-only guardrails](../governance/kalaxy3-actionable-guardrail-ci-portability-evidence.md) | Documents the three post-publication CI repairs that separated repository authority from runtime prerequisites and made PR 5 source-only guardrails pass without weakening operator-runtime validation. | sage-current | validated | 2026-07-31 |
+| governance | [Recover guardrails and validate active logging](../governance/kalaxy3-actionable-guardrail-recovery-evidence.md) | Documents the reusable SAGE actionable-failure framework, centralized-logging lifecycle recovery, vault-tolerant metadata handling, and live seven-node Loki validation. | sage-current | validated | 2026-07-31 |
 | governance | [SAGE metrics pilot closeout](../governance/kalaxy3-sage-metrics-pilot-closeout-evidence.md) | Validates the metrics-pilot post-session review, recurring helper-runtime lesson, populated action-registry controls, and registration of the resulting improvement action. | sage-current | validated | 2026-07-31 |
 | governance | [Validate the first SAGE metrics pilot](../governance/kalaxy3-sage-metrics-pilot-evidence.md) | Documents the first repository-owned live SAGE metrics pilot, truthful null handling, scalar-neutral predictions, repository-only lifecycle validation, and closed deployment gate. | sage-current | validated | 2026-07-30 |
 | operations | [Migrate documentation publication to MkDocs Material](../operations/kalaxy3-mkdocs-material-publication-migration-evidence.md) | Documents the staged replacement of Daux with MkDocs Material, strict build and navigation validation, GitHub Pages publication, rollback, and remaining review gaps. | sage-current | validated | 2026-07-29 |
@@ -30,8 +32,6 @@ with curated or inferred metadata and an explicit migration state.
 | governance | [Validate the Kalaxy3 Daux landing page](../governance/kalaxy3-daux-landing-page-sage-evidence.md) | Validates the Kalaxy3 Daux landing-page source, container bootstrap, local render, visual identity, and clean feature-branch preservation without changing branch publication automation. | sage-current | validated | 2026-07-26 |
 | security | [Enforce canonical controller access across Kalaxy3](../security/kalaxy3-controller-access-baseline-sage-evidence.md) | Validates a repository-owned dual-controller SSH and sudo baseline across seven Kalaxy3 nodes and retires the legacy Intel pi administration path. | sage-current | validated | 2026-07-26 |
 | governance | [Pause logging work to close the SAGE enforcement gap](../governance/kalaxy3-sage-guardrail-gap-observability-pause-evidence.md) | Documents the machine-local Helm escape path, the missing preventive SAGE controls, and the decision to checkpoint and pause centralized logging until repository and admission guardrails are implemented. | sage-current | validated | 2026-07-26 |
-| governance | [Validate interchangeable Kalaxy3 automation controllers](../operations/kalaxy3-controller-machine-portability-evidence.md) | Verifies that clean iMac and Mac mini controllers reproduce the same repository-managed Python and Ansible environment despite different system Python versions. | sage-current | validated | 2026-07-26 |
-| benchmarks | [Capture pre-logging Kubecost baseline](../benchmarks/kalaxy3-pre-logging-kubecost-baseline-evidence.md) | Preserves checksum-verified 24-hour and 72-hour Kubecost control measurements before centralized logging changes cluster resource use and cost. | sage-current | validated | 2026-07-25 |
 
 ## Browse
 

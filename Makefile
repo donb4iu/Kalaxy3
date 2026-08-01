@@ -56,7 +56,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test:
+sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 
@@ -188,3 +188,39 @@ docs-mkdocs-generate: docs-mkdocs-stage
 	@echo "Kalaxy3 MkDocs generated documentation: PASS"
 # END KALAXY3 MKDOCS STAGED TARGETS
 .PHONY: sage-session-close-self-test
+
+.PHONY: sage-actionable-failure-self-test
+sage-actionable-failure-self-test:
+	python3 scripts/sage/sage-actionable-failure-self-test.py
+
+.PHONY: sage-actionable-failure-guardrail
+sage-actionable-failure-guardrail:
+	python3 scripts/sage/sage-actionable-failure-guardrail.py
+
+.PHONY: sage-actionable-failure-audit
+sage-actionable-failure-audit:
+	python3 scripts/sage/sage-actionable-failure-audit.py
+
+.PHONY: sage-validator-runtime-self-test
+sage-validator-runtime-self-test:
+	python3 scripts/sage/sage-validator-runner.py --validator-id sage.actionable_failure_self_test --attempted-action 'Validate the SAGE failure framework.' --working-directory . --recovery-command 'python3 scripts/sage/sage-actionable-failure-self-test.py' --authoritative-path scripts/sage/sage-actionable-failure-self-test.py -- python3 scripts/sage/sage-actionable-failure-self-test.py
+
+.PHONY: centralized-logging-runtime-self-test
+centralized-logging-runtime-self-test:
+	$(MAKE) -C infrastructure/k3s-homelab centralized-logging-runtime-self-test
+
+.PHONY: centralized-logging-runtime-validate
+centralized-logging-runtime-validate:
+	$(MAKE) -C infrastructure/k3s-homelab centralized-logging-runtime-validate
+
+.PHONY: sage-yaml-metadata-self-test
+sage-yaml-metadata-self-test:
+	infrastructure/k3s-homelab/.venv/bin/python scripts/sage/sage-yaml-metadata-self-test.py
+
+.PHONY: centralized-logging-runtime-source-self-test
+centralized-logging-runtime-source-self-test:
+	$(MAKE) -C infrastructure/k3s-homelab centralized-logging-runtime-source-self-test
+
+.PHONY: sage-yaml-metadata-source-self-test
+sage-yaml-metadata-source-self-test:
+	python3 -S scripts/sage/sage-yaml-metadata-source-self-test.py
