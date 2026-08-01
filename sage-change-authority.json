@@ -32,19 +32,20 @@
             "authoritative_files": [
                 "AGENTS.md",
                 "SAGE.md",
-                "sage-change-authority.json",
-                "markdown/standards/kalaxy3-sage-change-discovery-process.md",
                 "markdown/standards/kalaxy3-sage-actionable-failure-contract.md",
+                "markdown/standards/kalaxy3-sage-change-discovery-process.md",
                 "sage-actionable-failure-registry.json",
                 "sage-actionable-failures.json",
+                "sage-change-authority.json",
                 "scripts/sage/sage-actionable-failure-audit.py",
                 "scripts/sage/sage-actionable-failure-guardrail.py",
                 "scripts/sage/sage-actionable-failure-self-test.py",
-                "scripts/sage/sage_actionable_failure.py",
+                "scripts/sage/sage-file-delivery-guardrail.py",
                 "scripts/sage/sage-validator-runner.py",
-                "scripts/sage/sage_yaml_metadata.py",
                 "scripts/sage/sage-yaml-metadata-self-test.py",
-                "scripts/sage/sage-yaml-metadata-source-self-test.py"
+                "scripts/sage/sage-yaml-metadata-source-self-test.py",
+                "scripts/sage/sage_actionable_failure.py",
+                "scripts/sage/sage_yaml_metadata.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"

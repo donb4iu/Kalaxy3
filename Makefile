@@ -59,6 +59,7 @@ sage-changed:
 sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
+	python3 scripts/sage/sage-file-delivery-guardrail.py
 
 sage-discovery-guardrail:
 	$(SAGE_DISCOVERY_GUARDRAIL)
@@ -273,3 +274,7 @@ sage-capability-intelligence-self-test:
 
 sage-capability-intelligence-guardrail:
 	python3 scripts/sage/sage-capability-intelligence-guardrail.py
+.PHONY: sage-file-delivery-guardrail
+
+sage-file-delivery-guardrail:
+	python3 scripts/sage/sage-file-delivery-guardrail.py

@@ -98,3 +98,23 @@ scalar-neutral and immutable before outcomes.
 ```console
 make sage-capability-intelligence-guardrail
 ```
+
+## Operator execution delivery contract
+
+For Kalaxy3 operator workflows, multi-step or mutating execution guidance MUST
+be delivered as a downloadable executable helper file by default.
+
+Every delivered helper MUST include:
+
+- a repository-aware fail-closed preflight;
+- exercised validation for the helper's actual runtime path;
+- a SHA-256 checksum;
+- one short invocation.
+
+Do not provide multi-command console blocks unless the operator explicitly
+requests console commands. Small read-only inspection commands are permitted
+only when they are materially safer or clearer than generating a helper.
+
+Returning to multi-command console guidance after this lesson is surfaced is a
+known recurrence, not an isolated formatting mistake. The workflow must stop,
+record the recurrence, and restore file-based delivery before continuing.
