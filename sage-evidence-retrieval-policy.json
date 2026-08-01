@@ -1,0 +1,153 @@
+{
+  "schema_version": "1.0",
+  "algorithm_version": "deterministic-token-overlap-v2",
+  "default_limit": 10,
+  "minimum_score": 3,
+  "allowed_dispositions": [
+    "pending",
+    "applied",
+    "reviewed-not-applicable",
+    "rejected"
+  ],
+  "validated_status_values": [
+    "accepted",
+    "closed",
+    "completed",
+    "published",
+    "validated"
+  ],
+  "source_weights": {
+    "evidence": 4,
+    "lesson": 5,
+    "failure": 5,
+    "improvement_action": 3,
+    "post_session_review": 2
+  },
+  "field_weights": {
+    "identifier": 2,
+    "title": 7,
+    "subject": 6,
+    "tags": 5,
+    "summary": 4,
+    "status": 1,
+    "body": 1
+  },
+  "stopwords": [
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "before",
+    "by",
+    "create",
+    "for",
+    "from",
+    "how",
+    "in",
+    "is",
+    "it",
+    "kalaxy3",
+    "of",
+    "on",
+    "operations",
+    "or",
+    "repository",
+    "repository-provisioned",
+    "shows",
+    "that",
+    "the",
+    "this",
+    "to",
+    "whether",
+    "with"
+  ],
+  "term_groups": {
+    "grafana": [
+      "grafana",
+      "dashboard",
+      "dashboards",
+      "panel",
+      "panels",
+      "visualization"
+    ],
+    "prometheus": [
+      "prometheus",
+      "metric",
+      "metrics",
+      "monitoring",
+      "telemetry"
+    ],
+    "logging": [
+      "centralized",
+      "logging",
+      "log",
+      "logs",
+      "loki",
+      "fluent",
+      "collector"
+    ],
+    "storage": [
+      "longhorn",
+      "storage",
+      "volume",
+      "volumes",
+      "pvc",
+      "persistent"
+    ],
+    "kubecost": [
+      "kubecost",
+      "finops",
+      "allocation"
+    ],
+    "validation": [
+      "validation",
+      "validated",
+      "runtime",
+      "health",
+      "healthy",
+      "guardrail",
+      "audit"
+    ],
+    "evidence": [
+      "evidence",
+      "lesson",
+      "lessons",
+      "failure",
+      "failures",
+      "decision",
+      "decisions",
+      "experience"
+    ]
+  },
+  "sources": [
+    {
+      "path": "markdown/evidence/catalog.json",
+      "source_type": "evidence"
+    },
+    {
+      "path": "sage-lessons.json",
+      "source_type": "lesson"
+    },
+    {
+      "path": "sage-actionable-failures.json",
+      "source_type": "failure"
+    },
+    {
+      "path": "sage-improvement-actions.json",
+      "source_type": "improvement_action"
+    },
+    {
+      "path": "sage-post-session-review-registry.json",
+      "source_type": "post_session_review"
+    }
+  ],
+  "minimum_matched_terms": 1,
+  "quality_fields": {
+    "maximum_applicable_facts": 5,
+    "confidence_missing_value": "not-recorded",
+    "recency_policy": "explicit-source-fields-only; relevance-score-first; recency-descending-tie-breaker"
+  }
+}

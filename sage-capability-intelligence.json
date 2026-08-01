@@ -1,0 +1,1489 @@
+{
+  "$schema": "markdown/standards/sage-capability-intelligence-schema-v1.0.json",
+  "schema_version": "1.0",
+  "model_id": "kalaxy3-sage-capability-intelligence",
+  "policy": {
+    "mission": "Make Kalaxy3 LLM-driven capability mutation more effective, predictable, reproducible, less costly, and less error-prone through federated authority, reusable engineering experience, visible alternatives, and measured outcomes.",
+    "principles": [
+      "SAGE is a decision partner, not the sole authority.",
+      "The preferred target is explicit, versioned, and evolvable.",
+      "Repository, runtime, telemetry, economics, and history remain separate.",
+      "Immaturity reduces certainty without obscuring other dimensions.",
+      "No opaque composite score may hide unknowns or blockers.",
+      "Predictions are immutable, staged, and scalar-neutral.",
+      "Rebuild-forward continuity protects outcomes, not exact replay.",
+      "Autonomy is earned and delegated by domain."
+    ],
+    "dimensions": [
+      "functional-outcome",
+      "runtime-health",
+      "telemetry-visibility",
+      "evidence-confidence",
+      "rebuild-forward-readiness",
+      "security-assurance",
+      "operational-maturity",
+      "cost-efficiency"
+    ],
+    "dimension_statuses": [
+      "unknown",
+      "not-applicable",
+      "blocked",
+      "absent",
+      "partial",
+      "at-target",
+      "exceeds-target"
+    ],
+    "war_pillars": [
+      "operational-excellence",
+      "security",
+      "reliability",
+      "performance-efficiency",
+      "cost-optimization",
+      "sustainability"
+    ],
+    "caf_perspectives": [
+      "business",
+      "people",
+      "governance",
+      "platform",
+      "security",
+      "operations"
+    ],
+    "composite_score_enabled": false,
+    "maximum_current_autonomy": 2,
+    "blocking_rules": [
+      "required persistent state has no recovery or migration path",
+      "bootstrap requires the capability it is intended to create",
+      "required live state exists only through undocumented manual mutation",
+      "a critical capability changes without validation and recovery authority",
+      "protected values are published",
+      "active mutation authorities conflict"
+    ],
+    "rebuild_forward": {
+      "exact_topology_required": false,
+      "exact_historical_sequence_required": false,
+      "allowed_dispositions": [
+        "preserve",
+        "migrate",
+        "replace",
+        "consolidate",
+        "retire"
+      ]
+    },
+    "prediction": {
+      "immutable_pre_outcome": true,
+      "stages": [
+        "discovery",
+        "pre-deployment"
+      ],
+      "scalar_neutral": true,
+      "actual_subject_and_unit_must_match": true,
+      "unavailable_actual_is_null_and_inconclusive": true,
+      "shirt_sizes": {
+        "XS": "<4h",
+        "S": "4-12h",
+        "M": "12-32h",
+        "L": "32-80h",
+        "XL": ">80h; decompose"
+      }
+    }
+  },
+  "federation": {
+    "sage_role": "partner",
+    "silent_conflict_resolution_allowed": false,
+    "authorities": [
+      {
+        "authority_id": "operator-intent",
+        "scope": "Priorities, risk tolerance, outcomes, and approval.",
+        "precedence_within_scope": 100,
+        "freshness_policy": "explicit timestamp or not-recorded",
+        "limitations": [
+          "Authority is valid only inside its declared scope and context."
+        ],
+        "silent_override_allowed": false
+      },
+      {
+        "authority_id": "repository-desired-state",
+        "scope": "Version-controlled target, policy, and mutation authority.",
+        "precedence_within_scope": 90,
+        "freshness_policy": "explicit timestamp or not-recorded",
+        "limitations": [
+          "Authority is valid only inside its declared scope and context."
+        ],
+        "silent_override_allowed": false
+      },
+      {
+        "authority_id": "kubernetes-runtime",
+        "scope": "Objects and readiness observed in the live cluster.",
+        "precedence_within_scope": 90,
+        "freshness_policy": "explicit timestamp or not-recorded",
+        "limitations": [
+          "Authority is valid only inside its declared scope and context."
+        ],
+        "silent_override_allowed": false
+      },
+      {
+        "authority_id": "prometheus-telemetry",
+        "scope": "Queryable numeric runtime observations.",
+        "precedence_within_scope": 80,
+        "freshness_policy": "explicit timestamp or not-recorded",
+        "limitations": [
+          "Authority is valid only inside its declared scope and context."
+        ],
+        "silent_override_allowed": false
+      },
+      {
+        "authority_id": "loki-telemetry",
+        "scope": "Queryable log ingestion and diagnostics.",
+        "precedence_within_scope": 80,
+        "freshness_policy": "explicit timestamp or not-recorded",
+        "limitations": [
+          "Authority is valid only inside its declared scope and context."
+        ],
+        "silent_override_allowed": false
+      },
+      {
+        "authority_id": "kubecost-economics",
+        "scope": "Measured cost allocation during available collection windows.",
+        "precedence_within_scope": 80,
+        "freshness_policy": "explicit timestamp or not-recorded",
+        "limitations": [
+          "Authority is valid only inside its declared scope and context."
+        ],
+        "silent_override_allowed": false
+      },
+      {
+        "authority_id": "hardware-inventory",
+        "scope": "Physical compute, storage, network, and power constraints.",
+        "precedence_within_scope": 80,
+        "freshness_policy": "explicit timestamp or not-recorded",
+        "limitations": [
+          "Authority is valid only inside its declared scope and context."
+        ],
+        "silent_override_allowed": false
+      },
+      {
+        "authority_id": "product-runtime-contracts",
+        "scope": "Version-qualified supported product behavior.",
+        "precedence_within_scope": 70,
+        "freshness_policy": "explicit timestamp or not-recorded",
+        "limitations": [
+          "Authority is valid only inside its declared scope and context."
+        ],
+        "silent_override_allowed": false
+      },
+      {
+        "authority_id": "aws-well-architected",
+        "scope": "Architectural quality and trade-off lens.",
+        "precedence_within_scope": 60,
+        "freshness_policy": "explicit timestamp or not-recorded",
+        "limitations": [
+          "Authority is valid only inside its declared scope and context."
+        ],
+        "silent_override_allowed": false
+      },
+      {
+        "authority_id": "aws-cloud-adoption-framework",
+        "scope": "Business, people, governance, platform, security, and operations lens.",
+        "precedence_within_scope": 60,
+        "freshness_policy": "explicit timestamp or not-recorded",
+        "limitations": [
+          "Authority is valid only inside its declared scope and context."
+        ],
+        "silent_override_allowed": false
+      },
+      {
+        "authority_id": "sage-evidence",
+        "scope": "Context-qualified evidence, lessons, failures, predictions, and outcomes.",
+        "precedence_within_scope": 70,
+        "freshness_policy": "explicit timestamp or not-recorded",
+        "limitations": [
+          "Authority is valid only inside its declared scope and context."
+        ],
+        "silent_override_allowed": false
+      },
+      {
+        "authority_id": "sage-inference",
+        "scope": "Explicit synthesis, alternatives, ranking, and prediction.",
+        "precedence_within_scope": 50,
+        "freshness_policy": "explicit timestamp or not-recorded",
+        "limitations": [
+          "Authority is valid only inside its declared scope and context."
+        ],
+        "silent_override_allowed": false
+      }
+    ]
+  },
+  "picture": {
+    "captured_at": "2026-08-01T14:45:00-05:00",
+    "mission_outcomes": [
+      {
+        "outcome_id": "outcome.safe-predictable-mutation",
+        "title": "Safe and predictable capability mutation"
+      },
+      {
+        "outcome_id": "outcome.reliable-platform",
+        "title": "Reliable platform operation"
+      },
+      {
+        "outcome_id": "outcome.rebuild-forward-evolution",
+        "title": "Recoverable evidence-informed successor evolution"
+      },
+      {
+        "outcome_id": "outcome.visible-operability",
+        "title": "Visible and diagnosable operations"
+      },
+      {
+        "outcome_id": "outcome.evidence-informed-economics",
+        "title": "Evidence-informed cost and resource decisions"
+      },
+      {
+        "outcome_id": "outcome.learning-engineering-system",
+        "title": "Experience that improves future engineering"
+      },
+      {
+        "outcome_id": "outcome.blue-sky-optionality",
+        "title": "Comparable alternative futures and intelligent effort direction"
+      }
+    ],
+    "preferred_target": {
+      "target_id": "KALAXY3-TARGET-2026-08-001",
+      "status": "proposed",
+      "confidence": "medium",
+      "supersedes": null,
+      "implementation_policy": "evidence-selected-not-frozen"
+    },
+    "capability_floor": [
+      "platform.foundation",
+      "operations.observability",
+      "operations.centralized-logging",
+      "economics.cost-intelligence",
+      "governance.sage-memory",
+      "governance.capability-intelligence"
+    ],
+    "capabilities": [
+      {
+        "capability_id": "platform.foundation",
+        "title": "Cluster, networking, storage, and repository automation foundation",
+        "criticality": "critical",
+        "lifecycle": "active",
+        "mission_outcome_ids": [
+          "outcome.reliable-platform",
+          "outcome.rebuild-forward-evolution"
+        ],
+        "dependencies": [],
+        "current_implementation": "K3s, MetalLB, Traefik, kube-vip, Longhorn, Ansible, and Helm",
+        "target_dimensions": {
+          "functional-outcome": 100,
+          "runtime-health": 100,
+          "telemetry-visibility": 100,
+          "evidence-confidence": 100,
+          "rebuild-forward-readiness": 100,
+          "security-assurance": 100,
+          "operational-maturity": 100,
+          "cost-efficiency": 100
+        },
+        "current_dimensions": {
+          "functional-outcome": {
+            "status": "at-target",
+            "score": 100,
+            "confidence": "high",
+            "rationale": "Core platform capabilities are active.",
+            "evidence_refs": []
+          },
+          "runtime-health": {
+            "status": "partial",
+            "score": 75,
+            "confidence": "medium",
+            "rationale": "Live workload discovery passed; a unified platform acceptance view is not yet rendered.",
+            "evidence_refs": []
+          },
+          "telemetry-visibility": {
+            "status": "partial",
+            "score": 50,
+            "confidence": "high",
+            "rationale": "83 node/cluster metrics were found, while Longhorn metrics found=0.",
+            "evidence_refs": []
+          },
+          "evidence-confidence": {
+            "status": "partial",
+            "score": 75,
+            "confidence": "medium",
+            "rationale": "Current audits exist but require future calibration.",
+            "evidence_refs": []
+          },
+          "rebuild-forward-readiness": {
+            "status": "partial",
+            "score": 50,
+            "confidence": "medium",
+            "rationale": "Phased automation exists; 9 contextual execution gates require clarification.",
+            "evidence_refs": []
+          },
+          "security-assurance": {
+            "status": "partial",
+            "score": 50,
+            "confidence": "medium",
+            "rationale": "Protected access and source controls exist; full security mapping is incomplete.",
+            "evidence_refs": []
+          },
+          "operational-maturity": {
+            "status": "partial",
+            "score": 75,
+            "confidence": "medium",
+            "rationale": "Repository preflight, locks, and guardrails exist.",
+            "evidence_refs": []
+          },
+          "cost-efficiency": {
+            "status": "unknown",
+            "score": null,
+            "confidence": "not-recorded",
+            "rationale": "Current cost value is not fully measured.",
+            "evidence_refs": []
+          }
+        },
+        "assertions": [
+          {
+            "assertion_type": "source-assertion",
+            "authority_id": "kubernetes-runtime",
+            "observed_at": "2026-08-01T14:45:00-05:00",
+            "confidence": "high",
+            "statement": "The live cluster served read-only service and workload discovery.",
+            "evidence_refs": [
+              "kalaxy3-grafana-live-data-contract-20260801-132404"
+            ]
+          },
+          {
+            "assertion_type": "source-assertion",
+            "authority_id": "repository-desired-state",
+            "observed_at": "2026-08-01T14:45:00-05:00",
+            "confidence": "high",
+            "statement": "The reconciliation audit found 9 contextual execution gates.",
+            "evidence_refs": [
+              "kalaxy3-reconciliation-readiness-audit-20260801-140113"
+            ]
+          }
+        ],
+        "war": {
+          "operational-excellence": "partial",
+          "security": "partial",
+          "reliability": "partial",
+          "performance-efficiency": "partial",
+          "cost-optimization": "unknown",
+          "sustainability": "unknown"
+        },
+        "caf": {
+          "business": "partial",
+          "people": "partial",
+          "governance": "partial",
+          "platform": "aligned",
+          "security": "partial",
+          "operations": "partial"
+        },
+        "rebuild_forward_status": "partial",
+        "blocking_findings": []
+      },
+      {
+        "capability_id": "operations.observability",
+        "title": "Prometheus and Grafana observability",
+        "criticality": "important",
+        "lifecycle": "active",
+        "mission_outcome_ids": [
+          "outcome.visible-operability",
+          "outcome.safe-predictable-mutation"
+        ],
+        "dependencies": [
+          "platform.foundation"
+        ],
+        "current_implementation": "kube-prometheus-stack and Grafana",
+        "target_dimensions": {
+          "functional-outcome": 100,
+          "runtime-health": 100,
+          "telemetry-visibility": 100,
+          "evidence-confidence": 100,
+          "rebuild-forward-readiness": 100,
+          "security-assurance": 100,
+          "operational-maturity": 100,
+          "cost-efficiency": 100
+        },
+        "current_dimensions": {
+          "functional-outcome": {
+            "status": "at-target",
+            "score": 100,
+            "confidence": "high",
+            "rationale": "Prometheus and Grafana datasources were discovered.",
+            "evidence_refs": []
+          },
+          "runtime-health": {
+            "status": "at-target",
+            "score": 100,
+            "confidence": "high",
+            "rationale": "Prometheus API discovery and representative queries succeeded.",
+            "evidence_refs": []
+          },
+          "telemetry-visibility": {
+            "status": "partial",
+            "score": 75,
+            "confidence": "high",
+            "rationale": "Found node=83, workload=97, Longhorn=0, and Kubecost=0 metric names.",
+            "evidence_refs": []
+          },
+          "evidence-confidence": {
+            "status": "at-target",
+            "score": 100,
+            "confidence": "high",
+            "rationale": "Current repository and live contracts were captured.",
+            "evidence_refs": []
+          },
+          "rebuild-forward-readiness": {
+            "status": "partial",
+            "score": 50,
+            "confidence": "medium",
+            "rationale": "Provisioning exists; successor validation and unified target rendering are incomplete.",
+            "evidence_refs": []
+          },
+          "security-assurance": {
+            "status": "partial",
+            "score": 50,
+            "confidence": "medium",
+            "rationale": "Protected access exists; capability-specific controls remain incomplete.",
+            "evidence_refs": []
+          },
+          "operational-maturity": {
+            "status": "partial",
+            "score": 75,
+            "confidence": "high",
+            "rationale": "Useful live contracts exist; the operations dashboard remains staged.",
+            "evidence_refs": []
+          },
+          "cost-efficiency": {
+            "status": "unknown",
+            "score": null,
+            "confidence": "not-recorded",
+            "rationale": "Current cost value is not fully measured.",
+            "evidence_refs": []
+          }
+        },
+        "assertions": [
+          {
+            "assertion_type": "source-assertion",
+            "authority_id": "prometheus-telemetry",
+            "observed_at": "2026-08-01T14:45:00-05:00",
+            "confidence": "high",
+            "statement": "Prometheus exposed 83 node/cluster and 97 workload metric names.",
+            "evidence_refs": [
+              "kalaxy3-grafana-live-data-contract-20260801-132404"
+            ]
+          }
+        ],
+        "war": {
+          "operational-excellence": "aligned",
+          "security": "partial",
+          "reliability": "partial",
+          "performance-efficiency": "partial",
+          "cost-optimization": "unknown",
+          "sustainability": "unknown"
+        },
+        "caf": {
+          "business": "partial",
+          "people": "partial",
+          "governance": "partial",
+          "platform": "aligned",
+          "security": "partial",
+          "operations": "aligned"
+        },
+        "rebuild_forward_status": "partial",
+        "blocking_findings": []
+      },
+      {
+        "capability_id": "operations.centralized-logging",
+        "title": "Centralized logging",
+        "criticality": "important",
+        "lifecycle": "active",
+        "mission_outcome_ids": [
+          "outcome.visible-operability",
+          "outcome.safe-predictable-mutation"
+        ],
+        "dependencies": [
+          "platform.foundation",
+          "operations.observability"
+        ],
+        "current_implementation": "Loki and Fluent Bit Collector",
+        "target_dimensions": {
+          "functional-outcome": 100,
+          "runtime-health": 100,
+          "telemetry-visibility": 100,
+          "evidence-confidence": 100,
+          "rebuild-forward-readiness": 100,
+          "security-assurance": 100,
+          "operational-maturity": 100,
+          "cost-efficiency": 100
+        },
+        "current_dimensions": {
+          "functional-outcome": {
+            "status": "at-target",
+            "score": 100,
+            "confidence": "high",
+            "rationale": "Loki and Fluent Bit provide cluster-wide logging.",
+            "evidence_refs": []
+          },
+          "runtime-health": {
+            "status": "at-target",
+            "score": 100,
+            "confidence": "high",
+            "rationale": "The canonical logging runtime validator passed.",
+            "evidence_refs": []
+          },
+          "telemetry-visibility": {
+            "status": "at-target",
+            "score": 100,
+            "confidence": "high",
+            "rationale": "Seven nodes and 57 Fluent Bit metrics were observed.",
+            "evidence_refs": []
+          },
+          "evidence-confidence": {
+            "status": "at-target",
+            "score": 100,
+            "confidence": "high",
+            "rationale": "Current runtime and deployment evidence exists.",
+            "evidence_refs": []
+          },
+          "rebuild-forward-readiness": {
+            "status": "partial",
+            "score": 50,
+            "confidence": "medium",
+            "rationale": "Repository provisioning exists; deploy gate context remains ambiguous.",
+            "evidence_refs": []
+          },
+          "security-assurance": {
+            "status": "partial",
+            "score": 50,
+            "confidence": "medium",
+            "rationale": "Protected access exists; log classification and retention scoring remain.",
+            "evidence_refs": []
+          },
+          "operational-maturity": {
+            "status": "at-target",
+            "score": 100,
+            "confidence": "high",
+            "rationale": "Canonical runtime validation and recovery exist.",
+            "evidence_refs": []
+          },
+          "cost-efficiency": {
+            "status": "partial",
+            "score": 50,
+            "confidence": "medium",
+            "rationale": "A pre-logging baseline exists; a current comparison is incomplete.",
+            "evidence_refs": []
+          }
+        },
+        "assertions": [
+          {
+            "assertion_type": "source-assertion",
+            "authority_id": "loki-telemetry",
+            "observed_at": "2026-08-01T14:45:00-05:00",
+            "confidence": "high",
+            "statement": "Recent Loki data covered all seven nodes.",
+            "evidence_refs": [
+              "SAGE-K3-OBS-20260728-002"
+            ]
+          },
+          {
+            "assertion_type": "source-assertion",
+            "authority_id": "kubernetes-runtime",
+            "observed_at": "2026-08-01T14:45:00-05:00",
+            "confidence": "high",
+            "statement": "The Fluent Bit collector was ready on seven nodes.",
+            "evidence_refs": [
+              "SAGE-K3-GUARDRAIL-20260731-001"
+            ]
+          }
+        ],
+        "war": {
+          "operational-excellence": "aligned",
+          "security": "partial",
+          "reliability": "aligned",
+          "performance-efficiency": "partial",
+          "cost-optimization": "partial",
+          "sustainability": "unknown"
+        },
+        "caf": {
+          "business": "partial",
+          "people": "partial",
+          "governance": "partial",
+          "platform": "aligned",
+          "security": "partial",
+          "operations": "aligned"
+        },
+        "rebuild_forward_status": "partial",
+        "blocking_findings": []
+      },
+      {
+        "capability_id": "economics.cost-intelligence",
+        "title": "Engineering cost intelligence",
+        "criticality": "important",
+        "lifecycle": "active",
+        "mission_outcome_ids": [
+          "outcome.evidence-informed-economics",
+          "outcome.blue-sky-optionality"
+        ],
+        "dependencies": [
+          "platform.foundation",
+          "operations.observability"
+        ],
+        "current_implementation": "Kubecost 3.2.1 calibrated homelab model",
+        "target_dimensions": {
+          "functional-outcome": 100,
+          "runtime-health": 100,
+          "telemetry-visibility": 100,
+          "evidence-confidence": 100,
+          "rebuild-forward-readiness": 100,
+          "security-assurance": 100,
+          "operational-maturity": 100,
+          "cost-efficiency": 100
+        },
+        "current_dimensions": {
+          "functional-outcome": {
+            "status": "at-target",
+            "score": 100,
+            "confidence": "medium",
+            "rationale": "Kubecost workloads and calibrated cost evidence exist.",
+            "evidence_refs": []
+          },
+          "runtime-health": {
+            "status": "at-target",
+            "score": 100,
+            "confidence": "high",
+            "rationale": "Kubecost workloads reported desired replicas ready.",
+            "evidence_refs": []
+          },
+          "telemetry-visibility": {
+            "status": "partial",
+            "score": 25,
+            "confidence": "high",
+            "rationale": "Discovered Kubecost metric count=0.",
+            "evidence_refs": []
+          },
+          "evidence-confidence": {
+            "status": "partial",
+            "score": 75,
+            "confidence": "medium",
+            "rationale": "Calibration evidence exists; current queryability is incomplete.",
+            "evidence_refs": []
+          },
+          "rebuild-forward-readiness": {
+            "status": "partial",
+            "score": 25,
+            "confidence": "high",
+            "rationale": "Runtime is present while install_kubecost is false.",
+            "evidence_refs": []
+          },
+          "security-assurance": {
+            "status": "unknown",
+            "score": null,
+            "confidence": "not-recorded",
+            "rationale": "Capability-specific security scoring is not complete.",
+            "evidence_refs": []
+          },
+          "operational-maturity": {
+            "status": "partial",
+            "score": 50,
+            "confidence": "medium",
+            "rationale": "Runtime exists but repository desired-state meaning is ambiguous.",
+            "evidence_refs": []
+          },
+          "cost-efficiency": {
+            "status": "partial",
+            "score": 75,
+            "confidence": "medium",
+            "rationale": "A calibrated model exists; decision and trend rendering are incomplete.",
+            "evidence_refs": []
+          }
+        },
+        "assertions": [
+          {
+            "assertion_type": "source-assertion",
+            "authority_id": "kubernetes-runtime",
+            "observed_at": "2026-08-01T14:45:00-05:00",
+            "confidence": "high",
+            "statement": "Kubecost workloads were present and ready.",
+            "evidence_refs": [
+              "kalaxy3-grafana-live-data-contract-20260801-132404"
+            ]
+          },
+          {
+            "assertion_type": "source-assertion",
+            "authority_id": "repository-desired-state",
+            "observed_at": "2026-08-01T14:45:00-05:00",
+            "confidence": "high",
+            "statement": "The repository installation gate install_kubecost is false.",
+            "evidence_refs": [
+              "kalaxy3-grafana-operations-contract-20260801-131318"
+            ]
+          },
+          {
+            "assertion_type": "source-assertion",
+            "authority_id": "prometheus-telemetry",
+            "observed_at": "2026-08-01T14:45:00-05:00",
+            "confidence": "high",
+            "statement": "Kubecost metric count discovered=0.",
+            "evidence_refs": [
+              "kalaxy3-grafana-live-data-contract-20260801-132404"
+            ]
+          }
+        ],
+        "war": {
+          "operational-excellence": "partial",
+          "security": "unknown",
+          "reliability": "partial",
+          "performance-efficiency": "partial",
+          "cost-optimization": "partial",
+          "sustainability": "partial"
+        },
+        "caf": {
+          "business": "partial",
+          "people": "partial",
+          "governance": "partial",
+          "platform": "aligned",
+          "security": "unknown",
+          "operations": "partial"
+        },
+        "rebuild_forward_status": "partial",
+        "blocking_findings": []
+      },
+      {
+        "capability_id": "governance.sage-memory",
+        "title": "SAGE evidence, retrieval, prediction, failure, and learning foundation",
+        "criticality": "important",
+        "lifecycle": "active",
+        "mission_outcome_ids": [
+          "outcome.safe-predictable-mutation",
+          "outcome.learning-engineering-system"
+        ],
+        "dependencies": [],
+        "current_implementation": "Repository-owned SAGE standards, registries, and guardrails",
+        "target_dimensions": {
+          "functional-outcome": 100,
+          "runtime-health": 100,
+          "telemetry-visibility": 100,
+          "evidence-confidence": 100,
+          "rebuild-forward-readiness": 100,
+          "security-assurance": 100,
+          "operational-maturity": 100,
+          "cost-efficiency": 100
+        },
+        "current_dimensions": {
+          "functional-outcome": {
+            "status": "at-target",
+            "score": 100,
+            "confidence": "high",
+            "rationale": "Evidence, lessons, failures, predictions, and outcomes are repository-owned.",
+            "evidence_refs": []
+          },
+          "runtime-health": {
+            "status": "not-applicable",
+            "score": null,
+            "confidence": "high",
+            "rationale": "The current foundation is repository tooling.",
+            "evidence_refs": []
+          },
+          "telemetry-visibility": {
+            "status": "partial",
+            "score": 50,
+            "confidence": "medium",
+            "rationale": "Metrics schemas exist; a unified rendered cockpit did not.",
+            "evidence_refs": []
+          },
+          "evidence-confidence": {
+            "status": "at-target",
+            "score": 100,
+            "confidence": "high",
+            "rationale": "SAGE guardrails and evidence reconciliation pass.",
+            "evidence_refs": []
+          },
+          "rebuild-forward-readiness": {
+            "status": "partial",
+            "score": 75,
+            "confidence": "medium",
+            "rationale": "Repository authority is portable; successor reasoning is not yet complete.",
+            "evidence_refs": []
+          },
+          "security-assurance": {
+            "status": "partial",
+            "score": 50,
+            "confidence": "medium",
+            "rationale": "Redaction and source controls exist; capability threat scoring is incomplete.",
+            "evidence_refs": []
+          },
+          "operational-maturity": {
+            "status": "partial",
+            "score": 75,
+            "confidence": "high",
+            "rationale": "Partial meta-capabilities: ['bootstrap_rebuild_convergence', 'self_governance_and_drift_audit'].",
+            "evidence_refs": []
+          },
+          "cost-efficiency": {
+            "status": "partial",
+            "score": 50,
+            "confidence": "low",
+            "rationale": "Rework metrics exist; savings and estimate calibration need more outcomes.",
+            "evidence_refs": []
+          }
+        },
+        "assertions": [
+          {
+            "assertion_type": "source-assertion",
+            "authority_id": "sage-evidence",
+            "observed_at": "2026-08-01T14:45:00-05:00",
+            "confidence": "high",
+            "statement": "The meta-audit identified partial capabilities ['bootstrap_rebuild_convergence', 'self_governance_and_drift_audit'].",
+            "evidence_refs": [
+              "kalaxy3-sage-meta-capability-audit-20260801-134558"
+            ]
+          }
+        ],
+        "war": {
+          "operational-excellence": "aligned",
+          "security": "partial",
+          "reliability": "partial",
+          "performance-efficiency": "partial",
+          "cost-optimization": "partial",
+          "sustainability": "unknown"
+        },
+        "caf": {
+          "business": "partial",
+          "people": "partial",
+          "governance": "aligned",
+          "platform": "partial",
+          "security": "partial",
+          "operations": "partial"
+        },
+        "rebuild_forward_status": "partial",
+        "blocking_findings": []
+      },
+      {
+        "capability_id": "governance.capability-intelligence",
+        "title": "Capability intent, target, federated decision, and learning cockpit",
+        "criticality": "important",
+        "lifecycle": "staged-implementation",
+        "mission_outcome_ids": [
+          "outcome.safe-predictable-mutation",
+          "outcome.learning-engineering-system",
+          "outcome.blue-sky-optionality"
+        ],
+        "dependencies": [
+          "governance.sage-memory"
+        ],
+        "current_implementation": "Repository-rendered SAGE Capability Intelligence v0.1",
+        "target_dimensions": {
+          "functional-outcome": 100,
+          "runtime-health": 100,
+          "telemetry-visibility": 100,
+          "evidence-confidence": 100,
+          "rebuild-forward-readiness": 100,
+          "security-assurance": 100,
+          "operational-maturity": 100,
+          "cost-efficiency": 100
+        },
+        "current_dimensions": {
+          "functional-outcome": {
+            "status": "partial",
+            "score": 50,
+            "confidence": "medium",
+            "rationale": "This change establishes the complete walking skeleton.",
+            "evidence_refs": []
+          },
+          "runtime-health": {
+            "status": "not-applicable",
+            "score": null,
+            "confidence": "high",
+            "rationale": "The first slice is repository-rendered.",
+            "evidence_refs": []
+          },
+          "telemetry-visibility": {
+            "status": "partial",
+            "score": 25,
+            "confidence": "medium",
+            "rationale": "A metrics snapshot is generated but not yet exported to Prometheus.",
+            "evidence_refs": []
+          },
+          "evidence-confidence": {
+            "status": "partial",
+            "score": 75,
+            "confidence": "medium",
+            "rationale": "Initial assertions use current audits and live discovery.",
+            "evidence_refs": []
+          },
+          "rebuild-forward-readiness": {
+            "status": "partial",
+            "score": 50,
+            "confidence": "medium",
+            "rationale": "Continuity semantics are modeled; successor scenarios remain to be validated.",
+            "evidence_refs": []
+          },
+          "security-assurance": {
+            "status": "partial",
+            "score": 50,
+            "confidence": "medium",
+            "rationale": "Authority boundaries are modeled; threat validation remains.",
+            "evidence_refs": []
+          },
+          "operational-maturity": {
+            "status": "partial",
+            "score": 25,
+            "confidence": "medium",
+            "rationale": "Static rendering exists; automated refresh remains future work.",
+            "evidence_refs": []
+          },
+          "cost-efficiency": {
+            "status": "unknown",
+            "score": null,
+            "confidence": "not-recorded",
+            "rationale": "Decision benefit is not yet measured.",
+            "evidence_refs": []
+          }
+        },
+        "assertions": [
+          {
+            "assertion_type": "sage-prediction",
+            "authority_id": "sage-inference",
+            "observed_at": "2026-08-01T14:45:00-05:00",
+            "confidence": "medium",
+            "statement": "A thin complete walking skeleton should improve decision coherence while allowing dimensions to mature independently.",
+            "evidence_refs": [
+              "sage-decision-cycle"
+            ]
+          }
+        ],
+        "war": {
+          "operational-excellence": "partial",
+          "security": "partial",
+          "reliability": "partial",
+          "performance-efficiency": "partial",
+          "cost-optimization": "unknown",
+          "sustainability": "unknown"
+        },
+        "caf": {
+          "business": "partial",
+          "people": "partial",
+          "governance": "partial",
+          "platform": "partial",
+          "security": "partial",
+          "operations": "partial"
+        },
+        "rebuild_forward_status": "partial",
+        "blocking_findings": []
+      }
+    ],
+    "conflicts": [
+      {
+        "conflict_id": "K3-CONFLICT-20260801-001",
+        "capability_id": "economics.cost-intelligence",
+        "authority_ids": [
+          "repository-desired-state",
+          "kubernetes-runtime",
+          "prometheus-telemetry"
+        ],
+        "summary": "Kubecost is live and ready, install_kubecost is false, and Kubecost metrics were not found in the discovered Prometheus contract.",
+        "status": "unresolved",
+        "blocking": false
+      }
+    ]
+  },
+  "decision_cycle": {
+    "decision_cycle_id": "SAGE-DECISION-20260801-001",
+    "question": "Which next investment best creates a coherent, visible, evidence-informed decision system for Kalaxy3?",
+    "selected_branch_id": "branch.capability-intelligence-v0.1",
+    "branches": [
+      {
+        "branch_id": "branch.capability-intelligence-v0.1",
+        "title": "Build the synchronized capability-intelligence walking skeleton",
+        "status": "validated",
+        "consulted_authority_ids": [
+          "operator-intent",
+          "repository-desired-state",
+          "kubernetes-runtime",
+          "prometheus-telemetry",
+          "loki-telemetry",
+          "kubecost-economics",
+          "hardware-inventory",
+          "product-runtime-contracts",
+          "aws-well-architected",
+          "aws-cloud-adoption-framework",
+          "sage-evidence",
+          "sage-inference"
+        ],
+        "decision_authority_id": "operator-intent",
+        "decision_rationale": "Selected as the thin but complete synchronized walking skeleton.",
+        "prediction": {
+          "version": 1,
+          "stage": "discovery",
+          "recorded_at": "2026-08-01T14:45:00-05:00",
+          "confidence": "medium",
+          "confidence_basis": [
+            "Recent repository, live-runtime, and meta-capability audits.",
+            "Repository-only implementation with existing SAGE guardrails."
+          ],
+          "assumptions": [
+            "Current SAGE guardrails remain green.",
+            "Static rendering is sufficient for the first slice."
+          ],
+          "known_unknowns": [
+            "Human engineering effort is not measurable by helper runtime.",
+            "Initial scores require future review."
+          ],
+          "failure_conditions": [
+            "The model collapses into an opaque score.",
+            "SAGE silently overrides a federated authority.",
+            "Existing guardrails regress."
+          ],
+          "impact": [
+            {
+              "capability_id": "governance.capability-intelligence",
+              "dimension": "functional-outcome",
+              "direction": "increase",
+              "estimate": 50,
+              "range": {
+                "minimum": 35,
+                "maximum": 70
+              },
+              "unit": "percentage-points"
+            }
+          ],
+          "effort": [
+            {
+              "subject": "engineering_effort",
+              "estimate": 22,
+              "range": {
+                "minimum": 12,
+                "maximum": 32
+              },
+              "unit": "hours",
+              "size": "M",
+              "confidence": "medium"
+            },
+            {
+              "subject": "repository_paths_changed",
+              "estimate": 11,
+              "range": {
+                "minimum": 9,
+                "maximum": 15
+              },
+              "unit": "paths",
+              "size": "M",
+              "confidence": "medium"
+            },
+            {
+              "subject": "validated_commits",
+              "estimate": 3,
+              "range": {
+                "minimum": 3,
+                "maximum": 3
+              },
+              "unit": "commits",
+              "size": "S",
+              "confidence": "high"
+            },
+            {
+              "subject": "validation_entrypoints",
+              "estimate": 12,
+              "range": {
+                "minimum": 8,
+                "maximum": 18
+              },
+              "unit": "commands",
+              "size": "S",
+              "confidence": "medium"
+            },
+            {
+              "subject": "automation_elapsed_time",
+              "estimate": 8,
+              "range": {
+                "minimum": 3,
+                "maximum": 20
+              },
+              "unit": "minutes",
+              "size": "XS",
+              "confidence": "low"
+            }
+          ],
+          "cost": [
+            {
+              "subject": "incremental_monthly_runtime_cost",
+              "estimate": 0,
+              "range": {
+                "minimum": 0,
+                "maximum": 0
+              },
+              "unit": "USD-per-month",
+              "size": "XS",
+              "confidence": "high"
+            }
+          ],
+          "risk": "medium",
+          "reversibility": "high",
+          "expected_value": "very-high",
+          "time_to_useful_evidence": "one validated repository change"
+        },
+        "prediction_digest": "95c638a31f83938aaa0398cbe397aafcc117e0cd0e7add8d2ccac2a63f298d5a",
+        "actual_outcome": {
+          "observed_at": "2026-08-01T15:40:52-05:00",
+          "status": "validated-repository-foundation",
+          "actual_impact": [
+            {
+              "capability_id": "governance.capability-intelligence",
+              "dimension": "functional-outcome",
+              "result": "A complete mission, target, current-state, federated-authority, alternative-branch, prediction, outcome, and learning picture now renders from repository-owned data.",
+              "confidence": "high"
+            }
+          ],
+          "actual_effort": [
+            {
+              "subject": "engineering_effort",
+              "actual": null,
+              "unit": "hours",
+              "comparison": "inconclusive",
+              "rationale": "Automation runtime does not measure human engineering effort."
+            },
+            {
+              "subject": "repository_paths_changed",
+              "actual": 23,
+              "unit": "paths",
+              "comparison": "measured",
+              "rationale": "Unique capability, governance, action, and generated-index paths in the implementation."
+            },
+            {
+              "subject": "validated_commits",
+              "actual": 5,
+              "unit": "commits",
+              "comparison": "measured",
+              "rationale": "Two failure-learning commits, classifier-validated discovery, core foundation, and final integration."
+            },
+            {
+              "subject": "validation_entrypoints",
+              "actual": 20,
+              "unit": "commands",
+              "comparison": "measured",
+              "rationale": "Counted repository-owned validation entry points run by the continuation helper."
+            },
+            {
+              "subject": "automation_elapsed_time",
+              "actual": 0.22,
+              "unit": "minutes",
+              "comparison": "measured-not-human-effort",
+              "rationale": "Continuation-helper elapsed time only."
+            }
+          ],
+          "unexpected_effects": [
+            {
+              "failure_class": "generated-evidence-catalog-stale",
+              "impact": "The new capability-intelligence documents required the repository-owned generated evidence catalog to be reconciled before final integration.",
+              "recovery": "python3 scripts/sage/sage-index.py reconcile",
+              "avoidable_rework": true,
+              "retrieval_receipt": "/Users/donbuddenbaum/Downloads/kalaxy3-capability-intelligence-format-failure-retrieval-20260801-154040.json"
+            },
+            {
+              "failure_class": "continuation-state-validator-rejected-expected-untracked-generated-files",
+              "impact": "The continuation helper treated all untracked files as invalid even though two canonical generated-index paths were new and expected in the exact dirty-path contract.",
+              "recovery": "Allow exactly the two expected generated-index paths and continue to reject every other untracked path.",
+              "avoidable_rework": true,
+              "retrieval_receipt": "/Users/donbuddenbaum/Downloads/kalaxy3-capability-intelligence-format-failure-retrieval-20260801-154040.json"
+            },
+            {
+              "failure_class": "makefile-extra-blank-line-at-eof",
+              "impact": "All functional and governance validations passed, but the final source-format check rejected one extra blank line at the end of Makefile.",
+              "recovery": "Normalize Makefile to exactly one trailing newline.",
+              "avoidable_rework": true,
+              "retrieval_receipt": "/Users/donbuddenbaum/Downloads/kalaxy3-capability-intelligence-format-failure-retrieval-20260801-154040.json"
+            },
+            {
+              "failure_class": "generated-capability-cockpit-misclassified-as-legacy-evidence",
+              "observed_at": "2026-08-01T16:21:34-05:00",
+              "impact": "The generated capability cockpit was discovered under markdown/architecture and inferred as historical legacy evidence. Its Git-derived completed_at changed after the same commit that regenerated it, leaving catalog.json and catalog.csv stale on the feature branch and again inside GitHub's synthetic pull-request merge.",
+              "recovery": "Use the legacy registry exclude_paths authority to keep the generated cockpit in documentation while removing its false evidence classification. Enforce stability after normal commits and identical-tree merge commits.",
+              "avoidable_rework": true
+            }
+          ],
+          "prediction_calibration": {
+            "status": "partially-comparable-with-rework",
+            "notes": [
+              "Repository paths, commit count, validation commands, and automation time are measurable.",
+              "Human engineering effort remains unavailable and inconclusive.",
+              "The implementation required a canonical generated-index reconciliation, correction of one overly strict continuation-state validator, and one nonsemantic Makefile end-of-file normalization.",
+              "Operational decision value requires future branch choices and outcomes.",
+              "The initial synthetic-merge-only diagnosis was incomplete; the normal feature commit reproduced the same stale catalog.",
+              "The proposed --no-merges date heuristic was rejected before mutation because it could not remove the normal-commit self-reference.",
+              "Generated operational views must be classified separately from historical evidence records."
+            ]
+          },
+          "commit_refs": [
+            "55a947fc6a82459a8ef26187d3a0d6f7c79b3563",
+            "f8134680639e12fd81e0561f0658314cb69d00a6",
+            "8252ff60a2924bdae2ccbca5183ce17180ec8429",
+            "6689f21c35f819fbde9a2a279fa5a296a3f3446b"
+          ]
+        }
+      },
+      {
+        "branch_id": "branch.operations-dashboard-first",
+        "title": "Build the Grafana operations dashboard before the target model",
+        "status": "considered",
+        "consulted_authority_ids": [
+          "operator-intent",
+          "repository-desired-state",
+          "kubernetes-runtime",
+          "prometheus-telemetry",
+          "loki-telemetry",
+          "kubecost-economics",
+          "hardware-inventory",
+          "product-runtime-contracts",
+          "aws-well-architected",
+          "aws-cloud-adoption-framework",
+          "sage-evidence",
+          "sage-inference"
+        ],
+        "decision_authority_id": "operator-intent",
+        "decision_rationale": "",
+        "prediction": {
+          "version": 1,
+          "stage": "discovery",
+          "recorded_at": "2026-08-01T14:45:00-05:00",
+          "confidence": "medium",
+          "confidence_basis": [
+            "Recent repository, live-runtime, and meta-capability audits.",
+            "Repository-only implementation with existing SAGE guardrails."
+          ],
+          "assumptions": [
+            "The target model can be added later without rework."
+          ],
+          "known_unknowns": [
+            "Capability meaning and target gaps remain implicit.",
+            "Longhorn and Kubecost telemetry remain incomplete."
+          ],
+          "failure_conditions": [
+            "Dashboard health is mistaken for capability target status."
+          ],
+          "impact": [
+            {
+              "capability_id": "operations.observability",
+              "dimension": "operational-maturity",
+              "direction": "increase",
+              "estimate": 15,
+              "range": {
+                "minimum": 8,
+                "maximum": 25
+              },
+              "unit": "percentage-points"
+            }
+          ],
+          "effort": [
+            {
+              "subject": "engineering_effort",
+              "estimate": 20,
+              "range": {
+                "minimum": 12,
+                "maximum": 32
+              },
+              "unit": "hours",
+              "size": "M",
+              "confidence": "medium"
+            }
+          ],
+          "cost": [
+            {
+              "subject": "incremental_monthly_runtime_cost",
+              "estimate": null,
+              "range": {
+                "minimum": null,
+                "maximum": null
+              },
+              "unit": "USD-per-month",
+              "size": "XS",
+              "confidence": "low"
+            }
+          ],
+          "risk": "medium",
+          "reversibility": "high",
+          "expected_value": "medium",
+          "time_to_useful_evidence": "one dashboard deployment"
+        },
+        "prediction_digest": "7f37025b80e392ac4ad22a2092d626d5ba6b4fe6bf227069386eadb33bc9f4ce",
+        "actual_outcome": null
+      },
+      {
+        "branch_id": "branch.reconciliation-method-first",
+        "title": "Select a continuous reconciliation method first",
+        "status": "considered",
+        "consulted_authority_ids": [
+          "operator-intent",
+          "repository-desired-state",
+          "kubernetes-runtime",
+          "prometheus-telemetry",
+          "loki-telemetry",
+          "kubecost-economics",
+          "hardware-inventory",
+          "product-runtime-contracts",
+          "aws-well-architected",
+          "aws-cloud-adoption-framework",
+          "sage-evidence",
+          "sage-inference"
+        ],
+        "decision_authority_id": "operator-intent",
+        "decision_rationale": "",
+        "prediction": {
+          "version": 1,
+          "stage": "discovery",
+          "recorded_at": "2026-08-01T14:45:00-05:00",
+          "confidence": "low",
+          "confidence_basis": [
+            "Recent repository, live-runtime, and meta-capability audits.",
+            "Repository-only implementation with existing SAGE guardrails."
+          ],
+          "assumptions": [
+            "A selected reconciler would reduce drift."
+          ],
+          "known_unknowns": [
+            "Ownership migration scope.",
+            "Controller operating cost.",
+            "Bootstrap and recovery behavior."
+          ],
+          "failure_conditions": [
+            "A second reconciler competes with Ansible.",
+            "Controller selection precedes authority contracts."
+          ],
+          "impact": [
+            {
+              "capability_id": "platform.foundation",
+              "dimension": "operational-maturity",
+              "direction": "increase",
+              "estimate": 20,
+              "range": {
+                "minimum": 0,
+                "maximum": 40
+              },
+              "unit": "percentage-points"
+            }
+          ],
+          "effort": [
+            {
+              "subject": "engineering_effort",
+              "estimate": 60,
+              "range": {
+                "minimum": 32,
+                "maximum": 80
+              },
+              "unit": "hours",
+              "size": "L",
+              "confidence": "low"
+            }
+          ],
+          "cost": [
+            {
+              "subject": "incremental_monthly_runtime_cost",
+              "estimate": null,
+              "range": {
+                "minimum": null,
+                "maximum": null
+              },
+              "unit": "USD-per-month",
+              "size": "S",
+              "confidence": "low"
+            }
+          ],
+          "risk": "high",
+          "reversibility": "medium",
+          "expected_value": "uncertain",
+          "time_to_useful_evidence": "multiple ownership-migration increments"
+        },
+        "prediction_digest": "6893e62459e29cce75d5204c2a78ba8198abc872004b57b7736495d4932e12a5",
+        "actual_outcome": null
+      },
+      {
+        "branch_id": "branch.do-nothing",
+        "title": "Retain the current abstract and disconnected decision surfaces",
+        "status": "retained-baseline",
+        "consulted_authority_ids": [
+          "operator-intent",
+          "repository-desired-state",
+          "kubernetes-runtime",
+          "prometheus-telemetry",
+          "loki-telemetry",
+          "kubecost-economics",
+          "hardware-inventory",
+          "product-runtime-contracts",
+          "aws-well-architected",
+          "aws-cloud-adoption-framework",
+          "sage-evidence",
+          "sage-inference"
+        ],
+        "decision_authority_id": "operator-intent",
+        "decision_rationale": "",
+        "prediction": {
+          "version": 1,
+          "stage": "discovery",
+          "recorded_at": "2026-08-01T14:45:00-05:00",
+          "confidence": "high",
+          "confidence_basis": [
+            "Recent repository, live-runtime, and meta-capability audits.",
+            "Repository-only implementation with existing SAGE guardrails."
+          ],
+          "assumptions": [
+            "Existing workflows continue unchanged."
+          ],
+          "known_unknowns": [
+            "Opportunity cost of slower or lower-confidence decisions."
+          ],
+          "failure_conditions": [
+            "The baseline is misrepresented as having no cost or risk."
+          ],
+          "impact": [
+            {
+              "capability_id": "governance.capability-intelligence",
+              "dimension": "functional-outcome",
+              "direction": "unchanged",
+              "estimate": 0,
+              "range": {
+                "minimum": 0,
+                "maximum": 0
+              },
+              "unit": "percentage-points"
+            }
+          ],
+          "effort": [
+            {
+              "subject": "engineering_effort",
+              "estimate": 0,
+              "range": {
+                "minimum": 0,
+                "maximum": 0
+              },
+              "unit": "hours",
+              "size": "XS",
+              "confidence": "high"
+            }
+          ],
+          "cost": [
+            {
+              "subject": "incremental_monthly_runtime_cost",
+              "estimate": 0,
+              "range": {
+                "minimum": 0,
+                "maximum": 0
+              },
+              "unit": "USD-per-month",
+              "size": "XS",
+              "confidence": "high"
+            }
+          ],
+          "risk": "medium",
+          "reversibility": "high",
+          "expected_value": "low",
+          "time_to_useful_evidence": "no new evidence"
+        },
+        "prediction_digest": "ff1ac1be42e50b191347726708f0c977444b4f04f3e9d2c5fd9643c904fc017c",
+        "actual_outcome": null
+      }
+    ],
+    "actual_outcome_recorded": true,
+    "calibration_status": "initial-outcome-recorded-with-rework"
+  }
+}

@@ -430,6 +430,121 @@
             ],
             "recurrence_count": 3,
             "automation_status": "manual"
+        },
+        {
+            "lesson_id": "SAGE-LESSON-20260801-001",
+            "title": "Retrieve repository experience after the first unexpected failure",
+            "status": "accepted",
+            "contexts": [
+                "repository-governance",
+                "continuous-improvement"
+            ],
+            "match_terms": [
+                "first failure",
+                "retry",
+                "repeated parser error",
+                "evidence retrieval",
+                "lesson usage",
+                "actionable failure",
+                "canonical recovery",
+                "speculative fix",
+                "production schema",
+                "formatted command output"
+            ],
+            "path_prefixes": [
+                "scripts/sage/",
+                "sage-actionable-failures.json",
+                "sage-lessons.json"
+            ],
+            "failure_signature": "An unexpected implementation or validation failure is followed by another correction without first retrieving prior evidence, lessons, actionable failures, and canonical recovery or inspecting the authoritative production contract.",
+            "symptoms": [
+                "Multiple recovery helpers fail on related parser assumptions.",
+                "Synthetic fixtures pass while production loads zero records.",
+                "Formatted command output is treated as a stable interface.",
+                "Avoidable rework accumulates before evidence is consulted."
+            ],
+            "root_cause": "The first failure was treated as an isolated defect rather than a trigger to consult SAGE engineering memory and repository authority before another mutation.",
+            "known_resolution": [
+                "Stop further mutation after the first unexpected failure.",
+                "Retrieve evidence, lessons, failures, and canonical recovery.",
+                "Inspect the authoritative production contract.",
+                "Build the correction and regression from that contract."
+            ],
+            "preventive_control": [
+                "Validator failures invoke retrieval before retry guidance.",
+                "Write a local receipt showing consulted ranked experience.",
+                "A second same-class failure requires a lesson or action."
+            ],
+            "preflight_detection": [
+                "Require a retrieval receipt before retry guidance.",
+                "Test the actual dotted-key actionable-failure registry.",
+                "Reject relevance created only by ranking bonuses."
+            ],
+            "first_evidence": [
+                "terminal-session:2026-08-01-grafana-retrieval-recovery-recurrence-001"
+            ],
+            "latest_evidence": [
+                "report:kalaxy3-failure-triggered-retrieval-implementation-contract-20260801-014527"
+            ],
+            "recurrence_count": 4,
+            "automation_status": "guardrail"
+        },
+        {
+            "lesson_id": "SAGE-LESSON-20260801-002",
+            "title": "Align retrieval quality fixtures with production relevance gates",
+            "status": "accepted",
+            "contexts": [
+                "repository-governance",
+                "continuous-improvement",
+                "evidence-retrieval"
+            ],
+            "match_terms": [
+                "retrieval fixture",
+                "domain group",
+                "quality field",
+                "candidate inclusion",
+                "StopIteration",
+                "synthetic fixture",
+                "relevance gate",
+                "Grafana logging"
+            ],
+            "path_prefixes": [
+                "scripts/sage/sage-evidence-retrieval-self-test.py",
+                "scripts/sage/sage_evidence_retrieval.py",
+                "sage-evidence-retrieval-policy.json"
+            ],
+            "failure_signature": "A retrieval quality test expects a record under a request whose active domain groups the record does not satisfy, so production relevance filtering removes the record before metadata assertions run.",
+            "symptoms": [
+                "A candidate-specific next call raises StopIteration.",
+                "The fixture record exists in the source registry.",
+                "The request activates Grafana or logging domain gates.",
+                "The lesson fixture contains validation terms but no Grafana or logging terms."
+            ],
+            "root_cause": "The test combined quality-field assertions for records from different relevance domains in one query and assumed all fixtures would be returned.",
+            "known_resolution": [
+                "Use a Grafana and logging query for the evidence record.",
+                "Use a lesson and validation query for the lesson record.",
+                "Validate each payload independently under production domain-group semantics.",
+                "Report candidate identifiers before candidate-specific metadata assertions."
+            ],
+            "preventive_control": [
+                "Generated retrieval helpers must exercise the complete production relevance gate in a detached worktree.",
+                "Test fixtures must state the request and expected active groups for every asserted candidate.",
+                "Quality-field tests must not use an unguarded next call for a candidate whose inclusion has not been asserted."
+            ],
+            "preflight_detection": [
+                "Run the source-only retrieval suite against the patched production policy in a detached worktree.",
+                "Assert fixture request groups before candidate-specific metadata checks.",
+                "Include the observed candidate identifier set when a required fixture is absent."
+            ],
+            "first_evidence": [
+                "terminal-session:2026-08-01-retrieval-quality-recency-precedence-failure-001"
+            ],
+            "latest_evidence": [
+                "terminal-session:2026-08-01-retrieval-quality-domain-gate-fixture-failure-002"
+            ],
+            "recurrence_count": 2,
+            "automation_status": "guardrail"
         }
     ]
 }

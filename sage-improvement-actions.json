@@ -42,6 +42,144 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260801-001",
+            "title": "Enforce failure-triggered SAGE retrieval before retry",
+            "source_lessons": [
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "Every repository validator failure consults prior evidence, lessons, actionable failures, and canonical recovery before another corrective attempt, with a local receipt.",
+            "acceptance_criteria": [
+                "Every nonzero validator result retrieves before retry guidance.",
+                "The gate writes source counts and ranked results to a receipt.",
+                "Tests load every production dotted-key failure record.",
+                "A second same-class failure requires a lesson or action."
+            ],
+            "measurement_plan": [
+                "Measure receipts across the next ten validator failures.",
+                "Track attempts made before the first retrieval receipt.",
+                "Track recurrence and avoidable rework after activation."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-01T01:56:32-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register the preventive control required by SAGE-LESSON-20260801-001.",
+                    "evidence_references": [
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "commit:dd4ec760f108cc214a065976191e629d278592e5",
+                        "report:kalaxy3-failure-triggered-retrieval-implementation-contract-20260801-014527"
+                    ]
+                }
+            ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260801-002",
+            "title": "Derive SAGE bootstrap recovery from repository authority",
+            "source_lessons": [
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "current_status": "rejected",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "A new SAGE context is bootstrapped by reading an existing authority context and using its exact match term, rather than guessing another natural-language request that may also be unclassified.",
+            "acceptance_criteria": [
+                "Bootstrap recovery selects an existing context that owns sage-change-authority.json.",
+                "The recovery preflight uses an exact match_terms value from that context.",
+                "A repeated same-class discovery failure is recorded before another retry.",
+                "The original literal request is retried only after the new context passes the discovery guardrail.",
+                "The helper self-test exercises authority-derived request selection."
+            ],
+            "measurement_plan": [
+                "Inspect the next ten new-context bootstrap attempts.",
+                "Count guessed bootstrap requests and require the value to remain zero.",
+                "Track repeated UNCLASSIFIED recovery failures and avoidable retries."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-01T15:12:35-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register the preventive action required by a repeated discovery-bootstrap failure.",
+                    "evidence_references": [
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "report:kalaxy3-capability-intelligence-discovery-failure-retrieval-20260801-150822",
+                        "report:kalaxy3-capability-intelligence-bootstrap-recurrence-20260801-151235",
+                        "terminal-session:2026-08-01-capability-intelligence-discovery-bootstrap-recurrence-001"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "rejected",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T15:22:47-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The classifier diagnostic proved that exact match_terms values are insufficient for repository-governance discovery.",
+                    "evidence_references": [
+                        "report:kalaxy3-sage-discovery-classifier-diagnostic-20260801-151722",
+                        "terminal-session:2026-08-01-capability-intelligence-classifier-diagnostic-001"
+                    ]
+                }
+            ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260801-003",
+            "title": "Validate SAGE bootstrap recovery through the actual classifier",
+            "source_lessons": [
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "A new SAGE context is bootstrapped by evaluating authority-owned candidate requests through the actual classifier and using a proven successful request, rather than assuming match_terms, context IDs, or filenames are classification contracts.",
+            "acceptance_criteria": [
+                "The failed exact-match-term action is rejected with diagnostic evidence.",
+                "Bootstrap recovery consumes a complete read-only classifier diagnostic.",
+                "The selected request comes from an authority-owned path and passes both direct and Make classification.",
+                "The original literal request is retried only after the new context passes the discovery guardrail.",
+                "The helper self-test rejects a match-term-only diagnostic and accepts a classifier-proven authoritative path."
+            ],
+            "measurement_plan": [
+                "Inspect the next ten new-context bootstrap attempts.",
+                "Count untested bootstrap requests and require the value to remain zero.",
+                "Track repeated UNCLASSIFIED recovery failures and avoidable retries.",
+                "Preserve diagnostic provenance from kalaxy3-sage-discovery-classifier-diagnostic-20260801-151722.json."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-01T15:23:01-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register the classifier-validated replacement for the rejected recovery action.",
+                    "evidence_references": [
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "action:SAGE-ACTION-20260801-002",
+                        "report:kalaxy3-sage-discovery-classifier-diagnostic-20260801-151722",
+                        "terminal-session:2026-08-01-capability-intelligence-classifier-diagnostic-001"
+                    ]
+                }
+            ]
         }
     ]
 }

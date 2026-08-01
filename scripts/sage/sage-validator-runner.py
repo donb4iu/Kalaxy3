@@ -130,6 +130,47 @@ def render_shared(
     return render_failure(failure)
 
 
+def run_failure_retrieval_gate(
+    *,
+    validator_id: str,
+    attempted_action: str,
+    error_summary: str,
+) -> tuple[bool, str]:
+    """Retrieve repository experience before retry guidance."""
+    gate = ROOT / "scripts/sage/sage-failure-retrieval-gate.py"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(gate),
+            "--validator-id",
+            validator_id,
+            "--failure",
+            attempted_action,
+            "--error-summary",
+            error_summary,
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    combined = "\n".join(
+        value.strip()
+        for value in (result.stdout, result.stderr)
+        if value.strip()
+    )
+    if result.returncode != 0:
+        return (
+            False,
+            (
+                "Failure-triggered SAGE retrieval: FAIL CLOSED\n"
+                f"{combined or 'The retrieval gate returned no output.'}\n"
+                "Do not retry until repository evidence, lessons, "
+                "actionable failures, and authority are inspected manually."
+            ),
+        )
+    return True, combined
+
 def main() -> int:
     """Run the validator and convert runtime failure into SAGE guidance."""
     arguments = build_parser().parse_args()
@@ -166,6 +207,15 @@ def main() -> int:
         return 2
 
     summary = trim_failure(result.stdout, result.stderr)
+    retrieval_ok, retrieval_message = run_failure_retrieval_gate(
+        validator_id=arguments.validator_id,
+        attempted_action=arguments.attempted_action,
+        error_summary=summary,
+    )
+    if retrieval_message:
+        print(retrieval_message, file=sys.stderr)
+    if not retrieval_ok:
+        return 2
     try:
         message = render_shared(
             validator_id=arguments.validator_id,
