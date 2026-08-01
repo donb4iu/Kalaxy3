@@ -1,7 +1,7 @@
 {
-  "catalog_fingerprint": "667bb59ea5044ab6b4489cce93e418dac0d4e7d0b5353a748b9aa4452f0b81dd",
+  "catalog_fingerprint": "6a5a883214a13cbac0a721effeae3399d1c01b9de5555186be798cd46b11e727",
   "catalog_schema_version": "1.0",
-  "record_count": 34,
+  "record_count": 35,
   "records": [
     {
       "completed_at": "2026-07-25T21:01:00-05:00",
@@ -264,6 +264,35 @@
         "evidence"
       ],
       "title": "Actionable Guardrail Recovery and Active Centralized Logging Runtime Validation Evidence",
+      "valid_as_of": "2026-07-31"
+    },
+    {
+      "completed_at": "2026-07-31T23:17:00-05:00",
+      "confidence": "high",
+      "evidence_id": "SAGE-K3-GUARDRAIL-20260731-002",
+      "metadata_source": "authoritative",
+      "migration_status": "current",
+      "nav_order": 420,
+      "nav_section": "governance",
+      "nav_title": "Validate PR #5 source-only guardrails",
+      "owner": "Kalaxy3 architecture",
+      "primary_subject": "SAGE CI portability",
+      "record_class": "sage-current",
+      "schema_version": "1.2",
+      "source_path": "markdown/governance/kalaxy3-actionable-guardrail-ci-portability-evidence.md",
+      "status": "validated",
+      "summary": "Documents the three post-publication CI repairs that separated repository authority from runtime prerequisites and made PR 5 source-only guardrails pass without weakening operator-runtime validation.",
+      "tags": [
+        "sage",
+        "guardrails",
+        "continuous-integration",
+        "source-only",
+        "runtime-prerequisites",
+        "yaml",
+        "centralized-logging",
+        "evidence"
+      ],
+      "title": "PR #5 CI Portability Repair and Source-Only Guardrail Validation Evidence",
       "valid_as_of": "2026-07-31"
     },
     {
