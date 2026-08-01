@@ -278,7 +278,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -311,6 +311,20 @@
                         "commit:28b073893eaae2e2afb5ce7a7c24e7504cc33e02",
                         "lesson:SAGE-LESSON-20260801-001",
                         "terminal-session:2026-08-01-workflow-bootstrap-undefined-name-001"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T18:16:41-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The operator explicitly required canonical reusable workflow support and guardrails.",
+                    "evidence_references": [
+                        "commit:e028474ddb516ab0f4dbbac8133ce03a51e62a4d",
+                        "commit:11d3de554f6be92c3cc7515262e75825038403da",
+                        "commit:078ea2edc6bb55c690f8c59ea8bacebf3888d5f8"
                     ]
                 }
             ]
