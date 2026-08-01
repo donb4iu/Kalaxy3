@@ -90,7 +90,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "identified",
+            "current_status": "rejected",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -121,6 +121,19 @@
                         "report:kalaxy3-capability-intelligence-discovery-failure-retrieval-20260801-150822",
                         "report:kalaxy3-capability-intelligence-bootstrap-recurrence-20260801-151235",
                         "terminal-session:2026-08-01-capability-intelligence-discovery-bootstrap-recurrence-001"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "rejected",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T15:22:47-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The classifier diagnostic proved that exact match_terms values are insufficient for repository-governance discovery.",
+                    "evidence_references": [
+                        "report:kalaxy3-sage-discovery-classifier-diagnostic-20260801-151722",
+                        "terminal-session:2026-08-01-capability-intelligence-classifier-diagnostic-001"
                     ]
                 }
             ]
