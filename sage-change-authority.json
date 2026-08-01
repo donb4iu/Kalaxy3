@@ -723,21 +723,30 @@
             "authoritative_files": [
                 "AGENTS.md",
                 "SAGE.md",
-                "sage-change-authority.json",
                 "markdown/standards/kalaxy3-sage-change-discovery-process.md",
-                "markdown/standards/kalaxy3-sage-continuous-improvement-process.md"
+                "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
+                "markdown/standards/kalaxy3-sage-workflow-support-process.md",
+                "sage-change-authority.json",
+                "scripts/sage/sage-action-id.py",
+                "scripts/sage/sage-python-static-guardrail.py",
+                "scripts/sage/sage-workflow-support-guardrail.py",
+                "scripts/sage/sage_identifiers.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail",
                 "make sage-learning-self-test",
-                "make sage-index-check"
+                "make sage-index-check",
+                "make sage-workflow-support-self-test",
+                "make sage-workflow-support-guardrail"
             ],
             "required_validation": [
                 "make sage-workflow-self-test",
                 "make sage-workflow-guardrail",
                 "make sage-self-test",
                 "make sage-guardrails",
-                "make sage-index-check"
+                "make sage-index-check",
+                "make sage-workflow-support-self-test",
+                "make sage-workflow-support-guardrail"
             ],
             "evidence_process": [
                 "Record primitive versions used by each workflow.",

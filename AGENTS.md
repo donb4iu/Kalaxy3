@@ -118,3 +118,16 @@ only when they are materially safer or clearer than generating a helper.
 Returning to multi-command console guidance after this lesson is surfaced is a
 known recurrence, not an isolated formatting mistake. The workflow must stop,
 record the recurrence, and restore file-based delivery before continuing.
+
+## Canonical workflow-support contract
+
+Improvement-action identifiers MUST be allocated through
+`scripts/sage/sage-action-id.py`. Workflow wrappers must not implement local
+identifier allocation.
+
+Python workflow delivery MUST pass the repository-owned undefined-global
+guardrail. Syntax compilation and source-token checks are not runtime
+validation.
+
+A primitive root cause must be fixed in the primitive with a regression test;
+wrapper-only root-cause patches are prohibited.

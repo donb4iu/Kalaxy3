@@ -132,3 +132,14 @@ make sage-capability-intelligence-check
 make sage-capability-intelligence-self-test
 make sage-capability-intelligence-guardrail
 ```
+
+## Canonical workflow support
+
+The workflow-support layer owns improvement-action identifier allocation and
+Python runtime-name validation.
+
+- ID allocation uses exact first-free set membership.
+- Local allocator implementations are prohibited.
+- Undefined global references fail closed before delivery.
+- Exact registration paths are exercised through the canonical action tool.
+- Failures update shared primitives and regression tests.
