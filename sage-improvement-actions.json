@@ -278,7 +278,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "accepted",
+            "current_status": "implemented",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -325,6 +325,24 @@
                         "commit:e028474ddb516ab0f4dbbac8133ce03a51e62a4d",
                         "commit:11d3de554f6be92c3cc7515262e75825038403da",
                         "commit:078ea2edc6bb55c690f8c59ea8bacebf3888d5f8"
+                    ]
+                },
+                {
+                    "sequence": 3,
+                    "from_status": "accepted",
+                    "to_status": "implemented",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T18:16:46-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Canonical ID allocation, undefined-global validation, duplicate-allocation prohibition, candidate-parsed Makefile integration, documentation, and root Make integration are implemented.",
+                    "evidence_references": [
+                        "commit:11d3de554f6be92c3cc7515262e75825038403da",
+                        "commit:28b073893eaae2e2afb5ce7a7c24e7504cc33e02",
+                        "commit:078ea2edc6bb55c690f8c59ea8bacebf3888d5f8",
+                        "commit:d7692e7352fd794f6c49a1cef565ee1e9f1aab19",
+                        "path:scripts/sage/sage_identifiers.py",
+                        "path:scripts/sage/sage-python-static-guardrail.py",
+                        "path:scripts/sage/sage-workflow-support-guardrail.py"
                     ]
                 }
             ]
