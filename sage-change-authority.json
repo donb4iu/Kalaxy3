@@ -251,7 +251,11 @@
                 "raw session metrics",
                 "live session metrics",
                 "metric capture",
-                "active session"
+                "active session",
+                "improvement action",
+                "action lifecycle",
+                "file-based execution delivery",
+                "clean-tree-gated"
             ],
             "path_prefixes": [
                 "sage-continuous-improvement-",
