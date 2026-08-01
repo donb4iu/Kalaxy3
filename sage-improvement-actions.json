@@ -269,6 +269,51 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260801-005",
+            "title": "Canonicalize SAGE workflow support and runtime-name validation",
+            "source_lessons": [
+                "SAGE-LESSON-20260728-005",
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "Workflow tooling uses canonical collision-safe identifier allocation and rejects undefined runtime global names before delivery.",
+            "acceptance_criteria": [
+                "Canonical action-ID allocator uses exact first-free set membership.",
+                "Collision, gap, malformed, and exhaustion paths are runtime tested.",
+                "Undefined global references fail closed.",
+                "Local allocator implementations are prohibited.",
+                "Root SAGE self-tests and guardrails include the controls.",
+                "A real improvement action is allocated and registered through the canonical path."
+            ],
+            "measurement_plan": [
+                "Track action-ID allocation failures by allocator version.",
+                "Track undefined-global violations before delivery.",
+                "Require zero wrapper-local allocator implementations.",
+                "Track wrapper-only corrections as avoidable rework."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-01T18:16:36-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register canonical workflow-support controls after runtime failures exposed duplicated allocation and insufficient name validation.",
+                    "evidence_references": [
+                        "commit:11d3de554f6be92c3cc7515262e75825038403da",
+                        "commit:28b073893eaae2e2afb5ce7a7c24e7504cc33e02",
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "terminal-session:2026-08-01-workflow-bootstrap-undefined-name-001"
+                    ]
+                }
+            ]
         }
     ]
 }
