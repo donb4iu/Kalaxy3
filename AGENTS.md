@@ -98,3 +98,53 @@ scalar-neutral and immutable before outcomes.
 ```console
 make sage-capability-intelligence-guardrail
 ```
+
+## Operator execution delivery contract
+
+For Kalaxy3 operator workflows, multi-step or mutating execution guidance MUST
+be delivered as a downloadable executable helper file by default.
+
+Every delivered helper MUST include:
+
+- a repository-aware fail-closed preflight;
+- exercised validation for the helper's actual runtime path;
+- a SHA-256 checksum;
+- one short invocation.
+
+Do not provide multi-command console blocks unless the operator explicitly
+requests console commands. Small read-only inspection commands are permitted
+only when they are materially safer or clearer than generating a helper.
+
+Returning to multi-command console guidance after this lesson is surfaced is a
+known recurrence, not an isolated formatting mistake. The workflow must stop,
+record the recurrence, and restore file-based delivery before continuing.
+
+## Canonical workflow-support contract
+
+Improvement-action identifiers MUST be allocated through
+`scripts/sage/sage-action-id.py`. Workflow wrappers must not implement local
+identifier allocation.
+
+Python workflow delivery MUST pass the repository-owned undefined-global
+guardrail. Syntax compilation and source-token checks are not runtime
+validation.
+
+A primitive root cause must be fixed in the primitive with a regression test;
+wrapper-only root-cause patches are prohibited.
+
+## Reusable workflow composition contract
+
+New Kalaxy3 operator workflows MUST be thin compositions under
+`scripts/sage/workflows/` using versioned primitives from
+`scripts/sage/workflow/`.
+
+Do not recreate command execution, Git synchronization, changed-path checks,
+SAGE discovery, action lifecycle, Makefile composition, validation, structured
+logging, usage aggregation, or closeout logic in workflow wrappers.
+
+Tracked compositions declare `PRIMITIVES_USED`, may not import `subprocess`,
+and must pass `make sage-workflow-self-test` and
+`make sage-workflow-guardrail`.
+
+A primitive defect is corrected in the primitive with a version increment and
+regression test. Wrapper-only root-cause patches are prohibited.

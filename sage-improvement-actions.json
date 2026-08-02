@@ -180,6 +180,283 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260801-004",
+            "title": "Enforce file-based Kalaxy3 execution delivery",
+            "source_lessons": [
+                "SAGE-LESSON-20260728-001"
+            ],
+            "source_sessions": [],
+            "current_status": "validated",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "Every multi-step or mutating Kalaxy3 operator workflow is delivered as a validated downloadable executable helper with a SHA-256 checksum and one short invocation, unless the operator explicitly requests console commands.",
+            "acceptance_criteria": [
+                "AGENTS.md defines file-based execution delivery as the Kalaxy3 default.",
+                "A repository guardrail validates the delivery contract, lesson recurrence, action linkage, authority registration, and root Make integration.",
+                "The root SAGE self-test executes the file-delivery guardrail.",
+                "No unsolicited multi-command console block is used in the next ten Kalaxy3 execution workflows."
+            ],
+            "measurement_plan": [
+                "Inspect the next ten Kalaxy3 execution workflows for delivery format.",
+                "Count unsolicited multi-command console blocks and require the value to remain zero.",
+                "Track whether each generated helper records a runtime self-test result, SHA-256 digest, and one-line invocation."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-01T16:55:32-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register the guardrail required after the known file-delivery lesson recurred.",
+                    "evidence_references": [
+                        "lesson:SAGE-LESSON-20260728-001",
+                        "terminal-session:2026-08-01-file-based-execution-recurrence-001"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T17:01:42-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The operator confirmed the repeated file-delivery failure and required repository enforcement.",
+                    "evidence_references": [
+                        "lesson:SAGE-LESSON-20260728-001",
+                        "terminal-session:2026-08-01-file-delivery-guardrail-whitespace-bug-001"
+                    ]
+                },
+                {
+                    "sequence": 3,
+                    "from_status": "accepted",
+                    "to_status": "implemented",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T17:16:16-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The file-based execution delivery contract and guardrail are implemented. The recovery request now classifies through the repository-owned continuous-improvement mapping.",
+                    "evidence_references": [
+                        "commit:31ce752a300f3497a689f353ed8792af444e0a33",
+                        "commit:c1ddc64f9f924f54e39d85d47637a53125d011a9",
+                        "commit:a2399013da8f81c6adcf37d5fd7ec3ac68c6d9f2",
+                        "commit:5816c38cfa958aa841faee0781d4df3e8b959cfd",
+                        "terminal-session:2026-08-01-file-delivery-recovery-preflight-unclassified-001",
+                        "path:AGENTS.md",
+                        "path:scripts/sage/sage-file-delivery-guardrail.py",
+                        "path:sage-change-authority.json"
+                    ]
+                },
+                {
+                    "sequence": 4,
+                    "from_status": "implemented",
+                    "to_status": "validated",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T17:16:32-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The original literal request classifies, and the dedicated file-delivery guardrail, root SAGE self-test, discovery guardrail, evidence guardrail, learning guardrail, and evidence index all pass.",
+                    "evidence_references": [
+                        "commit:289c8fb50cc4921b9d4f465bd2642280c503375d",
+                        "make:sage-preflight",
+                        "make:sage-file-delivery-guardrail",
+                        "make:sage-self-test",
+                        "make:sage-discovery-guardrail",
+                        "make:sage-evidence-guardrail",
+                        "make:sage-index-check"
+                    ]
+                }
+            ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260801-005",
+            "title": "Canonicalize SAGE workflow support and runtime-name validation",
+            "source_lessons": [
+                "SAGE-LESSON-20260728-005",
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "current_status": "validated",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "Workflow tooling uses canonical collision-safe identifier allocation and rejects undefined runtime global names before delivery.",
+            "acceptance_criteria": [
+                "Canonical action-ID allocator uses exact first-free set membership.",
+                "Collision, gap, malformed, and exhaustion paths are runtime tested.",
+                "Undefined global references fail closed.",
+                "Local allocator implementations are prohibited.",
+                "Root SAGE self-tests and guardrails include the controls.",
+                "A real improvement action is allocated and registered through the canonical path."
+            ],
+            "measurement_plan": [
+                "Track action-ID allocation failures by allocator version.",
+                "Track undefined-global violations before delivery.",
+                "Require zero wrapper-local allocator implementations.",
+                "Track wrapper-only corrections as avoidable rework."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-01T18:16:36-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register canonical workflow-support controls after runtime failures exposed duplicated allocation and insufficient name validation.",
+                    "evidence_references": [
+                        "commit:11d3de554f6be92c3cc7515262e75825038403da",
+                        "commit:28b073893eaae2e2afb5ce7a7c24e7504cc33e02",
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "terminal-session:2026-08-01-workflow-bootstrap-undefined-name-001"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T18:16:41-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The operator explicitly required canonical reusable workflow support and guardrails.",
+                    "evidence_references": [
+                        "commit:e028474ddb516ab0f4dbbac8133ce03a51e62a4d",
+                        "commit:11d3de554f6be92c3cc7515262e75825038403da",
+                        "commit:078ea2edc6bb55c690f8c59ea8bacebf3888d5f8"
+                    ]
+                },
+                {
+                    "sequence": 3,
+                    "from_status": "accepted",
+                    "to_status": "implemented",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T18:16:46-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Canonical ID allocation, undefined-global validation, duplicate-allocation prohibition, candidate-parsed Makefile integration, documentation, and root Make integration are implemented.",
+                    "evidence_references": [
+                        "commit:11d3de554f6be92c3cc7515262e75825038403da",
+                        "commit:28b073893eaae2e2afb5ce7a7c24e7504cc33e02",
+                        "commit:078ea2edc6bb55c690f8c59ea8bacebf3888d5f8",
+                        "commit:d7692e7352fd794f6c49a1cef565ee1e9f1aab19",
+                        "path:scripts/sage/sage_identifiers.py",
+                        "path:scripts/sage/sage-python-static-guardrail.py",
+                        "path:scripts/sage/sage-workflow-support-guardrail.py"
+                    ]
+                },
+                {
+                    "sequence": 4,
+                    "from_status": "implemented",
+                    "to_status": "validated",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T18:17:16-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Canonical allocator tests, undefined-global tests, duplicate implementation guardrail, candidate Makefile parsing, real action registration, root SAGE self-tests, repository guardrails, and evidence index all passed.",
+                    "evidence_references": [
+                        "commit:d3b059c6ce1fe02c6de4f800a4ce17aa0d7e59e7",
+                        "make:sage-workflow-support-self-test",
+                        "make:sage-workflow-support-guardrail",
+                        "make:sage-self-test",
+                        "make:sage-guardrails",
+                        "make:sage-index-check"
+                    ]
+                }
+            ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260801-006",
+            "title": "Establish reusable SAGE workflow primitives framework",
+            "source_lessons": [
+                "SAGE-LESSON-20260728-005",
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "current_status": "validated",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "Kalaxy3 workflows compose versioned, tested repository primitives instead of recreating command, Git, discovery, lifecycle, Makefile, validation, logging, and evidence logic.",
+            "acceptance_criteria": [
+                "A pilot-maturity versioned primitive registry exists.",
+                "Runtime tests exercise commands, timeouts, redaction, Git, action lifecycle, Make composition, closeout, and usage aggregation.",
+                "Tracked compositions cannot import subprocess or duplicate primitive helpers.",
+                "Structured events and closeouts record primitive versions.",
+                "The candidate Makefile is parsed before repository replacement.",
+                "A read-only repository-validation pilot completes through the framework.",
+                "Root SAGE self-tests and guardrails enforce the framework."
+            ],
+            "measurement_plan": [
+                "Measure successes and failures by primitive version.",
+                "Measure primitive reuse ratio for subsequent workflows.",
+                "Require zero direct-execution violations in tracked compositions.",
+                "Track known-failure recurrence and wrapper-only corrections.",
+                "Promote maturity only from observed versioned executions."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-01T18:31:32-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register the reusable workflow-primitives framework after canonical workflow support was validated.",
+                    "evidence_references": [
+                        "commit:dee3ba913fe4b763b83360f5fdcc60db65af04e4",
+                        "action:SAGE-ACTION-20260801-005",
+                        "path:scripts/sage/sage_identifiers.py",
+                        "path:scripts/sage/sage-python-static-guardrail.py"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T18:31:38-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The operator explicitly authorized immediate installation of the reusable workflow-primitives framework.",
+                    "evidence_references": [
+                        "commit:32715a62974f30c28969db492f3e0d599cbc78db",
+                        "commit:dee3ba913fe4b763b83360f5fdcc60db65af04e4"
+                    ]
+                },
+                {
+                    "sequence": 3,
+                    "from_status": "accepted",
+                    "to_status": "implemented",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T18:32:03-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The versioned workflow package, runtime tests, structured version logging, Makefile primitive, usage analysis, authority mapping, root integration, and thin pilot composition are implemented.",
+                    "evidence_references": [
+                        "commit:9f138efdf80aecda4fb3d0c2ad2d7aed71b6fad2",
+                        "commit:a0b7e5461010caac5f045a929e397ee08b159997",
+                        "path:sage-workflow-primitives.json",
+                        "path:scripts/sage/workflow/",
+                        "path:scripts/sage/workflows/validate-repository.py"
+                    ]
+                },
+                {
+                    "sequence": 4,
+                    "from_status": "implemented",
+                    "to_status": "validated",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-01T18:33:03-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Primitive runtime tests, canonical lifecycle adapters, candidate Makefile parsing, static validation, root SAGE checks, usage evidence, and the read-only pilot all passed.",
+                    "evidence_references": [
+                        "commit:aaf1ed187985fdf831f2a6637237f9cbf14971cc",
+                        "make:sage-workflow-self-test",
+                        "make:sage-workflow-guardrail",
+                        "make:sage-self-test",
+                        "make:sage-guardrails",
+                        "workflow:sage.repository-validation",
+                        "output-sha256:98ac69dff912244a42d8f25df2f691fe58e6ec74c396a3d651c67454fb388e14"
+                    ]
+                }
+            ]
         }
     ]
 }
