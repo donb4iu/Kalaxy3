@@ -11,10 +11,14 @@ docs_dir: .mkdocs-work/source
 site_dir: .mkdocs-work/site
 use_directory_urls: true
 
-# Preserve raw SAGE artifacts in the published site for evidence lineage,
-# but keep them out of the human-facing inferred navigation.
+# Preserve raw SAGE artifacts in the published site for evidence lineage.
+# mkdocs-navigation-policy.json drives the generated primary navigation.
 not_in_nav: |
   /evidence-artifacts/
+
+# MkDocs excludes the top-level templates directory from site builds.
+exclude_docs: |
+  /templates/
 
 theme:
   name: material
@@ -22,6 +26,7 @@ theme:
   favicon: rpi4.png
   features:
     - navigation.sections
+    - navigation.indexes
     - navigation.top
     - search.highlight
     - search.suggest

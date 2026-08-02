@@ -14,6 +14,8 @@ metadata_contract: markdown/standards/sage-evidence-metadata-contract-v1.2.json
 publication_process: markdown/standards/kalaxy3-sage-evidence-publication-process.md
 indexer: scripts/sage/sage-index.py
 legacy_registry: markdown/evidence/legacy-record-registry.json
+navigation_policy: mkdocs-navigation-policy.json
+compatibility_policy: sage-evidence-template-policy.json
 ---
 
 # Kalaxy3 SAGE Evidence Record Standard
@@ -73,7 +75,10 @@ markdown/standards/sage-evidence-metadata-contract-v1.2.json
 ```
 
 The publisher MUST reject missing, renamed, extra, reordered, malformed, or
-inconsistent current metadata.
+inconsistent current metadata. The publisher and guardrails MUST load this
+contract and the current template through
+`scripts/sage/workflow/evidence_records.py`; duplicated contract arrays in
+command-line scripts are prohibited.
 
 ## Schema 1.2 canonical front matter
 
@@ -219,34 +224,47 @@ The Five Ws may add explanation but MUST NOT conflict with canonical metadata.
 
 ## Mandatory section order
 
-Schema 1.2 records MUST include these H2 sections in order:
+New schema 1.2 publication packages MUST use these exact H2 sections in order:
 
 1. Executive summary
 2. Record metadata
-3. Five Ws and How
-4. Scope and boundaries
-5. Final accepted state
-6. Claims and evidence matrix
-7. Problem and decision rationale
-8. Architecture or change description
-9. Source of truth and implementation lineage
-10. Prerequisites and assumptions
-11. Implementation procedure
-12. Evidence items
-13. Verification and acceptance criteria
-14. Idempotency and repeatability
-15. Security, privacy, and evidence handling
-16. Reliability, recovery, rollback, and rebuild
-17. Operational considerations and observability
-18. Known limitations, evidence gaps, and risks
-19. Troubleshooting
-20. Freshness, revalidation, and supersession
-21. Final completion checklist
-22. Git review and publication
-23. Appendices
+3. Navigation contract
+4. Five Ws and How
+5. Scope and boundaries
+6. Final accepted state
+7. Claims and evidence matrix
+8. Problem and decision rationale
+9. Architecture or change description
+10. Source of truth and implementation lineage
+11. Prerequisites and assumptions
+12. Implementation procedure
+13. Evidence items
+14. Verification and acceptance criteria
+15. Idempotency and repeatability
+16. Security, privacy, and evidence handling
+17. Reliability, recovery, rollback, and rebuild
+18. Operational considerations and observability
+19. Known limitations, evidence gaps, and risks
+20. Troubleshooting
+21. Freshness, revalidation, and supersession
+22. Final completion checklist and reviewer acceptance
+23. Git review and publication
+24. Appendices and raw artifacts
 
-Additional H2 sections MAY be added only when they do not change the required
-order or duplicate a canonical purpose.
+Additional detail MUST use H3 or lower headings under the appropriate canonical
+H2 section. New packages with missing, renamed, additional, or reordered H2
+sections are rejected so the current template remains operationally meaningful.
+
+Previously published schema 1.2 records remain immutable. A record accepted by
+an earlier publisher may retain a compatible earlier template variant; the
+repository template guardrail reports that variant without rewriting the
+record or invalidating its checksum.
+
+The compatibility sequence and immutable record classes are versioned in
+`sage-evidence-template-policy.json`. The primary documentation hierarchy is
+versioned independently in `mkdocs-navigation-policy.json`. Generated site
+code MUST consume these policies rather than embedding navigation or
+compatibility constants.
 
 ## Claims and evidence
 

@@ -133,6 +133,8 @@ sage-evidence-self-test:
 
 sage-evidence-guardrail:
 	$(SAGE_EVIDENCE_GUARDRAIL)
+	$(PYTHON) scripts/sage/sage-evidence-template-guardrail.py
+	$(PYTHON) scripts/sage/sage-evidence-navigation-architecture-guardrail.py
 
 .PHONY: sage-active-session-self-test
 
@@ -153,8 +155,10 @@ MKDOCS_PYTHON := $(MKDOCS_VENV)/bin/python
 MKDOCS_BIN := $(MKDOCS_VENV)/bin/mkdocs
 MKDOCS_READY := $(MKDOCS_VENV)/.kalaxy3-ready
 MKDOCS_PUBLICATION_TEST := .mkdocs-work/publication-test/docs
+MKDOCS_CONFIG := .mkdocs-work/mkdocs.generated.yml
 
-.PHONY: docs-mkdocs-bootstrap docs-mkdocs-prepare docs-mkdocs-build
+.PHONY: docs-mkdocs-bootstrap docs-mkdocs-prepare docs-mkdocs-config
+.PHONY: docs-mkdocs-build
 .PHONY: docs-mkdocs-build-strict docs-mkdocs-validate docs-mkdocs-stage
 .PHONY: docs-mkdocs-publication-test docs-mkdocs-publication-check
 .PHONY: docs-mkdocs-generate
@@ -169,11 +173,14 @@ docs-mkdocs-bootstrap: $(MKDOCS_READY)
 docs-mkdocs-prepare:
 	python3 scripts/docs/prepare-mkdocs-source.py
 
-docs-mkdocs-build: docs-mkdocs-bootstrap docs-mkdocs-prepare
-	$(MKDOCS_BIN) build --config-file mkdocs.yml --clean
+docs-mkdocs-config: docs-mkdocs-bootstrap docs-mkdocs-prepare
+	$(MKDOCS_PYTHON) scripts/docs/generate-mkdocs-navigation.py
 
-docs-mkdocs-build-strict: docs-mkdocs-bootstrap docs-mkdocs-prepare
-	$(MKDOCS_BIN) build --config-file mkdocs.yml --clean --strict
+docs-mkdocs-build: docs-mkdocs-config
+	$(MKDOCS_BIN) build --config-file $(MKDOCS_CONFIG) --clean
+
+docs-mkdocs-build-strict: docs-mkdocs-config
+	$(MKDOCS_BIN) build --config-file $(MKDOCS_CONFIG) --clean --strict
 
 docs-mkdocs-validate:
 	python3 scripts/docs/validate-mkdocs-build.py

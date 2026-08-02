@@ -22,6 +22,16 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from workflow.evidence_records import (
+    FIVE_W_ROWS,
+    LIST_FIELDS,
+    PUBLICATION_AUTHORITIES,
+    REQUIRED_FRONTMATTER,
+    REQUIRED_FRONTMATTER_ORDER,
+    REQUIRED_TEMPLATE_HEADINGS,
+    STATIC_METADATA_ROWS,
+)
+
 PACKAGE_SCHEMA_VERSION = "1.2"
 RECORD_SCHEMA_VERSION = "1.2"
 METADATA_CONTRACT_PATH = "markdown/standards/sage-evidence-metadata-contract-v1.2.json"
@@ -79,134 +89,6 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 KEY_VALUE_RE = re.compile(r"^[^=;]+=[^=;]+$")
 IMPLEMENTATION_TOKEN = "__SAGE_IMPLEMENTATION_COMMIT__"
 PUBLISHED_AT_TOKEN = "__SAGE_PUBLISHED_AT__"
-
-REQUIRED_FRONTMATTER_ORDER = [
-    "evidence_id",
-    "schema_version",
-    "title",
-    "nav_title",
-    "nav_section",
-    "nav_order",
-    "summary",
-    "primary_subject",
-    "project",
-    "record_type",
-    "status",
-    "classification",
-    "work_session",
-    "work_started_at",
-    "work_completed_at",
-    "evidence_collected_at",
-    "created_at",
-    "updated_at",
-    "valid_as_of",
-    "review_due",
-    "local_timezone",
-    "system_timestamp_timezones",
-    "owner",
-    "author",
-    "operator",
-    "reviewer",
-    "environment",
-    "system",
-    "cluster",
-    "execution_host",
-    "controller_host",
-    "nodes",
-    "node_addresses",
-    "namespaces",
-    "endpoints",
-    "components",
-    "repository",
-    "branch",
-    "implementation_commit",
-    "record_path",
-    "artifact_root",
-    "confidence",
-    "tags",
-    "relationships",
-]
-REQUIRED_FRONTMATTER = REQUIRED_FRONTMATTER_ORDER
-LIST_FIELDS = {
-    "system_timestamp_timezones",
-    "nodes",
-    "node_addresses",
-    "namespaces",
-    "endpoints",
-    "components",
-    "tags",
-}
-STATIC_METADATA_ROWS = [
-    ("Evidence ID", "evidence_id"),
-    ("Schema version", "schema_version"),
-    ("Project", "project"),
-    ("Title", "title"),
-    ("Navigation title", "nav_title"),
-    ("Navigation section", "nav_section"),
-    ("Navigation order", "nav_order"),
-    ("Summary", "summary"),
-    ("Primary subject", "primary_subject"),
-    ("Record type", "record_type"),
-    ("Status", "status"),
-    ("Classification", "classification"),
-    ("Work session", "work_session"),
-    ("Started", "work_started_at"),
-    ("Completed", "work_completed_at"),
-    ("Evidence collected", "evidence_collected_at"),
-    ("Record created", "created_at"),
-    ("Record updated", "updated_at"),
-    ("Local timezone", "local_timezone"),
-    ("System timestamp timezone(s)", "system_timestamp_timezones"),
-    ("Valid as of", "valid_as_of"),
-    ("Review due", "review_due"),
-    ("Target record path", "record_path"),
-    ("Artifact root", "artifact_root"),
-    ("Repository", "repository"),
-    ("Branch", "branch"),
-    ("Implementation commit", "implementation_commit"),
-    ("Environment", "environment"),
-    ("System", "system"),
-    ("Cluster", "cluster"),
-    ("Execution host", "execution_host"),
-    ("Controller host", "controller_host"),
-    ("Nodes", "nodes"),
-    ("Node addresses", "node_addresses"),
-    ("Namespaces", "namespaces"),
-    ("Endpoints", "endpoints"),
-    ("Components and versions", "components"),
-    ("Owner", "owner"),
-    ("Author", "author"),
-    ("Operator", "operator"),
-    ("Reviewer", "reviewer"),
-    ("Confidence", "confidence"),
-]
-FIVE_W_ROWS = ["Who", "What", "When", "Where", "Why", "How"]
-
-REQUIRED_HEADING_PREFIXES = [
-    "## Executive summary",
-    "## Record metadata",
-    "## Five Ws and How",
-    "## Scope and boundaries",
-    "## Final accepted state",
-    "## Claims and evidence matrix",
-    "## Problem and decision rationale",
-    "## Architecture or change description",
-    "## Source of truth and implementation lineage",
-    "## Prerequisites and assumptions",
-    "## Implementation procedure",
-    "## Evidence items",
-    "## Verification and acceptance criteria",
-    "## Idempotency and repeatability",
-    "## Security, privacy, and evidence handling",
-    "## Reliability, recovery, rollback, and rebuild",
-    "## Operational considerations and observability",
-    "## Known limitations, evidence gaps, and risks",
-    "## Troubleshooting",
-    "## Freshness, revalidation, and supersession",
-    "## Final completion checklist",
-    "## Git review and publication",
-    "## Appendices",
-]
 
 FATAL_SECRET_PATTERNS = {
     "private key": re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
@@ -786,17 +668,16 @@ def validate_five_w_table(
                 raise SageError(f"Five-W Where row omits canonical {field} value: {value}")
 
 def validate_heading_order(body: str) -> None:
-    headings = [line.rstrip() for line in body.splitlines() if line.startswith("## ")]
-    pos = -1
-    for required in REQUIRED_HEADING_PREFIXES:
-        found = None
-        for idx in range(pos + 1, len(headings)):
-            if headings[idx].startswith(required):
-                found = idx
-                break
-        if found is None:
-            raise SageError(f"Evidence record is missing required section: {required}")
-        pos = found
+    headings = [
+        line[3:].rstrip()
+        for line in body.splitlines()
+        if line.startswith("## ")
+    ]
+    if headings != REQUIRED_TEMPLATE_HEADINGS:
+        raise SageError(
+            "Evidence record H2 headings must exactly match the current "
+            f"template. Expected {REQUIRED_TEMPLATE_HEADINGS}, got {headings}"
+        )
 
 
 def section_text(body: str, heading_prefix: str) -> str:
@@ -1432,6 +1313,12 @@ left the test repository clean.
 | **Operator** | self-test-operator |
 | **Reviewer** | pending |
 | **Confidence** | high |
+
+## Navigation contract
+
+- The formal title identifies the evidentiary claim.
+- The navigation title provides the concise generated-index label.
+- The section, order, summary, and subject values are authoritative.
 
 ## Five Ws and How
 

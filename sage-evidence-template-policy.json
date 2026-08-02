@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "policy_id": "kalaxy3-sage-evidence-template-compatibility",
+  "metadata_contract_path": "markdown/standards/sage-evidence-metadata-contract-v1.2.json",
+  "template_path": "markdown/templates/sage-evidence-record-template.md",
+  "catalog_path": "markdown/evidence/catalog.json",
+  "publisher_path": "scripts/sage/sage-publish.py",
+  "current_record_class": "sage-current",
+  "immutable_record_classes": [
+    "sage-legacy",
+    "legacy-evidence"
+  ],
+  "exact_template_required_for_new_packages": true,
+  "compatible_heading_prefixes": [
+    "Executive summary",
+    "Record metadata",
+    "Five Ws and How",
+    "Scope and boundaries",
+    "Final accepted state",
+    "Claims and evidence matrix",
+    "Problem and decision rationale",
+    "Architecture or change description",
+    "Source of truth and implementation lineage",
+    "Prerequisites and assumptions",
+    "Implementation procedure",
+    "Evidence items",
+    "Verification and acceptance criteria",
+    "Idempotency and repeatability",
+    "Security, privacy, and evidence handling",
+    "Reliability, recovery, rollback, and rebuild",
+    "Operational considerations and observability",
+    "Known limitations, evidence gaps, and risks",
+    "Troubleshooting",
+    "Freshness, revalidation, and supersession",
+    "Final completion checklist",
+    "Git review and publication",
+    "Appendices"
+  ]
+}
