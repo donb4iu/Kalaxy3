@@ -68,7 +68,12 @@
                 "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-outcome-metrics.json",
                 "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json",
                 "scripts/sage/sage-outcome-metrics-guardrail.py",
-                "scripts/sage/workflow/metrics.py"
+                "scripts/sage/workflow/metrics.py",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-root-enforcement.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/root-enforcement-readiness.json",
+                "scripts/sage/sage-operating-contract-guardrail.py",
+                "scripts/sage/sage-operating-contract-self-test.py",
+                "scripts/sage/workflows/operating_contract.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
@@ -76,7 +81,8 @@
             "required_validation": [
                 "make sage-self-test",
                 "make sage-discovery-guardrail",
-                "make sage-index-check"
+                "make sage-index-check",
+                "make sage-operating-contract-check"
             ],
             "evidence_process": [
                 "Record inferred contexts and authoritative files.",
@@ -387,7 +393,12 @@
                 "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-outcome-metrics.json",
                 "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json",
                 "scripts/sage/sage-outcome-metrics-guardrail.py",
-                "scripts/sage/workflow/metrics.py"
+                "scripts/sage/workflow/metrics.py",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-root-enforcement.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/root-enforcement-readiness.json",
+                "scripts/sage/sage-operating-contract-guardrail.py",
+                "scripts/sage/sage-operating-contract-self-test.py",
+                "scripts/sage/workflows/operating_contract.py"
             ],
             "baseline_checks": [
                 "make sage-active-session-self-test",
@@ -408,7 +419,8 @@
                 "make sage-feedback-self-test",
                 "make sage-session-self-test",
                 "make sage-improvement-policy-check",
-                "make sage-guardrails"
+                "make sage-guardrails",
+                "make sage-operating-contract-check"
             ],
             "evidence_process": [
                 "Preserve versioned predictions before outcomes are known.",
@@ -779,7 +791,9 @@
                 "scripts/sage/workflows/",
                 "scripts/sage/sage-workflow-primitives",
                 "markdown/standards/sage-workflow-primitives",
-                "markdown/standards/kalaxy3-sage-workflow-primitives"
+                "markdown/standards/kalaxy3-sage-workflow-primitives",
+                "scripts/sage/sage-operating-contract",
+                "scripts/sage/workflows/operating_contract.py"
             ],
             "requires": [
                 "repository-governance",
@@ -834,7 +848,12 @@
                 "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-outcome-metrics.json",
                 "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json",
                 "scripts/sage/sage-outcome-metrics-guardrail.py",
-                "scripts/sage/workflow/metrics.py"
+                "scripts/sage/workflow/metrics.py",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-root-enforcement.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/root-enforcement-readiness.json",
+                "scripts/sage/sage-operating-contract-guardrail.py",
+                "scripts/sage/sage-operating-contract-self-test.py",
+                "scripts/sage/workflows/operating_contract.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail",
@@ -843,7 +862,8 @@
                 "make sage-workflow-support-self-test",
                 "make sage-workflow-support-guardrail",
                 "make sage-workflow-self-test",
-                "make sage-workflow-guardrail"
+                "make sage-workflow-guardrail",
+                "make sage-operating-contract-check"
             ],
             "required_validation": [
                 "make sage-workflow-self-test",
@@ -853,7 +873,8 @@
                 "make sage-index-check",
                 "make sage-workflow-support-self-test",
                 "make sage-workflow-support-guardrail",
-                "make sage-workflow-usage"
+                "make sage-workflow-usage",
+                "make sage-operating-contract-check"
             ],
             "evidence_process": [
                 "Record primitive versions used by each workflow.",

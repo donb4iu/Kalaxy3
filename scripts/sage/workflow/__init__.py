@@ -27,7 +27,7 @@ from .runner import CommandRunner
 from .usage import UsageAnalyzer
 from .validation import ValidationCommand, ValidationPlan
 
-FRAMEWORK_VERSION = "0.5.0"
+FRAMEWORK_VERSION = "0.6.0"
 
 __all__ = [
     "AuthorityAssertion",

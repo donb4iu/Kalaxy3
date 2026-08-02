@@ -2,10 +2,11 @@
 
 ## Status
 
-This document defines the staged policy and data-contract foundation for the
-Kalaxy3 SAGE mandatory operating contract. It does not itself activate new Git,
-GitHub, deployment, or autonomous mutation behavior. Activation requires the
-later guardrail, runtime-test, root-policy, and evidence phases.
+This document defines the Kalaxy3 repository-root operating contract. The
+root enforcement implementation is staged on its feature branch until review
+and merge. It does not authorize autonomous Git, GitHub, credential, ref,
+cluster, or deployment mutation. Final activation evidence is published in a
+separate evidence commit after the implementation SHA is known.
 
 ## Purpose
 
@@ -225,8 +226,28 @@ The staged operating-contract authority consists of:
 3. Authority reconciliation, component selection, capability gaps, failure
    diagnosis, and composition-manifest integration.
 4. Semantic outcome metrics and comparable-session trends.
-5. Root-policy activation, Make integration, positive and negative runtime
-   tests, guardrails, and SAGE evidence.
+5. Root-policy and Make integration, two-boundary composition, positive and
+   negative runtime tests, and repository guardrails.
+6. Split SAGE evidence publication after the root-enforcement implementation
+   commit is known.
 
-Until all phases pass validation, the operating contract remains a staged
-implementation and does not authorize deployment or autonomous mutation.
+The root-enforcement code remains a staged implementation until merged. Even
+after repository enforcement is active, deployment and autonomous Git or
+GitHub mutation remain unauthorized.
+
+
+## Root enforcement composition
+
+`scripts/sage/workflows/operating_contract.py` composes the registered
+primitives into two workflows. The pre-mutation workflow ends with exactly one
+operator proposal. The post-operator workflow begins only after complete pasted
+output is available and performs read-only verification, semantic outcome
+measurement, and evidence closeout.
+
+The root enforcement gate is:
+
+```bash
+make sage-operating-contract-check
+```
+
+It is also included in `make sage-self-test` and `make sage-guardrails`.

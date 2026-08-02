@@ -2,7 +2,7 @@
     "schema_version": "1.0",
     "policy_id": "kalaxy3-sage-operating-contract",
     "policy_version": "1.0.0",
-    "status": "staged",
+    "status": "root-enforcement-staged",
     "standard_path": "markdown/standards/kalaxy3-sage-operating-contract.md",
     "contracts": {
         "authority_reconciliation": "markdown/standards/sage-authority-reconciliation-schema-v1.0.json",
@@ -111,7 +111,8 @@
         "semantic_outcome_required": true,
         "exact_path_to_mutation_boundary_required": true,
         "transaction_rollback_test_required": true,
-        "syntax_only_is_sufficient": false
+        "syntax_only_is_sufficient": false,
+        "root_guardrail_required": true
     },
     "failure_policy": {
         "diagnosis_before_retry": true,
@@ -133,7 +134,8 @@
         "pasted_complete_output_required": true,
         "read_only_post_verification_required": true,
         "next_boundary_blocked_until_verified": true,
-        "helper_execution_of_proposed_command_forbidden": true
+        "helper_execution_of_proposed_command_forbidden": true,
+        "root_composition_required": true
     },
     "metrics_policy": {
         "raw_before_derived": true,
@@ -198,17 +200,18 @@
         }
     },
     "activation_policy": {
-        "current_state": "staged-implementation",
+        "current_state": "staged-root-enforcement",
         "deployment_authorized": false,
         "autonomous_mutation_authorized": false,
         "remaining_phases": [
-            "root-enforcement-and-evidence"
+            "evidence-publication"
         ],
         "completed_phases": [
             "policy-and-schema",
             "least-authority-safety-foundations",
             "decision-and-diagnosis-primitives",
-            "semantic-outcome-measurement"
+            "semantic-outcome-measurement",
+            "root-enforcement"
         ],
         "foundation_primitives": [
             "git.inspect@1.0.0",
@@ -224,6 +227,15 @@
         ],
         "measurement_primitives": [
             "metrics.outcome@1.0.0"
-        ]
+        ],
+        "root_enforcement": {
+            "composition": "scripts/sage/workflows/operating_contract.py",
+            "self_test": "scripts/sage/sage-operating-contract-self-test.py",
+            "guardrail": "scripts/sage/sage-operating-contract-guardrail.py",
+            "make_target": "sage-operating-contract-check",
+            "component_manifest": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-root-enforcement.json",
+            "readiness_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/root-enforcement-readiness.json"
+        },
+        "evidence_publication_mode": "split"
     }
 }

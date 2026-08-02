@@ -1,6 +1,6 @@
 {
     "schema_version": "1.0",
-    "framework_version": "0.5.0",
+    "framework_version": "0.6.0",
     "status": "pilot",
     "principles": [
         "single-responsibility primitives",
@@ -24,7 +24,8 @@
         "capability-gap proof before new primitives",
         "failure diagnosis before corrective mutation",
         "versioned composition manifests",
-        "semantic raw metrics precede transparent derived rates and comparable trends"
+        "semantic raw metrics precede transparent derived rates and comparable trends",
+        "root operating-contract composition and guardrail enforcement"
     ],
     "primitives": [
         {
@@ -476,5 +477,31 @@
         "deployment_mutation_by_helper_forbidden": true,
         "personal_credential_inheritance_forbidden": true,
         "operator_proposal_required_for_mutation": true
+    },
+    "operating_contract_policy": {
+        "status": "staged-root-enforcement",
+        "composition_path": "scripts/sage/workflows/operating_contract.py",
+        "pre_mutation_sequence": [
+            "preserve-literal-request",
+            "collect-current-git-authority",
+            "reconcile-authority",
+            "select-repository-components",
+            "record-capability-gaps",
+            "implement-declared-repository-scope",
+            "validate-real-runtime-path",
+            "validate-helper-safety",
+            "diagnose-unexpected-failures",
+            "propose-one-operator-boundary"
+        ],
+        "post_operator_sequence": [
+            "verify-pasted-operator-result",
+            "record-outcomes-and-trends",
+            "publish-sage-evidence"
+        ],
+        "self_test_target": "sage-operating-contract-self-test",
+        "guardrail_target": "sage-operating-contract-guardrail",
+        "aggregate_target": "sage-operating-contract-check",
+        "component_manifest": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-root-enforcement.json",
+        "new_primitive_required": false
     }
 }

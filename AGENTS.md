@@ -148,3 +148,26 @@ and must pass `make sage-workflow-self-test` and
 
 A primitive defect is corrected in the primitive with a version increment and
 regression test. Wrapper-only root-cause patches are prohibited.
+
+## Mandatory SAGE operating contract
+
+Every implementation helper and tracked workflow MUST follow
+`markdown/standards/kalaxy3-sage-operating-contract.md` and
+`sage-operating-contract-policy.json`.
+
+The required path is current authority, repository-owned component selection,
+approved capability gaps, declared repository-content mutation, real runtime
+validation, failure diagnosis, one operator-executed Git or GitHub boundary,
+read-only verification of pasted output, semantic outcome measurement, and
+split SAGE evidence publication.
+
+Run the root enforcement gate with:
+
+```bash
+make sage-operating-contract-check
+```
+
+The root gate is also a dependency of `make sage-self-test` and
+`make sage-guardrails`. Downloaded helpers may edit declared repository files
+and validate them, but may not mutate Git, GitHub, credentials, refs, or
+runtime deployment state.

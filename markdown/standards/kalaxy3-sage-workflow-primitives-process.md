@@ -153,3 +153,19 @@ Framework version 0.5.0 adds `metrics.outcome@1.0.0`. The primitive:
 Manual correction and operator intervention rates are activity shares: the count divided by commands executed plus that count. Other derived metrics use the numerator and denominator named in `sage-operating-contract-policy.json`. A zero denominator produces `null`, not zero.
 
 The initial report at `markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json` preserves known measurements and leaves unavailable command, recurrence, intervention, fixture-mutation, elapsed-time, and rework measurements null. It is a baseline, not evidence of an improving trend.
+
+## Root operating-contract composition
+
+Framework version 0.6.0 adds no new primitive. The approved root-enforcement
+manifest proves the existing primitives are sufficient and rejects an
+autonomous mutation engine.
+
+`scripts/sage/workflows/operating_contract.py` contains a thin two-boundary
+composition. The pre-mutation sequence permits declared repository-content
+writes and stops at one operator proposal. The post-operator sequence starts
+with read-only verification of pasted output, then records outcome metrics and
+evidence.
+
+`make sage-operating-contract-check` runs positive, negative, ordering, and
+fail-closed runtime tests plus the root policy guardrail. The target is a
+dependency of the normal repository self-test and guardrail chains.

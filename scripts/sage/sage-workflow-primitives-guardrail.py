@@ -77,6 +77,7 @@ REQUIRED_PRINCIPLES = {
     "failure diagnosis before corrective mutation",
     "versioned composition manifests",
     "semantic raw metrics precede transparent derived rates and comparable trends",
+    "root operating-contract composition and guardrail enforcement",
 }
 
 
@@ -146,8 +147,8 @@ def validate_registry(payload: dict[str, Any]) -> list[str]:
     failures: list[str] = []
     if payload.get("schema_version") != "1.0":
         failures.append("registry schema_version must be 1.0")
-    if payload.get("framework_version") != "0.5.0":
-        failures.append("registry framework_version must be 0.5.0")
+    if payload.get("framework_version") != "0.6.0":
+        failures.append("registry framework_version must be 0.6.0")
     if payload.get("status") != "pilot":
         failures.append("new framework must begin at pilot maturity")
 
@@ -214,6 +215,7 @@ def validate_registry(payload: dict[str, Any]) -> list[str]:
         "evolution_policy",
         "usage_policy",
         "required_metrics",
+        "operating_contract_policy",
     ):
         if policy not in payload:
             failures.append(f"registry missing {policy}")
@@ -478,6 +480,8 @@ def validate_makefile() -> list[str]:
     for target, dependency in (
         ("sage-self-test", "sage-workflow-self-test"),
         ("sage-guardrails", "sage-workflow-guardrail"),
+        ("sage-self-test", "sage-operating-contract-self-test"),
+        ("sage-guardrails", "sage-operating-contract-guardrail"),
     ):
         if dependency not in document.dependencies(target):
             failures.append(
@@ -489,6 +493,9 @@ def validate_makefile() -> list[str]:
         "sage-workflow-guardrail:",
         "scripts/sage/sage-workflow-primitives-self-test.py",
         "scripts/sage/sage-workflow-primitives-guardrail.py",
+        "scripts/sage/sage-operating-contract-self-test.py",
+        "scripts/sage/sage-operating-contract-guardrail.py",
+        "sage-operating-contract-check:",
     ):
         if marker not in rendered:
             failures.append(
@@ -515,6 +522,7 @@ def validate_docs_and_authority() -> list[str]:
             "operator.git-proposal",
             "git.safety-guardrail",
             "metrics.outcome",
+            "Root operating-contract composition",
         ):
             if marker not in text:
                 failures.append(
@@ -566,6 +574,11 @@ def validate_docs_and_authority() -> list[str]:
             "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
             "markdown/standards/kalaxy3-sage-workflow-primitives-process.md",
             "markdown/standards/sage-workflow-primitives-schema-v1.0.json",
+            "scripts/sage/workflows/operating_contract.py",
+            "scripts/sage/sage-operating-contract-self-test.py",
+            "scripts/sage/sage-operating-contract-guardrail.py",
+            "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-root-enforcement.json",
+            "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/root-enforcement-readiness.json",
         }
         observed = set(
             contexts[0].get("authoritative_files", [])
@@ -613,6 +626,17 @@ def validate_gap_receipts(payload: dict[str, Any]) -> list[str]:
             failures.append("Phase 4 component manifest must be approved")
         if phase4_manifest.get("composite_score_enabled") is not False:
             failures.append("Phase 4 component manifest must not enable a composite score")
+    phase5_manifest_path = GAP_ROOT / "component-selection-root-enforcement.json"
+    if not phase5_manifest_path.is_file():
+        failures.append("approved root-enforcement component-selection manifest is missing")
+    else:
+        phase5_manifest = json.loads(phase5_manifest_path.read_text(encoding="utf-8"))
+        if phase5_manifest.get("approval", {}).get("status") != "approved":
+            failures.append("root-enforcement component manifest must be approved")
+        if phase5_manifest.get("capability_gap_receipts") != []:
+            failures.append("root-enforcement composition must not invent a tenth gap")
+        if phase5_manifest.get("composite_score_enabled") is not False:
+            failures.append("root-enforcement component manifest must not enable a composite score")
     baseline_path = GAP_ROOT / "outcome-metrics-baseline.json"
     if not baseline_path.is_file():
         failures.append("Phase 4 outcome baseline is missing")
@@ -751,6 +775,7 @@ def main() -> int:
     print("PASS least-authority Git inspection, atomic writes, operator proposals, and helper safety")
     print("PASS authority reconciliation, component selection, capability gaps, and failure diagnosis")
     print("PASS semantic outcome metrics, null preservation, and comparable trends")
+    print("PASS root operating-contract composition and guardrail integration")
     print("PASS structured versioned logging, redaction, and fsync")
     print("PASS explicit mutation, synchronization, exact scope, and candidate parsing")
     print("PASS thin compositions without direct subprocess or duplicated helpers")
