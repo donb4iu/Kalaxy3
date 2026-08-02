@@ -255,7 +255,18 @@
                 "improvement action",
                 "action lifecycle",
                 "file-based execution delivery",
-                "clean-tree-gated"
+                "clean-tree-gated",
+                "improvement statistics",
+                "outcome metrics",
+                "reuse metrics",
+                "authority metrics",
+                "failure metrics",
+                "rework metrics",
+                "safety statistics",
+                "first-pass completion",
+                "manual corrections",
+                "known-failure recurrence",
+                "trend reporting"
             ],
             "path_prefixes": [
                 "sage-continuous-improvement-",
@@ -704,7 +715,19 @@
                 "action id allocator",
                 "improvement-action id allocation",
                 "undefined global",
-                "runtime-name validation"
+                "runtime-name validation",
+                "operating contract",
+                "repository-owned components",
+                "component selection",
+                "component reuse",
+                "composition manifest",
+                "capability-gap receipt",
+                "authority reconciliation",
+                "failure diagnosis",
+                "what should have been done",
+                "operator-executed",
+                "git mutation gate",
+                "git safety"
             ],
             "path_prefixes": [
                 "sage-workflow-primitives.json",
