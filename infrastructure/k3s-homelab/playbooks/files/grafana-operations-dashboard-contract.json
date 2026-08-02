@@ -1,0 +1,364 @@
+{
+  "contract_type": "kalaxy3-grafana-operations-dashboard",
+  "dashboard": {
+    "default_time_range": "now-6h",
+    "refresh": "30s",
+    "title": "Kalaxy3 Operations",
+    "uid": "kalaxy3-operations"
+  },
+  "datasources": {
+    "loki": "loki",
+    "prometheus": "prometheus"
+  },
+  "deployment": {
+    "current_staged_value": false,
+    "gate": "deploy_grafana_operations_dashboard",
+    "required_value_for_activation": true
+  },
+  "endpoint_metric_inventory": {
+    "kubecost": [
+      "container_cpu_allocation",
+      "container_memory_allocation_bytes",
+      "kubecost_cluster_info",
+      "kubecost_cluster_management_cost",
+      "kubecost_derivation_concurrency_limit",
+      "kubecost_errored_allocation_ingestions",
+      "kubecost_errored_asset_ingestions",
+      "kubecost_errored_cloud_cost_ingestions",
+      "kubecost_errored_custom_cost_ingestions",
+      "kubecost_errored_network_insight_ingestions",
+      "kubecost_http_requests_total",
+      "kubecost_http_response_size_bytes_count",
+      "kubecost_http_response_size_bytes_sum",
+      "kubecost_http_response_time_seconds_bucket",
+      "kubecost_http_response_time_seconds_count",
+      "kubecost_http_response_time_seconds_sum",
+      "kubecost_ingestion_concurrency_limit",
+      "kubecost_ingestion_records_total",
+      "kubecost_ingestion_time_seconds_total",
+      "kubecost_network_internet_egress_cost",
+      "kubecost_network_nat_gateway_egress_cost",
+      "kubecost_network_nat_gateway_ingress_cost",
+      "kubecost_network_region_egress_cost",
+      "kubecost_network_zone_egress_cost",
+      "kubecost_node_is_spot",
+      "kubecost_pv_info",
+      "kubecost_read_db_size",
+      "kubecost_successful_allocation_ingestions",
+      "kubecost_successful_asset_ingestions",
+      "kubecost_successful_cloud_cost_ingestions",
+      "kubecost_successful_custom_cost_ingestions",
+      "kubecost_successful_network_insight_ingestions",
+      "node_total_hourly_cost",
+      "opencost_build_info",
+      "pv_hourly_cost"
+    ],
+    "longhorn": [
+      "longhorn_disk_capacity_bytes",
+      "longhorn_disk_health",
+      "longhorn_disk_health_attribute_raw",
+      "longhorn_disk_reservation_bytes",
+      "longhorn_disk_status",
+      "longhorn_disk_usage_bytes",
+      "longhorn_engine_info",
+      "longhorn_engine_replica_mode",
+      "longhorn_engine_state",
+      "longhorn_instance_manager_cpu_requests_millicpu",
+      "longhorn_instance_manager_cpu_usage_millicpu",
+      "longhorn_instance_manager_memory_requests_bytes",
+      "longhorn_instance_manager_memory_usage_bytes",
+      "longhorn_manager_cpu_usage_millicpu",
+      "longhorn_manager_memory_usage_bytes",
+      "longhorn_node_count_total",
+      "longhorn_node_cpu_capacity_millicpu",
+      "longhorn_node_cpu_usage_millicpu",
+      "longhorn_node_memory_capacity_bytes",
+      "longhorn_node_memory_usage_bytes",
+      "longhorn_node_status",
+      "longhorn_node_storage_capacity_bytes",
+      "longhorn_node_storage_reservation_bytes",
+      "longhorn_node_storage_scheduled_bytes",
+      "longhorn_node_storage_usage_bytes",
+      "longhorn_replica_info",
+      "longhorn_replica_state",
+      "longhorn_rest_client_rate_limiter_latency_seconds_bucket",
+      "longhorn_rest_client_rate_limiter_latency_seconds_count",
+      "longhorn_rest_client_rate_limiter_latency_seconds_sum",
+      "longhorn_rest_client_request_latency_seconds_bucket",
+      "longhorn_rest_client_request_latency_seconds_count",
+      "longhorn_rest_client_request_latency_seconds_sum",
+      "longhorn_rest_client_requests_total",
+      "longhorn_volume_actual_size_bytes",
+      "longhorn_volume_capacity_bytes",
+      "longhorn_volume_encrypted",
+      "longhorn_volume_last_backup_at",
+      "longhorn_volume_read_iops",
+      "longhorn_volume_read_latency",
+      "longhorn_volume_read_throughput",
+      "longhorn_volume_robustness",
+      "longhorn_volume_state",
+      "longhorn_volume_write_iops",
+      "longhorn_volume_write_latency",
+      "longhorn_volume_write_throughput",
+      "longhorn_workqueue_adds_total",
+      "longhorn_workqueue_depth",
+      "longhorn_workqueue_longest_running_processor_seconds",
+      "longhorn_workqueue_queue_duration_seconds_bucket",
+      "longhorn_workqueue_queue_duration_seconds_count",
+      "longhorn_workqueue_queue_duration_seconds_sum",
+      "longhorn_workqueue_retries_total",
+      "longhorn_workqueue_unfinished_work_seconds",
+      "longhorn_workqueue_work_duration_seconds_bucket",
+      "longhorn_workqueue_work_duration_seconds_count",
+      "longhorn_workqueue_work_duration_seconds_sum"
+    ]
+  },
+  "panels": [
+    {
+      "datasource_uid": "prometheus",
+      "family": "cluster",
+      "id": 1,
+      "kind": "stat",
+      "query": "sum(kube_node_status_condition{condition=\"Ready\",status=\"true\"})",
+      "required_metrics": [
+        "kube_node_status_condition"
+      ],
+      "title": "Ready Nodes",
+      "validation_stage": "live-result-required"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "cluster",
+      "id": 2,
+      "kind": "stat",
+      "query": "count(kube_node_info)",
+      "required_metrics": [
+        "kube_node_info"
+      ],
+      "title": "Total Nodes",
+      "validation_stage": "live-result-required"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "workloads",
+      "id": 3,
+      "kind": "stat",
+      "query": "sum(kube_pod_status_ready{condition=\"false\"})",
+      "required_metrics": [
+        "kube_pod_status_ready"
+      ],
+      "title": "Not-Ready Pods",
+      "validation_stage": "live-result-required"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "workloads",
+      "id": 4,
+      "kind": "stat",
+      "query": "sum(increase(kube_pod_container_status_restarts_total[1h]))",
+      "required_metrics": [
+        "kube_pod_container_status_restarts_total"
+      ],
+      "title": "Container Restarts (1h)",
+      "validation_stage": "live-result-required"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "fluent_bit",
+      "id": 5,
+      "kind": "stat",
+      "query": "count(up{job=~\".*fluent.*bit.*\"} == 1)",
+      "required_metrics": [
+        "up"
+      ],
+      "title": "Fluent Bit Ready Targets",
+      "validation_stage": "live-result-required"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "workloads",
+      "id": 6,
+      "kind": "stat",
+      "query": "sum(kube_deployment_status_replicas_unavailable)",
+      "required_metrics": [
+        "kube_deployment_status_replicas_unavailable"
+      ],
+      "title": "Unavailable Deployment Replicas",
+      "validation_stage": "live-result-required"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "nodes",
+      "id": 7,
+      "kind": "timeseries",
+      "query": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+      "required_metrics": [
+        "node_cpu_seconds_total"
+      ],
+      "title": "Node CPU Utilization",
+      "validation_stage": "live-result-required"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "nodes",
+      "id": 8,
+      "kind": "timeseries",
+      "query": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)",
+      "required_metrics": [
+        "node_memory_MemAvailable_bytes",
+        "node_memory_MemTotal_bytes"
+      ],
+      "title": "Node Memory Utilization",
+      "validation_stage": "live-result-required"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "fluent_bit",
+      "id": 9,
+      "kind": "timeseries",
+      "query": "sum(rate(fluentbit_input_records_total[5m]))",
+      "required_metrics": [
+        "fluentbit_input_records_total"
+      ],
+      "title": "Fluent Bit Input Records",
+      "validation_stage": "live-result-required"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "fluent_bit",
+      "id": 10,
+      "kind": "timeseries",
+      "query": "sum(rate(fluentbit_output_proc_records_total[5m]))",
+      "required_metrics": [
+        "fluentbit_output_proc_records_total"
+      ],
+      "title": "Fluent Bit Output Records",
+      "validation_stage": "live-result-required"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "fluent_bit",
+      "id": 11,
+      "kind": "timeseries",
+      "query": "sum(rate(fluentbit_output_errors_total[5m]))",
+      "required_metrics": [
+        "fluentbit_output_errors_total"
+      ],
+      "title": "Fluent Bit Output Errors",
+      "validation_stage": "live-result-required"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "fluent_bit",
+      "id": 12,
+      "kind": "timeseries",
+      "query": "sum(rate(fluentbit_output_retries_total[5m]))",
+      "required_metrics": [
+        "fluentbit_output_retries_total"
+      ],
+      "title": "Fluent Bit Output Retries",
+      "validation_stage": "live-result-required"
+    },
+    {
+      "datasource_uid": "loki",
+      "family": "logs",
+      "id": 13,
+      "kind": "logs",
+      "query": "{namespace=~\".+\"}",
+      "required_metrics": [],
+      "title": "Recent Cluster Logs",
+      "validation_stage": "live-query-required"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "longhorn",
+      "id": 14,
+      "kind": "stat",
+      "query": "100 * sum(longhorn_node_storage_usage_bytes) / sum(longhorn_node_storage_capacity_bytes)",
+      "required_metrics": [
+        "longhorn_node_storage_usage_bytes",
+        "longhorn_node_storage_capacity_bytes"
+      ],
+      "title": "Longhorn Storage Utilization",
+      "validation_stage": "syntax-only-before-activation"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "longhorn",
+      "id": 15,
+      "kind": "timeseries",
+      "query": "sum by (volume) (longhorn_volume_actual_size_bytes)",
+      "required_metrics": [
+        "longhorn_volume_actual_size_bytes"
+      ],
+      "title": "Longhorn Volume Actual Size",
+      "validation_stage": "syntax-only-before-activation"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "longhorn",
+      "id": 16,
+      "kind": "timeseries",
+      "query": "sum by (volume) (longhorn_volume_write_throughput)",
+      "required_metrics": [
+        "longhorn_volume_write_throughput"
+      ],
+      "title": "Longhorn Volume Write Throughput",
+      "validation_stage": "syntax-only-before-activation"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "kubecost",
+      "id": 17,
+      "kind": "stat",
+      "query": "sum(node_total_hourly_cost)",
+      "required_metrics": [
+        "node_total_hourly_cost"
+      ],
+      "title": "Kubecost Node Hourly Cost",
+      "validation_stage": "syntax-only-before-activation"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "kubecost",
+      "id": 18,
+      "kind": "stat",
+      "query": "sum(kubecost_cluster_management_cost)",
+      "required_metrics": [
+        "kubecost_cluster_management_cost"
+      ],
+      "title": "Kubecost Management Hourly Cost",
+      "validation_stage": "syntax-only-before-activation"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "kubecost",
+      "id": 19,
+      "kind": "timeseries",
+      "query": "sum by (namespace) (container_cpu_allocation)",
+      "required_metrics": [
+        "container_cpu_allocation"
+      ],
+      "title": "Kubecost CPU Allocation",
+      "validation_stage": "syntax-only-before-activation"
+    },
+    {
+      "datasource_uid": "prometheus",
+      "family": "kubecost",
+      "id": 20,
+      "kind": "timeseries",
+      "query": "sum by (namespace) (container_memory_allocation_bytes) / 1024^3",
+      "required_metrics": [
+        "container_memory_allocation_bytes"
+      ],
+      "title": "Kubecost Memory Allocation",
+      "validation_stage": "syntax-only-before-activation"
+    }
+  ],
+  "schema_version": "1.0",
+  "source": {
+    "data_contract": "kalaxy3-grafana-operations-dashboard-data-contract-20260802-014120.json",
+    "data_contract_sha256": "ac9e28dafe5b51cc789df872e29507002f875315012fb8dd1d441aa7c38890f0",
+    "repository_head": "fecb97540127ac3abee4100ef7f8dcf74286d769"
+  }
+}

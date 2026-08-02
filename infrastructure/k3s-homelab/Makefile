@@ -233,3 +233,10 @@ centralized-logging-runtime-validate:
 .PHONY: centralized-logging-runtime-source-self-test
 centralized-logging-runtime-source-self-test:
 	python3 -S scripts/validate-centralized-logging-runtime-source-self-test.py
+# BEGIN KALAXY3 GRAFANA OPERATIONS
+.PHONY: grafana-operations-render
+grafana-operations-render:
+	.venv/bin/ansible-playbook \
+		playbooks/validate-grafana-operations.yml \
+		--extra-vars ansible_become=false
+# END KALAXY3 GRAFANA OPERATIONS

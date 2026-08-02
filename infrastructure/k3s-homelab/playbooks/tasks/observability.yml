@@ -194,6 +194,110 @@
     - centralized-logging
     - grafana
 
+# BEGIN KALAXY3 GRAFANA OPERATIONS TELEMETRY
+- name: Write Grafana operations telemetry ServiceMonitors
+  ansible.builtin.template:
+    src: grafana-operations-servicemonitors.yml.j2
+    dest: /tmp/grafana-operations-servicemonitors.yml
+    mode: "0644"
+  when:
+    - install_observability | bool
+    - deploy_grafana_operations_dashboard | bool
+  tags:
+    - grafana
+    - grafana-operations
+
+- name: Provision Grafana operations telemetry ServiceMonitors
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - apply
+      - --filename
+      - /tmp/grafana-operations-servicemonitors.yml
+  register: grafana_operations_servicemonitors_apply
+  changed_when: >-
+    ' created' in grafana_operations_servicemonitors_apply.stdout
+    or ' configured' in grafana_operations_servicemonitors_apply.stdout
+  when:
+    - install_observability | bool
+    - deploy_grafana_operations_dashboard | bool
+  tags:
+    - grafana
+    - grafana-operations
+# END KALAXY3 GRAFANA OPERATIONS TELEMETRY
+
+# BEGIN KALAXY3 GRAFANA OPERATIONS DASHBOARD
+- name: Write Grafana operations dashboard ConfigMap
+  ansible.builtin.copy:
+    src: >-
+      {{ inventory_dir }}/../playbooks/files/grafana-operations-dashboard-configmap.yml
+    dest: /tmp/grafana-operations-dashboard-configmap.yml
+    mode: "0644"
+  when:
+    - install_observability | bool
+    - deploy_grafana_operations_dashboard | bool
+  tags:
+    - grafana
+    - grafana-operations
+
+- name: Provision Grafana operations dashboard ConfigMap
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - apply
+      - --filename
+      - /tmp/grafana-operations-dashboard-configmap.yml
+  register: grafana_operations_dashboard_apply
+  changed_when: >-
+    ' created' in grafana_operations_dashboard_apply.stdout
+    or ' configured' in grafana_operations_dashboard_apply.stdout
+  when:
+    - install_observability | bool
+    - deploy_grafana_operations_dashboard | bool
+  tags:
+    - grafana
+    - grafana-operations
+# END KALAXY3 GRAFANA OPERATIONS DASHBOARD
+
+# BEGIN KALAXY3 GRAFANA OPERATIONS ALERTS
+- name: Write Grafana operations PrometheusRule
+  ansible.builtin.copy:
+    src: "{{ inventory_dir }}/../playbooks/files/grafana-operations-alerts-prometheusrule.yml"
+    dest: /tmp/grafana-operations-alerts-prometheusrule.yml
+    mode: "0644"
+  when:
+    - install_observability | bool
+    - deploy_grafana_operations_dashboard | bool
+    - deploy_grafana_operations_alerts | bool
+  tags:
+    - grafana
+    - grafana-operations
+    - grafana-operations-alerts
+
+- name: Provision Grafana operations PrometheusRule
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - apply
+      - --filename
+      - /tmp/grafana-operations-alerts-prometheusrule.yml
+  register: grafana_operations_alerts_apply
+  changed_when: >-
+    ' created' in grafana_operations_alerts_apply.stdout
+    or ' configured' in grafana_operations_alerts_apply.stdout
+  when:
+    - install_observability | bool
+    - deploy_grafana_operations_dashboard | bool
+    - deploy_grafana_operations_alerts | bool
+  tags:
+    - grafana
+    - grafana-operations
+    - grafana-operations-alerts
+# END KALAXY3 GRAFANA OPERATIONS ALERTS
+
 - name: Find eligible Kubecost Intel nodes
   ansible.builtin.command:
     argv:
