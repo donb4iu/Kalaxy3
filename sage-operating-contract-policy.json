@@ -95,7 +95,10 @@
             "tag",
             "update-ref",
             "delete-ref"
-        ]
+        ],
+        "required_git_primitive": "git.inspect",
+        "restricted_git_primitive": "git.repository",
+        "restricted_git_primitive_scope": "isolated-temporary-repository-tests"
     },
     "validation_policy": {
         "source_only_required": true,
@@ -183,10 +186,19 @@
         "deployment_authorized": false,
         "autonomous_mutation_authorized": false,
         "remaining_phases": [
-            "least-authority-safety-foundations",
             "decision-and-diagnosis-primitives",
             "semantic-outcome-measurement",
             "root-enforcement-and-evidence"
+        ],
+        "completed_phases": [
+            "policy-and-schema",
+            "least-authority-safety-foundations"
+        ],
+        "foundation_primitives": [
+            "git.inspect@1.0.0",
+            "file.atomic-preserve-mode@1.0.0",
+            "operator.git-proposal@1.0.0",
+            "git.safety-guardrail@1.0.0"
         ]
     }
 }

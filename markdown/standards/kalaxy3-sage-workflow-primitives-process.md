@@ -112,3 +112,16 @@ SAGE records:
 
 These measurements determine which primitives are hardened, replaced, or
 deprecated.
+
+## Least-authority safety foundations
+
+Phase 2 adds four pilot primitives without activating autonomous mutation:
+
+- `git.inspect` exposes only allowlisted local read-only Git inspection. It has no fetch, branch, stage, commit, push, ref, GitHub, or deployment method.
+- `file.atomic-preserve-mode` performs same-directory temporary writes, file and directory fsync, atomic replacement, existing-mode preservation, allowed-root checks, and transactional rollback.
+- `operator.git-proposal` emits one schema 1.0 operator-executed boundary containing exactly one secret-free command. It never executes the proposed command and blocks the next boundary until pasted output is verified.
+- `git.safety-guardrail` rejects production-helper Git, GitHub, credential-inheritance, and deployment mutation paths. Mutating Git is permitted only in an explicitly declared isolated temporary-repository fixture.
+
+The mixed-authority `git.repository` primitive remains available only to isolated temporary-repository tests and legacy operator-owned compositions until migrated. Downloaded implementation helpers must use `git.inspect` for repository state and must not import or instantiate `GitRepository`.
+
+Every new Phase 2 primitive is linked to an approved capability-gap receipt and an approved component-selection manifest under `markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/`. The framework remains a staged implementation; deployment and autonomous Git or GitHub mutation remain unauthorized.

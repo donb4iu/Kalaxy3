@@ -32,6 +32,7 @@
             "authoritative_files": [
                 "AGENTS.md",
                 "SAGE.md",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
                 "markdown/standards/kalaxy3-sage-actionable-failure-contract.md",
                 "markdown/standards/kalaxy3-sage-change-discovery-process.md",
                 "markdown/standards/kalaxy3-sage-operating-contract.md",
@@ -46,11 +47,13 @@
                 "scripts/sage/sage-actionable-failure-guardrail.py",
                 "scripts/sage/sage-actionable-failure-self-test.py",
                 "scripts/sage/sage-file-delivery-guardrail.py",
+                "scripts/sage/sage-git-safety-guardrail.py",
                 "scripts/sage/sage-validator-runner.py",
                 "scripts/sage/sage-yaml-metadata-self-test.py",
                 "scripts/sage/sage-yaml-metadata-source-self-test.py",
                 "scripts/sage/sage_actionable_failure.py",
-                "scripts/sage/sage_yaml_metadata.py"
+                "scripts/sage/sage_yaml_metadata.py",
+                "scripts/sage/workflow/safety.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
@@ -313,6 +316,7 @@
             "authoritative_files": [
                 "AGENTS.md",
                 "SAGE.md",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
                 "markdown/standards/kalaxy3-sage-change-discovery-process.md",
                 "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
                 "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md",
@@ -755,6 +759,7 @@
             "authoritative_files": [
                 "AGENTS.md",
                 "SAGE.md",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
                 "markdown/standards/kalaxy3-sage-change-discovery-process.md",
                 "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
                 "markdown/standards/kalaxy3-sage-operating-contract.md",
@@ -771,6 +776,7 @@
                 "sage-operating-contract-policy.json",
                 "sage-workflow-primitives.json",
                 "scripts/sage/sage-action-id.py",
+                "scripts/sage/sage-git-safety-guardrail.py",
                 "scripts/sage/sage-python-static-guardrail.py",
                 "scripts/sage/sage-workflow-primitives-guardrail.py",
                 "scripts/sage/sage-workflow-primitives-self-test.py",
@@ -778,6 +784,10 @@
                 "scripts/sage/sage-workflow-usage.py",
                 "scripts/sage/sage_identifiers.py",
                 "scripts/sage/workflow/",
+                "scripts/sage/workflow/files.py",
+                "scripts/sage/workflow/git_inspect.py",
+                "scripts/sage/workflow/proposal.py",
+                "scripts/sage/workflow/safety.py",
                 "scripts/sage/workflows/"
             ],
             "baseline_checks": [

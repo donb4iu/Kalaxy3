@@ -27,14 +27,20 @@ STANDARD = (
     "kalaxy3-sage-workflow-primitives-process.md"
 )
 STATIC_GUARD = SAGE_DIR / "sage-python-static-guardrail.py"
+SAFETY_CLI = SAGE_DIR / "sage-git-safety-guardrail.py"
+GAP_ROOT = ROOT / "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001"
 sys.path.insert(0, str(SAGE_DIR))
 
-from workflow import MakefileDocument  # noqa: E402
+from workflow import GitSafetyGuardrail, MakefileDocument  # noqa: E402
 
 REQUIRED_MODULES = {
     "workflow.catalog": "PrimitiveCatalog",
     "workflow.runner": "CommandRunner",
     "workflow.git": "GitRepository",
+    "workflow.git_inspect": "GitInspector",
+    "workflow.files": "AtomicFileWriter",
+    "workflow.proposal": "OperatorGitProposal",
+    "workflow.safety": "GitSafetyGuardrail",
     "workflow.discovery": "SageDiscovery",
     "workflow.lifecycle": "ImprovementActionClient",
     "workflow.makefile": "MakefileDocument",
@@ -56,6 +62,10 @@ REQUIRED_PRINCIPLES = {
     "runtime-path integration tests",
     "versioned evolution from failure evidence",
     "candidate Makefile parsing before replacement",
+    "least-authority read-only Git inspection",
+    "mode-preserving atomic file replacement",
+    "operator-executed one-boundary proposals",
+    "production helper Git and credential safety",
 }
 
 
@@ -125,8 +135,8 @@ def validate_registry(payload: dict[str, Any]) -> list[str]:
     failures: list[str] = []
     if payload.get("schema_version") != "1.0":
         failures.append("registry schema_version must be 1.0")
-    if payload.get("framework_version") != "0.2.0":
-        failures.append("registry framework_version must be 0.2.0")
+    if payload.get("framework_version") != "0.3.0":
+        failures.append("registry framework_version must be 0.3.0")
     if payload.get("status") != "pilot":
         failures.append("new framework must begin at pilot maturity")
 
@@ -206,6 +216,11 @@ def validate_registry(payload: dict[str, Any]) -> list[str]:
         "exact_path_scope_required",
         "atomic_file_write_required",
         "candidate_makefile_parse_required",
+        "downloaded_helper_git_mutation_forbidden",
+        "operator_one_boundary_required",
+        "preserve_existing_file_mode_required",
+        "personal_credentials_in_generated_code_forbidden",
+        "production_git_repository_primitive_restricted",
     ):
         if mutation.get(field) is not True:
             failures.append(
@@ -290,6 +305,31 @@ def validate_sources() -> list[str]:
             "require_exact_paths",
             "commit_and_push",
         ),
+        "git_inspect.py": (
+            "_FIXED_READ_ONLY",
+            "git.inspect",
+            "require_upstream_equal",
+            "require_exact_paths",
+            "rstrip(\"\\n\")",
+        ),
+        "files.py": (
+            "os.replace",
+            "os.fsync",
+            "stat.S_IMODE",
+            "AtomicFileTransaction",
+        ),
+        "proposal.py": (
+            "command_count",
+            "executed_by_helper",
+            "contains_secret",
+            "OperatorGitProposal",
+        ),
+        "safety.py": (
+            "GIT-MUTATION",
+            "GITHUB-MUTATION",
+            "CREDENTIAL-INHERITANCE",
+            "DEPLOYMENT-MUTATION",
+        ),
         "lifecycle.py": (
             "sage-action-id.py",
             "allocate_id",
@@ -318,6 +358,13 @@ def validate_sources() -> list[str]:
                 failures.append(
                     f"{name}: missing contract marker {marker}"
                 )
+    if not SAFETY_CLI.is_file():
+        failures.append("Git safety CLI is missing")
+    else:
+        safety_source = SAFETY_CLI.read_text(encoding="utf-8")
+        for marker in ("--self-test", "GitSafetyGuardrail", "FAIL CLOSED"):
+            if marker not in safety_source:
+                failures.append(f"Git safety CLI missing marker {marker}")
     return failures
 
 
@@ -445,6 +492,10 @@ def validate_docs_and_authority() -> list[str]:
             "wrapper-only",
             "primitive reuse ratio",
             "candidate Makefile",
+            "git.inspect",
+            "file.atomic-preserve-mode",
+            "operator.git-proposal",
+            "git.safety-guardrail",
         ):
             if marker not in text:
                 failures.append(
@@ -478,6 +529,12 @@ def validate_docs_and_authority() -> list[str]:
             "scripts/sage/sage-workflow-primitives-self-test.py",
             "scripts/sage/sage-workflow-primitives-guardrail.py",
             "scripts/sage/sage-workflow-usage.py",
+            "scripts/sage/sage-git-safety-guardrail.py",
+            "scripts/sage/workflow/git_inspect.py",
+            "scripts/sage/workflow/files.py",
+            "scripts/sage/workflow/proposal.py",
+            "scripts/sage/workflow/safety.py",
+            "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
             "markdown/standards/kalaxy3-sage-workflow-primitives-process.md",
             "markdown/standards/sage-workflow-primitives-schema-v1.0.json",
         }
@@ -491,6 +548,49 @@ def validate_docs_and_authority() -> list[str]:
             )
     return failures
 
+
+
+def validate_gap_receipts(payload: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    manifest_path = GAP_ROOT / "component-selection-approved.json"
+    if not manifest_path.is_file():
+        failures.append("approved Phase 2 component-selection manifest is missing")
+        return failures
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("schema_version") != "1.0":
+        failures.append("Phase 2 component manifest schema_version must be 1.0")
+    if manifest.get("approval", {}).get("status") != "approved":
+        failures.append("Phase 2 component manifest must be approved")
+    if manifest.get("composite_score_enabled") is not False:
+        failures.append("Phase 2 component manifest must not enable a composite score")
+
+    expected = {
+        "git.inspect": GAP_ROOT / "capability-gap-git-inspect.json",
+        "file.atomic-preserve-mode": GAP_ROOT / "capability-gap-atomic-file.json",
+        "operator.git-proposal": GAP_ROOT / "capability-gap-operator-proposal.json",
+        "git.safety-guardrail": GAP_ROOT / "capability-gap-git-safety.json",
+    }
+    registry_entries = {
+        item.get("primitive_id"): item
+        for item in payload.get("primitives", [])
+        if isinstance(item, dict)
+    }
+    for primitive_id, path in expected.items():
+        if not path.is_file():
+            failures.append(f"capability-gap receipt missing: {path}")
+            continue
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        if receipt.get("schema_version") != "1.0":
+            failures.append(f"{path}: schema_version must be 1.0")
+        if receipt.get("approval", {}).get("status") != "approved":
+            failures.append(f"{path}: approval must be approved")
+        proposed = receipt.get("proposed_primitive", {})
+        if proposed.get("primitive_id") != primitive_id:
+            failures.append(f"{path}: proposed primitive mismatch")
+        entry = registry_entries.get(primitive_id, {})
+        if entry.get("capability_gap_receipt") != str(path.relative_to(ROOT)):
+            failures.append(f"{primitive_id}: registry gap receipt linkage mismatch")
+    return failures
 
 def negative_tests(payload: dict[str, Any]) -> list[str]:
     failures: list[str] = []
@@ -533,6 +633,22 @@ def run():
             failures.append(
                 "negative Make continuation regression failed"
             )
+        mutating = root / "mutating-helper.py"
+        mutating.write_text(
+            "import subprocess\nsubprocess.run(['git', 'push', 'origin', 'main'])\n",
+            encoding="utf-8",
+        )
+        violations = GitSafetyGuardrail.scan_paths((mutating,))
+        if not any(item.code == "GIT-MUTATION" for item in violations):
+            failures.append("negative test accepted production Git mutation")
+        credential = root / "credential-helper.py"
+        credential.write_text(
+            "import os\ntoken = os.environ.get('GH_TOKEN')\n",
+            encoding="utf-8",
+        )
+        violations = GitSafetyGuardrail.scan_paths((credential,))
+        if not any(item.code == "CREDENTIAL-INHERITANCE" for item in violations):
+            failures.append("negative test accepted credential inheritance")
     return failures
 
 
@@ -545,6 +661,7 @@ def main() -> int:
         failures.extend(validate_wrappers(payload))
         failures.extend(validate_makefile())
         failures.extend(validate_docs_and_authority())
+        failures.extend(validate_gap_receipts(payload))
         failures.extend(negative_tests(payload))
     except (
         ImportError,
@@ -565,6 +682,7 @@ def main() -> int:
 
     print("PASS versioned primitive registry and pilot maturity")
     print("PASS centralized command, Git, discovery, lifecycle, Make, and evidence paths")
+    print("PASS least-authority Git inspection, atomic writes, operator proposals, and helper safety")
     print("PASS structured versioned logging, redaction, and fsync")
     print("PASS explicit mutation, synchronization, exact scope, and candidate parsing")
     print("PASS thin compositions without direct subprocess or duplicated helpers")

@@ -1,6 +1,6 @@
 {
     "schema_version": "1.0",
-    "framework_version": "0.2.0",
+    "framework_version": "0.3.0",
     "status": "pilot",
     "principles": [
         "single-responsibility primitives",
@@ -14,7 +14,11 @@
         "atomic evidence writes",
         "runtime-path integration tests",
         "versioned evolution from failure evidence",
-        "candidate Makefile parsing before replacement"
+        "candidate Makefile parsing before replacement",
+        "least-authority read-only Git inspection",
+        "mode-preserving atomic file replacement",
+        "operator-executed one-boundary proposals",
+        "production helper Git and credential safety"
     ],
     "primitives": [
         {
@@ -81,6 +85,24 @@
                 "exact-scope commit and push"
             ],
             "maturity": "pilot"
+        },
+        {
+            "primitive_id": "git.inspect",
+            "version": "1.0.0",
+            "module": "workflow.git_inspect",
+            "symbol": "GitInspector",
+            "side_effects": "read-only local Git inspection through an explicit command allowlist",
+            "idempotency": "deterministic for unchanged local Git references and working tree",
+            "logging": "delegated to command.run as git.inspect events",
+            "failure_mode": "unknown Git arguments, missing repository, branch, HEAD, upstream, or exact scope fail closed",
+            "tests": [
+                "clean snapshot",
+                "changed-path scope",
+                "upstream equality",
+                "mutating command rejection"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-git-inspect.json"
         },
         {
             "primitive_id": "sage.discovery",
@@ -191,6 +213,61 @@
                 "failure propagation"
             ],
             "maturity": "pilot"
+        },
+        {
+            "primitive_id": "file.atomic-preserve-mode",
+            "version": "1.0.0",
+            "module": "workflow.files",
+            "symbol": "AtomicFileWriter",
+            "side_effects": "atomic writes only within declared roots with file and directory fsync",
+            "idempotency": "identical payloads produce identical content and preserve existing mode",
+            "logging": "caller records path and payload digest; raw content is not logged",
+            "failure_mode": "symlink, out-of-root, write, replace, fsync, or rollback failure stops execution",
+            "tests": [
+                "existing executable mode preservation",
+                "new-file mode",
+                "allowed-root rejection",
+                "transaction rollback"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-atomic-file.json"
+        },
+        {
+            "primitive_id": "operator.git-proposal",
+            "version": "1.0.0",
+            "module": "workflow.proposal",
+            "symbol": "OperatorGitProposal",
+            "side_effects": "optional atomic local proposal receipt write; proposed command is never executed",
+            "idempotency": "deterministic for fixed inputs and created_at",
+            "logging": "command argv digest, boundary, validation references, and operator contract",
+            "failure_mode": "invalid boundary, command composition, credential marker, validation, or proposal identifier fails closed",
+            "tests": [
+                "one command",
+                "boundary-command match",
+                "secret rejection",
+                "non-execution contract"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-operator-proposal.json"
+        },
+        {
+            "primitive_id": "git.safety-guardrail",
+            "version": "1.0.0",
+            "module": "workflow.safety",
+            "symbol": "GitSafetyGuardrail",
+            "side_effects": "read-only Python source analysis",
+            "idempotency": "deterministic for unchanged source and fixture policy",
+            "logging": "violation path, line, code, and redacted description",
+            "failure_mode": "Git, GitHub, credential, deployment, or mixed-authority path fails closed",
+            "tests": [
+                "read-only helper pass",
+                "Git mutation rejection",
+                "GitHub mutation rejection",
+                "credential rejection",
+                "temporary fixture allowance"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-git-safety.json"
         }
     ],
     "composition_policy": {
@@ -208,7 +285,11 @@
             "fetch_and_require_sync",
             "next_action_id",
             "allocate_action_id",
-            "insert_recipe"
+            "insert_recipe",
+            "git_read",
+            "atomic_write",
+            "build_git_proposal",
+            "scan_helper_safety"
         ],
         "require_registered_primitive_ids": true,
         "require_thin_wrapper": true
@@ -237,7 +318,12 @@
         "remote_sync_required": true,
         "exact_path_scope_required": true,
         "atomic_file_write_required": true,
-        "candidate_makefile_parse_required": true
+        "candidate_makefile_parse_required": true,
+        "downloaded_helper_git_mutation_forbidden": true,
+        "operator_one_boundary_required": true,
+        "preserve_existing_file_mode_required": true,
+        "personal_credentials_in_generated_code_forbidden": true,
+        "production_git_repository_primitive_restricted": true
     },
     "evolution_policy": {
         "failure_updates_primitive_and_regression_test": true,
@@ -265,5 +351,13 @@
         "wrapper_only_defects",
         "time_to_validated_implementation",
         "avoidable_rework"
-    ]
+    ],
+    "git_safety_policy": {
+        "production_helpers_use_git_inspect_only": true,
+        "git_repository_allowed_scope": "isolated-temporary-repository-tests",
+        "github_mutation_by_helper_forbidden": true,
+        "deployment_mutation_by_helper_forbidden": true,
+        "personal_credential_inheritance_forbidden": true,
+        "operator_proposal_required_for_mutation": true
+    }
 }

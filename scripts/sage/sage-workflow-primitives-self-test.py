@@ -14,13 +14,18 @@ SAGE_DIR = ROOT / "scripts" / "sage"
 sys.path.insert(0, str(SAGE_DIR))
 
 from workflow import (  # noqa: E402
+    AtomicFileTransaction,
+    AtomicFileWriter,
     CloseoutWriter,
     CommandRunner,
     CommandSpec,
+    GitInspector,
     GitRepository,
+    GitSafetyGuardrail,
     ImprovementActionClient,
     JsonlEventLogger,
     MakefileDocument,
+    OperatorGitProposal,
     PrimitiveCatalog,
     SageDiscovery,
     Step,
@@ -47,7 +52,7 @@ def registry_fixture(path: Path) -> PrimitiveCatalog:
     path.write_text(
         json.dumps(
             {
-                "framework_version": "0.2.0",
+                "framework_version": "0.3.0",
                 "primitives": [
                     {
                         "primitive_id": "command.run",
@@ -56,6 +61,11 @@ def registry_fixture(path: Path) -> PrimitiveCatalog:
                     },
                     {
                         "primitive_id": "git.repository",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "git.inspect",
                         "version": "1.0.0",
                         "maturity": "pilot",
                     },
@@ -86,6 +96,21 @@ def registry_fixture(path: Path) -> PrimitiveCatalog:
                     },
                     {
                         "primitive_id": "usage.summary",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "file.atomic-preserve-mode",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "operator.git-proposal",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "git.safety-guardrail",
                         "version": "1.0.0",
                         "maturity": "pilot",
                     },
@@ -383,6 +408,98 @@ def test_git_and_lifecycle_runtime(root: Path) -> None:
     repository.require_synced(branch)
 
 
+
+def test_least_authority_foundations(root: Path) -> None:
+    inspect_root = root / "inspect-fixture"
+    inspect_root.mkdir()
+    _, work = prepare_git_repository(inspect_root)
+    (work / "README.md").write_text("baseline\n", encoding="utf-8")
+    fixture_command("git", "add", ".", cwd=work)
+    fixture_command("git", "commit", "-m", "baseline", cwd=work)
+    fixture_command("git", "push", "-u", "origin", "HEAD", cwd=work)
+
+    logger = JsonlEventLogger(
+        root / "least-authority-events.jsonl",
+        "least-authority-self-test",
+        primitive_versions={
+            "git.inspect": "1.0.0",
+            "file.atomic-preserve-mode": "1.0.0",
+            "operator.git-proposal": "1.0.0",
+            "git.safety-guardrail": "1.0.0",
+        },
+    )
+    runner = CommandRunner(logger, allowed_roots=(root,))
+    inspector = GitInspector(work, runner)
+    clean = inspector.snapshot()
+    if clean.working_tree_status != "clean":
+        raise RuntimeError("git.inspect clean snapshot failed")
+    inspector.require_upstream_equal()
+    try:
+        inspector.run_read_only(("add", "README.md"))
+    except Exception:
+        pass
+    else:
+        raise RuntimeError("git.inspect accepted a mutating subcommand")
+
+    (work / "README.md").write_text("baseline\nchanged\n", encoding="utf-8")
+    if inspector.changed_paths() != {"README.md"}:
+        raise RuntimeError("git.inspect changed-path scope failed")
+
+    files_root = root / "files"
+    files_root.mkdir()
+    executable = files_root / "tool.py"
+    executable.write_text("print('old')\n", encoding="utf-8")
+    executable.chmod(0o755)
+    writer = AtomicFileWriter((files_root,))
+    writer.write_text(executable, "print('new')\n")
+    if executable.stat().st_mode & 0o777 != 0o755:
+        raise RuntimeError("atomic writer did not preserve executable mode")
+    rollback = files_root / "rollback.txt"
+    rollback.write_text("before\n", encoding="utf-8")
+    try:
+        with AtomicFileTransaction(writer, (rollback,)) as transaction:
+            transaction.write_text(rollback, "after\n")
+            raise RuntimeError("force rollback")
+    except RuntimeError as error:
+        if str(error) != "force rollback":
+            raise
+    if rollback.read_text(encoding="utf-8") != "before\n":
+        raise RuntimeError("atomic transaction rollback failed")
+
+    proposal = OperatorGitProposal.build(
+        proposal_id="SAGE-GIT-20260801-001",
+        controller="self-test",
+        repository=clean,
+        authority_receipt="fixture:authority",
+        component_manifest="fixture:manifest",
+        boundary="stage",
+        change_scope=("README.md",),
+        validation=({
+            "label": "fixture validation",
+            "status": "pass",
+            "reference": "fixture:validation",
+            "sha256": None,
+        },),
+        command_argv=("git", "add", "--", "README.md"),
+        expected_result="README.md is staged.",
+        risk="Only the declared fixture path is staged.",
+        rollback="Run git restore --staged -- README.md.",
+        post_command_verification=("git diff --cached --name-only",),
+        created_at="2026-08-01T21:55:00-05:00",
+    )
+    if proposal["command"]["executed_by_helper"] is not False:
+        raise RuntimeError("operator proposal execution contract failed")
+    if proposal["command"]["command_count"] != 1:
+        raise RuntimeError("operator proposal command count failed")
+
+    safe = "from workflow import GitInspector\nPRIMITIVES_USED = ('git.inspect',)\n"
+    bad = "import subprocess\nsubprocess.run(['git', 'push', 'origin', 'main'])\n"
+    if GitSafetyGuardrail.scan_source(safe, path=root / "safe.py"):
+        raise RuntimeError("Git safety guardrail rejected safe source")
+    violations = GitSafetyGuardrail.scan_source(bad, path=root / "bad.py")
+    if not any(item.code == "GIT-MUTATION" for item in violations):
+        raise RuntimeError("Git safety guardrail accepted Git mutation")
+
 def test_discovery_parser() -> None:
     fixture = """
 Kalaxy3 SAGE change discovery: PASS
@@ -541,12 +658,14 @@ def main() -> int:
         root = Path(raw)
         test_runner_and_logging(root)
         test_git_and_lifecycle_runtime(root)
+        test_least_authority_foundations(root)
         test_discovery_parser()
         test_makefile_runtime(root)
         test_catalog_composition_closeout_usage(root)
 
     print("PASS command execution, timeout, redaction, and version logging")
     print("PASS temporary-remote Git and canonical action lifecycle adapters")
+    print("PASS least-authority Git inspection, atomic files, operator proposals, and safety")
     print("PASS SAGE discovery parsing")
     print("PASS single-line and multiline Makefile composition")
     print("PASS registered workflow composition and atomic closeout")
