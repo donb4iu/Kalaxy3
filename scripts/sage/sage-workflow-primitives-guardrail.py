@@ -31,13 +31,17 @@ SAFETY_CLI = SAGE_DIR / "sage-git-safety-guardrail.py"
 GAP_ROOT = ROOT / "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001"
 sys.path.insert(0, str(SAGE_DIR))
 
-from workflow import GitSafetyGuardrail, MakefileDocument  # noqa: E402
+from workflow import AuthorityReconciler, ComponentSelector, FailureDiagnoser, GitSafetyGuardrail, MakefileDocument  # noqa: E402
 
 REQUIRED_MODULES = {
     "workflow.catalog": "PrimitiveCatalog",
     "workflow.runner": "CommandRunner",
     "workflow.git": "GitRepository",
     "workflow.git_inspect": "GitInspector",
+    "workflow.authority": "AuthorityReconciler",
+    "workflow.selection": "ComponentSelector",
+    "workflow.gaps": "CapabilityGapRecorder",
+    "workflow.diagnosis": "FailureDiagnoser",
     "workflow.files": "AtomicFileWriter",
     "workflow.proposal": "OperatorGitProposal",
     "workflow.safety": "GitSafetyGuardrail",
@@ -66,6 +70,11 @@ REQUIRED_PRINCIPLES = {
     "mode-preserving atomic file replacement",
     "operator-executed one-boundary proposals",
     "production helper Git and credential safety",
+    "federated authority assertions remain separate from inference",
+    "explicit component ranking without opaque composite scores",
+    "capability-gap proof before new primitives",
+    "failure diagnosis before corrective mutation",
+    "versioned composition manifests",
 }
 
 
@@ -135,8 +144,8 @@ def validate_registry(payload: dict[str, Any]) -> list[str]:
     failures: list[str] = []
     if payload.get("schema_version") != "1.0":
         failures.append("registry schema_version must be 1.0")
-    if payload.get("framework_version") != "0.3.0":
-        failures.append("registry framework_version must be 0.3.0")
+    if payload.get("framework_version") != "0.4.0":
+        failures.append("registry framework_version must be 0.4.0")
     if payload.get("status") != "pilot":
         failures.append("new framework must begin at pilot maturity")
 
@@ -534,6 +543,11 @@ def validate_docs_and_authority() -> list[str]:
             "scripts/sage/workflow/files.py",
             "scripts/sage/workflow/proposal.py",
             "scripts/sage/workflow/safety.py",
+            "scripts/sage/workflow/authority.py",
+            "scripts/sage/workflow/selection.py",
+            "scripts/sage/workflow/gaps.py",
+            "scripts/sage/workflow/diagnosis.py",
+            "scripts/sage/sage-decision-primitives-guardrail.py",
             "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
             "markdown/standards/kalaxy3-sage-workflow-primitives-process.md",
             "markdown/standards/sage-workflow-primitives-schema-v1.0.json",
@@ -564,11 +578,26 @@ def validate_gap_receipts(payload: dict[str, Any]) -> list[str]:
     if manifest.get("composite_score_enabled") is not False:
         failures.append("Phase 2 component manifest must not enable a composite score")
 
+
+    phase3_manifest_path = GAP_ROOT / "component-selection-decision-primitives.json"
+    if not phase3_manifest_path.is_file():
+        failures.append("approved Phase 3 component-selection manifest is missing")
+    else:
+        phase3_manifest = json.loads(phase3_manifest_path.read_text(encoding="utf-8"))
+        if phase3_manifest.get("approval", {}).get("status") != "approved":
+            failures.append("Phase 3 component manifest must be approved")
+        if phase3_manifest.get("composite_score_enabled") is not False:
+            failures.append("Phase 3 component manifest must not enable a composite score")
+
     expected = {
         "git.inspect": GAP_ROOT / "capability-gap-git-inspect.json",
         "file.atomic-preserve-mode": GAP_ROOT / "capability-gap-atomic-file.json",
         "operator.git-proposal": GAP_ROOT / "capability-gap-operator-proposal.json",
         "git.safety-guardrail": GAP_ROOT / "capability-gap-git-safety.json",
+        "authority.reconcile": GAP_ROOT / "capability-gap-authority-reconcile.json",
+        "component.select": GAP_ROOT / "capability-gap-component-select.json",
+        "capability.gap": GAP_ROOT / "capability-gap-capability-gap.json",
+        "failure.diagnose": GAP_ROOT / "capability-gap-failure-diagnose.json",
     }
     registry_entries = {
         item.get("primitive_id"): item
@@ -683,6 +712,7 @@ def main() -> int:
     print("PASS versioned primitive registry and pilot maturity")
     print("PASS centralized command, Git, discovery, lifecycle, Make, and evidence paths")
     print("PASS least-authority Git inspection, atomic writes, operator proposals, and helper safety")
+    print("PASS authority reconciliation, component selection, capability gaps, and failure diagnosis")
     print("PASS structured versioned logging, redaction, and fsync")
     print("PASS explicit mutation, synchronization, exact scope, and candidate parsing")
     print("PASS thin compositions without direct subprocess or duplicated helpers")

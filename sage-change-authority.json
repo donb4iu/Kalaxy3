@@ -33,6 +33,11 @@
                 "AGENTS.md",
                 "SAGE.md",
                 "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-authority-reconcile.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-capability-gap.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-component-select.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-failure-diagnose.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-decision-primitives.json",
                 "markdown/standards/kalaxy3-sage-actionable-failure-contract.md",
                 "markdown/standards/kalaxy3-sage-change-discovery-process.md",
                 "markdown/standards/kalaxy3-sage-operating-contract.md",
@@ -46,6 +51,7 @@
                 "scripts/sage/sage-actionable-failure-audit.py",
                 "scripts/sage/sage-actionable-failure-guardrail.py",
                 "scripts/sage/sage-actionable-failure-self-test.py",
+                "scripts/sage/sage-decision-primitives-guardrail.py",
                 "scripts/sage/sage-file-delivery-guardrail.py",
                 "scripts/sage/sage-git-safety-guardrail.py",
                 "scripts/sage/sage-validator-runner.py",
@@ -53,7 +59,11 @@
                 "scripts/sage/sage-yaml-metadata-source-self-test.py",
                 "scripts/sage/sage_actionable_failure.py",
                 "scripts/sage/sage_yaml_metadata.py",
-                "scripts/sage/workflow/safety.py"
+                "scripts/sage/workflow/authority.py",
+                "scripts/sage/workflow/diagnosis.py",
+                "scripts/sage/workflow/gaps.py",
+                "scripts/sage/workflow/safety.py",
+                "scripts/sage/workflow/selection.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
@@ -317,6 +327,11 @@
                 "AGENTS.md",
                 "SAGE.md",
                 "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-authority-reconcile.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-capability-gap.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-component-select.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-failure-diagnose.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-decision-primitives.json",
                 "markdown/standards/kalaxy3-sage-change-discovery-process.md",
                 "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
                 "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md",
@@ -350,6 +365,7 @@
                 "scripts/sage/sage-candidate-lifecycle-guardrail.py",
                 "scripts/sage/sage-candidate-lifecycle.py",
                 "scripts/sage/sage-continuous-improvement-guardrail.py",
+                "scripts/sage/sage-decision-primitives-guardrail.py",
                 "scripts/sage/sage-feedback-compare.py",
                 "scripts/sage/sage-feedback-guardrail.py",
                 "scripts/sage/sage-improvement-actions.py",
@@ -357,7 +373,11 @@
                 "scripts/sage/sage-lessons.py",
                 "scripts/sage/sage-post-session-review-guardrail.py",
                 "scripts/sage/sage-post-session-review.py",
-                "scripts/sage/sage-session-score.py"
+                "scripts/sage/sage-session-score.py",
+                "scripts/sage/workflow/authority.py",
+                "scripts/sage/workflow/diagnosis.py",
+                "scripts/sage/workflow/gaps.py",
+                "scripts/sage/workflow/selection.py"
             ],
             "baseline_checks": [
                 "make sage-active-session-self-test",
@@ -740,7 +760,8 @@
                 "what should have been done",
                 "operator-executed",
                 "git mutation gate",
-                "git safety"
+                "git safety",
+                "capability gap"
             ],
             "path_prefixes": [
                 "sage-workflow-primitives.json",
@@ -760,6 +781,11 @@
                 "AGENTS.md",
                 "SAGE.md",
                 "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-authority-reconcile.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-capability-gap.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-component-select.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-failure-diagnose.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-decision-primitives.json",
                 "markdown/standards/kalaxy3-sage-change-discovery-process.md",
                 "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
                 "markdown/standards/kalaxy3-sage-operating-contract.md",
@@ -776,6 +802,7 @@
                 "sage-operating-contract-policy.json",
                 "sage-workflow-primitives.json",
                 "scripts/sage/sage-action-id.py",
+                "scripts/sage/sage-decision-primitives-guardrail.py",
                 "scripts/sage/sage-git-safety-guardrail.py",
                 "scripts/sage/sage-python-static-guardrail.py",
                 "scripts/sage/sage-workflow-primitives-guardrail.py",
@@ -784,10 +811,14 @@
                 "scripts/sage/sage-workflow-usage.py",
                 "scripts/sage/sage_identifiers.py",
                 "scripts/sage/workflow/",
+                "scripts/sage/workflow/authority.py",
+                "scripts/sage/workflow/diagnosis.py",
                 "scripts/sage/workflow/files.py",
+                "scripts/sage/workflow/gaps.py",
                 "scripts/sage/workflow/git_inspect.py",
                 "scripts/sage/workflow/proposal.py",
                 "scripts/sage/workflow/safety.py",
+                "scripts/sage/workflow/selection.py",
                 "scripts/sage/workflows/"
             ],
             "baseline_checks": [

@@ -1,6 +1,6 @@
 {
     "schema_version": "1.0",
-    "framework_version": "0.3.0",
+    "framework_version": "0.4.0",
     "status": "pilot",
     "principles": [
         "single-responsibility primitives",
@@ -18,7 +18,12 @@
         "least-authority read-only Git inspection",
         "mode-preserving atomic file replacement",
         "operator-executed one-boundary proposals",
-        "production helper Git and credential safety"
+        "production helper Git and credential safety",
+        "federated authority assertions remain separate from inference",
+        "explicit component ranking without opaque composite scores",
+        "capability-gap proof before new primitives",
+        "failure diagnosis before corrective mutation",
+        "versioned composition manifests"
     ],
     "primitives": [
         {
@@ -268,6 +273,82 @@
             ],
             "maturity": "pilot",
             "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-git-safety.json"
+        },
+        {
+            "primitive_id": "authority.reconcile",
+            "version": "1.0.0",
+            "module": "workflow.authority",
+            "symbol": "AuthorityReconciler",
+            "side_effects": "in-memory authority receipt construction only",
+            "idempotency": "deterministic for fixed assertions and capture time",
+            "logging": "caller records receipt identifier, disposition, conflicts, and unknowns without raw credentials",
+            "failure_mode": "unsupported assertion, conflict, stale material authority, or missing required authority blocks mutation",
+            "tests": [
+                "complete authority",
+                "missing authority",
+                "stale authority",
+                "material conflict",
+                "inference separation"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-authority-reconcile.json"
+        },
+        {
+            "primitive_id": "component.select",
+            "version": "1.0.0",
+            "module": "workflow.selection",
+            "symbol": "ComponentSelector",
+            "side_effects": "in-memory component-selection and composition manifest construction only",
+            "idempotency": "deterministic for fixed capabilities, candidates, approval, and capture time",
+            "logging": "caller records candidate dispositions, selected versions, composition order, and unresolved gaps",
+            "failure_mode": "missing capability, ineligible candidate, duplicate identifier, or unresolved required gap fails closed",
+            "tests": [
+                "explicit factor ranking",
+                "least-authority selection",
+                "rejected alternatives retained",
+                "unresolved gap rejection",
+                "composite score disabled"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-component-select.json"
+        },
+        {
+            "primitive_id": "capability.gap",
+            "version": "1.0.0",
+            "module": "workflow.gaps",
+            "symbol": "CapabilityGapRecorder",
+            "side_effects": "in-memory capability-gap receipt construction and approval validation only",
+            "idempotency": "deterministic for fixed receipt inputs",
+            "logging": "caller records gap identifier, candidates considered, proposed primitive, and approval state",
+            "failure_mode": "missing candidate evidence, composition-closable gap, unapproved receipt, or non-pilot primitive fails closed",
+            "tests": [
+                "candidate insufficiency",
+                "composition sufficiency rejection",
+                "approval required",
+                "pilot maturity required"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-capability-gap.json"
+        },
+        {
+            "primitive_id": "failure.diagnose",
+            "version": "1.0.0",
+            "module": "workflow.diagnosis",
+            "symbol": "FailureDiagnoser",
+            "side_effects": "in-memory structured failure diagnosis only",
+            "idempotency": "deterministic for fixed diagnosis inputs and record time",
+            "logging": "caller records expected and actual paths, ownership, recurrence, lesson use, and correction without secrets",
+            "failure_mode": "missing evidence, incomplete paths, absent divergence reason, missing lesson retrieval, or uncontrolled recurrence fails closed",
+            "tests": [
+                "new failure",
+                "known recurrence",
+                "path divergence",
+                "lesson retrieval",
+                "no-action rationale",
+                "recurrence control"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-failure-diagnose.json"
         }
     ],
     "composition_policy": {
@@ -292,7 +373,9 @@
             "scan_helper_safety"
         ],
         "require_registered_primitive_ids": true,
-        "require_thin_wrapper": true
+        "require_thin_wrapper": true,
+        "component_selection_manifest_required": true,
+        "composition_order_required": true
     },
     "logging_policy": {
         "format": "jsonl",
@@ -334,7 +417,9 @@
             "pilot": "0-2 successful production executions",
             "validated": "3-9 successful production executions with no open recurrence",
             "stable": "10 or more successful production executions with measured reuse"
-        }
+        },
+        "failure_diagnosis_before_retry": true,
+        "capability_gap_receipt_before_new_primitive": true
     },
     "usage_policy": {
         "event_log_root": "~/.local/state/kalaxy3/sage-workflows",
@@ -350,7 +435,12 @@
         "known_failure_recurrences",
         "wrapper_only_defects",
         "time_to_validated_implementation",
-        "avoidable_rework"
+        "avoidable_rework",
+        "authority_reconciliations",
+        "component_candidates_considered",
+        "component_selections",
+        "capability_gap_receipts",
+        "failure_diagnoses"
     ],
     "git_safety_policy": {
         "production_helpers_use_git_inspect_only": true,

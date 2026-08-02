@@ -14,19 +14,26 @@ SAGE_DIR = ROOT / "scripts" / "sage"
 sys.path.insert(0, str(SAGE_DIR))
 
 from workflow import (  # noqa: E402
+    AuthorityAssertion,
+    AuthorityReconciler,
     AtomicFileTransaction,
     AtomicFileWriter,
+    CapabilityGapRecorder,
     CloseoutWriter,
+    ComponentCandidate,
+    ComponentSelector,
     CommandRunner,
     CommandSpec,
     GitInspector,
     GitRepository,
     GitSafetyGuardrail,
+    FailureDiagnoser,
     ImprovementActionClient,
     JsonlEventLogger,
     MakefileDocument,
     OperatorGitProposal,
     PrimitiveCatalog,
+    RequiredCapability,
     SageDiscovery,
     Step,
     UsageAnalyzer,
@@ -52,7 +59,7 @@ def registry_fixture(path: Path) -> PrimitiveCatalog:
     path.write_text(
         json.dumps(
             {
-                "framework_version": "0.3.0",
+                "framework_version": "0.4.0",
                 "primitives": [
                     {
                         "primitive_id": "command.run",
@@ -96,6 +103,26 @@ def registry_fixture(path: Path) -> PrimitiveCatalog:
                     },
                     {
                         "primitive_id": "usage.summary",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "authority.reconcile",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "component.select",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "capability.gap",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "failure.diagnose",
                         "version": "1.0.0",
                         "maturity": "pilot",
                     },
@@ -651,6 +678,36 @@ def test_catalog_composition_closeout_usage(root: Path) -> None:
         raise RuntimeError("usage primitive summary is empty")
 
 
+
+def test_decision_and_diagnosis_primitives() -> None:
+    repository = {"path": ".", "branch": "main", "head": "a" * 40, "upstream_head": "a" * 40, "working_tree_clean": True}
+    assertions = (
+        AuthorityAssertion("AUTH-001", "git", "repository", "HEAD", "2026-08-01T22:00:00-05:00", "current", "git.head", "a" * 40, "measured", "high", "material", None),
+        AuthorityAssertion("AUTH-002", "repository-policy", "repository", "policy", "2026-08-01T22:00:00-05:00", "current", "policy.state", "staged", "declared", "high", "material", None),
+    )
+    receipt = AuthorityReconciler(("git", "repository-policy")).reconcile(receipt_id="SAGE-AUTH-20260801-997", request="fixture", repository=repository, assertions=assertions, evidence_references=("fixture",), captured_at="2026-08-01T22:00:00-05:00")
+    if receipt.mutation_gate["status"] != "review-ready":
+        raise RuntimeError("complete authority was not review-ready")
+    conflict = AuthorityReconciler(("git",)).reconcile(receipt_id="SAGE-AUTH-20260801-996", request="fixture", repository=repository, assertions=(assertions[0], AuthorityAssertion("AUTH-003", "git", "repository", "other", "2026-08-01T22:00:00-05:00", "current", "git.head", "b" * 40, "measured", "high", "material", None)), evidence_references=("fixture",), captured_at="2026-08-01T22:00:00-05:00")
+    if conflict.mutation_gate["status"] != "blocked":
+        raise RuntimeError("material authority conflict did not block mutation")
+
+    selector = ComponentSelector()
+    capability = RequiredCapability("CAP-997", "fixture")
+    selected = ComponentCandidate("CANDIDATE-997", ("CAP-997",), "good", "1.0.0", "good.py", "pilot", {"applicability":"direct","authority_compatibility":"compatible","mutation_scope_fit":"least-authority","published_interface_verified":True,"successful_production_executions":None,"failed_production_executions":None,"open_recurrence":"no","runtime_test_coverage":"positive-and-negative"}, ("fixture",), "least authority")
+    rejected = ComponentCandidate("CANDIDATE-996", ("CAP-997",), "bad", "1.0.0", "bad.py", "pilot", {"applicability":"partial","authority_compatibility":"compatible","mutation_scope_fit":"broader-than-required","published_interface_verified":True,"successful_production_executions":10,"failed_production_executions":0,"open_recurrence":"no","runtime_test_coverage":"positive-and-negative"}, ("fixture",), "broader")
+    manifest = selector.build_manifest(manifest_id="SAGE-COMP-20260801-997", request="fixture", authority_receipt="fixture", capabilities=(capability,), candidates=(rejected, selected), approval={"status":"approved","reviewed_by":"operator","reviewed_at":"2026-08-01T22:00:00-05:00","rationale":"fixture"}, created_at="2026-08-01T22:00:00-05:00")
+    selector.require_complete(manifest)
+    if manifest["selections"][0]["component_id"] != "good" or manifest["candidates"][0]["disposition"] != "rejected":
+        raise RuntimeError("component selection or rejected-alternative retention failed")
+
+    gap = CapabilityGapRecorder.create(gap_id="SAGE-GAP-20260801-997", request="fixture", authority_receipt="fixture", component_manifest="fixture", required_capability="fixture", candidates_considered=({"component_id":"old","version":"1.0.0","source_path":"old.py","insufficiency":"missing","composition_can_close_gap":False},), missing_interface_or_behavior="missing", why_configuration_is_insufficient="cannot configure", why_composition_is_insufficient="cannot compose", proposed_primitive={"primitive_id":"new.fixture","responsibility":"fixture","side_effects":"none","idempotency":"deterministic","logging":"caller","failure_mode":"closed","runtime_tests":["positive","negative"],"initial_maturity":"pilot"}, approval={"status":"approved","reviewed_by":"operator","reviewed_at":"2026-08-01T22:00:00-05:00","rationale":"fixture"}, evidence_references=("fixture",), created_at="2026-08-01T22:00:00-05:00")
+    CapabilityGapRecorder.assert_implementation_allowed(gap)
+
+    diagnosis = FailureDiagnoser.diagnose(diagnosis_id="SAGE-DIAG-20260801-997", failure_id="FAIL-997", attempted_action="fixture", what_failed="fixture", direct_evidence=({"source":"fixture","captured_at":"2026-08-01T22:00:00-05:00","observation":"failed","artifact":"fixture","sha256":None},), actual_path={"component_id":"bad","component_version":"1.0.0","source_path":"bad.py","description":"bad"}, expected_path={"component_id":"good","component_version":"1.0.0","source_path":"good.py","description":"good"}, why_actual_path_differed="selection bypass", ownership="composition", mutation_effect={"mutation_opportunity":True,"mutation_performed":False,"detected_pre_mutation":True,"mutation_scope":"none"}, lesson_use={"retrieval_performed":True,"applicable_lesson_ids":[],"surfaced_lesson_ids":[],"used_lesson_ids":[],"nonuse_reason":None}, previous_failure_references=(), avoidable_rework_minutes=None, correction={"disposition":"update-composition","reusable_correction":"use selected component","target_control_type":"guardrail","primitive_version_bump_required":False,"regression_test_required":True,"action_reference":None,"no_action_rationale":None}, evidence_references=("fixture",), recorded_at="2026-08-01T22:00:00-05:00")
+    if diagnosis["divergence"]["selection_failure"] is not True:
+        raise RuntimeError("failure diagnosis did not record path divergence")
+
 def main() -> int:
     with tempfile.TemporaryDirectory(
         prefix="kalaxy3-workflow-primitives-self-test-"
@@ -659,6 +716,7 @@ def main() -> int:
         test_runner_and_logging(root)
         test_git_and_lifecycle_runtime(root)
         test_least_authority_foundations(root)
+        test_decision_and_diagnosis_primitives()
         test_discovery_parser()
         test_makefile_runtime(root)
         test_catalog_composition_closeout_usage(root)
@@ -666,6 +724,7 @@ def main() -> int:
     print("PASS command execution, timeout, redaction, and version logging")
     print("PASS temporary-remote Git and canonical action lifecycle adapters")
     print("PASS least-authority Git inspection, atomic files, operator proposals, and safety")
+    print("PASS authority reconciliation, component selection, capability gaps, and failure diagnosis")
     print("PASS SAGE discovery parsing")
     print("PASS single-line and multiline Makefile composition")
     print("PASS registered workflow composition and atomic closeout")

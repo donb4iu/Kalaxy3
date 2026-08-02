@@ -125,3 +125,15 @@ Phase 2 adds four pilot primitives without activating autonomous mutation:
 The mixed-authority `git.repository` primitive remains available only to isolated temporary-repository tests and legacy operator-owned compositions until migrated. Downloaded implementation helpers must use `git.inspect` for repository state and must not import or instantiate `GitRepository`.
 
 Every new Phase 2 primitive is linked to an approved capability-gap receipt and an approved component-selection manifest under `markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/`. The framework remains a staged implementation; deployment and autonomous Git or GitHub mutation remain unauthorized.
+
+
+## Decision and diagnosis primitives
+
+Framework version 0.4.0 adds four pilot primitives:
+
+- `authority.reconcile@1.0.0` keeps scoped source assertions separate from inference, reports conflicts and unknowns, and blocks mutation unless material authority is complete.
+- `component.select@1.0.0` ranks repository-owned candidates using explicit ordered factors, retains rejected alternatives, and emits a versioned composition manifest without an opaque composite score.
+- `capability.gap@1.0.0` proves configuration and composition are insufficient and requires operator approval before a new primitive may be implemented.
+- `failure.diagnose@1.0.0` records direct evidence, expected and actual component paths, divergence, ownership, lesson use, recurrence, avoidable rework when measured, and a reusable correction before another corrective mutation.
+
+These primitives construct typed in-memory records. Repository writes remain the responsibility of `file.atomic-preserve-mode`; Git and GitHub mutation remain operator-executed boundaries.

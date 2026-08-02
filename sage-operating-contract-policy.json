@@ -45,7 +45,8 @@
         "source_assertions_separate_from_inference": true,
         "material_conflicts_block_mutation": true,
         "stale_material_authority_blocks_mutation": true,
-        "unknown_values_remain_explicit": true
+        "unknown_values_remain_explicit": true,
+        "required_reconciliation_primitive": "authority.reconcile"
     },
     "component_policy": {
         "repository_owned_first": true,
@@ -65,7 +66,9 @@
             "runtime-test-coverage",
             "credential-and-history-safety"
         ],
-        "wrapper_only_root_cause_patch_forbidden": true
+        "wrapper_only_root_cause_patch_forbidden": true,
+        "required_selection_primitive": "component.select",
+        "required_gap_primitive": "capability.gap"
     },
     "helper_policy": {
         "repository_content_edit_allowed": true,
@@ -120,7 +123,8 @@
         "divergence_reason_required": true,
         "ownership_required": true,
         "reusable_correction_or_no_action_required": true,
-        "second_same_class_failure_requires_control": true
+        "second_same_class_failure_requires_control": true,
+        "required_diagnosis_primitive": "failure.diagnose"
     },
     "operator_mutation_policy": {
         "operator_executed": true,
@@ -186,19 +190,25 @@
         "deployment_authorized": false,
         "autonomous_mutation_authorized": false,
         "remaining_phases": [
-            "decision-and-diagnosis-primitives",
             "semantic-outcome-measurement",
             "root-enforcement-and-evidence"
         ],
         "completed_phases": [
             "policy-and-schema",
-            "least-authority-safety-foundations"
+            "least-authority-safety-foundations",
+            "decision-and-diagnosis-primitives"
         ],
         "foundation_primitives": [
             "git.inspect@1.0.0",
             "file.atomic-preserve-mode@1.0.0",
             "operator.git-proposal@1.0.0",
             "git.safety-guardrail@1.0.0"
+        ],
+        "decision_primitives": [
+            "authority.reconcile@1.0.0",
+            "component.select@1.0.0",
+            "capability.gap@1.0.0",
+            "failure.diagnose@1.0.0"
         ]
     }
 }
