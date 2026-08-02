@@ -1,0 +1,61 @@
+---
+- name: Validate staged Grafana operations telemetry
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+
+  vars_files:
+    - ../inventory/group_vars/all/main.yml
+
+  vars:
+    ansible_become: false
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+    grafana_operations_render_dir: >-
+      /tmp/kalaxy3-grafana-operations-render
+
+  pre_tasks:
+    - name: Require repository-managed Python
+      ansible.builtin.assert:
+        that:
+          - >-
+            ansible_playbook_python
+            is match('^.*/\.venv/bin/python$')
+        fail_msg: >-
+          Run this playbook from infrastructure/k3s-homelab with
+          .venv/bin/ansible-playbook.
+
+    - name: Require staged deployment gate
+      ansible.builtin.assert:
+        that:
+          - not (deploy_grafana_operations_dashboard | bool)
+        fail_msg: >-
+          Refusing render-only validation because the Grafana operations
+          deployment gate is open.
+
+    - name: Recreate render directory
+      ansible.builtin.file:
+        path: "{{ grafana_operations_render_dir }}"
+        state: absent
+
+    - name: Create render directory
+      ansible.builtin.file:
+        path: "{{ grafana_operations_render_dir }}"
+        state: directory
+        mode: "0755"
+
+  tasks:
+    - name: Render telemetry ServiceMonitors
+      ansible.builtin.template:
+        src: templates/grafana-operations-servicemonitors.yml.j2
+        dest: >-
+          {{ grafana_operations_render_dir }}/servicemonitors.yml
+        mode: "0644"
+
+    - name: Validate rendered telemetry ServiceMonitors
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - "{{ playbook_dir }}/../scripts/validate-grafana-operations-yaml.py"
+          - "{{ grafana_operations_render_dir }}/servicemonitors.yml"
+      changed_when: false

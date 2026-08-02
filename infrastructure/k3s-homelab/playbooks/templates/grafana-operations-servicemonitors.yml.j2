@@ -1,0 +1,73 @@
+# Repository-owned scrape coverage for the Kalaxy3 operations dashboard.
+# Deployment remains staged while deploy_grafana_operations_dashboard=false.
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kalaxy3-kubecost-kubecost-aggregator-metrics
+  namespace: "{{ grafana_operations_namespace }}"
+  labels:
+    release: kube-prometheus-stack
+    kalaxy3.io/component: grafana-operations
+    kalaxy3.io/telemetry-family: kubecost
+spec:
+  namespaceSelector:
+    matchNames:
+      - "kubecost"
+  selector:
+    matchLabels:
+      "app": "aggregator"
+      "app.kubernetes.io/instance": "kubecost"
+      "app.kubernetes.io/name": "aggregator"
+  endpoints:
+    - port: "tcp-api"
+      path: "/metrics"
+      scheme: "http"
+      interval: "30s"
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kalaxy3-kubecost-kubecost-finopsagent-metrics
+  namespace: "{{ grafana_operations_namespace }}"
+  labels:
+    release: kube-prometheus-stack
+    kalaxy3.io/component: grafana-operations
+    kalaxy3.io/telemetry-family: kubecost
+spec:
+  namespaceSelector:
+    matchNames:
+      - "kubecost"
+  selector:
+    matchLabels:
+      "app.kubernetes.io/instance": "kubecost"
+      "app.kubernetes.io/name": "finopsagent"
+  endpoints:
+    - port: "http"
+      path: "/metrics"
+      scheme: "http"
+      interval: "30s"
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kalaxy3-longhorn-longhorn-backend-metrics
+  namespace: "{{ grafana_operations_namespace }}"
+  labels:
+    release: kube-prometheus-stack
+    kalaxy3.io/component: grafana-operations
+    kalaxy3.io/telemetry-family: longhorn
+spec:
+  namespaceSelector:
+    matchNames:
+      - "longhorn-system"
+  selector:
+    matchLabels:
+      "app": "longhorn-manager"
+      "app.kubernetes.io/instance": "longhorn"
+      "app.kubernetes.io/name": "longhorn"
+  endpoints:
+    - port: "manager"
+      path: "/metrics"
+      scheme: "http"
+      interval: "30s"

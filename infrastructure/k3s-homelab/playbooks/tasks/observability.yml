@@ -194,6 +194,39 @@
     - centralized-logging
     - grafana
 
+# BEGIN KALAXY3 GRAFANA OPERATIONS TELEMETRY
+- name: Write Grafana operations telemetry ServiceMonitors
+  ansible.builtin.template:
+    src: grafana-operations-servicemonitors.yml.j2
+    dest: /tmp/grafana-operations-servicemonitors.yml
+    mode: "0644"
+  when:
+    - install_observability | bool
+    - deploy_grafana_operations_dashboard | bool
+  tags:
+    - grafana
+    - grafana-operations
+
+- name: Provision Grafana operations telemetry ServiceMonitors
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - apply
+      - --filename
+      - /tmp/grafana-operations-servicemonitors.yml
+  register: grafana_operations_servicemonitors_apply
+  changed_when: >-
+    ' created' in grafana_operations_servicemonitors_apply.stdout
+    or ' configured' in grafana_operations_servicemonitors_apply.stdout
+  when:
+    - install_observability | bool
+    - deploy_grafana_operations_dashboard | bool
+  tags:
+    - grafana
+    - grafana-operations
+# END KALAXY3 GRAFANA OPERATIONS TELEMETRY
+
 - name: Find eligible Kubecost Intel nodes
   ansible.builtin.command:
     argv:
