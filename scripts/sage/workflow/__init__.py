@@ -12,6 +12,7 @@ from .git import GitRepository
 from .git_inspect import GitAuthoritySnapshot, GitInspector
 from .lifecycle import ImprovementActionClient
 from .logging import JsonlEventLogger
+from .metrics import OutcomeMetrics
 from .makefile import MakefileDocument
 from .proposal import OperatorGitProposal
 from .selection import ComponentCandidate, ComponentSelector, RequiredCapability
@@ -26,7 +27,7 @@ from .runner import CommandRunner
 from .usage import UsageAnalyzer
 from .validation import ValidationCommand, ValidationPlan
 
-FRAMEWORK_VERSION = "0.4.0"
+FRAMEWORK_VERSION = "0.5.0"
 
 __all__ = [
     "AuthorityAssertion",
@@ -45,6 +46,7 @@ __all__ = [
     "GitSafetyGuardrail",
     "GitSafetyViolation",
     "OperatorGitProposal",
+    "OutcomeMetrics",
     "CloseoutWriter",
     "CommandResult",
     "CommandRunner",

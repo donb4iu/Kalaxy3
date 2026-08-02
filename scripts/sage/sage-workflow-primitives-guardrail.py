@@ -31,7 +31,7 @@ SAFETY_CLI = SAGE_DIR / "sage-git-safety-guardrail.py"
 GAP_ROOT = ROOT / "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001"
 sys.path.insert(0, str(SAGE_DIR))
 
-from workflow import AuthorityReconciler, ComponentSelector, FailureDiagnoser, GitSafetyGuardrail, MakefileDocument  # noqa: E402
+from workflow import AuthorityReconciler, ComponentSelector, FailureDiagnoser, GitSafetyGuardrail, MakefileDocument, OutcomeMetrics  # noqa: E402
 
 REQUIRED_MODULES = {
     "workflow.catalog": "PrimitiveCatalog",
@@ -42,6 +42,7 @@ REQUIRED_MODULES = {
     "workflow.selection": "ComponentSelector",
     "workflow.gaps": "CapabilityGapRecorder",
     "workflow.diagnosis": "FailureDiagnoser",
+    "workflow.metrics": "OutcomeMetrics",
     "workflow.files": "AtomicFileWriter",
     "workflow.proposal": "OperatorGitProposal",
     "workflow.safety": "GitSafetyGuardrail",
@@ -75,6 +76,7 @@ REQUIRED_PRINCIPLES = {
     "capability-gap proof before new primitives",
     "failure diagnosis before corrective mutation",
     "versioned composition manifests",
+    "semantic raw metrics precede transparent derived rates and comparable trends",
 }
 
 
@@ -144,8 +146,8 @@ def validate_registry(payload: dict[str, Any]) -> list[str]:
     failures: list[str] = []
     if payload.get("schema_version") != "1.0":
         failures.append("registry schema_version must be 1.0")
-    if payload.get("framework_version") != "0.4.0":
-        failures.append("registry framework_version must be 0.4.0")
+    if payload.get("framework_version") != "0.5.0":
+        failures.append("registry framework_version must be 0.5.0")
     if payload.get("status") != "pilot":
         failures.append("new framework must begin at pilot maturity")
 
@@ -359,6 +361,13 @@ def validate_sources() -> list[str]:
             "successful_events_by_primitive_version",
             "failed_events_by_primitive_version",
         ),
+        "metrics.py": (
+            "RAW_FIELDS",
+            "DERIVED_FIELDS",
+            "composite_score_enabled",
+            "workflow_class",
+            "comparability_basis",
+        ),
     }
     for name, markers in contracts.items():
         source = (PACKAGE / name).read_text(encoding="utf-8")
@@ -505,6 +514,7 @@ def validate_docs_and_authority() -> list[str]:
             "file.atomic-preserve-mode",
             "operator.git-proposal",
             "git.safety-guardrail",
+            "metrics.outcome",
         ):
             if marker not in text:
                 failures.append(
@@ -548,6 +558,11 @@ def validate_docs_and_authority() -> list[str]:
             "scripts/sage/workflow/gaps.py",
             "scripts/sage/workflow/diagnosis.py",
             "scripts/sage/sage-decision-primitives-guardrail.py",
+            "scripts/sage/sage-outcome-metrics-guardrail.py",
+            "scripts/sage/workflow/metrics.py",
+            "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-outcome-metrics.json",
+            "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-outcome-metrics.json",
+            "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json",
             "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
             "markdown/standards/kalaxy3-sage-workflow-primitives-process.md",
             "markdown/standards/sage-workflow-primitives-schema-v1.0.json",
@@ -589,6 +604,27 @@ def validate_gap_receipts(payload: dict[str, Any]) -> list[str]:
         if phase3_manifest.get("composite_score_enabled") is not False:
             failures.append("Phase 3 component manifest must not enable a composite score")
 
+    phase4_manifest_path = GAP_ROOT / "component-selection-outcome-metrics.json"
+    if not phase4_manifest_path.is_file():
+        failures.append("approved Phase 4 component-selection manifest is missing")
+    else:
+        phase4_manifest = json.loads(phase4_manifest_path.read_text(encoding="utf-8"))
+        if phase4_manifest.get("approval", {}).get("status") != "approved":
+            failures.append("Phase 4 component manifest must be approved")
+        if phase4_manifest.get("composite_score_enabled") is not False:
+            failures.append("Phase 4 component manifest must not enable a composite score")
+    baseline_path = GAP_ROOT / "outcome-metrics-baseline.json"
+    if not baseline_path.is_file():
+        failures.append("Phase 4 outcome baseline is missing")
+    else:
+        baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+        try:
+            rebuilt = OutcomeMetrics.build_report(report_id=baseline["report_id"], captured_at=baseline["captured_at"], period=baseline["period"], workflow_class=baseline["workflow_class"], raw_metrics=baseline["raw_metrics"], provenance=baseline["provenance"], limitations=baseline["limitations"], trends=baseline["trends"])
+            if rebuilt != baseline:
+                failures.append("Phase 4 outcome baseline does not match primitive semantics")
+        except (KeyError, TypeError, ValueError) as error:
+            failures.append(f"Phase 4 outcome baseline invalid: {error}")
+
     expected = {
         "git.inspect": GAP_ROOT / "capability-gap-git-inspect.json",
         "file.atomic-preserve-mode": GAP_ROOT / "capability-gap-atomic-file.json",
@@ -598,6 +634,7 @@ def validate_gap_receipts(payload: dict[str, Any]) -> list[str]:
         "component.select": GAP_ROOT / "capability-gap-component-select.json",
         "capability.gap": GAP_ROOT / "capability-gap-capability-gap.json",
         "failure.diagnose": GAP_ROOT / "capability-gap-failure-diagnose.json",
+        "metrics.outcome": GAP_ROOT / "capability-gap-outcome-metrics.json",
     }
     registry_entries = {
         item.get("primitive_id"): item
@@ -713,6 +750,7 @@ def main() -> int:
     print("PASS centralized command, Git, discovery, lifecycle, Make, and evidence paths")
     print("PASS least-authority Git inspection, atomic writes, operator proposals, and helper safety")
     print("PASS authority reconciliation, component selection, capability gaps, and failure diagnosis")
+    print("PASS semantic outcome metrics, null preservation, and comparable trends")
     print("PASS structured versioned logging, redaction, and fsync")
     print("PASS explicit mutation, synchronization, exact scope, and candidate parsing")
     print("PASS thin compositions without direct subprocess or duplicated helpers")

@@ -183,20 +183,32 @@
             "pre_mutation_detection_rate",
             "manual_correction_rate",
             "operator_intervention_rate"
-        ]
+        ],
+        "primitive": "metrics.outcome@1.0.0",
+        "baseline_report": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json",
+        "formula_contract": {
+            "first_pass_completion_rate": "first_pass_completions / workflows_completed",
+            "semantic_false_pass_rate": "semantic_false_passes / semantic_validations",
+            "component_reuse_ratio": "components_reused / components_selected",
+            "authority_failure_rate": "authority_failures / authority_checks",
+            "known_failure_recurrence_rate": "known_failures_recurred / known_failures_encountered",
+            "pre_mutation_detection_rate": "failures_detected_pre_mutation / mutation_opportunities",
+            "manual_correction_rate": "manual_corrections / (commands_executed + manual_corrections)",
+            "operator_intervention_rate": "operator_interventions / (commands_executed + operator_interventions)"
+        }
     },
     "activation_policy": {
         "current_state": "staged-implementation",
         "deployment_authorized": false,
         "autonomous_mutation_authorized": false,
         "remaining_phases": [
-            "semantic-outcome-measurement",
             "root-enforcement-and-evidence"
         ],
         "completed_phases": [
             "policy-and-schema",
             "least-authority-safety-foundations",
-            "decision-and-diagnosis-primitives"
+            "decision-and-diagnosis-primitives",
+            "semantic-outcome-measurement"
         ],
         "foundation_primitives": [
             "git.inspect@1.0.0",
@@ -209,6 +221,9 @@
             "component.select@1.0.0",
             "capability.gap@1.0.0",
             "failure.diagnose@1.0.0"
+        ],
+        "measurement_primitives": [
+            "metrics.outcome@1.0.0"
         ]
     }
 }

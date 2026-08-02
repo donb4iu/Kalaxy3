@@ -63,7 +63,12 @@
                 "scripts/sage/workflow/diagnosis.py",
                 "scripts/sage/workflow/gaps.py",
                 "scripts/sage/workflow/safety.py",
-                "scripts/sage/workflow/selection.py"
+                "scripts/sage/workflow/selection.py",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-outcome-metrics.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-outcome-metrics.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json",
+                "scripts/sage/sage-outcome-metrics-guardrail.py",
+                "scripts/sage/workflow/metrics.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
@@ -377,7 +382,12 @@
                 "scripts/sage/workflow/authority.py",
                 "scripts/sage/workflow/diagnosis.py",
                 "scripts/sage/workflow/gaps.py",
-                "scripts/sage/workflow/selection.py"
+                "scripts/sage/workflow/selection.py",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-outcome-metrics.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-outcome-metrics.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json",
+                "scripts/sage/sage-outcome-metrics-guardrail.py",
+                "scripts/sage/workflow/metrics.py"
             ],
             "baseline_checks": [
                 "make sage-active-session-self-test",
@@ -819,7 +829,12 @@
                 "scripts/sage/workflow/proposal.py",
                 "scripts/sage/workflow/safety.py",
                 "scripts/sage/workflow/selection.py",
-                "scripts/sage/workflows/"
+                "scripts/sage/workflows/",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-outcome-metrics.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-outcome-metrics.json",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json",
+                "scripts/sage/sage-outcome-metrics-guardrail.py",
+                "scripts/sage/workflow/metrics.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail",

@@ -32,6 +32,7 @@ from workflow import (  # noqa: E402
     JsonlEventLogger,
     MakefileDocument,
     OperatorGitProposal,
+    OutcomeMetrics,
     PrimitiveCatalog,
     RequiredCapability,
     SageDiscovery,
@@ -59,7 +60,7 @@ def registry_fixture(path: Path) -> PrimitiveCatalog:
     path.write_text(
         json.dumps(
             {
-                "framework_version": "0.4.0",
+                "framework_version": "0.5.0",
                 "primitives": [
                     {
                         "primitive_id": "command.run",
@@ -138,6 +139,11 @@ def registry_fixture(path: Path) -> PrimitiveCatalog:
                     },
                     {
                         "primitive_id": "git.safety-guardrail",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "metrics.outcome",
                         "version": "1.0.0",
                         "maturity": "pilot",
                     },
@@ -708,6 +714,30 @@ def test_decision_and_diagnosis_primitives() -> None:
     if diagnosis["divergence"]["selection_failure"] is not True:
         raise RuntimeError("failure diagnosis did not record path divergence")
 
+
+def test_outcome_metrics() -> None:
+    from workflow.metrics import RAW_FIELDS
+    raw = {field: None for field in RAW_FIELDS}
+    raw.update({"workflows_completed":4,"first_pass_completions":3,"semantic_validations":2,"semantic_false_passes":0,"commands_executed":8,"manual_corrections":2,"operator_interventions":1,"authority_checks":4,"authority_failures":0,"components_selected":4,"components_reused":3,"known_failures_encountered":2,"known_failures_recurred":1,"mutation_opportunities":2,"failures_detected_pre_mutation":2})
+    report = OutcomeMetrics.build_report(report_id="SAGE-METRICS-20260801-997", captured_at="2026-08-01T22:40:00-05:00", period={"started_at":"2026-08-01T22:00:00-05:00","completed_at":"2026-08-01T22:40:00-05:00"}, workflow_class="fixture", raw_metrics=raw, provenance=({"source_type":"runtime","reference":"fixture","measurement_type":"measured","captured_at":"2026-08-01T22:40:00-05:00"},), limitations=("fixture",))
+    if report["derived_metrics"]["first_pass_completion_rate"] != 0.75 or report["derived_metrics"]["component_reuse_ratio"] != 0.75:
+        raise RuntimeError("outcome metric derivation failed")
+    baseline = {**report, "report_id":"SAGE-METRICS-20260801-996", "derived_metrics":{**report["derived_metrics"], "first_pass_completion_rate":0.5}}
+    if OutcomeMetrics.trend(metric="first_pass_completion_rate", current_report=report, baseline_report=baseline, direction="higher-is-better", comparability_basis="same fixture class")["result"] != "improved":
+        raise RuntimeError("outcome trend comparison failed")
+    try:
+        OutcomeMetrics.derive({**raw,"first_pass_completions":5})
+    except ValueError:
+        pass
+    else:
+        raise RuntimeError("invalid outcome subset was accepted")
+    try:
+        OutcomeMetrics.trend(metric="first_pass_completion_rate", current_report=report, baseline_report={**baseline,"workflow_class":"other"}, direction="higher-is-better", comparability_basis="invalid")
+    except ValueError:
+        pass
+    else:
+        raise RuntimeError("incomparable outcome trend was accepted")
+
 def main() -> int:
     with tempfile.TemporaryDirectory(
         prefix="kalaxy3-workflow-primitives-self-test-"
@@ -717,6 +747,7 @@ def main() -> int:
         test_git_and_lifecycle_runtime(root)
         test_least_authority_foundations(root)
         test_decision_and_diagnosis_primitives()
+        test_outcome_metrics()
         test_discovery_parser()
         test_makefile_runtime(root)
         test_catalog_composition_closeout_usage(root)
@@ -725,6 +756,7 @@ def main() -> int:
     print("PASS temporary-remote Git and canonical action lifecycle adapters")
     print("PASS least-authority Git inspection, atomic files, operator proposals, and safety")
     print("PASS authority reconciliation, component selection, capability gaps, and failure diagnosis")
+    print("PASS semantic outcome metrics, null preservation, and comparable trends")
     print("PASS SAGE discovery parsing")
     print("PASS single-line and multiline Makefile composition")
     print("PASS registered workflow composition and atomic closeout")

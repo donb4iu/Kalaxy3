@@ -137,3 +137,19 @@ Framework version 0.4.0 adds four pilot primitives:
 - `failure.diagnose@1.0.0` records direct evidence, expected and actual component paths, divergence, ownership, lesson use, recurrence, avoidable rework when measured, and a reusable correction before another corrective mutation.
 
 These primitives construct typed in-memory records. Repository writes remain the responsibility of `file.atomic-preserve-mode`; Git and GitHub mutation remain operator-executed boundaries.
+
+
+## Semantic outcome measurement
+
+Framework version 0.5.0 adds `metrics.outcome@1.0.0`. The primitive:
+
+- requires every schema 1.0 raw metric to be present, using `null` when measurement is unavailable;
+- derives rates only after raw validation and never converts an unavailable value into zero;
+- keeps authoritative repository Git mutations separate from disposable fixture Git mutations;
+- rejects numerator values that cannot be a subset of their denominator;
+- compares reports only when `workflow_class` matches and records the explicit comparability basis;
+- emits no composite score.
+
+Manual correction and operator intervention rates are activity shares: the count divided by commands executed plus that count. Other derived metrics use the numerator and denominator named in `sage-operating-contract-policy.json`. A zero denominator produces `null`, not zero.
+
+The initial report at `markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json` preserves known measurements and leaves unavailable command, recurrence, intervention, fixture-mutation, elapsed-time, and rework measurements null. It is a baseline, not evidence of an improving trend.
