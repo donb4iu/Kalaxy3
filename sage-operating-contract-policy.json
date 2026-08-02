@@ -1,0 +1,192 @@
+{
+    "schema_version": "1.0",
+    "policy_id": "kalaxy3-sage-operating-contract",
+    "policy_version": "1.0.0",
+    "status": "staged",
+    "standard_path": "markdown/standards/kalaxy3-sage-operating-contract.md",
+    "contracts": {
+        "authority_reconciliation": "markdown/standards/sage-authority-reconciliation-schema-v1.0.json",
+        "component_selection_manifest": "markdown/standards/sage-component-selection-manifest-schema-v1.0.json",
+        "capability_gap_receipt": "markdown/standards/sage-capability-gap-receipt-schema-v1.0.json",
+        "failure_diagnosis": "markdown/standards/sage-failure-diagnosis-schema-v1.0.json",
+        "operator_git_proposal": "markdown/standards/sage-operator-git-proposal-schema-v1.0.json",
+        "outcome_metrics": "markdown/standards/sage-outcome-metrics-schema-v1.0.json"
+    },
+    "mandatory_sequence": [
+        "preserve-literal-request",
+        "collect-current-authority",
+        "reconcile-authority",
+        "declare-required-capabilities",
+        "select-repository-owned-components",
+        "record-composition-manifest",
+        "record-capability-gaps",
+        "implement-with-least-authority",
+        "validate-real-runtime-path",
+        "diagnose-unexpected-failures",
+        "propose-one-operator-mutation-boundary",
+        "verify-pasted-operator-result",
+        "record-outcomes-and-trends",
+        "publish-sage-evidence"
+    ],
+    "authority_policy": {
+        "required_authority_types": [
+            "operator-intent",
+            "git",
+            "github",
+            "repository-policy",
+            "sage"
+        ],
+        "conditional_authority_types": [
+            "runtime",
+            "telemetry",
+            "economics",
+            "external-contract"
+        ],
+        "source_assertions_separate_from_inference": true,
+        "material_conflicts_block_mutation": true,
+        "stale_material_authority_blocks_mutation": true,
+        "unknown_values_remain_explicit": true
+    },
+    "component_policy": {
+        "repository_owned_first": true,
+        "versioned_interfaces_required": true,
+        "selection_manifest_required": true,
+        "capability_gap_receipt_before_new_primitive": true,
+        "opaque_composite_ranking_forbidden": true,
+        "selection_factors": [
+            "applicability",
+            "authority-compatibility",
+            "least-sufficient-mutation-scope",
+            "published-interface",
+            "observed-successes",
+            "observed-failures",
+            "open-recurrence",
+            "evidence-supported-maturity",
+            "runtime-test-coverage",
+            "credential-and-history-safety"
+        ],
+        "wrapper_only_root_cause_patch_forbidden": true
+    },
+    "helper_policy": {
+        "repository_content_edit_allowed": true,
+        "validation_allowed": true,
+        "read_only_git_inspection_allowed": true,
+        "git_mutation_allowed": false,
+        "github_mutation_allowed": false,
+        "deployment_mutation_allowed": false,
+        "personal_credentials_in_generated_code_allowed": false,
+        "atomic_write_required": true,
+        "preserve_existing_file_mode_required": true,
+        "rollback_on_validation_failure_required": true,
+        "local_event_log_allowed": true,
+        "local_closeout_allowed": true,
+        "forbidden_git_actions": [
+            "branch-create",
+            "branch-switch",
+            "add",
+            "commit",
+            "push",
+            "fetch",
+            "pull",
+            "merge",
+            "rebase",
+            "reset",
+            "clean",
+            "tag",
+            "update-ref",
+            "delete-ref"
+        ]
+    },
+    "validation_policy": {
+        "source_only_required": true,
+        "operator_runtime_required_when_material": true,
+        "positive_tests_required": true,
+        "negative_tests_required": true,
+        "semantic_outcome_required": true,
+        "exact_path_to_mutation_boundary_required": true,
+        "transaction_rollback_test_required": true,
+        "syntax_only_is_sufficient": false
+    },
+    "failure_policy": {
+        "diagnosis_before_retry": true,
+        "failure_retrieval_before_retry": true,
+        "what_failed_required": true,
+        "what_should_have_happened_required": true,
+        "expected_component_required": true,
+        "actual_component_required": true,
+        "divergence_reason_required": true,
+        "ownership_required": true,
+        "reusable_correction_or_no_action_required": true,
+        "second_same_class_failure_requires_control": true
+    },
+    "operator_mutation_policy": {
+        "operator_executed": true,
+        "one_boundary_at_a_time": true,
+        "one_command_per_proposal": true,
+        "pasted_complete_output_required": true,
+        "read_only_post_verification_required": true,
+        "next_boundary_blocked_until_verified": true,
+        "helper_execution_of_proposed_command_forbidden": true
+    },
+    "metrics_policy": {
+        "raw_before_derived": true,
+        "unknown_is_null": true,
+        "unmeasured_zero_forbidden": true,
+        "authoritative_and_fixture_git_mutations_separate": true,
+        "semantic_false_pass_measured": true,
+        "operator_intervention_measured": true,
+        "comparable_workflow_class_required_for_trend": true,
+        "composite_score_enabled": false,
+        "required_raw_metrics": [
+            "workflows_started",
+            "workflows_completed",
+            "first_pass_completions",
+            "semantic_validations",
+            "semantic_false_passes",
+            "commands_executed",
+            "commands_failed",
+            "commands_retried",
+            "manual_corrections",
+            "operator_interventions",
+            "authority_checks",
+            "authority_failures",
+            "component_candidates_considered",
+            "components_selected",
+            "components_reused",
+            "new_components_created",
+            "component_contract_mismatches",
+            "direct_execution_violations",
+            "known_failures_encountered",
+            "known_failures_recurred",
+            "mutation_opportunities",
+            "failures_detected_pre_mutation",
+            "authoritative_repository_git_mutations",
+            "disposable_fixture_git_mutations",
+            "github_mutations",
+            "deployment_mutations",
+            "avoidable_rework_minutes",
+            "prompt_to_validated_change_minutes"
+        ],
+        "required_derived_metrics": [
+            "first_pass_completion_rate",
+            "semantic_false_pass_rate",
+            "component_reuse_ratio",
+            "authority_failure_rate",
+            "known_failure_recurrence_rate",
+            "pre_mutation_detection_rate",
+            "manual_correction_rate",
+            "operator_intervention_rate"
+        ]
+    },
+    "activation_policy": {
+        "current_state": "staged-implementation",
+        "deployment_authorized": false,
+        "autonomous_mutation_authorized": false,
+        "remaining_phases": [
+            "least-authority-safety-foundations",
+            "decision-and-diagnosis-primitives",
+            "semantic-outcome-measurement",
+            "root-enforcement-and-evidence"
+        ]
+    }
+}
