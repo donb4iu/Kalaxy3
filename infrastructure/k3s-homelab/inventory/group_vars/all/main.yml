@@ -82,6 +82,6 @@ k3s_tls_sans:
 # BEGIN KALAXY3 GRAFANA OPERATIONS
 # Staged until repository validation and live acceptance both succeed.
 deploy_grafana_operations_dashboard: true
-deploy_grafana_operations_alerts: false
+deploy_grafana_operations_alerts: true
 grafana_operations_namespace: observability
 # END KALAXY3 GRAFANA OPERATIONS
