@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0",
+  "policy_id": "kalaxy3-mkdocs-primary-navigation",
+  "site_root_label": "Kalaxy3",
+  "landing_page": "index.md",
+  "excluded_top_level_names": [
+    "index.md",
+    "evidence-artifacts",
+    "templates"
+  ],
+  "label_policy": {
+    "front_matter_key": "nav_title",
+    "fallback_order": [
+      "first-h1",
+      "humanized-filename"
+    ],
+    "maximum_length": 80
+  },
+  "evidence": {
+    "root_directory": "evidence",
+    "root_label": "Evidence",
+    "catalog_path": "evidence/catalog.json",
+    "repository_source_prefix": "markdown/",
+    "hide_catalog_records": true,
+    "hide_generated_group_children": [
+      "sections",
+      "status",
+      "subjects"
+    ],
+    "curated_pages": [
+      {
+        "label": "Current records",
+        "path": "evidence/current.md"
+      },
+      {
+        "label": "Historical records",
+        "path": "evidence/legacy.md"
+      },
+      {
+        "label": "Migration report",
+        "path": "evidence/migration-report.md"
+      },
+      {
+        "label": "Browse by section",
+        "path": "evidence/sections/index.md"
+      },
+      {
+        "label": "Browse by status",
+        "path": "evidence/status/index.md"
+      },
+      {
+        "label": "Browse by subject",
+        "path": "evidence/subjects/index.md"
+      }
+    ],
+    "index_page": "evidence/index.md"
+  },
+  "material": {
+    "primary_navigation_classes": [
+      "md-nav",
+      "md-nav--primary"
+    ],
+    "secondary_navigation_classes": [
+      "md-nav",
+      "md-nav--secondary"
+    ],
+    "leaf_link_class": "md-nav__link"
+  }
+}

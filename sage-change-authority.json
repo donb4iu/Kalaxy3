@@ -73,7 +73,11 @@
                 "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/root-enforcement-readiness.json",
                 "scripts/sage/sage-operating-contract-guardrail.py",
                 "scripts/sage/sage-operating-contract-self-test.py",
-                "scripts/sage/workflows/operating_contract.py"
+                "scripts/sage/workflows/operating_contract.py",
+                "scripts/sage/workflow/markdown.py",
+                "scripts/sage/workflow/evidence_records.py",
+                "scripts/sage/workflows/evidence_navigation.py",
+                "scripts/sage/sage-evidence-navigation-architecture-guardrail.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
@@ -82,7 +86,8 @@
                 "make sage-self-test",
                 "make sage-discovery-guardrail",
                 "make sage-index-check",
-                "make sage-operating-contract-check"
+                "make sage-operating-contract-check",
+                "python3 scripts/sage/sage-evidence-navigation-architecture-guardrail.py"
             ],
             "evidence_process": [
                 "Record inferred contexts and authoritative files.",
@@ -126,7 +131,13 @@
                 "scripts/sage/sage-publish.py",
                 "sage-evidence-policy.json",
                 "scripts/sage/sage-evidence-orchestrator.py",
-                "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md"
+                "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md",
+                "sage-evidence-template-policy.json",
+                "scripts/sage/workflow/markdown.py",
+                "scripts/sage/workflow/evidence_records.py",
+                "scripts/sage/sage-evidence-template-guardrail.py",
+                "scripts/sage/sage-evidence-navigation-architecture-guardrail.py",
+                "scripts/sage/workflows/evidence_navigation.py"
             ],
             "baseline_checks": [
                 "make sage-index-check",
@@ -135,7 +146,9 @@
             "required_validation": [
                 "make sage-index-check",
                 "make sage-evidence-self-test",
-                "make sage-evidence-guardrail"
+                "make sage-evidence-guardrail",
+                "python3 scripts/sage/sage-evidence-template-guardrail.py",
+                "python3 scripts/sage/sage-evidence-navigation-architecture-guardrail.py"
             ],
             "evidence_process": [
                 "Apply the canonical evidence-generation request automatically; the requester need not enumerate SAGE mechanics.",
@@ -683,13 +696,23 @@
                 "scripts/docs/promote-mkdocs-site.py",
                 "scripts/docs/validate-mkdocs-publication.py",
                 "scripts/docs/validate-mkdocs-navigation.py",
-                "markdown/standards/kalaxy3-sage-evidence-publication-process.md"
+                "markdown/standards/kalaxy3-sage-evidence-publication-process.md",
+                "mkdocs-navigation-policy.json",
+                "scripts/docs/navigation_support.py",
+                "scripts/docs/generate-mkdocs-navigation.py",
+                "markdown/standards/kalaxy3-mkdocs-evidence-navigation-process.md",
+                "scripts/sage/workflow/markdown.py",
+                "scripts/sage/workflow/evidence_records.py"
             ],
             "baseline_checks": [
                 "python3 scripts/sage/sage-index.py check"
             ],
             "required_validation": [
-                "python3 scripts/sage/sage-index.py check"
+                "python3 scripts/sage/sage-index.py check",
+                "python3 scripts/docs/generate-mkdocs-navigation.py --self-test",
+                "python3 scripts/docs/validate-mkdocs-navigation.py --self-test",
+                "make docs-mkdocs-publication-test",
+                "python3 scripts/sage/sage-evidence-navigation-architecture-guardrail.py"
             ],
             "evidence_process": [
                 "Capture generated-document validation and publication lineage."
