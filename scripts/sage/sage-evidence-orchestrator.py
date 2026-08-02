@@ -215,11 +215,53 @@ def require_safe_text(label: str, text: str) -> None:
         )
 
 
+def tracked_authority_files(relative: str) -> list[str]:
+    """Return tracked files represented by one authority path."""
+    path = ROOT / relative
+    if path.is_file():
+        return [relative]
+    if not path.is_dir():
+        raise RuntimeError(
+            f"Authority path does not exist: {relative}"
+        )
+
+    prefix = relative.rstrip("/") + "/"
+    tracked = [
+        item
+        for item in run_git("ls-files", "--", prefix).splitlines()
+        if item
+    ]
+    if not tracked:
+        raise RuntimeError(
+            f"Authority directory has no tracked files: {relative}"
+        )
+
+    non_files = [
+        item
+        for item in tracked
+        if not (ROOT / item).is_file()
+    ]
+    if non_files:
+        raise RuntimeError(
+            "Authority directory contains non-file tracked paths: "
+            f"{non_files}"
+        )
+    return tracked
+
+
+def expand_authority_paths(paths: Sequence[str]) -> list[str]:
+    """Expand authority paths into unique tracked files."""
+    expanded: list[str] = []
+    for relative in paths:
+        expanded.extend(tracked_authority_files(relative))
+    return list(dict.fromkeys(expanded))
+
+
 def authority_paths(
     policy: dict[str, Any],
     contexts: Sequence[dict[str, Any]],
 ) -> list[str]:
-    """Return all authority paths needed by the generator."""
+    """Return expanded tracked authority files."""
     values = [
         str(policy["canonical_request_path"]),
         str(policy["standard_path"]),
@@ -235,8 +277,7 @@ def authority_paths(
     ]
     for context in contexts:
         values.extend(context["authoritative_files"])
-    return list(dict.fromkeys(values))
-
+    return expand_authority_paths(list(dict.fromkeys(values)))
 
 def authority_inventory(
     paths: Sequence[str],
@@ -692,6 +733,33 @@ def check_package(package: Path) -> int:
     return result.returncode
 
 
+def validate_authority_expansion(
+    policy: dict[str, Any],
+    contexts: Sequence[dict[str, Any]],
+) -> list[str]:
+    """Validate authority-directory expansion during self-test."""
+    failures: list[str] = []
+    references = context_lines(contexts, "authoritative_files")
+    if not any((ROOT / value).is_dir() for value in references):
+        failures.append("Authority directory regression fixture missing")
+        return failures
+
+    try:
+        expanded = authority_paths(policy, contexts)
+    except RuntimeError as error:
+        return [f"Authority directory expansion failed: {error}"]
+
+    if any(not (ROOT / value).is_file() for value in expanded):
+        failures.append(
+            "Expanded authority inventory contains a non-file path"
+        )
+    if len(expanded) != len(set(expanded)):
+        failures.append(
+            "Expanded authority inventory contains duplicates"
+        )
+    return failures
+
+
 def self_test() -> list[str]:
     """Run evidence-orchestration regression tests."""
     failures: list[str] = []
@@ -718,6 +786,9 @@ def self_test() -> list[str]:
     contexts = infer_contexts(
         module,
         'Document "$HOME" literally.',
+    )
+    failures.extend(
+        validate_authority_expansion(policy, contexts)
     )
     brief = render_brief(
         'Document "$HOME" literally.',
