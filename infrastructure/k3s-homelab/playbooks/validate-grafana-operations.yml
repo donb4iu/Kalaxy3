@@ -59,3 +59,30 @@
           - "{{ playbook_dir }}/../scripts/validate-grafana-operations-yaml.py"
           - "{{ grafana_operations_render_dir }}/servicemonitors.yml"
       changed_when: false
+# BEGIN KALAXY3 GRAFANA DASHBOARD VALIDATION
+    - name: Copy Grafana operations dashboard contract
+      ansible.builtin.copy:
+        src: >-
+          {{ playbook_dir }}/files/grafana-operations-dashboard-contract.json
+        dest: >-
+          {{ grafana_operations_render_dir }}/dashboard-contract.json
+        mode: "0644"
+
+    - name: Copy Grafana operations dashboard ConfigMap
+      ansible.builtin.copy:
+        src: >-
+          {{ playbook_dir }}/files/grafana-operations-dashboard-configmap.yml
+        dest: >-
+          {{ grafana_operations_render_dir }}/dashboard-configmap.yml
+        mode: "0644"
+
+    - name: Validate Grafana operations dashboard
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - >-
+            {{ playbook_dir }}/../scripts/validate-grafana-operations-dashboard.py
+          - "{{ grafana_operations_render_dir }}/dashboard-contract.json"
+          - "{{ grafana_operations_render_dir }}/dashboard-configmap.yml"
+      changed_when: false
+# END KALAXY3 GRAFANA DASHBOARD VALIDATION

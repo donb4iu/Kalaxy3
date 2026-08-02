@@ -227,6 +227,40 @@
     - grafana-operations
 # END KALAXY3 GRAFANA OPERATIONS TELEMETRY
 
+# BEGIN KALAXY3 GRAFANA OPERATIONS DASHBOARD
+- name: Write Grafana operations dashboard ConfigMap
+  ansible.builtin.copy:
+    src: >-
+      {{ inventory_dir }}/../playbooks/files/grafana-operations-dashboard-configmap.yml
+    dest: /tmp/grafana-operations-dashboard-configmap.yml
+    mode: "0644"
+  when:
+    - install_observability | bool
+    - deploy_grafana_operations_dashboard | bool
+  tags:
+    - grafana
+    - grafana-operations
+
+- name: Provision Grafana operations dashboard ConfigMap
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - apply
+      - --filename
+      - /tmp/grafana-operations-dashboard-configmap.yml
+  register: grafana_operations_dashboard_apply
+  changed_when: >-
+    ' created' in grafana_operations_dashboard_apply.stdout
+    or ' configured' in grafana_operations_dashboard_apply.stdout
+  when:
+    - install_observability | bool
+    - deploy_grafana_operations_dashboard | bool
+  tags:
+    - grafana
+    - grafana-operations
+# END KALAXY3 GRAFANA OPERATIONS DASHBOARD
+
 - name: Find eligible Kubecost Intel nodes
   ansible.builtin.command:
     argv:
