@@ -329,6 +329,19 @@ def run_self_tests(
             "repository-governance",
             "evidence",
         },
+        (
+            "Activate the complete Kalaxy3 SAGE mandatory operating "
+            "contract with repository-owned components, composition "
+            "manifests, capability-gap receipts, failure diagnosis "
+            "including what should have been done, measurable outcome "
+            "and safety statistics, Git safety, and an "
+            "operator-executed Git mutation gate"
+        ): {
+            "workflow-primitives",
+            "continuous-improvement",
+            "repository-governance",
+            "evidence",
+        },
     }
     failures: list[str] = []
 

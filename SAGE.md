@@ -158,3 +158,21 @@ into versioned engineering experience.
 
 Primitive maturity is based on measured successful executions and recurrence,
 not code age or resemblance to prior helpers.
+
+## Mandatory operating-contract enforcement
+
+The complete repository-content and operator-verification sequence is defined
+by `scripts/sage/workflows/operating_contract.py`. It is deliberately split at
+the Git or GitHub mutation boundary: helpers prepare and validate one proposal,
+the operator executes it, and a second read-only phase verifies pasted output
+before outcomes and evidence are recorded.
+
+```bash
+make sage-operating-contract-check
+```
+
+This target runs the runtime composition self-test and the root guardrail. Both
+are included in the normal repository SAGE chains. Root enforcement does not
+authorize autonomous Git, GitHub, credential, ref, cluster, or deployment
+mutation. Final evidence uses split publication after the implementation commit
+is known.

@@ -22,12 +22,15 @@ SAGE_INDEX := $(PYTHON) scripts/sage/sage-index.py
 SAGE_EVIDENCE_ORCHESTRATOR := $(PYTHON) scripts/sage/sage-evidence-orchestrator.py
 SAGE_EVIDENCE_GUARDRAIL := $(PYTHON) scripts/sage/sage-evidence-orchestration-guardrail.py
 SAGE_IMPROVEMENT_GUARDRAIL := $(PYTHON) scripts/sage/sage-continuous-improvement-guardrail.py
+SAGE_OPERATING_CONTRACT_SELF_TEST := $(PYTHON) scripts/sage/sage-operating-contract-self-test.py
+SAGE_OPERATING_CONTRACT_GUARDRAIL := $(PYTHON) scripts/sage/sage-operating-contract-guardrail.py
 
 override export REQUEST := $(value REQUEST)
 
 .PHONY: help sage-preflight sage-changed sage-self-test \
         sage-discovery-guardrail sage-index-check \
-        sage-improvement-policy-check sage-guardrails
+        sage-improvement-policy-check sage-operating-contract-self-test \
+        sage-operating-contract-guardrail sage-operating-contract-check sage-guardrails
 
 help:
 	@printf '%s\n' \
@@ -35,6 +38,7 @@ help:
 	  '  SAGE_REQUEST="<request>" make sage-preflight' \
 	  '  make sage-changed' \
 	  '  make sage-guardrails' \
+	  '  make sage-operating-contract-check' \
 	  '  make sage-improvement-policy-check' \
 	  '  make sage-session-self-test' \
 	  '  make sage-feedback-self-test' \
@@ -56,7 +60,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test
+sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 	python3 scripts/sage/sage-file-delivery-guardrail.py
@@ -97,7 +101,16 @@ sage-review-self-test:
 sage-improvement-policy-check:
 	$(SAGE_IMPROVEMENT_GUARDRAIL)
 
-sage-guardrails: sage-self-test sage-discovery-guardrail \
+sage-operating-contract-self-test:
+	$(SAGE_OPERATING_CONTRACT_SELF_TEST)
+
+sage-operating-contract-guardrail:
+	$(SAGE_OPERATING_CONTRACT_GUARDRAIL)
+
+sage-operating-contract-check: sage-operating-contract-self-test sage-operating-contract-guardrail
+	@echo "Kalaxy3 SAGE operating contract: PASS"
+
+sage-guardrails: sage-self-test sage-discovery-guardrail sage-operating-contract-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
                  sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail
 	@echo "Kalaxy3 repository SAGE guardrails: PASS"

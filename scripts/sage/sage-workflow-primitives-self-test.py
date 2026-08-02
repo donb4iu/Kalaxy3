@@ -14,14 +14,27 @@ SAGE_DIR = ROOT / "scripts" / "sage"
 sys.path.insert(0, str(SAGE_DIR))
 
 from workflow import (  # noqa: E402
+    AuthorityAssertion,
+    AuthorityReconciler,
+    AtomicFileTransaction,
+    AtomicFileWriter,
+    CapabilityGapRecorder,
     CloseoutWriter,
+    ComponentCandidate,
+    ComponentSelector,
     CommandRunner,
     CommandSpec,
+    GitInspector,
     GitRepository,
+    GitSafetyGuardrail,
+    FailureDiagnoser,
     ImprovementActionClient,
     JsonlEventLogger,
     MakefileDocument,
+    OperatorGitProposal,
+    OutcomeMetrics,
     PrimitiveCatalog,
+    RequiredCapability,
     SageDiscovery,
     Step,
     UsageAnalyzer,
@@ -47,7 +60,7 @@ def registry_fixture(path: Path) -> PrimitiveCatalog:
     path.write_text(
         json.dumps(
             {
-                "framework_version": "0.2.0",
+                "framework_version": "0.5.0",
                 "primitives": [
                     {
                         "primitive_id": "command.run",
@@ -56,6 +69,11 @@ def registry_fixture(path: Path) -> PrimitiveCatalog:
                     },
                     {
                         "primitive_id": "git.repository",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "git.inspect",
                         "version": "1.0.0",
                         "maturity": "pilot",
                     },
@@ -86,6 +104,46 @@ def registry_fixture(path: Path) -> PrimitiveCatalog:
                     },
                     {
                         "primitive_id": "usage.summary",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "authority.reconcile",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "component.select",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "capability.gap",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "failure.diagnose",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "file.atomic-preserve-mode",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "operator.git-proposal",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "git.safety-guardrail",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "metrics.outcome",
                         "version": "1.0.0",
                         "maturity": "pilot",
                     },
@@ -383,6 +441,98 @@ def test_git_and_lifecycle_runtime(root: Path) -> None:
     repository.require_synced(branch)
 
 
+
+def test_least_authority_foundations(root: Path) -> None:
+    inspect_root = root / "inspect-fixture"
+    inspect_root.mkdir()
+    _, work = prepare_git_repository(inspect_root)
+    (work / "README.md").write_text("baseline\n", encoding="utf-8")
+    fixture_command("git", "add", ".", cwd=work)
+    fixture_command("git", "commit", "-m", "baseline", cwd=work)
+    fixture_command("git", "push", "-u", "origin", "HEAD", cwd=work)
+
+    logger = JsonlEventLogger(
+        root / "least-authority-events.jsonl",
+        "least-authority-self-test",
+        primitive_versions={
+            "git.inspect": "1.0.0",
+            "file.atomic-preserve-mode": "1.0.0",
+            "operator.git-proposal": "1.0.0",
+            "git.safety-guardrail": "1.0.0",
+        },
+    )
+    runner = CommandRunner(logger, allowed_roots=(root,))
+    inspector = GitInspector(work, runner)
+    clean = inspector.snapshot()
+    if clean.working_tree_status != "clean":
+        raise RuntimeError("git.inspect clean snapshot failed")
+    inspector.require_upstream_equal()
+    try:
+        inspector.run_read_only(("add", "README.md"))
+    except Exception:
+        pass
+    else:
+        raise RuntimeError("git.inspect accepted a mutating subcommand")
+
+    (work / "README.md").write_text("baseline\nchanged\n", encoding="utf-8")
+    if inspector.changed_paths() != {"README.md"}:
+        raise RuntimeError("git.inspect changed-path scope failed")
+
+    files_root = root / "files"
+    files_root.mkdir()
+    executable = files_root / "tool.py"
+    executable.write_text("print('old')\n", encoding="utf-8")
+    executable.chmod(0o755)
+    writer = AtomicFileWriter((files_root,))
+    writer.write_text(executable, "print('new')\n")
+    if executable.stat().st_mode & 0o777 != 0o755:
+        raise RuntimeError("atomic writer did not preserve executable mode")
+    rollback = files_root / "rollback.txt"
+    rollback.write_text("before\n", encoding="utf-8")
+    try:
+        with AtomicFileTransaction(writer, (rollback,)) as transaction:
+            transaction.write_text(rollback, "after\n")
+            raise RuntimeError("force rollback")
+    except RuntimeError as error:
+        if str(error) != "force rollback":
+            raise
+    if rollback.read_text(encoding="utf-8") != "before\n":
+        raise RuntimeError("atomic transaction rollback failed")
+
+    proposal = OperatorGitProposal.build(
+        proposal_id="SAGE-GIT-20260801-001",
+        controller="self-test",
+        repository=clean,
+        authority_receipt="fixture:authority",
+        component_manifest="fixture:manifest",
+        boundary="stage",
+        change_scope=("README.md",),
+        validation=({
+            "label": "fixture validation",
+            "status": "pass",
+            "reference": "fixture:validation",
+            "sha256": None,
+        },),
+        command_argv=("git", "add", "--", "README.md"),
+        expected_result="README.md is staged.",
+        risk="Only the declared fixture path is staged.",
+        rollback="Run git restore --staged -- README.md.",
+        post_command_verification=("git diff --cached --name-only",),
+        created_at="2026-08-01T21:55:00-05:00",
+    )
+    if proposal["command"]["executed_by_helper"] is not False:
+        raise RuntimeError("operator proposal execution contract failed")
+    if proposal["command"]["command_count"] != 1:
+        raise RuntimeError("operator proposal command count failed")
+
+    safe = "from workflow import GitInspector\nPRIMITIVES_USED = ('git.inspect',)\n"
+    bad = "import subprocess\nsubprocess.run(['git', 'push', 'origin', 'main'])\n"
+    if GitSafetyGuardrail.scan_source(safe, path=root / "safe.py"):
+        raise RuntimeError("Git safety guardrail rejected safe source")
+    violations = GitSafetyGuardrail.scan_source(bad, path=root / "bad.py")
+    if not any(item.code == "GIT-MUTATION" for item in violations):
+        raise RuntimeError("Git safety guardrail accepted Git mutation")
+
 def test_discovery_parser() -> None:
     fixture = """
 Kalaxy3 SAGE change discovery: PASS
@@ -534,6 +684,60 @@ def test_catalog_composition_closeout_usage(root: Path) -> None:
         raise RuntimeError("usage primitive summary is empty")
 
 
+
+def test_decision_and_diagnosis_primitives() -> None:
+    repository = {"path": ".", "branch": "main", "head": "a" * 40, "upstream_head": "a" * 40, "working_tree_clean": True}
+    assertions = (
+        AuthorityAssertion("AUTH-001", "git", "repository", "HEAD", "2026-08-01T22:00:00-05:00", "current", "git.head", "a" * 40, "measured", "high", "material", None),
+        AuthorityAssertion("AUTH-002", "repository-policy", "repository", "policy", "2026-08-01T22:00:00-05:00", "current", "policy.state", "staged", "declared", "high", "material", None),
+    )
+    receipt = AuthorityReconciler(("git", "repository-policy")).reconcile(receipt_id="SAGE-AUTH-20260801-997", request="fixture", repository=repository, assertions=assertions, evidence_references=("fixture",), captured_at="2026-08-01T22:00:00-05:00")
+    if receipt.mutation_gate["status"] != "review-ready":
+        raise RuntimeError("complete authority was not review-ready")
+    conflict = AuthorityReconciler(("git",)).reconcile(receipt_id="SAGE-AUTH-20260801-996", request="fixture", repository=repository, assertions=(assertions[0], AuthorityAssertion("AUTH-003", "git", "repository", "other", "2026-08-01T22:00:00-05:00", "current", "git.head", "b" * 40, "measured", "high", "material", None)), evidence_references=("fixture",), captured_at="2026-08-01T22:00:00-05:00")
+    if conflict.mutation_gate["status"] != "blocked":
+        raise RuntimeError("material authority conflict did not block mutation")
+
+    selector = ComponentSelector()
+    capability = RequiredCapability("CAP-997", "fixture")
+    selected = ComponentCandidate("CANDIDATE-997", ("CAP-997",), "good", "1.0.0", "good.py", "pilot", {"applicability":"direct","authority_compatibility":"compatible","mutation_scope_fit":"least-authority","published_interface_verified":True,"successful_production_executions":None,"failed_production_executions":None,"open_recurrence":"no","runtime_test_coverage":"positive-and-negative"}, ("fixture",), "least authority")
+    rejected = ComponentCandidate("CANDIDATE-996", ("CAP-997",), "bad", "1.0.0", "bad.py", "pilot", {"applicability":"partial","authority_compatibility":"compatible","mutation_scope_fit":"broader-than-required","published_interface_verified":True,"successful_production_executions":10,"failed_production_executions":0,"open_recurrence":"no","runtime_test_coverage":"positive-and-negative"}, ("fixture",), "broader")
+    manifest = selector.build_manifest(manifest_id="SAGE-COMP-20260801-997", request="fixture", authority_receipt="fixture", capabilities=(capability,), candidates=(rejected, selected), approval={"status":"approved","reviewed_by":"operator","reviewed_at":"2026-08-01T22:00:00-05:00","rationale":"fixture"}, created_at="2026-08-01T22:00:00-05:00")
+    selector.require_complete(manifest)
+    if manifest["selections"][0]["component_id"] != "good" or manifest["candidates"][0]["disposition"] != "rejected":
+        raise RuntimeError("component selection or rejected-alternative retention failed")
+
+    gap = CapabilityGapRecorder.create(gap_id="SAGE-GAP-20260801-997", request="fixture", authority_receipt="fixture", component_manifest="fixture", required_capability="fixture", candidates_considered=({"component_id":"old","version":"1.0.0","source_path":"old.py","insufficiency":"missing","composition_can_close_gap":False},), missing_interface_or_behavior="missing", why_configuration_is_insufficient="cannot configure", why_composition_is_insufficient="cannot compose", proposed_primitive={"primitive_id":"new.fixture","responsibility":"fixture","side_effects":"none","idempotency":"deterministic","logging":"caller","failure_mode":"closed","runtime_tests":["positive","negative"],"initial_maturity":"pilot"}, approval={"status":"approved","reviewed_by":"operator","reviewed_at":"2026-08-01T22:00:00-05:00","rationale":"fixture"}, evidence_references=("fixture",), created_at="2026-08-01T22:00:00-05:00")
+    CapabilityGapRecorder.assert_implementation_allowed(gap)
+
+    diagnosis = FailureDiagnoser.diagnose(diagnosis_id="SAGE-DIAG-20260801-997", failure_id="FAIL-997", attempted_action="fixture", what_failed="fixture", direct_evidence=({"source":"fixture","captured_at":"2026-08-01T22:00:00-05:00","observation":"failed","artifact":"fixture","sha256":None},), actual_path={"component_id":"bad","component_version":"1.0.0","source_path":"bad.py","description":"bad"}, expected_path={"component_id":"good","component_version":"1.0.0","source_path":"good.py","description":"good"}, why_actual_path_differed="selection bypass", ownership="composition", mutation_effect={"mutation_opportunity":True,"mutation_performed":False,"detected_pre_mutation":True,"mutation_scope":"none"}, lesson_use={"retrieval_performed":True,"applicable_lesson_ids":[],"surfaced_lesson_ids":[],"used_lesson_ids":[],"nonuse_reason":None}, previous_failure_references=(), avoidable_rework_minutes=None, correction={"disposition":"update-composition","reusable_correction":"use selected component","target_control_type":"guardrail","primitive_version_bump_required":False,"regression_test_required":True,"action_reference":None,"no_action_rationale":None}, evidence_references=("fixture",), recorded_at="2026-08-01T22:00:00-05:00")
+    if diagnosis["divergence"]["selection_failure"] is not True:
+        raise RuntimeError("failure diagnosis did not record path divergence")
+
+
+def test_outcome_metrics() -> None:
+    from workflow.metrics import RAW_FIELDS
+    raw = {field: None for field in RAW_FIELDS}
+    raw.update({"workflows_completed":4,"first_pass_completions":3,"semantic_validations":2,"semantic_false_passes":0,"commands_executed":8,"manual_corrections":2,"operator_interventions":1,"authority_checks":4,"authority_failures":0,"components_selected":4,"components_reused":3,"known_failures_encountered":2,"known_failures_recurred":1,"mutation_opportunities":2,"failures_detected_pre_mutation":2})
+    report = OutcomeMetrics.build_report(report_id="SAGE-METRICS-20260801-997", captured_at="2026-08-01T22:40:00-05:00", period={"started_at":"2026-08-01T22:00:00-05:00","completed_at":"2026-08-01T22:40:00-05:00"}, workflow_class="fixture", raw_metrics=raw, provenance=({"source_type":"runtime","reference":"fixture","measurement_type":"measured","captured_at":"2026-08-01T22:40:00-05:00"},), limitations=("fixture",))
+    if report["derived_metrics"]["first_pass_completion_rate"] != 0.75 or report["derived_metrics"]["component_reuse_ratio"] != 0.75:
+        raise RuntimeError("outcome metric derivation failed")
+    baseline = {**report, "report_id":"SAGE-METRICS-20260801-996", "derived_metrics":{**report["derived_metrics"], "first_pass_completion_rate":0.5}}
+    if OutcomeMetrics.trend(metric="first_pass_completion_rate", current_report=report, baseline_report=baseline, direction="higher-is-better", comparability_basis="same fixture class")["result"] != "improved":
+        raise RuntimeError("outcome trend comparison failed")
+    try:
+        OutcomeMetrics.derive({**raw,"first_pass_completions":5})
+    except ValueError:
+        pass
+    else:
+        raise RuntimeError("invalid outcome subset was accepted")
+    try:
+        OutcomeMetrics.trend(metric="first_pass_completion_rate", current_report=report, baseline_report={**baseline,"workflow_class":"other"}, direction="higher-is-better", comparability_basis="invalid")
+    except ValueError:
+        pass
+    else:
+        raise RuntimeError("incomparable outcome trend was accepted")
+
 def main() -> int:
     with tempfile.TemporaryDirectory(
         prefix="kalaxy3-workflow-primitives-self-test-"
@@ -541,12 +745,18 @@ def main() -> int:
         root = Path(raw)
         test_runner_and_logging(root)
         test_git_and_lifecycle_runtime(root)
+        test_least_authority_foundations(root)
+        test_decision_and_diagnosis_primitives()
+        test_outcome_metrics()
         test_discovery_parser()
         test_makefile_runtime(root)
         test_catalog_composition_closeout_usage(root)
 
     print("PASS command execution, timeout, redaction, and version logging")
     print("PASS temporary-remote Git and canonical action lifecycle adapters")
+    print("PASS least-authority Git inspection, atomic files, operator proposals, and safety")
+    print("PASS authority reconciliation, component selection, capability gaps, and failure diagnosis")
+    print("PASS semantic outcome metrics, null preservation, and comparable trends")
     print("PASS SAGE discovery parsing")
     print("PASS single-line and multiline Makefile composition")
     print("PASS registered workflow composition and atomic closeout")

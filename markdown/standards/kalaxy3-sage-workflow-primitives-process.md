@@ -112,3 +112,60 @@ SAGE records:
 
 These measurements determine which primitives are hardened, replaced, or
 deprecated.
+
+## Least-authority safety foundations
+
+Phase 2 adds four pilot primitives without activating autonomous mutation:
+
+- `git.inspect` exposes only allowlisted local read-only Git inspection. It has no fetch, branch, stage, commit, push, ref, GitHub, or deployment method.
+- `file.atomic-preserve-mode` performs same-directory temporary writes, file and directory fsync, atomic replacement, existing-mode preservation, allowed-root checks, and transactional rollback.
+- `operator.git-proposal` emits one schema 1.0 operator-executed boundary containing exactly one secret-free command. It never executes the proposed command and blocks the next boundary until pasted output is verified.
+- `git.safety-guardrail` rejects production-helper Git, GitHub, credential-inheritance, and deployment mutation paths. Mutating Git is permitted only in an explicitly declared isolated temporary-repository fixture.
+
+The mixed-authority `git.repository` primitive remains available only to isolated temporary-repository tests and legacy operator-owned compositions until migrated. Downloaded implementation helpers must use `git.inspect` for repository state and must not import or instantiate `GitRepository`.
+
+Every new Phase 2 primitive is linked to an approved capability-gap receipt and an approved component-selection manifest under `markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/`. The framework remains a staged implementation; deployment and autonomous Git or GitHub mutation remain unauthorized.
+
+
+## Decision and diagnosis primitives
+
+Framework version 0.4.0 adds four pilot primitives:
+
+- `authority.reconcile@1.0.0` keeps scoped source assertions separate from inference, reports conflicts and unknowns, and blocks mutation unless material authority is complete.
+- `component.select@1.0.0` ranks repository-owned candidates using explicit ordered factors, retains rejected alternatives, and emits a versioned composition manifest without an opaque composite score.
+- `capability.gap@1.0.0` proves configuration and composition are insufficient and requires operator approval before a new primitive may be implemented.
+- `failure.diagnose@1.0.0` records direct evidence, expected and actual component paths, divergence, ownership, lesson use, recurrence, avoidable rework when measured, and a reusable correction before another corrective mutation.
+
+These primitives construct typed in-memory records. Repository writes remain the responsibility of `file.atomic-preserve-mode`; Git and GitHub mutation remain operator-executed boundaries.
+
+
+## Semantic outcome measurement
+
+Framework version 0.5.0 adds `metrics.outcome@1.0.0`. The primitive:
+
+- requires every schema 1.0 raw metric to be present, using `null` when measurement is unavailable;
+- derives rates only after raw validation and never converts an unavailable value into zero;
+- keeps authoritative repository Git mutations separate from disposable fixture Git mutations;
+- rejects numerator values that cannot be a subset of their denominator;
+- compares reports only when `workflow_class` matches and records the explicit comparability basis;
+- emits no composite score.
+
+Manual correction and operator intervention rates are activity shares: the count divided by commands executed plus that count. Other derived metrics use the numerator and denominator named in `sage-operating-contract-policy.json`. A zero denominator produces `null`, not zero.
+
+The initial report at `markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json` preserves known measurements and leaves unavailable command, recurrence, intervention, fixture-mutation, elapsed-time, and rework measurements null. It is a baseline, not evidence of an improving trend.
+
+## Root operating-contract composition
+
+Framework version 0.6.0 adds no new primitive. The approved root-enforcement
+manifest proves the existing primitives are sufficient and rejects an
+autonomous mutation engine.
+
+`scripts/sage/workflows/operating_contract.py` contains a thin two-boundary
+composition. The pre-mutation sequence permits declared repository-content
+writes and stops at one operator proposal. The post-operator sequence starts
+with read-only verification of pasted output, then records outcome metrics and
+evidence.
+
+`make sage-operating-contract-check` runs positive, negative, ordering, and
+fail-closed runtime tests plus the root policy guardrail. The target is a
+dependency of the normal repository self-test and guardrail chains.

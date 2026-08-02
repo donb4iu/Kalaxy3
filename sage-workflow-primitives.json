@@ -1,6 +1,6 @@
 {
     "schema_version": "1.0",
-    "framework_version": "0.2.0",
+    "framework_version": "0.6.0",
     "status": "pilot",
     "principles": [
         "single-responsibility primitives",
@@ -14,7 +14,18 @@
         "atomic evidence writes",
         "runtime-path integration tests",
         "versioned evolution from failure evidence",
-        "candidate Makefile parsing before replacement"
+        "candidate Makefile parsing before replacement",
+        "least-authority read-only Git inspection",
+        "mode-preserving atomic file replacement",
+        "operator-executed one-boundary proposals",
+        "production helper Git and credential safety",
+        "federated authority assertions remain separate from inference",
+        "explicit component ranking without opaque composite scores",
+        "capability-gap proof before new primitives",
+        "failure diagnosis before corrective mutation",
+        "versioned composition manifests",
+        "semantic raw metrics precede transparent derived rates and comparable trends",
+        "root operating-contract composition and guardrail enforcement"
     ],
     "primitives": [
         {
@@ -81,6 +92,24 @@
                 "exact-scope commit and push"
             ],
             "maturity": "pilot"
+        },
+        {
+            "primitive_id": "git.inspect",
+            "version": "1.0.0",
+            "module": "workflow.git_inspect",
+            "symbol": "GitInspector",
+            "side_effects": "read-only local Git inspection through an explicit command allowlist",
+            "idempotency": "deterministic for unchanged local Git references and working tree",
+            "logging": "delegated to command.run as git.inspect events",
+            "failure_mode": "unknown Git arguments, missing repository, branch, HEAD, upstream, or exact scope fail closed",
+            "tests": [
+                "clean snapshot",
+                "changed-path scope",
+                "upstream equality",
+                "mutating command rejection"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-git-inspect.json"
         },
         {
             "primitive_id": "sage.discovery",
@@ -191,6 +220,156 @@
                 "failure propagation"
             ],
             "maturity": "pilot"
+        },
+        {
+            "primitive_id": "file.atomic-preserve-mode",
+            "version": "1.0.0",
+            "module": "workflow.files",
+            "symbol": "AtomicFileWriter",
+            "side_effects": "atomic writes only within declared roots with file and directory fsync",
+            "idempotency": "identical payloads produce identical content and preserve existing mode",
+            "logging": "caller records path and payload digest; raw content is not logged",
+            "failure_mode": "symlink, out-of-root, write, replace, fsync, or rollback failure stops execution",
+            "tests": [
+                "existing executable mode preservation",
+                "new-file mode",
+                "allowed-root rejection",
+                "transaction rollback"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-atomic-file.json"
+        },
+        {
+            "primitive_id": "operator.git-proposal",
+            "version": "1.0.0",
+            "module": "workflow.proposal",
+            "symbol": "OperatorGitProposal",
+            "side_effects": "optional atomic local proposal receipt write; proposed command is never executed",
+            "idempotency": "deterministic for fixed inputs and created_at",
+            "logging": "command argv digest, boundary, validation references, and operator contract",
+            "failure_mode": "invalid boundary, command composition, credential marker, validation, or proposal identifier fails closed",
+            "tests": [
+                "one command",
+                "boundary-command match",
+                "secret rejection",
+                "non-execution contract"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-operator-proposal.json"
+        },
+        {
+            "primitive_id": "git.safety-guardrail",
+            "version": "1.0.0",
+            "module": "workflow.safety",
+            "symbol": "GitSafetyGuardrail",
+            "side_effects": "read-only Python source analysis",
+            "idempotency": "deterministic for unchanged source and fixture policy",
+            "logging": "violation path, line, code, and redacted description",
+            "failure_mode": "Git, GitHub, credential, deployment, or mixed-authority path fails closed",
+            "tests": [
+                "read-only helper pass",
+                "Git mutation rejection",
+                "GitHub mutation rejection",
+                "credential rejection",
+                "temporary fixture allowance"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-git-safety.json"
+        },
+        {
+            "primitive_id": "authority.reconcile",
+            "version": "1.0.0",
+            "module": "workflow.authority",
+            "symbol": "AuthorityReconciler",
+            "side_effects": "in-memory authority receipt construction only",
+            "idempotency": "deterministic for fixed assertions and capture time",
+            "logging": "caller records receipt identifier, disposition, conflicts, and unknowns without raw credentials",
+            "failure_mode": "unsupported assertion, conflict, stale material authority, or missing required authority blocks mutation",
+            "tests": [
+                "complete authority",
+                "missing authority",
+                "stale authority",
+                "material conflict",
+                "inference separation"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-authority-reconcile.json"
+        },
+        {
+            "primitive_id": "component.select",
+            "version": "1.0.0",
+            "module": "workflow.selection",
+            "symbol": "ComponentSelector",
+            "side_effects": "in-memory component-selection and composition manifest construction only",
+            "idempotency": "deterministic for fixed capabilities, candidates, approval, and capture time",
+            "logging": "caller records candidate dispositions, selected versions, composition order, and unresolved gaps",
+            "failure_mode": "missing capability, ineligible candidate, duplicate identifier, or unresolved required gap fails closed",
+            "tests": [
+                "explicit factor ranking",
+                "least-authority selection",
+                "rejected alternatives retained",
+                "unresolved gap rejection",
+                "composite score disabled"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-component-select.json"
+        },
+        {
+            "primitive_id": "capability.gap",
+            "version": "1.0.0",
+            "module": "workflow.gaps",
+            "symbol": "CapabilityGapRecorder",
+            "side_effects": "in-memory capability-gap receipt construction and approval validation only",
+            "idempotency": "deterministic for fixed receipt inputs",
+            "logging": "caller records gap identifier, candidates considered, proposed primitive, and approval state",
+            "failure_mode": "missing candidate evidence, composition-closable gap, unapproved receipt, or non-pilot primitive fails closed",
+            "tests": [
+                "candidate insufficiency",
+                "composition sufficiency rejection",
+                "approval required",
+                "pilot maturity required"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-capability-gap.json"
+        },
+        {
+            "primitive_id": "failure.diagnose",
+            "version": "1.0.0",
+            "module": "workflow.diagnosis",
+            "symbol": "FailureDiagnoser",
+            "side_effects": "in-memory structured failure diagnosis only",
+            "idempotency": "deterministic for fixed diagnosis inputs and record time",
+            "logging": "caller records expected and actual paths, ownership, recurrence, lesson use, and correction without secrets",
+            "failure_mode": "missing evidence, incomplete paths, absent divergence reason, missing lesson retrieval, or uncontrolled recurrence fails closed",
+            "tests": [
+                "new failure",
+                "known recurrence",
+                "path divergence",
+                "lesson retrieval",
+                "no-action rationale",
+                "recurrence control"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-failure-diagnose.json"
+        },
+        {
+            "primitive_id": "metrics.outcome",
+            "version": "1.0.0",
+            "module": "workflow.metrics",
+            "symbol": "OutcomeMetrics",
+            "side_effects": "in-memory semantic report and trend construction only",
+            "idempotency": "deterministic for fixed measurements, provenance, timestamps, and baselines",
+            "logging": "caller records report IDs, availability, provenance, and digests",
+            "failure_mode": "missing fields, invalid values, fabricated zero assumptions, or incomparable workflow classes fail closed",
+            "tests": [
+                "raw validation",
+                "derived rates",
+                "unknown null preservation",
+                "incomparable trend rejection",
+                "baseline report"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-outcome-metrics.json"
         }
     ],
     "composition_policy": {
@@ -208,10 +387,16 @@
             "fetch_and_require_sync",
             "next_action_id",
             "allocate_action_id",
-            "insert_recipe"
+            "insert_recipe",
+            "git_read",
+            "atomic_write",
+            "build_git_proposal",
+            "scan_helper_safety"
         ],
         "require_registered_primitive_ids": true,
-        "require_thin_wrapper": true
+        "require_thin_wrapper": true,
+        "component_selection_manifest_required": true,
+        "composition_order_required": true
     },
     "logging_policy": {
         "format": "jsonl",
@@ -237,7 +422,12 @@
         "remote_sync_required": true,
         "exact_path_scope_required": true,
         "atomic_file_write_required": true,
-        "candidate_makefile_parse_required": true
+        "candidate_makefile_parse_required": true,
+        "downloaded_helper_git_mutation_forbidden": true,
+        "operator_one_boundary_required": true,
+        "preserve_existing_file_mode_required": true,
+        "personal_credentials_in_generated_code_forbidden": true,
+        "production_git_repository_primitive_restricted": true
     },
     "evolution_policy": {
         "failure_updates_primitive_and_regression_test": true,
@@ -248,7 +438,9 @@
             "pilot": "0-2 successful production executions",
             "validated": "3-9 successful production executions with no open recurrence",
             "stable": "10 or more successful production executions with measured reuse"
-        }
+        },
+        "failure_diagnosis_before_retry": true,
+        "capability_gap_receipt_before_new_primitive": true
     },
     "usage_policy": {
         "event_log_root": "~/.local/state/kalaxy3/sage-workflows",
@@ -264,6 +456,52 @@
         "known_failure_recurrences",
         "wrapper_only_defects",
         "time_to_validated_implementation",
-        "avoidable_rework"
-    ]
+        "avoidable_rework",
+        "authority_reconciliations",
+        "component_candidates_considered",
+        "component_selections",
+        "capability_gap_receipts",
+        "failure_diagnoses",
+        "semantic_false_pass_rate",
+        "component_reuse_ratio",
+        "authority_failure_rate",
+        "known_failure_recurrence_rate",
+        "pre_mutation_detection_rate",
+        "manual_correction_rate",
+        "operator_intervention_rate"
+    ],
+    "git_safety_policy": {
+        "production_helpers_use_git_inspect_only": true,
+        "git_repository_allowed_scope": "isolated-temporary-repository-tests",
+        "github_mutation_by_helper_forbidden": true,
+        "deployment_mutation_by_helper_forbidden": true,
+        "personal_credential_inheritance_forbidden": true,
+        "operator_proposal_required_for_mutation": true
+    },
+    "operating_contract_policy": {
+        "status": "staged-root-enforcement",
+        "composition_path": "scripts/sage/workflows/operating_contract.py",
+        "pre_mutation_sequence": [
+            "preserve-literal-request",
+            "collect-current-git-authority",
+            "reconcile-authority",
+            "select-repository-components",
+            "record-capability-gaps",
+            "implement-declared-repository-scope",
+            "validate-real-runtime-path",
+            "validate-helper-safety",
+            "diagnose-unexpected-failures",
+            "propose-one-operator-boundary"
+        ],
+        "post_operator_sequence": [
+            "verify-pasted-operator-result",
+            "record-outcomes-and-trends",
+            "publish-sage-evidence"
+        ],
+        "self_test_target": "sage-operating-contract-self-test",
+        "guardrail_target": "sage-operating-contract-guardrail",
+        "aggregate_target": "sage-operating-contract-check",
+        "component_manifest": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-root-enforcement.json",
+        "new_primitive_required": false
+    }
 }
