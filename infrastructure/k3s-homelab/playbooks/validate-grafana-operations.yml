@@ -86,3 +86,18 @@
           - "{{ grafana_operations_render_dir }}/dashboard-configmap.yml"
       changed_when: false
 # END KALAXY3 GRAFANA DASHBOARD VALIDATION
+# BEGIN KALAXY3 GRAFANA ALERT VALIDATION
+    - name: Copy Grafana operations PrometheusRule
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/files/grafana-operations-alerts-prometheusrule.yml"
+        dest: "{{ grafana_operations_render_dir }}/alerts-prometheusrule.yml"
+        mode: "0644"
+
+    - name: Validate Grafana operations PrometheusRule
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - "{{ playbook_dir }}/../scripts/validate-grafana-operations-alerts.py"
+          - "{{ grafana_operations_render_dir }}/alerts-prometheusrule.yml"
+      changed_when: false
+# END KALAXY3 GRAFANA ALERT VALIDATION

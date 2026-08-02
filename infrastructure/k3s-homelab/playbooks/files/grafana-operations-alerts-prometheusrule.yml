@@ -1,0 +1,33 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kalaxy3-grafana-operations-alerts
+  namespace: observability
+  labels:
+    release: "kube-prometheus-stack"
+    "kalaxy3.io/component": "grafana-operations"
+    "kalaxy3.io/telemetry-family": "operations-alerts"
+spec:
+  groups:
+    - name: "kalaxy3-grafana-operations.rules"
+      interval: "30s"
+      rules:
+        - alert: "FluentBitCoverageDegraded"
+          expr: "sum(up{job=\"fluent-bit-collector\"}) < 7 or absent(up{job=\"fluent-bit-collector\"})"
+          for: "10m"
+          labels:
+            severity: "warning"
+            component: "logging"
+          annotations:
+            summary: "Fluent Bit coverage is below all seven Kalaxy3 nodes."
+            description: "Fewer than seven Fluent Bit collector targets have remained healthy for ten minutes. Inspect the collector DaemonSet, affected nodes, and Loki delivery."
+        - alert: "LonghornStorageUtilizationHigh"
+          expr: "100 * sum(longhorn_node_storage_usage_bytes) / sum(longhorn_node_storage_capacity_bytes) > 80"
+          for: "15m"
+          labels:
+            severity: "warning"
+            component: "storage"
+          annotations:
+            summary: "Longhorn aggregate storage utilization exceeds 80%."
+            description: "Longhorn aggregate storage usage has remained above 80 percent for fifteen minutes. Review node capacity, replicas, snapshots, and volume growth."
