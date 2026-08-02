@@ -81,6 +81,6 @@ k3s_tls_sans:
   - 192.168.2.50
 # BEGIN KALAXY3 GRAFANA OPERATIONS
 # Staged until repository validation and live acceptance both succeed.
-deploy_grafana_operations_dashboard: false
+deploy_grafana_operations_dashboard: true
 grafana_operations_namespace: observability
 # END KALAXY3 GRAFANA OPERATIONS
