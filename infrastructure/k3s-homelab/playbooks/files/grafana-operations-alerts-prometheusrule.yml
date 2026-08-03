@@ -13,21 +13,80 @@ spec:
     - name: "kalaxy3-grafana-operations.rules"
       interval: "30s"
       rules:
-        - alert: "FluentBitCoverageDegraded"
-          expr: "sum(up{job=\"fluent-bit-collector\"}) < 7 or absent(up{job=\"fluent-bit-collector\"})"
+        - record: "kalaxy3:fluent_bit_coverage_ratio"
+          expr: 'sum(up{job="fluent-bit-collector"}) / 7'
+          labels:
+            component: "logging"
+            slo: "fluent-bit-coverage"
+            objective: "1"
+        - record: "kalaxy3:loki_workload_ready_ratio"
+          expr: >-
+            (
+              sum(kube_statefulset_status_replicas_ready{
+                namespace="observability",statefulset=~"loki.*"
+              })
+              +
+              sum(kube_deployment_status_replicas_available{
+                namespace="observability",deployment=~"loki.*"
+              })
+            )
+            /
+            (
+              sum(kube_statefulset_replicas{
+                namespace="observability",statefulset=~"loki.*"
+              })
+              +
+              sum(kube_deployment_spec_replicas{
+                namespace="observability",deployment=~"loki.*"
+              })
+            )
+          labels:
+            component: "logging"
+            slo: "loki-workload-availability"
+            objective: "1"
+        - alert: FluentBitCoverageDegraded
+          expr: >-
+            kalaxy3:fluent_bit_coverage_ratio < 1
+            or absent(kalaxy3:fluent_bit_coverage_ratio)
           for: "10m"
           labels:
             severity: "warning"
             component: "logging"
+            slo: "fluent-bit-coverage"
+            objective: "1"
           annotations:
             summary: "Fluent Bit coverage is below all seven Kalaxy3 nodes."
-            description: "Fewer than seven Fluent Bit collector targets have remained healthy for ten minutes. Inspect the collector DaemonSet, affected nodes, and Loki delivery."
-        - alert: "LonghornStorageUtilizationHigh"
-          expr: "100 * sum(longhorn_node_storage_usage_bytes) / sum(longhorn_node_storage_capacity_bytes) > 80"
+            description: >-
+              Fewer than seven Fluent Bit collector targets have remained
+              healthy for ten minutes. Inspect the collector DaemonSet,
+              affected nodes, and Loki delivery.
+        - alert: LokiWorkloadAvailabilityDegraded
+          expr: >-
+            kalaxy3:loki_workload_ready_ratio < 1
+            or absent(kalaxy3:loki_workload_ready_ratio)
+          for: "10m"
+          labels:
+            severity: "warning"
+            component: "logging"
+            slo: "loki-workload-availability"
+            objective: "1"
+          annotations:
+            summary: "Loki workload availability is below its objective."
+            description: >-
+              One or more Loki StatefulSet or gateway Deployment replicas
+              have remained unavailable for ten minutes. Inspect rollout,
+              pod readiness, node health, and Longhorn volume state.
+        - alert: LonghornStorageUtilizationHigh
+          expr: >-
+            100 * sum(longhorn_node_storage_usage_bytes)
+            / sum(longhorn_node_storage_capacity_bytes) > 80
           for: "15m"
           labels:
             severity: "warning"
             component: "storage"
           annotations:
             summary: "Longhorn aggregate storage utilization exceeds 80%."
-            description: "Longhorn aggregate storage usage has remained above 80 percent for fifteen minutes. Review node capacity, replicas, snapshots, and volume growth."
+            description: >-
+              Longhorn aggregate storage usage has remained above 80 percent
+              for fifteen minutes. Review node capacity, replicas, snapshots,
+              and volume growth.
