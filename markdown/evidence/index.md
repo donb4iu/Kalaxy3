@@ -12,14 +12,15 @@ with curated or inferred metadata and an explicit migration state.
 | Classification | Count |
 |---|---:|
 | legacy-evidence | 17 |
-| sage-current | 16 |
+| sage-current | 17 |
 | sage-legacy | 3 |
-| **Total** | **36** |
+| **Total** | **37** |
 
 ## Start here
 
 | Section | Record | Summary | Class | Status | Valid as of |
 |---|---|---|---|---|---|
+| verification | [Centralized logging availability SLO activation](../verification/kalaxy3-centralized-logging-availability-slo-evidence.md) | Verifies live Fluent Bit and Loki availability SLO recording rules, inactive alert state, lifecycle-safe activation, and guarded evidence-capture recovery. | sage-current | validated | 2026-08-02 |
 | operations | [Grafana operations dashboard and alerting](../operations/kalaxy3-grafana-operations-dashboard-alerting-evidence.md) | Validates repository-owned Grafana telemetry, a 20-panel operations dashboard, two actionable Prometheus alerts, their live acceptance, failure recovery, and SAGE evidence capture. | sage-current | validated | 2026-08-02 |
 | governance | [Validate PR #5 source-only guardrails](../governance/kalaxy3-actionable-guardrail-ci-portability-evidence.md) | Documents the three post-publication CI repairs that separated repository authority from runtime prerequisites and made PR 5 source-only guardrails pass without weakening operator-runtime validation. | sage-current | validated | 2026-07-31 |
 | governance | [Recover guardrails and validate active logging](../governance/kalaxy3-actionable-guardrail-recovery-evidence.md) | Documents the reusable SAGE actionable-failure framework, centralized-logging lifecycle recovery, vault-tolerant metadata handling, and live seven-node Loki validation. | sage-current | validated | 2026-07-31 |
@@ -31,7 +32,6 @@ with curated or inferred metadata and an explicit migration state.
 | operations | [Deploy centralized logging observability](../operations/kalaxy3-centralized-logging-deployment-evidence.md) | Documents activating and deploying Loki and Fluent Bit, correcting Grafana datasource reconciliation, and validating storage, all-node collection, Grafana health, and queryable logs. | sage-current | validated | 2026-07-28 |
 | operations | [Stage centralized logging through SAGE guardrails](../operations/kalaxy3-sage-observability-iterative-readiness-evidence.md) | Documents the iterative ChatGPT-SAGE discovery, correction, validation, commit, and push cycle that made Kalaxy3 centralized logging activation-ready without deploying Loki or Fluent Bit. | sage-current | validated | 2026-07-28 |
 | governance | [Validate the Kalaxy3 Daux landing page](../governance/kalaxy3-daux-landing-page-sage-evidence.md) | Validates the Kalaxy3 Daux landing-page source, container bootstrap, local render, visual identity, and clean feature-branch preservation without changing branch publication automation. | sage-current | validated | 2026-07-26 |
-| security | [Enforce canonical controller access across Kalaxy3](../security/kalaxy3-controller-access-baseline-sage-evidence.md) | Validates a repository-owned dual-controller SSH and sudo baseline across seven Kalaxy3 nodes and retires the legacy Intel pi administration path. | sage-current | validated | 2026-07-26 |
 
 ## Browse
 

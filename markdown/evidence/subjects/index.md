@@ -3,6 +3,7 @@
 - [amd64](amd64.md)
 - [AMD64 NoCloud Seed USB Helper](amd64-nocloud-seed-usb-helper.md)
 - [AMD64 Node](amd64-node.md)
+- [Centralized logging availability SLOs](centralized-logging-availability-slos.md)
 - [Centralized logging cost baseline](centralized-logging-cost-baseline.md)
 - [Centralized observability logging](centralized-observability-logging.md)
 - [Grafana operations observability](grafana-operations-observability.md)
