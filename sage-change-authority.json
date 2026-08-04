@@ -734,7 +734,17 @@
                 "well-architected",
                 "CAF",
                 "rebuild-forward",
-                "mission drift"
+                "mission drift",
+                "thin slice",
+                "end-to-end sage",
+                "sage introduction",
+                "sage value",
+                "decision trace",
+                "human expertise",
+                "wider participation",
+                "public-facing sage",
+                "strategic objective",
+                "task recommendation objective"
             ],
             "path_prefixes": [
                 "sage-capability-intelligence.json",
