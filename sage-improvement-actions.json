@@ -11,7 +11,7 @@
             "source_sessions": [
                 "SAGE-SESSION-20260729-001"
             ],
-            "current_status": "implemented",
+            "current_status": "validated",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -70,6 +70,21 @@
                         "path:scripts/sage/sage-generated-helper-runtime-self-test.py",
                         "path:markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json",
                         "terminal-session:2026-08-06-generated-helper-runtime-validation-guardrails-001"
+                    ]
+                },
+                {
+                    "sequence": 4,
+                    "from_status": "implemented",
+                    "to_status": "validated",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-06T01:21:42-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Independent committed-state validation passed the complete repository SAGE guardrail chain at commit df3e435d0ddb48edcd974fb478e808388cd8be6a, including the exact generated-helper delivery CLI, canonical path regression, static undefined-global checks, declared runtime self-test, exact operator path, companion integrity, helper-safety, failure reporting, and no-partial-receipt controls.",
+                    "evidence_references": [
+                        "commit:df3e435d0ddb48edcd974fb478e808388cd8be6a",
+                        "commit:049c0565c1c601986ad8e8e1ca4887b29f090283",
+                        "target:make-sage-guardrails",
+                        "terminal-session:2026-08-06-generated-helper-committed-state-validation-001"
                     ]
                 }
             ]
