@@ -11,7 +11,7 @@
             "source_sessions": [
                 "SAGE-SESSION-20260729-001"
             ],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -39,6 +39,21 @@
                         "SAGE-REVIEW-20260730-001",
                         "session:SAGE-SESSION-20260729-001",
                         "terminal-session:2026-07-30-generated-helper-runtime-name-recurrence-001"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-05T22:24:37-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The operator authorized remediation after SAGE discovery and evidence retrieval confirmed a recurring generated-helper delivery failure and an integration or workflow-composition gap; the validated static runtime-name control will be reused rather than duplicating a low-level primitive.",
+                    "evidence_references": [
+                        "SAGE-REVIEW-20260730-001",
+                        "SAGE-LESSON-20260730-001",
+                        "SAGE-ACTION-20260801-005",
+                        "SAGE-K3-GUARDRAIL-20260731-001"
                     ]
                 }
             ]
