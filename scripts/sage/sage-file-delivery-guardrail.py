@@ -26,6 +26,32 @@ EVIDENCE_REFERENCE = (
 )
 GUARDRAIL_PATH = "scripts/sage/sage-file-delivery-guardrail.py"
 
+RUNTIME_ACTION_ID = "SAGE-ACTION-20260730-001"
+RUNTIME_LESSON_ID = "SAGE-LESSON-20260730-001"
+RUNTIME_WORKFLOW_PATH = "scripts/sage/workflows/generated_helper_delivery.py"
+RUNTIME_SELF_TEST_PATH = "scripts/sage/sage-generated-helper-runtime-self-test.py"
+RUNTIME_PROCESS_PATH = (
+    "markdown/standards/"
+    "kalaxy3-sage-generated-helper-runtime-validation-process.md"
+)
+RUNTIME_SCHEMA_PATH = (
+    "markdown/standards/"
+    "sage-generated-helper-delivery-manifest-schema-v1.0.json"
+)
+RUNTIME_PROCESS_FILE = ROOT / RUNTIME_PROCESS_PATH
+RUNTIME_SCHEMA_FILE = ROOT / RUNTIME_SCHEMA_PATH
+RUNTIME_TARGET = "sage-generated-helper-runtime-self-test"
+RUNTIME_PROCESS_MARKERS = (
+    "exact generated helper",
+    "companion artifact",
+    "exact non-self-test operator path",
+    "unimported `hashlib`",
+    "`AUTHORITY_DIGESTS`",
+    "machine-readable receipt",
+    "accepted",
+    "validated",
+)
+
 SECTION_MARKER = "## Operator execution delivery contract"
 REQUIRED_PHRASES = (
     "downloadable executable helper file",
@@ -41,6 +67,126 @@ def load_json(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise TypeError(f"{path}: expected a JSON object")
     return payload
+
+
+def runtime_action_failures(
+    actions: Mapping[str, Any],
+    require_validated: bool,
+) -> list[str]:
+    """Validate the runtime action lifecycle."""
+
+    matches = [
+        item for item in actions.get("actions", [])
+        if isinstance(item, dict)
+        and item.get("action_id") == RUNTIME_ACTION_ID
+    ]
+    if len(matches) != 1:
+        return [f"{RUNTIME_ACTION_ID}: expected exactly one action"]
+    action = matches[0]
+    failures: list[str] = []
+    allowed = {"accepted", "implemented", "validated", "measured", "closed"}
+    status = action.get("current_status")
+    if status not in allowed:
+        failures.append(f"{RUNTIME_ACTION_ID}: accepted status required")
+    if require_validated and status not in {"validated", "measured", "closed"}:
+        failures.append(f"{RUNTIME_ACTION_ID}: validated status required")
+    if RUNTIME_LESSON_ID not in action.get("source_lessons", []):
+        failures.append(f"{RUNTIME_ACTION_ID}: source lesson is missing")
+    return failures
+
+
+def runtime_authority_failures(
+    authority: Mapping[str, Any],
+) -> list[str]:
+    """Validate runtime workflow authority registration."""
+
+    contexts = {
+        item.get("id"): item
+        for item in authority.get("contexts", [])
+        if isinstance(item, dict)
+    }
+    required_paths = {
+        RUNTIME_WORKFLOW_PATH, RUNTIME_SELF_TEST_PATH,
+        RUNTIME_PROCESS_PATH, RUNTIME_SCHEMA_PATH,
+    }
+    failures: list[str] = []
+    for context_id in (
+        "repository-governance", "continuous-improvement",
+        "workflow-primitives",
+    ):
+        context = contexts.get(context_id)
+        if not isinstance(context, dict):
+            failures.append(f"{context_id}: authority context is missing")
+            continue
+        missing = sorted(
+            required_paths - set(context.get("authoritative_files", []))
+        )
+        if missing:
+            failures.append(f"{context_id}: runtime authorities missing {missing}")
+    return failures
+
+
+def runtime_make_failures(makefile_text: str) -> list[str]:
+    """Validate generated-helper Make integration."""
+
+    failures: list[str] = []
+    if f"{RUNTIME_TARGET}:" not in makefile_text:
+        failures.append(f"Makefile target is missing: {RUNTIME_TARGET}")
+    command = "python3 scripts/sage/sage-generated-helper-runtime-self-test.py"
+    if command not in makefile_text:
+        failures.append("Makefile generated-helper runtime command is missing")
+    headers = [
+        line for line in makefile_text.splitlines()
+        if line.startswith("sage-self-test:")
+    ]
+    if len(headers) != 1 or RUNTIME_TARGET not in headers[0]:
+        failures.append("sage-self-test lacks generated-helper runtime dependency")
+    return failures
+
+
+def runtime_process_failures(process_text: str) -> list[str]:
+    """Validate the human-readable runtime contract."""
+
+    normalized = " ".join(process_text.split())
+    return [
+        f"runtime process marker missing: {marker}"
+        for marker in RUNTIME_PROCESS_MARKERS
+        if marker not in normalized
+    ]
+
+
+def runtime_schema_failures(schema_text: str) -> list[str]:
+    """Validate the machine-readable manifest contract."""
+
+    try:
+        schema = json.loads(schema_text)
+    except json.JSONDecodeError as error:
+        return [f"runtime manifest schema is invalid: {error}"]
+    failures: list[str] = []
+    if schema.get("$id") != RUNTIME_SCHEMA_PATH:
+        failures.append("runtime manifest schema identifier mismatch")
+    if schema.get("type") != "object":
+        failures.append("runtime manifest schema must define an object")
+    return failures
+
+
+def validate_generated_helper_runtime(
+    *,
+    actions: Mapping[str, Any],
+    authority: Mapping[str, Any],
+    makefile_text: str,
+    process_text: str,
+    schema_text: str,
+    require_validated: bool,
+) -> list[str]:
+    """Validate generated-helper runtime delivery integration."""
+
+    failures = runtime_action_failures(actions, require_validated)
+    failures.extend(runtime_authority_failures(authority))
+    failures.extend(runtime_make_failures(makefile_text))
+    failures.extend(runtime_process_failures(process_text))
+    failures.extend(runtime_schema_failures(schema_text))
+    return failures
 
 
 def validate(
@@ -245,6 +391,73 @@ def run_self_test() -> list[str]:
         if target.read_text(encoding="utf-8") != "pass\n":
             failures.append("temporary filesystem self-test failed")
 
+    runtime_actions = {
+        "actions": [
+            {
+                "action_id": RUNTIME_ACTION_ID,
+                "source_lessons": [RUNTIME_LESSON_ID],
+                "current_status": "validated",
+            }
+        ]
+    }
+    runtime_paths = [
+        RUNTIME_WORKFLOW_PATH,
+        RUNTIME_SELF_TEST_PATH,
+        RUNTIME_PROCESS_PATH,
+        RUNTIME_SCHEMA_PATH,
+    ]
+    runtime_authority = {
+        "contexts": [
+            {"id": context_id, "authoritative_files": runtime_paths}
+            for context_id in (
+                "repository-governance",
+                "continuous-improvement",
+                "workflow-primitives",
+            )
+        ]
+    }
+    runtime_make = (
+        f"sage-self-test: {RUNTIME_TARGET}\n"
+        f"{RUNTIME_TARGET}:\n"
+        "\tpython3 scripts/sage/sage-generated-helper-runtime-self-test.py\n"
+    )
+    runtime_process = "\n".join(RUNTIME_PROCESS_MARKERS)
+    runtime_schema = json.dumps({
+        "$id": RUNTIME_SCHEMA_PATH,
+        "type": "object",
+    })
+    failures.extend(
+        validate_generated_helper_runtime(
+            actions=runtime_actions,
+            authority=runtime_authority,
+            makefile_text=runtime_make,
+            process_text=runtime_process,
+            schema_text=runtime_schema,
+            require_validated=True,
+        )
+    )
+    runtime_actions["actions"][0]["current_status"] = "accepted"
+    staged = validate_generated_helper_runtime(
+        actions=runtime_actions,
+        authority=runtime_authority,
+        makefile_text=runtime_make,
+        process_text=runtime_process,
+        schema_text=runtime_schema,
+        require_validated=False,
+    )
+    if staged:
+        failures.append(f"accepted staged runtime control was rejected: {staged}")
+    negative = validate_generated_helper_runtime(
+        actions=runtime_actions,
+        authority=runtime_authority,
+        makefile_text=runtime_make,
+        process_text=runtime_process.replace("companion artifact", "package"),
+        schema_text=runtime_schema,
+        require_validated=False,
+    )
+    if not any("companion artifact" in item for item in negative):
+        failures.append("runtime policy negative fixture unexpectedly passed")
+
     return failures
 
 
@@ -267,15 +480,26 @@ def main() -> int:
     if args.self_test:
         failures = run_self_test()
     else:
+        actions = load_json(ACTIONS_PATH)
+        authority = load_json(AUTHORITY_PATH)
+        makefile_text = MAKEFILE_PATH.read_text(encoding="utf-8")
         failures = validate(
             agents_text=AGENTS_PATH.read_text(encoding="utf-8"),
             lessons=load_json(LESSONS_PATH),
-            actions=load_json(ACTIONS_PATH),
-            authority=load_json(AUTHORITY_PATH),
-            makefile_text=MAKEFILE_PATH.read_text(
-                encoding="utf-8"
-            ),
+            actions=actions,
+            authority=authority,
+            makefile_text=makefile_text,
             require_validated=args.require_validated,
+        )
+        failures.extend(
+            validate_generated_helper_runtime(
+                actions=actions,
+                authority=authority,
+                makefile_text=makefile_text,
+                process_text=RUNTIME_PROCESS_FILE.read_text(encoding="utf-8"),
+                schema_text=RUNTIME_SCHEMA_FILE.read_text(encoding="utf-8"),
+                require_validated=args.require_validated,
+            )
         )
 
     if failures:
@@ -291,11 +515,13 @@ def main() -> int:
         print("PASS file-delivery contract positive fixture")
         print("PASS file-delivery contract negative fixture")
         print("PASS validated-action requirement")
+        print("PASS generated-helper runtime integration fixtures")
     else:
         print("PASS AGENTS.md file-based execution contract")
         print("PASS recurring lesson and evidence linkage")
         print("PASS improvement-action lifecycle linkage")
         print("PASS repository authority and Make integration")
+        print("PASS generated-helper runtime delivery integration")
     print("Kalaxy3 SAGE file-delivery guardrail: PASS")
     return 0
 

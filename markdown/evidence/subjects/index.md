@@ -30,6 +30,7 @@
 - [SAGE continuous-improvement closeout](sage-continuous-improvement-closeout.md)
 - [SAGE enforcement guardrails](sage-enforcement-guardrails.md)
 - [SAGE evidence catalog](sage-evidence-catalog.md)
+- [SAGE generated-helper runtime validation](sage-generated-helper-runtime-validation.md)
 - [SAGE-record-schema](sage-record-schema.md)
 - [Ubuntu Installation](ubuntu-installation.md)
 - [Ubuntu Node Provisioning](ubuntu-node-provisioning.md)

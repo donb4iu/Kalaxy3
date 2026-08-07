@@ -17,7 +17,10 @@
                 "workflow",
                 "process",
                 "preflight",
-                "discovery"
+                "discovery",
+                "generated helper runtime validation",
+                "helper delivery receipt",
+                "companion artifact validation"
             ],
             "path_prefixes": [
                 "AGENTS.md",
@@ -77,7 +80,11 @@
                 "scripts/sage/workflow/markdown.py",
                 "scripts/sage/workflow/evidence_records.py",
                 "scripts/sage/workflows/evidence_navigation.py",
-                "scripts/sage/sage-evidence-navigation-architecture-guardrail.py"
+                "scripts/sage/sage-evidence-navigation-architecture-guardrail.py",
+                "scripts/sage/workflows/generated_helper_delivery.py",
+                "scripts/sage/sage-generated-helper-runtime-self-test.py",
+                "markdown/standards/kalaxy3-sage-generated-helper-runtime-validation-process.md",
+                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
@@ -308,7 +315,10 @@
                 "first-pass completion",
                 "manual corrections",
                 "known-failure recurrence",
-                "trend reporting"
+                "trend reporting",
+                "generated helper runtime validation",
+                "helper delivery receipt",
+                "companion artifact validation"
             ],
             "path_prefixes": [
                 "sage-continuous-improvement-",
@@ -411,7 +421,11 @@
                 "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/root-enforcement-readiness.json",
                 "scripts/sage/sage-operating-contract-guardrail.py",
                 "scripts/sage/sage-operating-contract-self-test.py",
-                "scripts/sage/workflows/operating_contract.py"
+                "scripts/sage/workflows/operating_contract.py",
+                "scripts/sage/workflows/generated_helper_delivery.py",
+                "scripts/sage/sage-generated-helper-runtime-self-test.py",
+                "markdown/standards/kalaxy3-sage-generated-helper-runtime-validation-process.md",
+                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json"
             ],
             "baseline_checks": [
                 "make sage-active-session-self-test",
@@ -816,7 +830,10 @@
                 "operator-executed",
                 "git mutation gate",
                 "git safety",
-                "capability gap"
+                "capability gap",
+                "generated helper runtime validation",
+                "helper delivery receipt",
+                "companion artifact validation"
             ],
             "path_prefixes": [
                 "sage-workflow-primitives.json",
@@ -886,7 +903,11 @@
                 "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/root-enforcement-readiness.json",
                 "scripts/sage/sage-operating-contract-guardrail.py",
                 "scripts/sage/sage-operating-contract-self-test.py",
-                "scripts/sage/workflows/operating_contract.py"
+                "scripts/sage/workflows/operating_contract.py",
+                "scripts/sage/workflows/generated_helper_delivery.py",
+                "scripts/sage/sage-generated-helper-runtime-self-test.py",
+                "markdown/standards/kalaxy3-sage-generated-helper-runtime-validation-process.md",
+                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail",
