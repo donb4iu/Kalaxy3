@@ -62,7 +62,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-execute-self-test
+sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-execute-self-test sage-thin-slice-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 	python3 scripts/sage/sage-file-delivery-guardrail.py
@@ -114,7 +114,7 @@ sage-operating-contract-check: sage-operating-contract-self-test sage-operating-
 
 sage-guardrails: sage-self-test sage-discovery-guardrail sage-operating-contract-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
-                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-execution-guardrail
+                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-execution-guardrail sage-thin-slice-guardrail
 	@echo "Kalaxy3 repository SAGE guardrails: PASS"
 
 .PHONY: sage-evidence-brief sage-evidence-prepare \
@@ -296,6 +296,23 @@ sage-capability-intelligence-self-test:
 
 sage-capability-intelligence-guardrail:
 	python3 scripts/sage/sage-capability-intelligence-guardrail.py
+.PHONY: sage-thin-slice-render sage-thin-slice-check \
+	sage-thin-slice-self-test sage-thin-slice-guardrail
+
+sage-thin-slice-render:
+	python3 scripts/sage/sage-thin-slice.py render
+	python3 scripts/sage/sage-thin-slice.py metrics
+
+sage-thin-slice-check:
+	python3 scripts/sage/sage-thin-slice.py check
+	python3 scripts/sage/sage-thin-slice.py render --check
+	python3 scripts/sage/sage-thin-slice.py metrics --check
+
+sage-thin-slice-self-test:
+	python3 scripts/sage/sage-thin-slice.py self-test
+
+sage-thin-slice-guardrail:
+	python3 scripts/sage/sage-thin-slice-guardrail.py
 .PHONY: sage-file-delivery-guardrail
 
 sage-file-delivery-guardrail:

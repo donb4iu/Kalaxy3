@@ -771,7 +771,12 @@
                 "scripts/sage/sage-capability-intelligence",
                 "markdown/standards/kalaxy3-sage-capability-intelligence",
                 "markdown/standards/sage-capability-intelligence",
-                "markdown/architecture/kalaxy3-sage-capability-intelligence"
+                "markdown/architecture/kalaxy3-sage-capability-intelligence",
+                "sage-thin-slice.json",
+                "scripts/sage/sage-thin-slice",
+                "markdown/standards/kalaxy3-sage-thin-slice",
+                "markdown/standards/sage-thin-slice",
+                "markdown/architecture/kalaxy3-sage-thin-slice"
             ],
             "requires": [
                 "continuous-improvement",
@@ -785,26 +790,37 @@
                 "markdown/standards/sage-capability-intelligence-schema-v1.0.json",
                 "markdown/standards/kalaxy3-sage-capability-intelligence-process.md",
                 "scripts/sage/sage-capability-intelligence.py",
-                "scripts/sage/sage-capability-intelligence-guardrail.py"
+                "scripts/sage/sage-capability-intelligence-guardrail.py",
+                "sage-thin-slice.json",
+                "markdown/standards/sage-thin-slice-schema-v1.0.json",
+                "markdown/standards/kalaxy3-sage-thin-slice-process.md",
+                "scripts/sage/sage-thin-slice.py",
+                "scripts/sage/sage-thin-slice-guardrail.py"
             ],
             "baseline_checks": [
                 "make sage-capability-intelligence-self-test",
                 "make sage-capability-intelligence-check",
-                "make sage-index-check"
+                "make sage-index-check",
+                "make sage-thin-slice-self-test",
+                "make sage-thin-slice-check"
             ],
             "required_validation": [
                 "make sage-capability-intelligence-self-test",
                 "make sage-capability-intelligence-guardrail",
                 "make sage-self-test",
                 "make sage-discovery-guardrail",
-                "make sage-index-check"
+                "make sage-index-check",
+                "make sage-thin-slice-guardrail",
+                "make sage-thin-slice-self-test"
             ],
             "evidence_process": [
                 "Preserve the versioned mission, target, and current capability picture.",
                 "Preserve consulted authority assertions and visible conflicts.",
                 "Preserve immutable branch predictions before outcomes.",
                 "Record the selected authority decision, actual outcome, and calibration.",
-                "Do not claim autonomy beyond the delegated domain and level."
+                "Do not claim autonomy beyond the delegated domain and level.",
+                "Preserve a coherent public case that separates source statements, SAGE contribution, and human authority.",
+                "Measure participant completion and evidence-use outcomes before claiming broader learning or maturity."
             ]
         },
         {

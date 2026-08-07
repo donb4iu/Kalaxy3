@@ -1,8 +1,28 @@
 {
-  "catalog_fingerprint": "2383217080febca233b5639543c7eefa4af03c7134d411144b299d3ae70ac7ae",
+  "catalog_fingerprint": "97a67337d66404a8b8854cd58cdff6035ab6eeddabdc583faca89372d4b690b0",
   "catalog_schema_version": "1.0",
-  "record_count": 39,
+  "record_count": 40,
   "records": [
+    {
+      "completed_at": "not-captured",
+      "confidence": "low",
+      "evidence_id": "LEGACY-K3-3442194979",
+      "metadata_source": "inferred",
+      "migration_status": "not-started",
+      "nav_order": 500,
+      "nav_section": "architecture",
+      "nav_title": "End-to-End Thin Slice",
+      "owner": "not-captured",
+      "primary_subject": "SAGE End",
+      "record_class": "legacy-evidence",
+      "schema_version": "not-applicable",
+      "source_path": "markdown/architecture/kalaxy3-sage-thin-slice.md",
+      "status": "historical",
+      "summary": "Case: Centralized logging: a first end-to-end SAGE case",
+      "tags": [],
+      "title": "Kalaxy3 SAGE End-to-End Thin Slice",
+      "valid_as_of": "not-captured"
+    },
     {
       "completed_at": "2026-07-25T21:01:00-05:00",
       "confidence": "high",
@@ -973,6 +993,7 @@
   "registry_path": "markdown/evidence/legacy-record-registry.json",
   "sage_current_schema": "1.2",
   "warnings": [
+    "CURATION: markdown/architecture/kalaxy3-sage-thin-slice.md needs registry review",
     "CURATION: markdown/installation/k3s-api-ha-kube-vip.md needs registry review",
     "CURATION: markdown/installation/k3s-etcd-baseline-backup-evidence.md needs registry review",
     "CURATION: markdown/installation/kalaxy3-amd64-02-k3s-longhorn-node-addition.md needs registry review",
@@ -993,6 +1014,7 @@
     "CURATION: markdown/installation/ubuntu-node-provisioning-fixed.md needs registry review",
     "CURATION: markdown/operations/kalaxy3-sage-canonical-metadata-contract-evidence.md needs registry review",
     "CURATION: markdown/operations/kalaxy3-sage-evidence-publication-process-evidence.md needs registry review",
+    "LEGACY: markdown/architecture/kalaxy3-sage-thin-slice.md indexed as legacy-evidence with inferred metadata",
     "LEGACY: markdown/installation/k3s-api-ha-kube-vip.md indexed as legacy-evidence with inferred metadata",
     "LEGACY: markdown/installation/k3s-etcd-baseline-backup-evidence.md indexed as legacy-evidence with inferred metadata",
     "LEGACY: markdown/installation/kalaxy3-amd64-02-k3s-longhorn-node-addition.md indexed as legacy-evidence with inferred metadata",
