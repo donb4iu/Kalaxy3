@@ -38,8 +38,8 @@ The repository-owned workflow performs:
 3. Git, GitHub, credential, and deployment safety analysis;
 4. isolated `py_compile` of the exact helper;
 5. repository-owned undefined-global analysis;
-6. the declared helper self-test;
-7. the exact non-self-test operator path;
+6. the declared helper self-test, which must emit non-empty runtime execution evidence;
+7. the exact non-self-test operator path, which must emit non-empty runtime execution evidence;
 8. atomic machine-readable receipt creation after all checks pass.
 
 Syntax compilation, source-token checks, or self-test-only execution are not
@@ -52,6 +52,8 @@ The exact production CLI self-test must prove that delivery rejects:
 - an unimported `hashlib` reference;
 - an undefined `AUTHORITY_DIGESTS` reference;
 - a defined-but-invalid late runtime value;
+- a silent zero-exit declared self-test;
+- a silent zero-exit exact operator path;
 - a missing companion artifact;
 - a companion artifact digest mismatch;
 - an operator path that omits a required companion artifact;

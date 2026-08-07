@@ -295,6 +295,20 @@ def validation_commands(contract: DeliveryContract) -> tuple[ValidationCommand, 
     )
 
 
+def require_runtime_evidence(results: tuple[Any, ...]) -> None:
+    """Require affirmative evidence from both helper runtime paths."""
+    labels = ("declared helper self-test", "exact operator path")
+    runtime_results = results[2:4]
+    if len(runtime_results) != 2:
+        raise WorkflowError("runtime validation results are incomplete")
+    for label, result in zip(labels, runtime_results, strict=True):
+        observed = (result.stdout + result.stderr).strip()
+        if not observed:
+            raise WorkflowError(
+                f"{label} produced no affirmative runtime evidence"
+            )
+
+
 def execute_runtime_plan(
     execution: DeliveryExecution,
     runner: CommandRunner,
@@ -303,6 +317,7 @@ def execute_runtime_plan(
 
     plan = ValidationPlan(ROOT, runner, validation_commands(execution.contract))
     execution.results = plan.run()
+    require_runtime_evidence(execution.results)
     return {
         "status": "pass",
         "checks": len(execution.results),
@@ -342,6 +357,17 @@ def receipt_payload(
                 "output_sha256": item.output_sha256,
             }
             for item in execution.results
+        ],
+        "runtime_execution_evidence": [
+            {
+                "path": label,
+                "nonempty": True,
+                "output_sha256": execution.results[index].output_sha256,
+            }
+            for index, label in (
+                (2, "self_test"),
+                (3, "operator"),
+            )
         ],
         "event_log": {"path": str(event_log), "sha256": file_sha256(event_log)},
     }
