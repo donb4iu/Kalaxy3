@@ -45,6 +45,8 @@ help:
 	  '  make sage-candidate-self-test' \
 	  '  make sage-learning-self-test' \
 	  '  make sage-review-self-test' \
+	  '  SAGE_REQUEST="<request>" SAGE_PROPOSAL="<proposal.zip>" make sage-request-execute' \
+	  '  SAGE_STATE="<state.json>" SAGE_OPERATOR_RESULT="<result.json>" make sage-request-continue' \
 	  '  SAGE_REQUEST="<request>" make sage-evidence-prepare' \
 	  '  SAGE_PACKAGE="<package.zip>" make sage-evidence-check'
 
@@ -60,7 +62,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test
+sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-execute-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 	python3 scripts/sage/sage-file-delivery-guardrail.py
@@ -112,7 +114,7 @@ sage-operating-contract-check: sage-operating-contract-self-test sage-operating-
 
 sage-guardrails: sage-self-test sage-discovery-guardrail sage-operating-contract-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
-                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail
+                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-execution-guardrail
 	@echo "Kalaxy3 repository SAGE guardrails: PASS"
 
 .PHONY: sage-evidence-brief sage-evidence-prepare \
@@ -323,3 +325,33 @@ sage-workflow-usage:
 
 sage-generated-helper-runtime-self-test:
 	python3 scripts/sage/sage-generated-helper-runtime-self-test.py
+
+.PHONY: sage-request-execute sage-request-continue sage-request-execute-self-test sage-request-execution-guardrail
+
+sage-request-execute:
+	@test -n "$${SAGE_REQUEST:-}" || { \
+	  echo 'Usage: SAGE_REQUEST="<request>" SAGE_PROPOSAL="<proposal.zip>" make sage-request-execute'; \
+	  exit 2; \
+	}
+	@test -n "$${SAGE_PROPOSAL:-}" || { \
+	  echo 'Usage: SAGE_REQUEST="<request>" SAGE_PROPOSAL="<proposal.zip>" make sage-request-execute'; \
+	  exit 2; \
+	}
+	$(PYTHON) scripts/sage/sage-request-execute.py --request "$$SAGE_REQUEST" --proposal "$$SAGE_PROPOSAL"
+
+sage-request-continue:
+	@test -n "$${SAGE_STATE:-}" || { \
+	  echo 'Usage: SAGE_STATE="<state.json>" SAGE_OPERATOR_RESULT="<result.json>" make sage-request-continue'; \
+	  exit 2; \
+	}
+	@test -n "$${SAGE_OPERATOR_RESULT:-}" || { \
+	  echo 'Usage: SAGE_STATE="<state.json>" SAGE_OPERATOR_RESULT="<result.json>" make sage-request-continue'; \
+	  exit 2; \
+	}
+	$(PYTHON) scripts/sage/sage-request-execute.py --continue-state "$$SAGE_STATE" --operator-result "$$SAGE_OPERATOR_RESULT"
+
+sage-request-execute-self-test:
+	$(PYTHON) scripts/sage/sage-request-execute.py --self-test
+
+sage-request-execution-guardrail:
+	$(PYTHON) scripts/sage/sage-request-execution-guardrail.py

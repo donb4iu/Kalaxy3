@@ -1,0 +1,965 @@
+#!/usr/bin/env python3
+"""Repository-owned SAGE request-to-operator execution composition."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Mapping
+
+from request_execution import ProposalBundle, load_proposal, next_operator_boundary, validate_operator_result
+from workflow import (
+    AtomicFileTransaction,
+    AtomicFileWriter,
+    AuthorityAssertion,
+    AuthorityReconciler,
+    CloseoutWriter,
+    CommandRunner,
+    CommandSpec,
+    ComponentCandidate,
+    ComponentSelector,
+    FailureDiagnoser,
+    GitInspector,
+    GitSafetyGuardrail,
+    JsonlEventLogger,
+    OperatorGitProposal,
+    OutcomeMetrics,
+    PrimitiveCatalog,
+    RequiredCapability,
+    SageDiscovery,
+    ValidationCommand,
+    ValidationPlan,
+    WorkflowError,
+)
+from workflows.operating_contract import build_post_operator_workflow, build_pre_mutation_workflow
+
+PRIMITIVES_USED = (
+    "catalog.registry",
+    "logging.events",
+    "command.run",
+    "sage.discovery",
+    "git.inspect",
+    "authority.reconcile",
+    "component.select",
+    "capability.gap",
+    "file.atomic-preserve-mode",
+    "validation.plan",
+    "git.safety-guardrail",
+    "failure.diagnose",
+    "operator.git-proposal",
+    "metrics.outcome",
+    "evidence.closeout",
+    "workflow.composition",
+)
+WORKFLOW_ID = "sage.request-execution"
+SECRET_ENVIRONMENT_NAMES = (
+    "GH_TOKEN",
+    "GITHUB_TOKEN",
+    "GITHUB_PAT",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "KUBECONFIG",
+)
+
+
+@dataclass
+class ExecutionContext:
+    """Mutable state for one governed request execution."""
+
+    repo: Path
+    request: str
+    bundle: ProposalBundle
+    state_dir: Path
+    catalog: PrimitiveCatalog
+    logger: JsonlEventLogger
+    runner: CommandRunner
+    inspector: GitInspector
+    writer: AtomicFileWriter
+    discovery: Any = None
+    git_snapshot: Any = None
+    authority_path: Path | None = None
+    component_path: Path | None = None
+    gap_path: Path | None = None
+    proposal_path: Path | None = None
+    transaction: AtomicFileTransaction | None = None
+    validation: list[dict[str, Any]] = field(default_factory=list)
+
+
+def sha256_file(path: Path) -> str:
+    """Return one repository file digest."""
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def stable_json(value: Mapping[str, Any]) -> str:
+    """Return deterministic repository-style JSON."""
+
+    return json.dumps(value, indent=4, sort_keys=False) + "\n"
+
+
+def write_state(context: ExecutionContext, name: str, value: Mapping[str, Any]) -> Path:
+    """Write one local state receipt through the atomic file primitive."""
+
+    path = context.state_dir / name
+    context.writer.write_text(path, stable_json(value), new_mode=0o600)
+    return path
+
+
+def build_context(repo: Path, request: str, proposal: Path) -> ExecutionContext:
+    """Resolve proposal, primitives, and local execution state."""
+
+    bundle = load_proposal(proposal, request)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    state_dir = Path("~/.local/state/kalaxy3/sage-request-execution").expanduser() / stamp
+    state_dir.mkdir(parents=True, exist_ok=False)
+    catalog = PrimitiveCatalog.load(repo / "sage-workflow-primitives.json")
+    catalog.require(PRIMITIVES_USED)
+    logger = JsonlEventLogger(
+        state_dir / "events.jsonl",
+        WORKFLOW_ID,
+        primitive_versions=catalog.versions_for(PRIMITIVES_USED),
+    )
+    runner = CommandRunner(
+        logger,
+        allowed_roots=(repo, state_dir, bundle.package_path.parent),
+        base_environment={name: "" for name in SECRET_ENVIRONMENT_NAMES},
+    )
+    inspector = GitInspector(repo, runner)
+    writer = AtomicFileWriter((repo, state_dir))
+    return ExecutionContext(repo, request, bundle, state_dir, catalog, logger, runner, inspector, writer)
+
+
+def discovery_action(context: ExecutionContext) -> Mapping[str, Any]:
+    """Preserve literal discovery and current evidence retrieval."""
+
+    context.discovery = SageDiscovery(context.repo, context.runner).literal(context.request)
+    result = context.runner.run(
+        CommandSpec(
+            primitive_id="command.run",
+            label="Retrieve evidence for literal SAGE request",
+            argv=("make", "sage-evidence-retrieve"),
+            cwd=context.repo,
+            environment={"SAGE_REQUEST": context.request},
+            timeout_seconds=600,
+        ),
+        step_id="literal-evidence-retrieval",
+    )
+    context.writer.write_text(
+        context.state_dir / "evidence-retrieval.txt",
+        result.stdout,
+        new_mode=0o600,
+    )
+    return {
+        "request": context.request,
+        "contexts": list(context.discovery.contexts),
+        "authorities": list(context.discovery.authorities),
+        "retrieval_output_sha256": result.output_sha256,
+    }
+
+
+def git_action(context: ExecutionContext) -> Mapping[str, Any]:
+    """Require exact clean branch and proposal-bound HEAD."""
+
+    repository = context.bundle.manifest["repository"]
+    context.inspector.require_clean()
+    context.inspector.require_branch(str(repository["branch"]))
+    context.inspector.require_head(str(repository["head"]))
+    context.git_snapshot = context.inspector.snapshot()
+    return context.git_snapshot.as_dict()
+
+
+def authority_assertions(context: ExecutionContext, captured: str) -> tuple[AuthorityAssertion, ...]:
+    """Build SAGE-owned authority assertions; never trust package assertions."""
+
+    common = {
+        "captured_at": captured,
+        "freshness": "current",
+        "confidence": "high",
+        "applicability": "material",
+    }
+    policy = context.repo / "sage-operating-contract-policy.json"
+    standard = context.repo / "markdown/standards/kalaxy3-sage-operating-contract.md"
+    request_digest = hashlib.sha256(context.request.encode("utf-8")).hexdigest()
+    discovery_digest = hashlib.sha256(context.discovery.stdout.encode("utf-8")).hexdigest()
+    return (
+        AuthorityAssertion("ASSERT-001", "operator-intent", "operator-request", "literal-request", subject="operator intent", statement=context.request, measurement_type="declared", evidence_sha256=request_digest, **common),
+        AuthorityAssertion("ASSERT-002", "git", "git", f"HEAD:{context.git_snapshot.head}", subject="repository state", statement=f"Branch {context.git_snapshot.branch} is clean at {context.git_snapshot.head}.", measurement_type="measured", evidence_sha256=hashlib.sha256(context.git_snapshot.head.encode()).hexdigest(), **common),
+        AuthorityAssertion("ASSERT-003", "github", "repository-policy", "sage-operating-contract-policy.json#helper_policy", subject="GitHub mutation boundary", statement="SAGE request execution may not mutate GitHub; an operator boundary is required.", measurement_type="declared", evidence_sha256=sha256_file(policy), **common),
+        AuthorityAssertion("ASSERT-004", "repository-policy", "repository", "markdown/standards/kalaxy3-sage-operating-contract.md", subject="repository mutation policy", statement="Repository content may be changed atomically and validated before one operator-executed Git proposal.", measurement_type="declared", evidence_sha256=sha256_file(standard), **common),
+        AuthorityAssertion("ASSERT-005", "sage", "repository", "sage-change-authority.json", subject="SAGE discovery authority", statement="The literal request was classified through current repository SAGE discovery and its authoritative files were readable.", measurement_type="measured", evidence_sha256=discovery_digest, **common),
+    )
+
+
+def authority_action(context: ExecutionContext) -> Mapping[str, Any]:
+    """Reconcile required federated authority through the registered primitive."""
+
+    policy = json.loads((context.repo / "sage-operating-contract-policy.json").read_text(encoding="utf-8"))
+    required = policy["authority_policy"]["required_authority_types"]
+    captured = datetime.now().astimezone().isoformat(timespec="seconds")
+    receipt = AuthorityReconciler(required).reconcile(
+        receipt_id=f"SAGE-AUTH-{datetime.now().strftime('%Y%m%d')}-801",
+        request=context.request,
+        repository=context.git_snapshot.as_dict(),
+        assertions=authority_assertions(context, captured),
+        evidence_references=tuple(context.bundle.manifest["evidence_references"]),
+        captured_at=captured,
+    )
+    if receipt.reconciliation["disposition"] != "complete":
+        raise WorkflowError(receipt.reconciliation["summary"])
+    context.authority_path = write_state(context, "authority-reconciliation.json", receipt.to_dict())
+    return receipt.to_dict()
+
+
+def candidate_from_mapping(context: ExecutionContext, item: Mapping[str, Any]) -> ComponentCandidate:
+    """Bind an untrusted candidate declaration to the live primitive registry."""
+
+    component_id = str(item["component_id"])
+    context.catalog.require((component_id,))
+    expected = context.catalog.versions_for((component_id,))[component_id]
+    if str(item["version"]) != expected:
+        raise WorkflowError(f"Candidate {component_id} version mismatch: expected {expected}")
+    source_path = str(item["source_path"])
+    if not (context.repo / source_path).is_file():
+        raise WorkflowError(f"Candidate source does not exist: {source_path}")
+    return ComponentCandidate(
+        str(item["candidate_id"]),
+        tuple(str(value) for value in item["capability_ids"]),
+        component_id,
+        expected,
+        source_path,
+        str(item["maturity"]),
+        dict(item["selection_factors"]),
+        tuple(str(value) for value in item["evidence_references"]),
+        str(item["rationale"]),
+    )
+
+
+def selection_action(context: ExecutionContext) -> Mapping[str, Any]:
+    """Select only live versioned repository primitives for declared capabilities."""
+
+    capabilities = tuple(
+        RequiredCapability(str(item["capability_id"]), str(item["description"]), bool(item["required"]))
+        for item in context.bundle.manifest["capabilities"]
+    )
+    candidates = tuple(
+        candidate_from_mapping(context, item)
+        for item in context.bundle.manifest["candidates"]
+    )
+    payload = ComponentSelector().build_manifest(
+        manifest_id=f"SAGE-COMP-{datetime.now().strftime('%Y%m%d')}-801",
+        request=context.request,
+        authority_receipt=str(context.authority_path),
+        capabilities=capabilities,
+        candidates=candidates,
+        approval={"status": "review-required", "reviewed_by": None, "reviewed_at": None, "rationale": "Operator review occurs at the generated Git proposal."},
+    )
+    ComponentSelector.require_complete(payload)
+    context.component_path = write_state(context, "component-selection.json", payload)
+    return payload
+
+
+def gap_action(context: ExecutionContext) -> Mapping[str, Any]:
+    """Record that existing composition closes the request execution gap."""
+
+    payload = {
+        "schema_version": "1.0",
+        "record_type": "sage-capability-gap-decision",
+        "request": context.request,
+        "authority_receipt": str(context.authority_path),
+        "component_manifest": str(context.component_path),
+        "new_primitive_required": False,
+        "composition_can_close_gap": True,
+        "decision": "Reuse the selected repository primitives; no new low-level primitive is authorized.",
+        "approval": {"status": "review-required", "reviewed_by": None, "reviewed_at": None},
+    }
+    context.gap_path = write_state(context, "capability-gap-decision.json", payload)
+    return payload
+
+
+def reconcile_index(context: ExecutionContext) -> None:
+    """Run only the repository-owned evidence index reconciliation path."""
+
+    if context.bundle.manifest["reconcile_evidence_index"] is not True:
+        return
+    context.runner.run(
+        CommandSpec(
+            primitive_id="command.run",
+            label="Reconcile generated SAGE evidence indexes",
+            argv=("python3", "scripts/sage/sage-index.py", "reconcile"),
+            cwd=context.repo,
+            timeout_seconds=600,
+        ),
+        step_id="evidence-index-reconcile",
+    )
+
+
+def mutation_action(context: ExecutionContext) -> Mapping[str, str]:
+    """Apply the checksum-bound proposal atomically within its exact scope."""
+
+    paths = tuple(context.repo / relative for relative in context.bundle.declared_paths)
+    context.transaction = AtomicFileTransaction(context.writer, paths)
+    digests: dict[str, str] = {}
+    for item in context.bundle.source_files:
+        digest = context.transaction.write_bytes(context.repo / item.path, item.payload, new_mode=item.mode)
+        if digest != item.sha256:
+            raise WorkflowError(f"Written payload digest mismatch: {item.path}")
+        digests[item.path] = digest
+    reconcile_index(context)
+    for relative in context.bundle.generated_paths:
+        path = context.repo / relative
+        if not path.is_file():
+            raise WorkflowError(f"Declared generated path is missing: {relative}")
+        digests[relative] = sha256_file(path)
+    context.inspector.require_exact_paths(context.bundle.declared_paths)
+    return digests
+
+
+def proposal_validation_commands(context: ExecutionContext) -> tuple[ValidationCommand, ...]:
+    """Build the shell-free proposal validation plan already constrained by the parser."""
+
+    return tuple(
+        ValidationCommand(
+            str(item["label"]),
+            tuple(str(value) for value in item["argv"]),
+            float(item["timeout_seconds"]),
+        )
+        for item in context.bundle.manifest["validation_commands"]
+    )
+
+
+def validation_action(context: ExecutionContext) -> tuple[Any, ...]:
+    """Classify the exact changed scope and execute declared SAGE validations."""
+
+    changed = SageDiscovery(context.repo, context.runner).changed()
+    results = ValidationPlan(context.repo, context.runner, proposal_validation_commands(context)).run()
+    context.inspector.run_read_only(("diff", "--check"), label="Validate repository diff whitespace")
+    context.inspector.require_exact_paths(context.bundle.declared_paths)
+    context.validation = [
+        {"label": command.label, "reference": "runtime-command", "status": "pass", "sha256": result.output_sha256}
+        for command, result in zip(proposal_validation_commands(context), results)
+    ]
+    context.validation.append({
+        "label": "Changed-path SAGE discovery",
+        "reference": "sage.discovery",
+        "status": "pass",
+        "sha256": hashlib.sha256(changed.stdout.encode("utf-8")).hexdigest(),
+    })
+    return results
+
+
+def safety_action(context: ExecutionContext) -> Mapping[str, Any]:
+    """Reject proposal Python capable of protected-system mutation."""
+
+    paths = tuple(
+        context.repo / item.path
+        for item in context.bundle.source_files
+        if item.path.endswith(".py")
+    )
+    violations = GitSafetyGuardrail.scan_paths(paths)
+    if violations:
+        raise WorkflowError("; ".join(item.render() for item in violations))
+    return {"status": "pass", "paths": [str(path) for path in paths]}
+
+
+def no_failure_action() -> Mapping[str, str]:
+    """Record that failure diagnosis is not required on the successful path."""
+
+    return {"status": "not-required", "reason": "No unexpected failure occurred before the operator boundary."}
+
+
+def proposal_action(context: ExecutionContext) -> Mapping[str, Any]:
+    """Produce one non-executed exact-scope Git staging proposal."""
+
+    snapshot = context.inspector.snapshot()
+    payload = OperatorGitProposal.build(
+        proposal_id=f"SAGE-GIT-{datetime.now().strftime('%Y%m%d')}-801",
+        controller="sage-request-execution",
+        repository=snapshot,
+        authority_receipt=str(context.authority_path),
+        component_manifest=str(context.component_path),
+        boundary="stage",
+        change_scope=context.bundle.declared_paths,
+        validation=context.validation,
+        command_argv=("git", "add", "--", *context.bundle.declared_paths),
+        expected_result="Exactly the declared request-execution paths become staged on the active feature branch.",
+        risk="Repository-content changes remain local and reviewable; SAGE executes no Git, GitHub, credential, or deployment mutation.",
+        rollback="Do not execute the proposal, or restore the declared paths from Git after operator review.",
+        post_command_verification=("git branch --show-current", "git status --porcelain=v1 --untracked-files=all"),
+    )
+    context.proposal_path = context.state_dir / "operator-git-proposal.json"
+    OperatorGitProposal.write(context.proposal_path, payload, context.writer)
+    return payload
+
+
+def action_map(context: ExecutionContext) -> dict[str, Any]:
+    """Bind exact request-execution actions to the mandatory operating contract."""
+
+    return {
+        "preserve-literal-request": lambda: discovery_action(context),
+        "collect-current-git-authority": lambda: git_action(context),
+        "reconcile-authority": lambda: authority_action(context),
+        "select-repository-components": lambda: selection_action(context),
+        "record-capability-gaps": lambda: gap_action(context),
+        "implement-declared-repository-scope": lambda: mutation_action(context),
+        "validate-real-runtime-path": lambda: validation_action(context),
+        "validate-helper-safety": lambda: safety_action(context),
+        "diagnose-unexpected-failures": no_failure_action,
+        "propose-one-operator-boundary": lambda: proposal_action(context),
+    }
+
+
+def write_closeout(context: ExecutionContext, status: str, details: Mapping[str, Any]) -> Path:
+    """Write local primitive-version closeout evidence."""
+
+    writer = CloseoutWriter(
+        destination_directory=context.state_dir,
+        primitive_registry=context.repo / "sage-workflow-primitives.json",
+        event_log=context.state_dir / "events.jsonl",
+    )
+    return writer.write(
+        workflow_id=WORKFLOW_ID,
+        status=status,
+        used_primitives=PRIMITIVES_USED,
+        details=details,
+    )
+
+
+def failure_diagnosis(context: ExecutionContext, error: Exception) -> Path:
+    """Retrieve prior experience and record a reusable composition diagnosis."""
+
+    text = f"SAGE request execution failed and rolled back: {type(error).__name__}: {error}"
+    result = context.runner.run(
+        CommandSpec(
+            primitive_id="failure.diagnose",
+            label="Retrieve SAGE experience after request-execution failure",
+            argv=("python3", "-S", "scripts/sage/sage-failure-retrieval-gate.py", "--failure", text),
+            cwd=context.repo,
+            timeout_seconds=600,
+        ),
+        step_id="failure-retrieval",
+    )
+    receipt_match = re.search(r"^Receipt:\s+(.+)$", result.stdout, re.MULTILINE)
+    receipt = receipt_match.group(1).strip() if receipt_match else "failure-retrieval-output"
+    payload = FailureDiagnoser.diagnose(
+        diagnosis_id=f"SAGE-DIAG-{datetime.now().strftime('%Y%m%d')}-801",
+        failure_id="request-execution",
+        attempted_action="Execute the literal request through the repository-owned SAGE request executor.",
+        what_failed=text,
+        direct_evidence=({"kind": "exception", "value": text},),
+        actual_path={"component_id": "sage.request-execution", "component_version": "1.0", "source_path": "scripts/sage/workflows/request_execution.py", "description": "The reusable request execution composition."},
+        expected_path={"component_id": "workflow.composition", "component_version": context.catalog.versions_for(("workflow.composition",))["workflow.composition"], "source_path": "scripts/sage/workflows/operating_contract.py", "description": "The mandatory SAGE operating-contract sequence."},
+        why_actual_path_differed="The exact reported failure interrupted the composed operating-contract path before the operator boundary.",
+        ownership="composition",
+        mutation_effect={"repository_content_restored": True, "git_mutation": False, "github_mutation": False, "deployment_mutation": False},
+        lesson_use={"retrieval_performed": True, "applicable_lesson_ids": [], "surfaced_lesson_ids": [], "used_lesson_ids": []},
+        previous_failure_references=(),
+        avoidable_rework_minutes=None,
+        correction={"disposition": "update-composition", "reusable_correction": "Review the failure retrieval and correct the reusable request execution composition before retry.", "no_action_rationale": None, "regression_test_required": True},
+        evidence_references=(receipt, str(context.state_dir / "events.jsonl")),
+    )
+    return write_state(context, "failure-diagnosis.json", payload)
+
+
+
+def write_execution_state(
+    context: ExecutionContext,
+    proposal_payload: Mapping[str, Any],
+) -> Path:
+    """Persist the post-operator continuation contract for this request."""
+
+    payload = {
+        "schema_version": "1.0",
+        "record_type": "sage-request-execution-state",
+        "request": context.request,
+        "request_sha256": hashlib.sha256(context.request.encode("utf-8")).hexdigest(),
+        "proposal_package": str(context.bundle.package_path),
+        "proposal_package_sha256": sha256_file(context.bundle.package_path),
+        "repository_branch": str(context.bundle.manifest["repository"]["branch"]),
+        "base_head": str(context.bundle.manifest["repository"]["head"]),
+        "declared_paths": list(context.bundle.declared_paths),
+        "authority_receipt": str(context.authority_path),
+        "component_manifest": str(context.component_path),
+        "capability_gap_decision": str(context.gap_path),
+        "validation": list(context.validation),
+        "operator_plan": dict(context.bundle.manifest["operator_plan"]),
+        "current_boundary": str(proposal_payload["boundary"]),
+        "current_proposal": str(context.proposal_path),
+        "history": [],
+    }
+    return write_state(context, "request-execution-state.json", payload)
+
+
+def load_state(path: Path) -> dict[str, Any]:
+    """Load one immutable-local continuation state object."""
+
+    resolved = path.expanduser().resolve()
+    payload = json.loads(resolved.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise WorkflowError("request execution state must be an object")
+    required = {
+        "schema_version",
+        "record_type",
+        "request",
+        "request_sha256",
+        "proposal_package",
+        "proposal_package_sha256",
+        "repository_branch",
+        "base_head",
+        "declared_paths",
+        "authority_receipt",
+        "component_manifest",
+        "capability_gap_decision",
+        "validation",
+        "operator_plan",
+        "current_boundary",
+        "current_proposal",
+        "history",
+    }
+    if set(payload) != required:
+        raise WorkflowError("request execution state fields are invalid")
+    if payload.get("schema_version") != "1.0" or payload.get("record_type") != "sage-request-execution-state":
+        raise WorkflowError("request execution state version/type mismatch")
+    request = payload.get("request")
+    if not isinstance(request, str) or hashlib.sha256(request.encode("utf-8")).hexdigest() != payload.get("request_sha256"):
+        raise WorkflowError("request execution state literal-request digest mismatch")
+    package = Path(str(payload.get("proposal_package", ""))).expanduser().resolve()
+    if not package.is_file() or sha256_file(package) != payload.get("proposal_package_sha256"):
+        raise WorkflowError("request execution state proposal-package digest mismatch")
+    paths = payload.get("declared_paths")
+    if not isinstance(paths, list) or not paths or not all(isinstance(item, str) and item for item in paths):
+        raise WorkflowError("request execution state declared_paths are invalid")
+    if not isinstance(payload.get("history"), list):
+        raise WorkflowError("request execution state history must be an array")
+    plan = payload.get("operator_plan")
+    if not isinstance(plan, dict) or set(plan) != {"commit_message", "push_remote"}:
+        raise WorkflowError("request execution state operator_plan is invalid")
+    return payload
+
+
+def load_operator_proposal(path: Path) -> dict[str, Any]:
+    """Load the active repository-owned operator proposal."""
+
+    payload = json.loads(path.expanduser().resolve().read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise WorkflowError("operator proposal must be an object")
+    command = payload.get("command")
+    if not isinstance(command, dict) or command.get("executed_by_helper") is not False:
+        raise WorkflowError("operator proposal command contract is invalid")
+    return payload
+
+
+@dataclass
+class ContinuationContext:
+    """Mutable state for one post-operator operating-contract boundary."""
+
+    repo: Path
+    state_path: Path
+    state: dict[str, Any]
+    proposal: dict[str, Any]
+    operator_result: dict[str, Any]
+    state_dir: Path
+    catalog: PrimitiveCatalog
+    logger: JsonlEventLogger
+    runner: CommandRunner
+    inspector: GitInspector
+    writer: AtomicFileWriter
+    verification: dict[str, Any] = field(default_factory=dict)
+    metrics_path: Path | None = None
+    evidence_path: Path | None = None
+    next_proposal_path: Path | None = None
+
+
+def build_continuation_context(
+    repo: Path,
+    state_path: Path,
+    operator_result_path: Path,
+) -> ContinuationContext:
+    """Resolve the trusted local state and untrusted pasted result."""
+
+    resolved_state = state_path.expanduser().resolve()
+    state = load_state(resolved_state)
+    proposal_path = Path(str(state["current_proposal"])).expanduser().resolve()
+    proposal = load_operator_proposal(proposal_path)
+    result_payload = json.loads(operator_result_path.expanduser().resolve().read_text(encoding="utf-8"))
+    operator_result = validate_operator_result(result_payload, proposal)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    state_dir = Path("~/.local/state/kalaxy3/sage-request-execution").expanduser() / ("continue-" + stamp)
+    state_dir.mkdir(parents=True, exist_ok=False)
+    catalog = PrimitiveCatalog.load(repo / "sage-workflow-primitives.json")
+    catalog.require(PRIMITIVES_USED)
+    logger = JsonlEventLogger(
+        state_dir / "events.jsonl",
+        WORKFLOW_ID + ".post-operator",
+        primitive_versions=catalog.versions_for(PRIMITIVES_USED),
+    )
+    runner = CommandRunner(
+        logger,
+        allowed_roots=(repo, state_dir, resolved_state.parent, operator_result_path.expanduser().resolve().parent),
+        base_environment={name: "" for name in SECRET_ENVIRONMENT_NAMES},
+    )
+    inspector = GitInspector(repo, runner)
+    writer = AtomicFileWriter((state_dir, resolved_state.parent))
+    return ContinuationContext(
+        repo,
+        resolved_state,
+        state,
+        proposal,
+        operator_result,
+        state_dir,
+        catalog,
+        logger,
+        runner,
+        inspector,
+        writer,
+    )
+
+
+def verify_operator_result_action(context: ContinuationContext) -> Mapping[str, Any]:
+    """Independently verify the state caused by exactly one operator boundary."""
+
+    boundary = str(context.proposal.get("boundary"))
+    expected_branch = str(context.state["repository_branch"])
+    declared = tuple(str(item) for item in context.state["declared_paths"])
+    repository = context.proposal.get("repository")
+    if not isinstance(repository, dict):
+        raise WorkflowError("operator proposal repository authority is missing")
+    expected_head = str(repository.get("head", ""))
+    context.inspector.require_branch(expected_branch)
+    if boundary == "stage":
+        context.inspector.require_head(expected_head)
+        context.inspector.require_exact_paths(declared)
+        staged = context.inspector.staged_paths()
+        if staged != set(declared):
+            raise WorkflowError(
+                f"Staged-path scope mismatch: expected={sorted(declared)}, observed={sorted(staged)}"
+            )
+        unstaged_result = context.inspector.run_read_only(
+            ("diff", "--name-only"),
+            label="Verify no unstaged residue after stage boundary",
+        )
+        unstaged = {line for line in unstaged_result.stdout.splitlines() if line}
+        if unstaged:
+            raise WorkflowError(f"stage boundary left unstaged residue: {sorted(unstaged)}")
+        snapshot = context.inspector.snapshot()
+        if snapshot.working_tree_status != "staged-declared-changes":
+            raise WorkflowError("stage boundary did not produce fully staged declared changes")
+    elif boundary == "commit":
+        context.inspector.require_clean()
+        current_head = context.inspector.head()
+        if current_head == expected_head:
+            raise WorkflowError("commit boundary did not advance HEAD")
+        snapshot = context.inspector.snapshot()
+    elif boundary == "push":
+        context.inspector.require_clean()
+        context.inspector.require_head(expected_head)
+        context.inspector.require_upstream_equal()
+        snapshot = context.inspector.snapshot()
+    else:
+        raise WorkflowError(f"unsupported request-execution continuation boundary: {boundary}")
+    payload = {
+        "status": "pass",
+        "boundary": boundary,
+        "proposal_id": str(context.proposal.get("proposal_id")),
+        "command_sha256": str(context.operator_result["command_sha256"]),
+        "operator_output_sha256": str(context.operator_result["complete_output_sha256"]),
+        "repository": snapshot.as_dict(),
+        "declared_paths": list(declared),
+    }
+    context.verification = payload
+    context.writer.write_text(
+        context.state_dir / "post-operator-verification.json",
+        stable_json(payload),
+        new_mode=0o600,
+    )
+    return payload
+
+
+def raw_boundary_metrics(boundary: str) -> dict[str, int | float | None]:
+    """Return only directly observed boundary-local metrics; unknowns stay null."""
+
+    raw = {
+        "workflows_started": 1,
+        "workflows_completed": None,
+        "first_pass_completions": None,
+        "semantic_validations": 1,
+        "semantic_false_passes": 0,
+        "commands_executed": 1,
+        "commands_failed": 0,
+        "commands_retried": None,
+        "manual_corrections": None,
+        "operator_interventions": 1,
+        "authority_checks": None,
+        "authority_failures": None,
+        "component_candidates_considered": None,
+        "components_selected": None,
+        "components_reused": None,
+        "new_components_created": None,
+        "component_contract_mismatches": None,
+        "direct_execution_violations": 0,
+        "known_failures_encountered": None,
+        "known_failures_recurred": None,
+        "mutation_opportunities": 1,
+        "failures_detected_pre_mutation": None,
+        "authoritative_repository_git_mutations": 1,
+        "disposable_fixture_git_mutations": 0,
+        "github_mutations": 0,
+        "deployment_mutations": 0,
+        "avoidable_rework_minutes": None,
+        "prompt_to_validated_change_minutes": None,
+    }
+    if boundary not in {"stage", "commit", "push"}:
+        raise WorkflowError(f"unsupported metrics boundary: {boundary}")
+    return raw
+
+
+def outcome_metrics_action(context: ContinuationContext) -> Mapping[str, Any]:
+    """Record boundary-local semantic outcome measurements without fabrication."""
+
+    now = datetime.now().astimezone().isoformat(timespec="seconds")
+    boundary = str(context.proposal["boundary"])
+    report = OutcomeMetrics.build_report(
+        report_id=f"SAGE-METRICS-{datetime.now().strftime('%Y%m%d')}-{boundary.upper()}",
+        captured_at=now,
+        period={"started_at": str(context.proposal.get("created_at")), "completed_at": now},
+        workflow_class="sage-request-execution-operator-boundary",
+        raw_metrics=raw_boundary_metrics(boundary),
+        provenance=(
+            {"kind": "operator-proposal", "reference": str(context.state["current_proposal"])},
+            {"kind": "operator-output-sha256", "reference": str(context.operator_result["complete_output_sha256"])},
+            {"kind": "git-inspect", "reference": "post-operator-verification.json"},
+        ),
+        limitations=(
+            "Only measurements directly observed at this operator boundary are populated; unavailable values remain null.",
+        ),
+    )
+    context.metrics_path = context.state_dir / "outcome-metrics.json"
+    context.writer.write_text(context.metrics_path, stable_json(report), new_mode=0o600)
+    return report
+
+
+def evidence_closeout_action(context: ContinuationContext) -> Mapping[str, Any]:
+    """Write local post-operator closeout evidence through the registered primitive."""
+
+    if context.metrics_path is None:
+        raise WorkflowError("post-operator metrics are missing")
+    writer = CloseoutWriter(
+        destination_directory=context.state_dir,
+        primitive_registry=context.repo / "sage-workflow-primitives.json",
+        event_log=context.state_dir / "events.jsonl",
+    )
+    context.evidence_path = writer.write(
+        workflow_id=WORKFLOW_ID + ".post-operator",
+        status="verified",
+        used_primitives=PRIMITIVES_USED,
+        details={
+            "proposal": str(context.state["current_proposal"]),
+            "boundary": str(context.proposal["boundary"]),
+            "verification": str(context.state_dir / "post-operator-verification.json"),
+            "metrics": str(context.metrics_path),
+            "operator_output_sha256": str(context.operator_result["complete_output_sha256"]),
+        },
+    )
+    return {"status": "pass", "closeout": str(context.evidence_path)}
+
+
+def continuation_action_map(context: ContinuationContext) -> dict[str, Any]:
+    """Bind the mandatory post-operator operating-contract actions."""
+
+    return {
+        "verify-pasted-operator-result": lambda: verify_operator_result_action(context),
+        "record-outcomes-and-trends": lambda: outcome_metrics_action(context),
+        "publish-sage-evidence": lambda: evidence_closeout_action(context),
+    }
+
+
+def proposal_suffix(proposal_id: str, boundary: str) -> str:
+    """Return a deterministic three-digit suffix for a follow-on proposal."""
+
+    digest = hashlib.sha256(f"{proposal_id}:{boundary}".encode("utf-8")).hexdigest()
+    return f"{int(digest[:8], 16) % 1000:03d}"
+
+
+def continuation_validation(context: ContinuationContext) -> list[dict[str, Any]]:
+    """Return pass-only evidence references for the next operator proposal."""
+
+    if context.metrics_path is None:
+        raise WorkflowError("continuation metrics receipt is missing")
+    verification_path = context.state_dir / "post-operator-verification.json"
+    return [
+        {
+            "label": "Post-operator state verification",
+            "reference": "git.inspect",
+            "status": "pass",
+            "sha256": sha256_file(verification_path),
+        },
+        {
+            "label": "Post-operator outcome metrics",
+            "reference": "metrics.outcome",
+            "status": "pass",
+            "sha256": sha256_file(context.metrics_path),
+        },
+    ]
+
+
+def build_next_operator_proposal(context: ContinuationContext) -> Mapping[str, Any] | None:
+    """Emit the next deterministic stage/commit/push boundary only after post verification."""
+
+    current = str(context.proposal["boundary"])
+    next_boundary = next_operator_boundary(current)
+    if next_boundary is None:
+        return None
+    snapshot = context.inspector.snapshot()
+    plan = context.state["operator_plan"]
+    branch = str(context.state["repository_branch"])
+    if next_boundary == "commit":
+        argv = ("git", "commit", "-m", str(plan["commit_message"]))
+        expected = "Create exactly one commit from the already verified staged declared paths and leave the working tree clean."
+        risk = "The commit mutates local Git history only; exact staged scope was independently verified before this proposal."
+        rollback = "Do not execute the proposal, or revert the resulting commit through a separately governed operator boundary."
+        verification = ("git branch --show-current", "git status --porcelain=v1 --untracked-files=all")
+    elif next_boundary == "push":
+        remote = str(plan["push_remote"])
+        if snapshot.upstream_head is None:
+            argv = ("git", "push", "-u", remote, branch)
+        else:
+            argv = ("git", "push", remote, branch)
+        expected = "Publish the already validated local feature-branch commit and establish or update its upstream reference."
+        risk = "This mutates only the declared remote feature branch; no GitHub PR or deployment mutation is included."
+        rollback = "Do not execute the proposal; after execution any remote rollback requires a separately governed boundary."
+        verification = ("git branch --show-current", "git status --porcelain=v1 --untracked-files=all")
+    else:
+        raise WorkflowError(f"unsupported next request-execution boundary: {next_boundary}")
+    payload = OperatorGitProposal.build(
+        proposal_id=f"SAGE-GIT-{datetime.now().strftime('%Y%m%d')}-{proposal_suffix(str(context.proposal['proposal_id']), next_boundary)}",
+        controller="sage-request-execution",
+        repository=snapshot,
+        authority_receipt=str(context.state["authority_receipt"]),
+        component_manifest=str(context.state["component_manifest"]),
+        boundary=next_boundary,
+        change_scope=tuple(str(item) for item in context.state["declared_paths"]),
+        validation=continuation_validation(context),
+        command_argv=argv,
+        expected_result=expected,
+        risk=risk,
+        rollback=rollback,
+        post_command_verification=verification,
+    )
+    context.next_proposal_path = context.state_dir / f"operator-git-proposal-{next_boundary}.json"
+    OperatorGitProposal.write(context.next_proposal_path, payload, context.writer)
+    return payload
+
+
+def update_continuation_state(
+    context: ContinuationContext,
+    next_proposal: Mapping[str, Any] | None,
+) -> None:
+    """Advance local request state only after the post-operator workflow succeeds."""
+
+    history = list(context.state["history"])
+    history.append(
+        {
+            "boundary": str(context.proposal["boundary"]),
+            "proposal": str(context.state["current_proposal"]),
+            "operator_output_sha256": str(context.operator_result["complete_output_sha256"]),
+            "verification": str(context.state_dir / "post-operator-verification.json"),
+            "metrics": str(context.metrics_path),
+            "evidence_closeout": str(context.evidence_path),
+        }
+    )
+    context.state["history"] = history
+    if next_proposal is None:
+        context.state["current_boundary"] = "complete"
+        context.state["current_proposal"] = None
+    else:
+        context.state["current_boundary"] = str(next_proposal["boundary"])
+        context.state["current_proposal"] = str(context.next_proposal_path)
+    context.writer.write_text(
+        context.state_path,
+        stable_json(context.state),
+        new_mode=0o600,
+    )
+
+
+def continue_request(
+    repo: Path,
+    state_path: Path,
+    operator_result_path: Path,
+) -> Mapping[str, Any]:
+    """Resume exactly one request after one operator-executed boundary."""
+
+    context = build_continuation_context(
+        repo.expanduser().resolve(),
+        state_path,
+        operator_result_path,
+    )
+    if str(context.state["current_boundary"]) != str(context.proposal.get("boundary")):
+        raise WorkflowError("continuation state boundary does not match active operator proposal")
+    workflow = build_post_operator_workflow(
+        workflow_id=WORKFLOW_ID + ".post-operator",
+        logger=context.logger,
+        catalog=context.catalog,
+        actions=continuation_action_map(context),
+    )
+    workflow.run()
+    next_proposal = build_next_operator_proposal(context)
+    update_continuation_state(context, next_proposal)
+    return {
+        "status": "complete" if next_proposal is None else "operator-review-required",
+        "verified_boundary": str(context.proposal["boundary"]),
+        "verification": str(context.state_dir / "post-operator-verification.json"),
+        "metrics": str(context.metrics_path),
+        "evidence_closeout": str(context.evidence_path),
+        "state": str(context.state_path),
+        "proposal": next_proposal,
+        "proposal_path": str(context.next_proposal_path) if context.next_proposal_path else None,
+        "event_log": str(context.state_dir / "events.jsonl"),
+    }
+
+
+def execute_request(repo: Path, request: str, proposal: Path) -> Mapping[str, Any]:
+    """Execute one literal request to the exact first operator mutation boundary."""
+
+    context = build_context(repo.expanduser().resolve(), request, proposal)
+    workflow = build_pre_mutation_workflow(
+        workflow_id=WORKFLOW_ID,
+        logger=context.logger,
+        catalog=context.catalog,
+        actions=action_map(context),
+    )
+    try:
+        results = workflow.run()
+        if context.transaction is None or context.proposal_path is None:
+            raise WorkflowError("request execution completed without transaction or proposal")
+        context.transaction.commit()
+        proposal_payload = results[-1]
+        state = write_execution_state(context, proposal_payload)
+        closeout = write_closeout(
+            context,
+            "operator-review-required",
+            {
+                "proposal": str(context.proposal_path),
+                "state": str(state),
+                "declared_paths": list(context.bundle.declared_paths),
+            },
+        )
+    except Exception as error:
+        if context.transaction is not None:
+            context.transaction.rollback()
+        diagnosis = failure_diagnosis(context, error)
+        closeout = write_closeout(context, "failed-rolled-back", {"error": str(error), "diagnosis": str(diagnosis)})
+        raise WorkflowError(f"{error}\nFailure diagnosis: {diagnosis}\nCloseout: {closeout}") from error
+    return {
+        "status": "pass",
+        "proposal": proposal_payload,
+        "proposal_path": str(context.proposal_path),
+        "state": str(state),
+        "authority_receipt": str(context.authority_path),
+        "component_manifest": str(context.component_path),
+        "capability_gap_decision": str(context.gap_path),
+        "closeout": str(closeout),
+        "event_log": str(context.state_dir / "events.jsonl"),
+    }

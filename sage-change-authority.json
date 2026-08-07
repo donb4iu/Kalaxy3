@@ -84,7 +84,13 @@
                 "scripts/sage/workflows/generated_helper_delivery.py",
                 "scripts/sage/sage-generated-helper-runtime-self-test.py",
                 "markdown/standards/kalaxy3-sage-generated-helper-runtime-validation-process.md",
-                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json"
+                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json",
+                "scripts/sage/request_execution.py",
+                "scripts/sage/workflows/request_execution.py",
+                "scripts/sage/sage-request-execute.py",
+                "scripts/sage/sage-request-execution-guardrail.py",
+                "markdown/standards/kalaxy3-sage-request-execution-process.md",
+                "markdown/standards/sage-request-execution-proposal-schema-v1.0.json"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
@@ -833,7 +839,12 @@
                 "capability gap",
                 "generated helper runtime validation",
                 "helper delivery receipt",
-                "companion artifact validation"
+                "companion artifact validation",
+                "request execution",
+                "request executor",
+                "request-to-operator proposal",
+                "proposal package",
+                "sage request execute"
             ],
             "path_prefixes": [
                 "sage-workflow-primitives.json",
@@ -907,7 +918,13 @@
                 "scripts/sage/workflows/generated_helper_delivery.py",
                 "scripts/sage/sage-generated-helper-runtime-self-test.py",
                 "markdown/standards/kalaxy3-sage-generated-helper-runtime-validation-process.md",
-                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json"
+                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json",
+                "scripts/sage/request_execution.py",
+                "scripts/sage/workflows/request_execution.py",
+                "scripts/sage/sage-request-execute.py",
+                "scripts/sage/sage-request-execution-guardrail.py",
+                "markdown/standards/kalaxy3-sage-request-execution-process.md",
+                "markdown/standards/sage-request-execution-proposal-schema-v1.0.json"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail",
