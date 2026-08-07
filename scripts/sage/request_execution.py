@@ -16,6 +16,7 @@ SCHEMA_VERSION = "1.0"
 MANIFEST_NAME = "sage-proposal.json"
 PAYLOAD_PREFIX = "payload/"
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
+GIT_OBJECT_ID = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 SAFE_TARGET = re.compile(r"^sage-[a-z0-9][a-z0-9-]*$")
 SAFE_REMOTE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 FORBIDDEN_TARGET_PARTS = (
@@ -198,8 +199,8 @@ def validate_repository(value: object) -> dict[str, str]:
     head = payload.get("head")
     if not isinstance(branch, str) or not branch or branch == "main":
         raise ProposalError("proposal repository.branch must be a non-main branch")
-    if not isinstance(head, str) or not HEX64.fullmatch(head):
-        raise ProposalError("proposal repository.head must be a 64-character commit id")
+    if not isinstance(head, str) or not GIT_OBJECT_ID.fullmatch(head):
+        raise ProposalError("proposal repository.head must be a 40- or 64-character Git object id")
     return {"branch": branch, "head": head}
 
 

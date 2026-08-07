@@ -39,7 +39,7 @@ def fixture_manifest(request: str, payload: bytes) -> dict[str, object]:
     return {
         "schema_version": "1.0",
         "request_sha256": request_sha256(request),
-        "repository": {"branch": "feature/fixture", "head": "0" * 64},
+        "repository": {"branch": "feature/fixture", "head": "0" * 40},
         "source_files": [{"path": "fixture.txt", "sha256": digest(payload), "mode": "0644"}],
         "generated_paths": [],
         "reconcile_evidence_index": False,
@@ -95,6 +95,20 @@ def self_test() -> int:
         bundle = load_proposal(positive, request)
         if bundle.declared_paths != ("fixture.txt",):
             raise RuntimeError("positive proposal scope mismatch")
+        sha256_repo = root / "sha256-repo.zip"
+        sha256_manifest = fixture_manifest(request, payload)
+        sha256_manifest["repository"] = {
+            "branch": "feature/fixture", "head": "0" * 64,
+        }
+        write_fixture_package(sha256_repo, sha256_manifest, payload)
+        load_proposal(sha256_repo, request)
+        invalid_head = root / "invalid-head.zip"
+        bad = fixture_manifest(request, payload)
+        bad["repository"] = {
+            "branch": "feature/fixture", "head": "0" * 39,
+        }
+        write_fixture_package(invalid_head, bad, payload)
+        expect_rejected(invalid_head, request, "Git object id")
         expect_rejected(positive, request + " changed", "exact literal request")
         unsafe = root / "unsafe.zip"
         bad = fixture_manifest(request, payload)
@@ -126,6 +140,7 @@ def self_test() -> int:
             raise RuntimeError("operator continuation boundary sequence mismatch")
     print("PASS exact literal-request binding")
     print("PASS checksum-bound source payload")
+    print("PASS Git SHA-1 and SHA-256 object-ID validation")
     print("PASS unsafe validation target rejection")
     print("PASS new-low-level-primitive fail-closed gate")
     print("PASS pasted operator-result binding and stage-commit-push continuation")

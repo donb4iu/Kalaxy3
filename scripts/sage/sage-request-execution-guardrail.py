@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +15,12 @@ ROOT = Path(__file__).resolve().parents[2]
 SAGE_DIR = ROOT / "scripts/sage"
 sys.path.insert(0, str(SAGE_DIR))
 
-from workflow import GitSafetyGuardrail  # noqa: E402
+from workflow import (  # noqa: E402
+    CommandRunner,
+    GitInspector,
+    GitSafetyGuardrail,
+    JsonlEventLogger,
+)
 
 WORKFLOW_PATH = "scripts/sage/workflows/request_execution.py"
 DOMAIN_PATH = "scripts/sage/request_execution.py"
@@ -29,6 +36,8 @@ REQUIRED_PATHS = {
     PROCESS_PATH,
     SCHEMA_PATH,
 }
+SHA256_PATTERN = r"^[0-9a-f]{64}$"
+GIT_OBJECT_ID_PATTERN = r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
 REQUIRED_TERMS = {
     "request execution",
     "request executor",
@@ -164,7 +173,36 @@ def schema_failures(schema: dict[str, Any]) -> list[str]:
     }
     if required != expected:
         failures.append("request-execution proposal schema required fields mismatch")
+    properties = schema.get("properties", {})
+    request = properties.get("request_sha256", {}).get("pattern")
+    repository = properties.get("repository", {}).get("properties", {})
+    head = repository.get("head", {}).get("pattern")
+    source = properties.get("source_files", {}).get("items", {})
+    source_props = source.get("properties", {})
+    source_digest = source_props.get("sha256", {}).get("pattern")
+    if request != SHA256_PATTERN or source_digest != SHA256_PATTERN:
+        failures.append("SHA-256 proposal fields must remain 64 hex")
+    if head != GIT_OBJECT_ID_PATTERN:
+        failures.append("repository.head Git object-ID schema mismatch")
     return failures
+
+
+def git_head_contract_failures(schema: dict[str, Any]) -> list[str]:
+    """Require the live Git HEAD to satisfy the proposal head schema."""
+    properties = schema.get("properties", {})
+    repository = properties.get("repository", {}).get("properties", {})
+    pattern = repository.get("head", {}).get("pattern")
+    with tempfile.TemporaryDirectory(prefix="sage-request-head-") as raw:
+        state = Path(raw)
+        logger = JsonlEventLogger(
+            state / "events.jsonl",
+            "sage.request-execution.head-contract",
+        )
+        runner = CommandRunner(logger, allowed_roots=(ROOT, state))
+        head = GitInspector(ROOT, runner).head()
+    if not isinstance(pattern, str) or re.fullmatch(pattern, head) is None:
+        return [f"live Git HEAD does not satisfy proposal schema: {head}"]
+    return []
 
 
 def process_failures(text: str) -> list[str]:
@@ -206,7 +244,9 @@ def validate() -> list[str]:
     failures.extend(authority_failures(load_object(ROOT / "sage-change-authority.json")))
     failures.extend(makefile_failures((ROOT / "Makefile").read_text(encoding="utf-8")))
     failures.extend(source_failures())
-    failures.extend(schema_failures(load_object(ROOT / SCHEMA_PATH)))
+    schema = load_object(ROOT / SCHEMA_PATH)
+    failures.extend(schema_failures(schema))
+    failures.extend(git_head_contract_failures(schema))
     failures.extend(process_failures((ROOT / PROCESS_PATH).read_text(encoding="utf-8")))
     failures.extend(runtime_self_test())
     return failures

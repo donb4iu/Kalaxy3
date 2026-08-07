@@ -38,7 +38,7 @@ The transaction commits only after all validation and safety checks pass and the
 A proposal ZIP contains exactly `sage-proposal.json` plus `payload/<repository-relative-path>` for every source file. The manifest is governed by `sage-request-execution-proposal-schema-v1.0.json` and binds:
 
 - the exact literal request by SHA-256;
-- expected non-main branch and exact HEAD;
+- expected non-main branch and exact Git object ID returned by `git rev-parse HEAD` (40-character SHA-1 or 64-character SHA-256);
 - source paths, content hashes, and file modes;
 - generated paths and whether repository evidence-index reconciliation is required;
 - evidence references used by the proposal;
