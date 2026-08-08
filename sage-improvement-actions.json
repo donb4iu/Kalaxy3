@@ -511,7 +511,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -540,6 +540,21 @@
                     "evidence_references": [
                         "lesson:SAGE-LESSON-20260801-001",
                         "commit:8d8af5a6059b53fca3909bfef8df573896ea0a40",
+                        "path:markdown/evidence/legacy-record-registry.json",
+                        "path:markdown/architecture/kalaxy3-sage-thin-slice.md"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-07T20:19:42-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The operator accepted the evidence-backed correction for the confirmed repeated generated-view legacy-evidence recurrence.",
+                    "evidence_references": [
+                        "commit:1a2076a",
+                        "lesson:SAGE-LESSON-20260801-001",
                         "path:markdown/evidence/legacy-record-registry.json",
                         "path:markdown/architecture/kalaxy3-sage-thin-slice.md"
                     ]
