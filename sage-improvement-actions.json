@@ -560,6 +560,52 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260808-001",
+            "title": "Add repository-owned request planning composition",
+            "source_lessons": [
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "automation",
+            "desired_outcome": "SAGE request execution derives required capabilities, eligible registered component candidates, selection evidence, and capability-gap decisions through a reusable repository-owned planning composition instead of requiring external helpers or callers to invent component-selection semantics.",
+            "acceptance_criteria": [
+                "A versioned repository-owned planning composition accepts the literal request, resolved repository authority, and registered workflow-primitives catalog as its authoritative inputs.",
+                "The composition derives required capabilities and eligible component candidates from repository-owned contracts and metadata rather than requiring callers to author candidate selection_factors or reconstruct ComponentCandidate semantics.",
+                "Existing component.select remains the selection authority and unresolved or novel capabilities are routed through the existing capability.gap primitive before repository mutation.",
+                "Request execution consumes the planning result through a stable published interface so a normal request-execution proposal does not need externally invented candidate semantics.",
+                "A deterministic positive regression reproduces the semantic-vocabulary replay case and resolves its existing repository capabilities without external SAGE-construction logic.",
+                "A deterministic negative regression supplies a genuinely unsupported capability, produces an explicit capability-gap receipt, and blocks mutation.",
+                "Interface, schema, and evidence-placement contracts are validated before proposal execution so semantic, interface, or receipt-shape assumptions cannot be learned only by failed mutation attempts.",
+                "Tracked downloaded helpers and external callers are prohibited from reimplementing capability derivation, candidate eligibility, component selection, or capability-gap semantics when the planning composition applies."
+            ],
+            "measurement_plan": [
+                "Measure the next ten request-execution planning events and report the percentage whose capabilities and candidates were derived by the repository-owned composition.",
+                "Require zero external-helper reconstructions of RequiredCapability, ComponentCandidate, selection_factors, or capability-gap decisions for covered request-execution workflows.",
+                "Track capability gaps detected before proposal generation and distinguish valid novel-capability gaps from planner or metadata defects.",
+                "Track first-pass request-execution planning success, component-selection failures, retries, and avoidable rework before and after adoption.",
+                "Do not claim improved SAGE semantic planning until measured executions show reduced planner-related retries or rework without suppressing valid capability gaps."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-08T00:28:15-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register the observed request-execution planning composition gap as a reusable repository-owned capability.",
+                    "evidence_references": [
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "action:SAGE-ACTION-20260801-006",
+                        "terminal-session:2026-08-08-request-execution-planning-composition-gap-001"
+                    ]
+                }
+            ]
         }
     ]
 }
