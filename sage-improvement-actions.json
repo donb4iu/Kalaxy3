@@ -503,6 +503,48 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260807-001",
+            "title": "Prevent generated SAGE views from re-entering legacy evidence",
+            "source_lessons": [
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "Generated SAGE architecture and operational views cannot be misclassified as legacy evidence and make generated evidence catalogs self-referential after a normal commit.",
+            "acceptance_criteria": [
+                "The thin-slice generated architecture view occurs exactly once in legacy-record-registry.json exclude_paths.",
+                "The thin-slice guardrail fails closed when its generated view is absent from exclude_paths.",
+                "The thin-slice guardrail fails closed when its generated view appears in the evidence catalog.",
+                "Evidence reconciliation removes the false thin-slice legacy record and derived navigation.",
+                "Committed-state evidence-index validation remains current after the correction commit."
+            ],
+            "measurement_plan": [
+                "Count generated SAGE views that appear as inferred legacy evidence and require zero.",
+                "Track same-class generated-view evidence-index recurrences after this control is implemented.",
+                "Record whether committed-state sage-index-check remains current after normal feature commits."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-07T20:09:44-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Record the second same-class generated-view legacy-evidence recurrence before corrective reconciliation.",
+                    "evidence_references": [
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "commit:8d8af5a6059b53fca3909bfef8df573896ea0a40",
+                        "path:markdown/evidence/legacy-record-registry.json",
+                        "path:markdown/architecture/kalaxy3-sage-thin-slice.md"
+                    ]
+                }
+            ]
         }
     ]
 }
