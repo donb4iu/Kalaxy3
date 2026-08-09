@@ -169,3 +169,11 @@ evidence.
 `make sage-operating-contract-check` runs positive, negative, ordering, and
 fail-closed runtime tests plus the root policy guardrail. The target is a
 dependency of the normal repository self-test and guardrail chains.
+
+## Governed improvement-action transitions
+
+The tracked `sage.improvement-action-transition` composition reuses the existing `sage.action-lifecycle` client without changing the low-level primitive. The composition supplies `git.inspect` as the repository-state dependency because the lifecycle client consumes only repository root, clean-state enforcement, and exact changed-path verification. The production composition itself does not import or instantiate `GitRepository`, and the lifecycle client does not perform Git mutation.
+
+The composition owns one authorized improvement-action status transition. It requires a clean synchronized non-main feature branch, invokes the canonical lifecycle tool in dry-run-then-explicit-apply order, permits only `sage-improvement-actions.json` to change, runs the registered lifecycle/learning/workflow/operating-contract validation plan, and emits exactly one `operator.git-proposal` stage boundary. The registry mutation is transactionally rolled back when validation or proposal creation fails.
+
+After the operator executes the emitted stage command, the composition delegates verification and the remaining commit/push boundaries to the existing request-execution continuation state machine. This preserves the Phase-2 rule that Git mutation is operator-executed one boundary at a time while avoiding external lifecycle or Git choreography. `git.repository` remains restricted to its documented temporary-test and legacy scope.

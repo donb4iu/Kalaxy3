@@ -96,7 +96,10 @@
                 "scripts/sage/sage-request-plan.py",
                 "scripts/sage/sage-request-planning-guardrail.py",
                 "markdown/standards/kalaxy3-sage-request-planning-process.md",
-                "markdown/standards/sage-request-planning-source-schema-v1.0.json"
+                "markdown/standards/sage-request-planning-source-schema-v1.0.json",
+                "scripts/sage/workflows/improvement_action_transition.py",
+                "scripts/sage/sage-improvement-action-transition.py",
+                "scripts/sage/sage-improvement-action-transition-guardrail.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
@@ -437,7 +440,10 @@
                 "scripts/sage/workflows/generated_helper_delivery.py",
                 "scripts/sage/sage-generated-helper-runtime-self-test.py",
                 "markdown/standards/kalaxy3-sage-generated-helper-runtime-validation-process.md",
-                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json"
+                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json",
+                "scripts/sage/workflows/improvement_action_transition.py",
+                "scripts/sage/sage-improvement-action-transition.py",
+                "scripts/sage/sage-improvement-action-transition-guardrail.py"
             ],
             "baseline_checks": [
                 "make sage-active-session-self-test",
@@ -956,7 +962,10 @@
                 "scripts/sage/sage-request-plan.py",
                 "scripts/sage/sage-request-planning-guardrail.py",
                 "markdown/standards/kalaxy3-sage-request-planning-process.md",
-                "markdown/standards/sage-request-planning-source-schema-v1.0.json"
+                "markdown/standards/sage-request-planning-source-schema-v1.0.json",
+                "scripts/sage/workflows/improvement_action_transition.py",
+                "scripts/sage/sage-improvement-action-transition.py",
+                "scripts/sage/sage-improvement-action-transition-guardrail.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail",

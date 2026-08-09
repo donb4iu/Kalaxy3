@@ -48,6 +48,7 @@ help:
 	  '  SAGE_REQUEST="<request>" SAGE_SOURCE="<source.zip>" make sage-request-plan' \
 	  '  SAGE_REQUEST="<request>" SAGE_PROPOSAL="<proposal.zip>" make sage-request-execute' \
 	  '  SAGE_STATE="<state.json>" SAGE_OPERATOR_RESULT="<result.json>" make sage-request-continue' \
+	  '  SAGE_REQUEST="<request>" SAGE_ACTION_ID="<id>" SAGE_TO_STATUS="<status>" SAGE_ACTOR="<actor>" SAGE_REASON="<reason>" SAGE_EVIDENCE_REFERENCE="<ref>" SAGE_COMMIT_MESSAGE="<message>" make sage-improvement-action-transition' \
 	  '  SAGE_REQUEST="<request>" make sage-evidence-prepare' \
 	  '  SAGE_PACKAGE="<package.zip>" make sage-evidence-check'
 
@@ -63,7 +64,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-request-execute-self-test sage-thin-slice-self-test
+sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 	python3 scripts/sage/sage-file-delivery-guardrail.py
@@ -115,7 +116,7 @@ sage-operating-contract-check: sage-operating-contract-self-test sage-operating-
 
 sage-guardrails: sage-self-test sage-discovery-guardrail sage-operating-contract-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
-                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-thin-slice-guardrail
+                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail
 	@echo "Kalaxy3 repository SAGE guardrails: PASS"
 
 .PHONY: sage-evidence-brief sage-evidence-prepare \
@@ -343,6 +344,36 @@ sage-workflow-usage:
 
 sage-generated-helper-runtime-self-test:
 	python3 scripts/sage/sage-generated-helper-runtime-self-test.py
+
+
+.PHONY: sage-improvement-action-transition sage-improvement-action-transition-self-test sage-improvement-action-transition-guardrail
+
+sage-improvement-action-transition:
+	@test -n "$${SAGE_REQUEST:-}" || { \
+	  echo 'Usage: SAGE_REQUEST="<request>" SAGE_ACTION_ID="<id>" SAGE_TO_STATUS="<status>" SAGE_ACTOR="<actor>" SAGE_REASON="<reason>" SAGE_EVIDENCE_REFERENCE="<ref>" SAGE_COMMIT_MESSAGE="<message>" make sage-improvement-action-transition'; \
+	  exit 2; \
+	}
+	@test -n "$${SAGE_ACTION_ID:-}" || { echo 'SAGE_ACTION_ID is required'; exit 2; }
+	@test -n "$${SAGE_TO_STATUS:-}" || { echo 'SAGE_TO_STATUS is required'; exit 2; }
+	@test -n "$${SAGE_ACTOR:-}" || { echo 'SAGE_ACTOR is required'; exit 2; }
+	@test -n "$${SAGE_REASON:-}" || { echo 'SAGE_REASON is required'; exit 2; }
+	@test -n "$${SAGE_EVIDENCE_REFERENCE:-}" || { echo 'SAGE_EVIDENCE_REFERENCE is required'; exit 2; }
+	@test -n "$${SAGE_COMMIT_MESSAGE:-}" || { echo 'SAGE_COMMIT_MESSAGE is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-improvement-action-transition.py \
+	  --request "$$SAGE_REQUEST" \
+	  --action-id "$$SAGE_ACTION_ID" \
+	  --to-status "$$SAGE_TO_STATUS" \
+	  --actor "$$SAGE_ACTOR" \
+	  --reason "$$SAGE_REASON" \
+	  --evidence-reference "$$SAGE_EVIDENCE_REFERENCE" \
+	  --commit-message "$$SAGE_COMMIT_MESSAGE" \
+	  --push-remote "$${SAGE_PUSH_REMOTE:-origin}"
+
+sage-improvement-action-transition-self-test:
+	$(PYTHON) scripts/sage/sage-improvement-action-transition.py --self-test
+
+sage-improvement-action-transition-guardrail:
+	$(PYTHON) scripts/sage/sage-improvement-action-transition-guardrail.py
 
 .PHONY: sage-request-plan sage-request-plan-self-test sage-request-planning-guardrail sage-request-execute sage-request-continue sage-request-execute-self-test sage-request-execution-guardrail
 
