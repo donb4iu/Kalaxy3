@@ -297,9 +297,39 @@ def reconcile_index(context: ExecutionContext) -> None:
     )
 
 
+
+def validate_python_payloads(context: ExecutionContext) -> tuple[str, ...]:
+    """Reject undefined Python globals before repository transaction creation."""
+
+    validated: list[str] = []
+    root = context.state_dir / "prewrite-python-payloads"
+    for item in context.bundle.source_files:
+        if Path(item.path).suffix != ".py":
+            continue
+        candidate = root / item.path
+        context.writer.write_bytes(candidate, item.payload, new_mode=item.mode)
+        context.runner.run(
+            CommandSpec(
+                primitive_id="command.run",
+                label=f"Validate Python payload globals: {item.path}",
+                argv=(
+                    "python3",
+                    "scripts/sage/sage-python-static-guardrail.py",
+                    str(candidate),
+                ),
+                cwd=context.repo,
+                timeout_seconds=120,
+            ),
+            step_id="prewrite-python-static-validation",
+        )
+        validated.append(item.path)
+    return tuple(validated)
+
+
 def mutation_action(context: ExecutionContext) -> Mapping[str, str]:
     """Apply the checksum-bound proposal atomically within its exact scope."""
 
+    validate_python_payloads(context)
     paths = tuple(context.repo / relative for relative in context.bundle.declared_paths)
     context.transaction = AtomicFileTransaction(context.writer, paths)
     digests: dict[str, str] = {}

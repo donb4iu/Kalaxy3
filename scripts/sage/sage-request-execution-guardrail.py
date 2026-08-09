@@ -49,6 +49,8 @@ WORKFLOW_MARKERS = (
     "build_pre_mutation_workflow",
     "build_post_operator_workflow",
     "AtomicFileTransaction",
+    "validate_python_payloads",
+    "sage-python-static-guardrail.py",
     "AuthorityReconciler",
     "ComponentSelector",
     "SageDiscovery(context.repo, context.runner).changed()",
@@ -265,6 +267,7 @@ def main() -> int:
     print("PASS untrusted checksum-bound proposal package")
     print("PASS exact authority, component, gap, validation, and safety boundaries")
     print("PASS atomic rollback and one operator Git proposal")
+    print("PASS Python payload runtime-name validation precedes repository writes")
     print("PASS mandatory post-operator verification, metrics, closeout, and deterministic continuation")
     print("PASS Make, authority, process, schema, and negative-test integration")
     print("Kalaxy3 SAGE request execution guardrail: PASS")

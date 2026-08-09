@@ -62,12 +62,17 @@ def fixture_manifest(request: str, payload: bytes) -> dict[str, object]:
     }
 
 
-def write_fixture_package(path: Path, manifest: dict[str, object], payload: bytes) -> None:
+def write_fixture_package(
+    path: Path,
+    manifest: dict[str, object],
+    payload: bytes,
+    source_path: str = "fixture.txt",
+) -> None:
     """Write one deterministic ZIP fixture."""
 
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("sage-proposal.json", json.dumps(manifest, indent=2) + "\n")
-        archive.writestr("payload/fixture.txt", payload)
+        archive.writestr(f"payload/{source_path}", payload)
 
 
 def expect_rejected(path: Path, request: str, fragment: str) -> None:
@@ -121,6 +126,109 @@ def self_test() -> int:
         write_fixture_package(primitive, bad, payload)
         expect_rejected(primitive, request, "cannot authorize a new low-level primitive")
 
+        from workflow import (  # noqa: PLC0415
+            AtomicFileWriter,
+            CommandRunner,
+            CommandSpec,
+            JsonlEventLogger,
+            WorkflowCommandError,
+        )
+        from workflows.request_execution import (  # noqa: PLC0415
+            validate_python_payloads,
+        )
+
+        fixture_repo = root / "repository"
+        sage_dir = fixture_repo / "scripts" / "sage"
+        sage_dir.mkdir(parents=True)
+        installed_guardrail = (
+            Path(__file__).resolve().parent / "sage-python-static-guardrail.py"
+        )
+        (sage_dir / "sage-python-static-guardrail.py").write_bytes(
+            installed_guardrail.read_bytes()
+        )
+        state = root / "prewrite-state"
+        logger = JsonlEventLogger(
+            state / "events.jsonl",
+            "sage.request-execution.prewrite-runtime-name-self-test",
+        )
+        runner = CommandRunner(logger, allowed_roots=(fixture_repo, state))
+        writer = AtomicFileWriter((state,))
+
+        valid_python = b"def run():\n    return 'ok'\n"
+        valid_manifest = fixture_manifest(request, valid_python)
+        valid_manifest["source_files"][0]["path"] = "fixture.py"
+        valid_zip = root / "valid-python.zip"
+        write_fixture_package(
+            valid_zip, valid_manifest, valid_python, source_path="fixture.py"
+        )
+        valid_bundle = load_proposal(valid_zip, request)
+
+        class FixtureContext:
+            pass
+
+        valid_context = FixtureContext()
+        valid_context.repo = fixture_repo
+        valid_context.state_dir = state
+        valid_context.bundle = valid_bundle
+        valid_context.writer = writer
+        valid_context.runner = runner
+        valid_context.transaction = None
+        if validate_python_payloads(valid_context) != ("fixture.py",):
+            raise RuntimeError("valid Python payload was not pre-write validated")
+        if (fixture_repo / "fixture.py").exists():
+            raise RuntimeError("valid pre-write validation mutated repository content")
+
+        invalid_python = b"def run():\n    raise WorkflowError('missing import')\n"
+        invalid_manifest = fixture_manifest(request, invalid_python)
+        invalid_manifest["source_files"][0]["path"] = "fixture.py"
+        invalid_zip = root / "invalid-python.zip"
+        write_fixture_package(
+            invalid_zip, invalid_manifest, invalid_python, source_path="fixture.py"
+        )
+        invalid_bundle = load_proposal(invalid_zip, request)
+        invalid_context = FixtureContext()
+        invalid_context.repo = fixture_repo
+        invalid_context.state_dir = state
+        invalid_context.bundle = invalid_bundle
+        invalid_context.writer = writer
+        invalid_context.runner = runner
+        invalid_context.transaction = None
+        try:
+            validate_python_payloads(invalid_context)
+        except WorkflowCommandError as error:
+            if "Validate Python payload globals: fixture.py" not in str(error):
+                raise RuntimeError(
+                    f"unexpected pre-write validation wrapper: {error}"
+                ) from error
+        else:
+            raise RuntimeError("undefined WorkflowError payload unexpectedly passed")
+        if invalid_context.transaction is not None:
+            raise RuntimeError("repository transaction was created before rejection")
+        if (fixture_repo / "fixture.py").exists():
+            raise RuntimeError("invalid pre-write validation mutated repository content")
+
+        invalid_candidate = state / "prewrite-python-payloads" / "fixture.py"
+        diagnostic = runner.run(
+            CommandSpec(
+                primitive_id="command.run",
+                label="Inspect expected undefined-global diagnostic",
+                argv=(
+                    "python3",
+                    "scripts/sage/sage-python-static-guardrail.py",
+                    str(invalid_candidate),
+                ),
+                cwd=fixture_repo,
+                timeout_seconds=120,
+                expected_codes=(1,),
+            ),
+            step_id="prewrite-python-static-diagnostic",
+        )
+        combined = diagnostic.stdout + diagnostic.stderr
+        if "undefined global reference WorkflowError" not in combined:
+            raise RuntimeError(
+                "expected undefined WorkflowError diagnostic was not preserved"
+            )
+
         operator_proposal = {
             "proposal_id": "SAGE-GIT-20260806-001",
             "command": {"sha256": "a" * 64},
@@ -143,6 +251,8 @@ def self_test() -> int:
     print("PASS Git SHA-1 and SHA-256 object-ID validation")
     print("PASS unsafe validation target rejection")
     print("PASS new-low-level-primitive fail-closed gate")
+    print("PASS Python payload undefined-global rejection before repository write")
+    print("PASS valid Python payload pre-write validation without repository mutation")
     print("PASS pasted operator-result binding and stage-commit-push continuation")
     print("Kalaxy3 SAGE request execution self-test: PASS")
     return 0
