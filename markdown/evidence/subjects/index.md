@@ -28,7 +28,6 @@
 - [SAGE continuous improvement](sage-continuous-improvement.md)
 - [SAGE continuous improvement metrics pilot](sage-continuous-improvement-metrics-pilot.md)
 - [SAGE continuous-improvement closeout](sage-continuous-improvement-closeout.md)
-- [SAGE End](sage-end.md)
 - [SAGE enforcement guardrails](sage-enforcement-guardrails.md)
 - [SAGE evidence catalog](sage-evidence-catalog.md)
 - [SAGE generated-helper runtime validation](sage-generated-helper-runtime-validation.md)
