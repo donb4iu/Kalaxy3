@@ -673,6 +673,53 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260809-002",
+            "title": "Separate checkpoint persistence from promotion validation",
+            "source_lessons": [
+                "SAGE-LESSON-20260728-005"
+            ],
+            "source_sessions": [],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "automation",
+            "desired_outcome": "SAGE treats repository commit and push as durable engineering-state persistence, not as an assertion that the persisted state is validated or promotable. Explicitly non-promotable work/checkpoint branches may preserve incomplete, temporarily invalid, or dependency-blocked states through frequent small commits and pushes for business continuity, while promotion across trust boundaries remains fail-closed until the complete applicable composite validation gate is satisfied.",
+            "acceptance_criteria": [
+                "Repository policy explicitly distinguishes checkpoint persistence from promotion: a checkpoint commit or push may preserve incomplete or dependency-blocked work without asserting validation, merge readiness, activation readiness, or completion.",
+                "Checkpoint/work branches are explicitly non-authoritative and non-promotable until their complete applicable composite validation gate is satisfied.",
+                "Frequent small checkpoint commits and pushes are permitted and encouraged as a business-continuity control, including when final validation is blocked.",
+                "Clean-tree and exact-scope requirements remain in force where they protect atomic lifecycle transactions, registry mutations, promotion boundaries, and other operations whose semantics require a stable baseline.",
+                "Promotion to a higher-trust SAGE-compliant branch or main requires the conjunction of all applicable validation gates; checkpoint persistence alone can never satisfy or bypass a promotion gate.",
+                "SAGE-LESSON-20260728-005 is corrected so remote synchronization remains mandatory while validation-before-every-checkpoint is no longer encoded as a requirement.",
+                "Existing git.repository exact-scope commit/push mechanics are reused unless a repository-owned capability test proves a primitive-level extension is required.",
+                "A deterministic regression reproduces the SAGE-ACTION-20260807-001 / SAGE-ACTION-20260809-001 dependency deadlock and proves the valid path: preserve the incomplete state as a non-promotable checkpoint, govern and resolve the dependency, satisfy the complete composite gate, then permit promotion.",
+                "Checkpoint metadata or workflow receipts make promotion eligibility explicit and fail closed if an incomplete checkpoint is represented as validated or promotable."
+            ],
+            "measurement_plan": [
+                "Track checkpoint commits created while validation is incomplete or dependency-blocked and verify that they remain non-promotable until their composite gate passes.",
+                "Track long-duration uncommitted-work incidents and require zero recurrence attributable to SAGE policy prohibiting safe checkpoint persistence.",
+                "Track promotion attempts from checkpoint branches and require zero successful promotions without all applicable validation gates satisfied.",
+                "Review the next ten checkpoint-to-promotion workflows for first-pass completion, business-continuity recovery, validation integrity, and unnecessary rework."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-09T04:28:51-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register the persistence-versus-promotion lifecycle correction proven by the SAGE-ACTION-20260807-001 / SAGE-ACTION-20260809-001 checkpoint recovery.",
+                    "evidence_references": [
+                        "lesson:SAGE-LESSON-20260728-005",
+                        "action:SAGE-ACTION-20260807-001",
+                        "action:SAGE-ACTION-20260809-001",
+                        "commit:61c846a"
+                    ]
+                }
+            ]
         }
     ]
 }
