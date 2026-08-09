@@ -336,7 +336,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "validated",
+            "current_status": "implemented",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -418,6 +418,18 @@
                         "make:sage-self-test",
                         "make:sage-guardrails",
                         "make:sage-index-check"
+                    ]
+                },
+                {
+                    "sequence": 5,
+                    "from_status": "validated",
+                    "to_status": "implemented",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-09T05:52:39-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "A confirmed same-class runtime-name recurrence proved the validated control does not inspect generated repository mutation payloads before write; reopen the existing action to extend that control rather than duplicate it.",
+                    "evidence_references": [
+                        "failure-retrieval:/Users/donbuddenbaum/.local/state/kalaxy3/sage-failure-retrieval/20260809-054435-5a7279cef8e4.json"
                     ]
                 }
             ]
