@@ -90,7 +90,13 @@
                 "scripts/sage/sage-request-execute.py",
                 "scripts/sage/sage-request-execution-guardrail.py",
                 "markdown/standards/kalaxy3-sage-request-execution-process.md",
-                "markdown/standards/sage-request-execution-proposal-schema-v1.0.json"
+                "markdown/standards/sage-request-execution-proposal-schema-v1.0.json",
+                "scripts/sage/request_planning.py",
+                "scripts/sage/workflows/request_planning.py",
+                "scripts/sage/sage-request-plan.py",
+                "scripts/sage/sage-request-planning-guardrail.py",
+                "markdown/standards/kalaxy3-sage-request-planning-process.md",
+                "markdown/standards/sage-request-planning-source-schema-v1.0.json"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
@@ -860,7 +866,11 @@
                 "request executor",
                 "request-to-operator proposal",
                 "proposal package",
-                "sage request execute"
+                "sage request execute",
+                "request planning",
+                "request planner",
+                "planning composition",
+                "sage request plan"
             ],
             "path_prefixes": [
                 "sage-workflow-primitives.json",
@@ -940,7 +950,13 @@
                 "scripts/sage/sage-request-execute.py",
                 "scripts/sage/sage-request-execution-guardrail.py",
                 "markdown/standards/kalaxy3-sage-request-execution-process.md",
-                "markdown/standards/sage-request-execution-proposal-schema-v1.0.json"
+                "markdown/standards/sage-request-execution-proposal-schema-v1.0.json",
+                "scripts/sage/request_planning.py",
+                "scripts/sage/workflows/request_planning.py",
+                "scripts/sage/sage-request-plan.py",
+                "scripts/sage/sage-request-planning-guardrail.py",
+                "markdown/standards/kalaxy3-sage-request-planning-process.md",
+                "markdown/standards/sage-request-planning-source-schema-v1.0.json"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail",

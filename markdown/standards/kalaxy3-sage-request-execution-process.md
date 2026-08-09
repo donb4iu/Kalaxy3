@@ -55,6 +55,21 @@ SAGE owns discovery, authority reconciliation, component selection, capability-g
 
 The executor performs **no Git mutation**, **no GitHub mutation**, and **no deployment mutation**. It may change only declared repository content atomically. Every generated Git command is a single non-executed operator proposal. The operator reviews and runs exactly one proposal, returns the complete output, and SAGE must complete post-operator verification, outcome metrics, and evidence closeout before it can emit the next boundary.
 
+## Canonical request planning
+
+Normal request execution no longer requires a caller to invent `capabilities`,
+`candidates`, `selection_factors`, or capability-gap decisions. The canonical
+entry point is `sage-request-plan`, which accepts the same literal request plus
+a checksum-bound source-only package and derives those fields from current
+repository authority, the mandatory operating contract, and
+`sage-workflow-primitives.json`.
+
+The planner emits the unchanged request-execution proposal schema. Direct
+caller-authored capabilities and candidates are a bootstrap-only legacy path
+and are prohibited when the repository planner applies. Request execution
+continues to validate all planned semantics against the live primitive registry
+before repository mutation.
+
 ## Reuse objective
 
 This is a repository-owned reusable composition rather than a task-specific downloaded helper. The first intended consumer is the centralized-logging end-to-end SAGE thin slice. Future request classes can reuse the same request-to-operator contract by supplying a checksum-bound proposal package that passes the same authority, component, validation, safety, and exact-scope gates.
