@@ -568,7 +568,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "automation",
@@ -603,6 +603,18 @@
                         "lesson:SAGE-LESSON-20260801-001",
                         "action:SAGE-ACTION-20260801-006",
                         "terminal-session:2026-08-08-request-execution-planning-composition-gap-001"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-09T01:22:17-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Accept the repository-owned request-planning composition improvement after implementation of the reusable improvement-action transition workflow and successful validation of this exact lifecycle request through the repository classifier.",
+                    "evidence_references": [
+                        "commit:64c7789004c50a9e0c80b02c0c22f99da6455474"
                     ]
                 }
             ]
