@@ -630,6 +630,49 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260809-001",
+            "title": "Make SAGE evidence reconciliation one-pass idempotent",
+            "source_lessons": [
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "automation",
+            "desired_outcome": "A single canonical SAGE evidence reconciliation that removes obsolete generated paths leaves the generated evidence state immediately current, so an immediate evidence-index check passes without requiring a second reconciliation while preserving safe obsolete-file cleanup.",
+            "acceptance_criteria": [
+                "A prior generated state containing obsolete paths is reconciled once, and that reconciliation identifies and removes the obsolete generated files.",
+                "The generated manifest is stable immediately after that same reconciliation, so an immediate evidence-index check reports no delta.",
+                "Safe obsolete-file cleanup is preserved; the correction does not suppress, defer, or bypass obsolete-path removal.",
+                "A deterministic regression begins with a prior manifest plus an obsolete existing generated file, performs one reconciliation, verifies deletion, and verifies that the immediate check passes.",
+                "Existing evidence catalog, legacy reconciliation, generated navigation, and evidence-placement behavior remain valid.",
+                "Evidence-index, evidence, discovery, operating-contract, and documentation guardrails pass before promotion."
+            ],
+            "measurement_plan": [
+                "Track canonical reconciliations that remove obsolete generated paths and the result of the immediately following index check.",
+                "Require zero manifest-only immediate drift caused by removed-path handling.",
+                "Require zero second-reconciliation retries for this failure class before the action is considered measured.",
+                "Review qualifying reconciliations for first-pass success, retries, and obsolete-file cleanup regressions."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-09T04:18:43-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register the repository-wide one-pass evidence-index reconciliation defect discovered while validating SAGE-ACTION-20260807-001.",
+                    "evidence_references": [
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "action:SAGE-ACTION-20260807-001",
+                        "path:scripts/sage/sage-index.py"
+                    ]
+                }
+            ]
         }
     ]
 }
