@@ -191,7 +191,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -223,6 +223,18 @@
                         "action:SAGE-ACTION-20260801-002",
                         "report:kalaxy3-sage-discovery-classifier-diagnostic-20260801-151722",
                         "terminal-session:2026-08-01-capability-intelligence-classifier-diagnostic-001"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-09T05:00:42-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Accept the classifier-bootstrap recovery correction after the repository-owned candidate request passed both direct sage-change-preflight classification and the canonical make sage-preflight entry point, establishing the actual-classifier path required by this action.",
+                    "evidence_references": [
+                        "report:kalaxy3-sage-discovery-classifier-diagnostic-20260801-151722"
                     ]
                 }
             ]
