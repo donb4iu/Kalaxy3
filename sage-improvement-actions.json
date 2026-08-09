@@ -568,7 +568,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "accepted",
+            "current_status": "implemented",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "automation",
@@ -615,6 +615,18 @@
                     "reason": "Accept the repository-owned request-planning composition improvement after implementation of the reusable improvement-action transition workflow and successful validation of this exact lifecycle request through the repository classifier.",
                     "evidence_references": [
                         "commit:64c7789004c50a9e0c80b02c0c22f99da6455474"
+                    ]
+                },
+                {
+                    "sequence": 3,
+                    "from_status": "accepted",
+                    "to_status": "implemented",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-09T01:33:07-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Record implementation of the repository-owned request-planning composition. Commit c32b4f388b627cbe6b0eb442af089d9eaec5122d introduced the versioned planning composition, repository-derived capability and candidate selection, capability-gap handling, stable request-execution integration, and deterministic positive and negative planner regressions required by SAGE-ACTION-20260808-001.",
+                    "evidence_references": [
+                        "commit:c32b4f388b627cbe6b0eb442af089d9eaec5122d"
                     ]
                 }
             ]
