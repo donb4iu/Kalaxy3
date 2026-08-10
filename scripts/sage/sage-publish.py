@@ -1534,6 +1534,36 @@ def self_test() -> None:
             json.dumps(metadata_contract_document(), indent=2) + "\n",
             encoding="utf-8",
         )
+
+        # Install the production retrieval contract into the same isolated
+        # repository used by the publication self-test. This proves that
+        # evidence created through the publisher is subsequently consumable
+        # through the canonical retrieval interface.
+        source_root = Path(__file__).resolve().parents[2]
+        shutil.copy2(
+            source_root / "sage-evidence-retrieval-policy.json",
+            repo / "sage-evidence-retrieval-policy.json",
+        )
+        shutil.copy2(
+            Path(__file__).with_name("sage-evidence-retrieval.py"),
+            repo / "scripts/sage/sage-evidence-retrieval.py",
+        )
+        shutil.copy2(
+            Path(__file__).with_name("sage_evidence_retrieval.py"),
+            repo / "scripts/sage/sage_evidence_retrieval.py",
+        )
+        retrieval_registries = {
+            "sage-lessons.json": {"lessons": []},
+            "sage-actionable-failures.json": {"failures": {}},
+            "sage-improvement-actions.json": {"actions": []},
+            "sage-post-session-review-registry.json": {"reviews": []},
+        }
+        for relative, payload in retrieval_registries.items():
+            (repo / relative).write_text(
+                json.dumps(payload, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
         (repo / "implementation.txt").write_text("before\n", encoding="utf-8")
         git(repo, "add", ".")
         git(repo, "commit", "-m", "Initialize test repository")
@@ -1589,9 +1619,135 @@ def self_test() -> None:
         if "sage-current" not in classes or "legacy-evidence" not in classes:
             raise SageError(f"Self-test catalog did not preserve both classes: {classes}")
         run([sys.executable, INDEXER_PATH, "check", "--repo", str(repo)], cwd=repo)
+
+        retrieval = subprocess.run(
+            [
+                sys.executable,
+                "scripts/sage/sage-evidence-retrieval.py",
+                "retrieve",
+                "--request",
+                "SAGE publication self-test evidence",
+                "--limit",
+                "10",
+            ],
+            cwd=repo,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if retrieval.returncode != 0:
+            raise SageError(
+                "Published evidence retrieval failed: "
+                + (retrieval.stderr.strip() or retrieval.stdout.strip())
+            )
+        try:
+            retrieval_payload = json.loads(retrieval.stdout)
+        except json.JSONDecodeError as exc:
+            raise SageError(
+                f"Published evidence retrieval returned invalid JSON: {exc}"
+            ) from exc
+
+        retrieved = [
+            item
+            for item in retrieval_payload.get("results", [])
+            if item.get("identifier") == evidence_id
+        ]
+        if len(retrieved) != 1:
+            identifiers = [
+                item.get("identifier")
+                for item in retrieval_payload.get("results", [])
+            ]
+            raise SageError(
+                "Published evidence was not uniquely retrievable: "
+                f"{identifiers}"
+            )
+        published_result = retrieved[0]
+        if published_result.get("source_path") != "markdown/evidence/catalog.json":
+            raise SageError("Published evidence retrieval bypassed the generated catalog")
+        source_section = published_result.get("source_section", {})
+        if source_section.get("source_document") != record_rel:
+            raise SageError(
+                "Published evidence retrieval did not preserve source-document provenance"
+            )
+        if not published_result.get("applicable_facts"):
+            raise SageError("Published evidence retrieval returned no applicable facts")
+
+        for item in retrieval_payload.get("results", []):
+            item["disposition"] = "reviewed-not-applicable"
+            item["disposition_rationale"] = (
+                "Retrieved during publication round-trip validation."
+            )
+        published_result["disposition"] = "applied"
+        published_result["disposition_rationale"] = (
+            "Published evidence was retrieved through the canonical interface "
+            "and used to prove bidirectional evidence accessibility."
+        )
+        retrieval_result = base / "retrieval-result.json"
+        retrieval_result.write_text(
+            json.dumps(retrieval_payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        validation = subprocess.run(
+            [
+                sys.executable,
+                "scripts/sage/sage-evidence-retrieval.py",
+                "validate",
+                "--input",
+                str(retrieval_result),
+                "--require-final",
+            ],
+            cwd=repo,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if validation.returncode != 0:
+            raise SageError(
+                "Finalized retrieval disposition validation failed: "
+                + (validation.stderr.strip() or validation.stdout.strip())
+            )
+
+        unrelated = subprocess.run(
+            [
+                sys.executable,
+                "scripts/sage/sage-evidence-retrieval.py",
+                "retrieve",
+                "--request",
+                "Rotate internal TLS certificates",
+                "--limit",
+                "10",
+            ],
+            cwd=repo,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if unrelated.returncode != 0:
+            raise SageError(
+                "Unrelated retrieval negative case failed to execute: "
+                + (unrelated.stderr.strip() or unrelated.stdout.strip())
+            )
+        try:
+            unrelated_payload = json.loads(unrelated.stdout)
+        except json.JSONDecodeError as exc:
+            raise SageError(
+                f"Unrelated retrieval returned invalid JSON: {exc}"
+            ) from exc
+        if any(
+            item.get("identifier") == evidence_id
+            for item in unrelated_payload.get("results", [])
+        ):
+            raise SageError(
+                "Published evidence was incorrectly relevant to unrelated retrieval"
+            )
+
         if git(repo, "status", "--porcelain=v1"):
             raise SageError("Self-test repository is not clean")
-        print("\nSAGE publication and legacy reconciliation self-test: PASS")
+        print("PASS published evidence is retrievable through canonical policy")
+        print("PASS retrieved evidence preserves identity and source provenance")
+        print("PASS retrieval dispositions finalize through canonical validation")
+        print("PASS unrelated retrieval does not admit published evidence")
+        print("\nSAGE publication, reconciliation, and retrieval round-trip self-test: PASS")
 
 def main() -> int:
     parser = argparse.ArgumentParser(
