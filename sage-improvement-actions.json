@@ -705,7 +705,7 @@
                 "SAGE-LESSON-20260728-005"
             ],
             "source_sessions": [],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "automation",
@@ -741,6 +741,22 @@
                         "action:SAGE-ACTION-20260807-001",
                         "action:SAGE-ACTION-20260809-001",
                         "commit:61c846a"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-09T17:30:53-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Accept the checkpoint-persistence versus promotion correction after repository inspection and checkpoint commit ac46ef2 demonstrated the dependency deadlock and the safe non-promotable persistence path while preserving all promotion gates.",
+                    "evidence_references": [
+                        "action:SAGE-ACTION-20260801-005",
+                        "action:SAGE-ACTION-20260809-001",
+                        "action:SAGE-ACTION-20260809-002",
+                        "commit:ac46ef2ad09d9af65d613ca23aa443cde2f89cef",
+                        "path:scripts/sage/workflows/request_execution.py"
                     ]
                 }
             ]
