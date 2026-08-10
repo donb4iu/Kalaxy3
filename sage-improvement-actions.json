@@ -662,7 +662,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "automation",
@@ -694,6 +694,21 @@
                         "lesson:SAGE-LESSON-20260801-001",
                         "action:SAGE-ACTION-20260807-001",
                         "path:scripts/sage/sage-index.py"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-09T22:32:52-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Accept the one-pass evidence-reconciliation improvement after implementation at ca09af7 and successful validation of the exact reconciliation behavior, evidence-index convergence, SAGE guardrails, operating contract, and documentation publication path.",
+                    "evidence_references": [
+                        "commit:ca09af7",
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "path:scripts/sage/sage-index.py",
+                        "path:scripts/sage/sage-publish.py"
                     ]
                 }
             ]
