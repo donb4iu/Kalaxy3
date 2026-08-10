@@ -662,7 +662,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "implemented",
+            "current_status": "validated",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "automation",
@@ -722,6 +722,21 @@
                     "evidence_references": [
                         "commit:ca09af7",
                         "commit:85d5b34",
+                        "path:scripts/sage/sage-index.py",
+                        "path:scripts/sage/sage-publish.py"
+                    ]
+                },
+                {
+                    "sequence": 4,
+                    "from_status": "implemented",
+                    "to_status": "validated",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-09T23:06:37-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Validate the one-pass evidence-reconciliation improvement because the isolated obsolete-file regression passed, one real reconciliation converged immediately with zero subsequent index delta, safe stale-file cleanup remained intact, the full repository SAGE and operating-contract guardrail chain passed, and strict MkDocs build and publication validation completed successfully.",
+                    "evidence_references": [
+                        "commit:ca09af7",
+                        "commit:0b16110",
                         "path:scripts/sage/sage-index.py",
                         "path:scripts/sage/sage-publish.py"
                     ]
