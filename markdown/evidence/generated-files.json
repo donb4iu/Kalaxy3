@@ -56,8 +56,5 @@
     "markdown/evidence/subjects/ubuntu-installation.md",
     "markdown/evidence/subjects/ubuntu-node-provisioning.md"
   ],
-  "removed_paths": [
-    "markdown/evidence/sections/architecture.md",
-    "markdown/evidence/subjects/sage-end.md"
-  ]
+  "removed_paths": []
 }

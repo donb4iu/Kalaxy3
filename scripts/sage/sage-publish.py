@@ -1040,32 +1040,72 @@ def rebase_repair_if_needed(
     return implementation_sha, evidence_sha
 
 
-def reconcile_evidence_catalog(repo: Path) -> list[str]:
-    indexer = repo / INDEXER_PATH
-    if not indexer.is_file():
-        raise SageError(f"Missing SAGE evidence indexer: {INDEXER_PATH}")
-    run([sys.executable, INDEXER_PATH, "reconcile", "--repo", str(repo)], cwd=repo)
+def _generated_manifest_paths(repo: Path, *, required: bool) -> list[str]:
+    """Read and validate stable generated paths from the evidence manifest."""
     manifest_path = repo / GENERATED_FILES_MANIFEST
     if not manifest_path.is_file():
-        raise SageError("Evidence indexer did not produce generated-files.json")
+        if required:
+            raise SageError(
+                "Evidence indexer did not produce generated-files.json"
+            )
+        return []
+
     try:
         data = json.loads(manifest_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise SageError(f"Invalid generated-files.json: {exc}") from exc
+
     paths = data.get("generated_paths")
     removed = data.get("removed_paths", [])
-    if not isinstance(paths, list) or not all(isinstance(x, str) for x in paths):
-        raise SageError("generated-files.json must contain generated_paths")
-    if not isinstance(removed, list) or not all(isinstance(x, str) for x in removed):
-        raise SageError("generated-files.json removed_paths must be a list")
+    if not isinstance(paths, list) or not all(
+        isinstance(x, str) for x in paths
+    ):
+        raise SageError(
+            "generated-files.json must contain generated_paths"
+        )
+    if not isinstance(removed, list) or not all(
+        isinstance(x, str) for x in removed
+    ):
+        raise SageError(
+            "generated-files.json removed_paths must be a list"
+        )
+
     safe = [
         str(safe_relpath(x, field="generated catalog path"))
-        for x in [*paths, *removed]
+        for x in paths
     ]
     for rel in safe:
         if not rel.startswith("markdown/evidence/"):
-            raise SageError(f"Generated catalog path outside markdown/evidence: {rel}")
+            raise SageError(
+                f"Generated catalog path outside markdown/evidence: {rel}"
+            )
     return sorted(set(safe))
+
+
+def reconcile_evidence_catalog(repo: Path) -> list[str]:
+    """Reconcile stable generated state and return exact publication scope."""
+    indexer = repo / INDEXER_PATH
+    if not indexer.is_file():
+        raise SageError(
+            f"Missing SAGE evidence indexer: {INDEXER_PATH}"
+        )
+
+    previous = _generated_manifest_paths(repo, required=False)
+    run(
+        [sys.executable, INDEXER_PATH, "reconcile", "--repo", str(repo)],
+        cwd=repo,
+    )
+    current = _generated_manifest_paths(repo, required=True)
+
+    removed = sorted(set(previous) - set(current))
+    safe = sorted(set([*current, *removed]))
+    for rel in safe:
+        if not rel.startswith("markdown/evidence/"):
+            raise SageError(
+                f"Generated catalog path outside markdown/evidence: {rel}"
+            )
+    return safe
+
 
 
 def package_check(package: Path, repo: Path | None = None) -> tuple[dict[str, Any], list[str]]:
