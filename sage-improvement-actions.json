@@ -662,7 +662,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "accepted",
+            "current_status": "implemented",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "automation",
@@ -707,6 +707,21 @@
                     "evidence_references": [
                         "commit:ca09af7",
                         "lesson:SAGE-LESSON-20260801-001",
+                        "path:scripts/sage/sage-index.py",
+                        "path:scripts/sage/sage-publish.py"
+                    ]
+                },
+                {
+                    "sequence": 3,
+                    "from_status": "accepted",
+                    "to_status": "implemented",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-09T22:47:49-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Record the action as implemented because commit ca09af7 contains the one-pass evidence reconciliation correction, transactional obsolete-path publication handling, and deterministic one-pass regression, and that implementation subsequently passed the complete promotion validation gate.",
+                    "evidence_references": [
+                        "commit:ca09af7",
+                        "commit:85d5b34",
                         "path:scripts/sage/sage-index.py",
                         "path:scripts/sage/sage-publish.py"
                     ]
