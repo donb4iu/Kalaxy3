@@ -176,6 +176,7 @@ def self_test() -> int:
         valid_context.writer = writer
         valid_context.runner = runner
         valid_context.transaction = None
+        valid_context.baseline_safety = {"fixture.py": ()}
         if validate_python_payloads(valid_context) != ("fixture.py",):
             raise RuntimeError("valid Python payload was not pre-write validated")
         if (fixture_repo / "fixture.py").exists():
@@ -196,6 +197,7 @@ def self_test() -> int:
         invalid_context.writer = writer
         invalid_context.runner = runner
         invalid_context.transaction = None
+        invalid_context.baseline_safety = {"fixture.py": ()}
         try:
             validate_python_payloads(invalid_context)
         except WorkflowCommandError as error:
@@ -231,6 +233,78 @@ def self_test() -> int:
             raise RuntimeError(
                 "expected undefined WorkflowError diagnostic was not preserved"
             )
+
+        prewrite_safety_cases = (
+            (
+                "mixed-git-authority",
+                b"from workflow import GitRepository\nVALUE = 1\n",
+                "MIXED-GIT-AUTHORITY",
+            ),
+            (
+                "git-mutation-api",
+                (
+                    b"class Holder:\n"
+                    b"    def fetch(self):\n"
+                    b"        return None\n"
+                    b"repository = Holder()\n"
+                    b"repository.fetch()\n"
+                ),
+                "GIT-MUTATION-API",
+            ),
+            (
+                "github-mutation",
+                (
+                    b"from pathlib import Path\n"
+                    b"from workflow import CommandSpec\n"
+                    b"SPEC = CommandSpec(\n"
+                    b"    primitive_id='command.run',\n"
+                    b"    label='x',\n"
+                    b"    argv=('gh', 'pr', 'view', '1'),\n"
+                    b"    cwd=Path('.'),\n"
+                    b")\n"
+                ),
+                "GITHUB-MUTATION",
+            ),
+        )
+        for label, payload, expected_code in prewrite_safety_cases:
+            source_path = f"fixture-{label}.py"
+            manifest = fixture_manifest(request, payload)
+            manifest["source_files"][0]["path"] = source_path
+            package = root / f"{label}.zip"
+            write_fixture_package(
+                package,
+                manifest,
+                payload,
+                source_path=source_path,
+            )
+            bundle = load_proposal(package, request)
+            prewrite_context = FixtureContext()
+            prewrite_context.repo = fixture_repo
+            prewrite_context.state_dir = state
+            prewrite_context.bundle = bundle
+            prewrite_context.writer = writer
+            prewrite_context.runner = runner
+            prewrite_context.transaction = None
+            prewrite_context.baseline_safety = {source_path: ()}
+            try:
+                validate_python_payloads(prewrite_context)
+            except WorkflowError as error:
+                if expected_code not in str(error):
+                    raise RuntimeError(
+                        f"unexpected {label} pre-write safety rejection: {error}"
+                    ) from error
+            else:
+                raise RuntimeError(
+                    f"{label} payload unexpectedly passed pre-write safety"
+                )
+            if prewrite_context.transaction is not None:
+                raise RuntimeError(
+                    f"{label} created a repository transaction before rejection"
+                )
+            if (fixture_repo / source_path).exists():
+                raise RuntimeError(
+                    f"{label} mutated repository content before rejection"
+                )
 
         safety_path = fixture_repo / "fixture.py"
         safety_path.write_text(
@@ -300,6 +374,7 @@ def self_test() -> int:
     print("PASS new-low-level-primitive fail-closed gate")
     print("PASS Python payload undefined-global rejection before repository write")
     print("PASS valid Python payload pre-write validation without repository mutation")
+    print("PASS introduced Git and GitHub safety findings rejected before repository mutation")
     print("PASS unchanged proposal-bound safety findings remain baseline-only")
     print("PASS newly introduced and new-file unsafe findings fail closed")
     print("PASS pasted operator-result binding and stage-commit-push continuation")

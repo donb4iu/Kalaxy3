@@ -302,7 +302,12 @@ def reconcile_index(context: ExecutionContext) -> None:
 
 
 def validate_python_payloads(context: ExecutionContext) -> tuple[str, ...]:
-    """Reject undefined Python globals before repository transaction creation."""
+    """Reject invalid or newly unsafe Python payloads before repository mutation."""
+
+    if context.baseline_safety is None:
+        raise WorkflowError(
+            "Python safety baseline was not captured before pre-write validation"
+        )
 
     validated: list[str] = []
     root = context.state_dir / "prewrite-python-payloads"
@@ -325,6 +330,16 @@ def validate_python_payloads(context: ExecutionContext) -> tuple[str, ...]:
             ),
             step_id="prewrite-python-static-validation",
         )
+        baseline = context.baseline_safety.get(item.path)
+        if baseline is None:
+            raise WorkflowError(
+                f"Python safety baseline missing for {item.path}"
+            )
+        introduced = introduced_safety_violations(candidate, baseline)
+        if introduced:
+            raise WorkflowError(
+                "; ".join(item.render() for item in introduced)
+            )
         validated.append(item.path)
     return tuple(validated)
 
@@ -398,8 +413,8 @@ def introduced_safety_violations(
 def mutation_action(context: ExecutionContext) -> Mapping[str, str]:
     """Apply the checksum-bound proposal atomically within its exact scope."""
 
-    validate_python_payloads(context)
     capture_python_safety_baseline(context)
+    validate_python_payloads(context)
     paths = tuple(context.repo / relative for relative in context.bundle.declared_paths)
     context.transaction = AtomicFileTransaction(context.writer, paths)
     digests: dict[str, str] = {}
