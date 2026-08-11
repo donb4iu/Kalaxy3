@@ -805,6 +805,51 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260810-001",
+            "title": "Classify post-retrieval retry versus governance re-entry",
+            "source_lessons": [
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "After the first required unexpected-failure retrieval, SAGE deterministically distinguishes implementation-local execution defects from governance-changing failures. When authority, scope, required capability, safety requirements, repository-owned composition, and approval or mutation boundaries are unchanged and the attempted action remains authorized, repair, regression, revalidation, and retry remain inside the same governed request. Discovery or replanning is required only when one of those governing conditions changes.",
+            "acceptance_criteria": [
+                "The existing first-unexpected-failure retrieval requirement remains mandatory before corrective retry guidance.",
+                "A repository-owned post-retrieval decision records whether authority, scope, required capability, safety requirements, repository-owned composition, or approval or mutation boundaries changed.",
+                "When none of the governing conditions changed and the attempted action remains authorized, the workflow requires repair of the current implementation-local defect, a deterministic regression for the exact defect, revalidation, and retry within the same governed request.",
+                "Repeated discovery, evidence retrieval, or replanning after a no-governance-change classification fails closed as unnecessary over-governance rather than restarting the request.",
+                "When any governing condition changed, same-request corrective retry fails closed and routes through repository-owned discovery or replanning before further mutation.",
+                "A deterministic positive regression reproduces an assistant-generated builder or package execution defect after the required retrieval and proves continuation stays in the same governed request when governing conditions are unchanged.",
+                "A deterministic negative regression changes at least one governing condition and proves the workflow rejects same-request retry and requires discovery or replanning.",
+                "The decision is integrated with canonical failure-retrieval and request-execution receipts so the continuation reason is observable and measurable."
+            ],
+            "measurement_plan": [
+                "Track post-retrieval continuation classifications by disposition.",
+                "Track redundant discovery, retrieval, or replanning attempts prevented after no-governance-change failures.",
+                "Track implementation-local retries that complete within the original governed request after one retrieval.",
+                "Require zero same-request retries when authority, scope, capability, safety, composition, or approval or mutation boundaries changed.",
+                "Track recurrence and avoidable rework for this failure class."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-10T23:21:25-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register the missing post-retrieval continuation control after recurrence showed that retrieval-before-retry alone permits unnecessary repeated governance loops.",
+                    "evidence_references": [
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "action:SAGE-ACTION-20260801-001"
+                    ]
+                }
+            ]
         }
     ]
 }
