@@ -850,6 +850,60 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260811-001",
+            "title": "Codify fit-for-purpose SAGE role and orchestration metamodel",
+            "source_lessons": [
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "SAGE has an explicit implementation-neutral role and orchestration metamodel in which the human architect owns intended future state, requirements, constraints, Definition of Done, approval boundaries, and governed interventions; SAGE governs intent, applicability, authority, evidence, capability selection, progression, and disposition of unexpected contexts; LLMs remain untrusted stochastic proposers rather than owners of deterministic workflow state or graph traversal; and a deterministic orchestration role owns workflow state, transitions, decisions, retry, compensation, and continuation without prematurely selecting BPMN, a graph engine, or another product. The metamodel makes architect intervention, context applicability, workflow observability, provenance, capability gaps, and conversion of validated workflow experience into reusable repository-owned capability explicit and measurable.",
+            "acceptance_criteria": [
+                "The SAGE operating contract explicitly defines the human architect as owner of intended future state, requirements, constraints, Definition of Done, approval boundaries, and explicit governed intervention when platform immaturity requires it.",
+                "Every architect intervention is required to be scoped, contextualized, justified, traceable, and observable rather than silently altering SAGE behavior or learned workflow assumptions.",
+                "SAGE is explicitly responsible for governing intent, applicability, authority, evidence, capability selection, progression, and disposition of unexpected inferred contexts.",
+                "LLMs are explicitly classified as untrusted stochastic proposers for exploration, interpretation, design, and candidate mutations and are prohibited from owning deterministic directed workflow state, transition authority, or graph traversal.",
+                "An implementation-neutral deterministic orchestration role is defined for workflow state, transitions, decisions, branches, retry, compensation, and continuation without choosing BPMN, a graph engine, a graph database, or another orchestration product.",
+                "Canonical SAGE vocabulary defines workflow, state, transition, decision, branch, compensation, orchestration, human intervention, observability, provenance, and capability gap sufficiently for deterministic discovery and future capability selection.",
+                "Unexpected inferred contexts cannot be suppressed merely because they are broader than the immediate implementation; each must receive an evidence-backed disposition such as applicable-now, conceptually-applicable-but-not-currently-instrumented, capability-gap, or demonstrably-not-applicable.",
+                "Workflow observability is distinguished from infrastructure observability so conceptually applicable workflow telemetry that is not yet instrumented is represented as an instrumentation or capability gap rather than a false-positive context.",
+                "The continuous-improvement model explicitly permits repeated architect interventions, workflow outcomes, evidence use, failures, and validated paths to be converted into reusable repository-owned workflow capability and measured for effectiveness, efficiency, recurrence, and avoidable rework.",
+                "The metamodel is reconciled with the existing SAGE operating contract, workflow primitives, continuous-improvement model, evidence model, observability model, SAGE-ACTION-20260810-001, and SAGE-ACTION-20260809-002 without absorbing those actions' narrower implementation scopes.",
+                "Deterministic positive and negative regressions prove that applicable-but-not-currently-instrumented contexts are preserved and dispositioned, while demonstrably non-applicable contexts require evidence before exclusion.",
+                "No orchestration implementation product is selected by this action; product selection remains a later capability-selection decision governed by measured requirements and evidence."
+            ],
+            "measurement_plan": [
+                "Track architect interventions by reason, governed scope, disposition, downstream outcome, and whether the intervention later becomes reusable repository-owned capability.",
+                "Track inferred-context dispositions by applicable-now, conceptually-applicable-but-not-currently-instrumented, capability-gap, and demonstrably-not-applicable.",
+                "Track workflow decisions and continuations that are deterministically executed versus manually reconstructed by an LLM or operator.",
+                "Track reusable workflow paths created from validated interventions and outcomes, including recurrence prevented and avoidable rework reduced.",
+                "Track workflow-observability coverage and distinguish missing instrumentation from true non-applicability.",
+                "Require zero cases where an LLM independently owns deterministic workflow state or transition authority outside the governed orchestration role.",
+                "Require zero unexpected-context suppressions without an evidence-backed applicability disposition.",
+                "Measure whether the role/orchestration metamodel reduces repeated governance reconstruction, manual correction, and time to validated continuation across subsequent SAGE actions."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-11T02:03:20-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register the fit-for-purpose SAGE role and orchestration metamodel identified through retry, checkpoint-promotion, architect-intervention, unexpected-context, and workflow-observability reconciliation.",
+                    "evidence_references": [
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "action:SAGE-ACTION-20260810-001",
+                        "action:SAGE-ACTION-20260809-002",
+                        "action:SAGE-ACTION-20260808-001"
+                    ]
+                }
+            ]
         }
     ]
 }
