@@ -876,7 +876,8 @@
                 "request planning",
                 "request planner",
                 "planning composition",
-                "sage request plan"
+                "sage request plan",
+                "checkpoint promotion"
             ],
             "path_prefixes": [
                 "sage-workflow-primitives.json",
@@ -886,7 +887,9 @@
                 "markdown/standards/sage-workflow-primitives",
                 "markdown/standards/kalaxy3-sage-workflow-primitives",
                 "scripts/sage/sage-operating-contract",
-                "scripts/sage/workflows/operating_contract.py"
+                "scripts/sage/workflows/operating_contract.py",
+                "scripts/sage/sage-change-preflight.py",
+                "scripts/sage/sage-change-discovery-guardrail.py"
             ],
             "requires": [
                 "repository-governance",
