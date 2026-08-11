@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from collections import Counter
+
 import hashlib
 import json
 import re
@@ -86,6 +88,7 @@ class ExecutionContext:
     gap_path: Path | None = None
     proposal_path: Path | None = None
     transaction: AtomicFileTransaction | None = None
+    baseline_safety: dict[str, tuple[tuple[str, str, str], ...]] | None = None
     validation: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -326,10 +329,77 @@ def validate_python_payloads(context: ExecutionContext) -> tuple[str, ...]:
     return tuple(validated)
 
 
+
+def safety_fingerprint(
+    source: str,
+    violation: Any,
+) -> tuple[str, str, str]:
+    """Identify one safety finding without coupling identity to line movement."""
+
+    lines = source.splitlines()
+    statement = (
+        lines[violation.line - 1].strip()
+        if 0 < violation.line <= len(lines)
+        else ""
+    )
+    return (str(violation.code), str(violation.message), statement)
+
+
+def safety_fingerprints(
+    source: str,
+    *,
+    path: Path,
+) -> tuple[tuple[str, str, str], ...]:
+    """Return deterministic whole-source safety fingerprints."""
+
+    return tuple(
+        safety_fingerprint(source, violation)
+        for violation in GitSafetyGuardrail.scan_source(source, path=path)
+    )
+
+
+def capture_python_safety_baseline(
+    context: ExecutionContext,
+) -> Mapping[str, tuple[tuple[str, str, str], ...]]:
+    """Capture proposal-bound baseline findings before repository writes."""
+
+    baseline: dict[str, tuple[tuple[str, str, str], ...]] = {}
+    for item in context.bundle.source_files:
+        if Path(item.path).suffix != ".py":
+            continue
+        path = context.repo / item.path
+        baseline[item.path] = (
+            safety_fingerprints(path.read_text(encoding="utf-8"), path=path)
+            if path.is_file()
+            else ()
+        )
+    context.baseline_safety = baseline
+    return baseline
+
+
+def introduced_safety_violations(
+    path: Path,
+    baseline: tuple[tuple[str, str, str], ...],
+) -> tuple[Any, ...]:
+    """Return only findings not present in the proposal-bound baseline."""
+
+    source = path.read_text(encoding="utf-8")
+    remaining = Counter(baseline)
+    introduced: list[Any] = []
+    for violation in GitSafetyGuardrail.scan_source(source, path=path):
+        fingerprint = safety_fingerprint(source, violation)
+        if remaining[fingerprint] > 0:
+            remaining[fingerprint] -= 1
+        else:
+            introduced.append(violation)
+    return tuple(introduced)
+
+
 def mutation_action(context: ExecutionContext) -> Mapping[str, str]:
     """Apply the checksum-bound proposal atomically within its exact scope."""
 
     validate_python_payloads(context)
+    capture_python_safety_baseline(context)
     paths = tuple(context.repo / relative for relative in context.bundle.declared_paths)
     context.transaction = AtomicFileTransaction(context.writer, paths)
     digests: dict[str, str] = {}
@@ -382,17 +452,37 @@ def validation_action(context: ExecutionContext) -> tuple[Any, ...]:
 
 
 def safety_action(context: ExecutionContext) -> Mapping[str, Any]:
-    """Reject proposal Python capable of protected-system mutation."""
+    """Reject safety findings introduced beyond the proposal-bound baseline."""
 
-    paths = tuple(
-        context.repo / item.path
-        for item in context.bundle.source_files
-        if item.path.endswith(".py")
-    )
-    violations = GitSafetyGuardrail.scan_paths(paths)
-    if violations:
-        raise WorkflowError("; ".join(item.render() for item in violations))
-    return {"status": "pass", "paths": [str(path) for path in paths]}
+    if context.baseline_safety is None:
+        raise WorkflowError("Python safety baseline was not captured before mutation")
+
+    introduced: list[Any] = []
+    observed: dict[str, dict[str, int]] = {}
+    paths: list[str] = []
+    for item in context.bundle.source_files:
+        if Path(item.path).suffix != ".py":
+            continue
+        path = context.repo / item.path
+        baseline = context.baseline_safety.get(item.path)
+        if baseline is None:
+            raise WorkflowError(f"Python safety baseline missing for {item.path}")
+        current = GitSafetyGuardrail.scan_source(
+            path.read_text(encoding="utf-8"),
+            path=path,
+        )
+        new_findings = introduced_safety_violations(path, baseline)
+        introduced.extend(new_findings)
+        observed[item.path] = {
+            "baseline_findings": len(baseline),
+            "candidate_findings": len(current),
+            "introduced_findings": len(new_findings),
+        }
+        paths.append(str(path))
+
+    if introduced:
+        raise WorkflowError("; ".join(item.render() for item in introduced))
+    return {"status": "pass", "paths": paths, "findings": observed}
 
 
 def no_failure_action() -> Mapping[str, str]:

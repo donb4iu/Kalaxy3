@@ -132,8 +132,11 @@ def self_test() -> int:
             CommandSpec,
             JsonlEventLogger,
             WorkflowCommandError,
+            WorkflowError,
         )
         from workflows.request_execution import (  # noqa: PLC0415
+            capture_python_safety_baseline,
+            safety_action,
             validate_python_payloads,
         )
 
@@ -229,6 +232,50 @@ def self_test() -> int:
                 "expected undefined WorkflowError diagnostic was not preserved"
             )
 
+        safety_path = fixture_repo / "fixture.py"
+        safety_path.write_text(
+            "import subprocess\nVALUE = 'baseline'\n",
+            encoding="utf-8",
+        )
+        capture_python_safety_baseline(valid_context)
+
+        safety_path.write_text(
+            "import subprocess\nVALUE = 'changed safely'\n",
+            encoding="utf-8",
+        )
+        if safety_action(valid_context)["status"] != "pass":
+            raise RuntimeError(
+                "unchanged pre-existing safety finding was not treated as baseline"
+            )
+
+        safety_path.write_text(
+            "import subprocess\n"
+            "subprocess.run(['git', 'push', 'origin', 'main'])\n",
+            encoding="utf-8",
+        )
+        try:
+            safety_action(valid_context)
+        except WorkflowError as error:
+            if "GIT-MUTATION" not in str(error):
+                raise RuntimeError(
+                    f"unexpected introduced-safety rejection: {error}"
+                ) from error
+        else:
+            raise RuntimeError("new Git mutation unexpectedly passed baseline safety")
+
+        valid_context.baseline_safety = {"fixture.py": ()}
+        safety_path.write_text("import subprocess\n", encoding="utf-8")
+        try:
+            safety_action(valid_context)
+        except WorkflowError as error:
+            if "DIRECT-SUBPROCESS" not in str(error):
+                raise RuntimeError(
+                    f"unexpected new-file safety rejection: {error}"
+                ) from error
+        else:
+            raise RuntimeError("new direct-subprocess helper unexpectedly passed")
+        safety_path.unlink()
+
         operator_proposal = {
             "proposal_id": "SAGE-GIT-20260806-001",
             "command": {"sha256": "a" * 64},
@@ -253,6 +300,8 @@ def self_test() -> int:
     print("PASS new-low-level-primitive fail-closed gate")
     print("PASS Python payload undefined-global rejection before repository write")
     print("PASS valid Python payload pre-write validation without repository mutation")
+    print("PASS unchanged proposal-bound safety findings remain baseline-only")
+    print("PASS newly introduced and new-file unsafe findings fail closed")
     print("PASS pasted operator-result binding and stage-commit-push continuation")
     print("Kalaxy3 SAGE request execution self-test: PASS")
     return 0

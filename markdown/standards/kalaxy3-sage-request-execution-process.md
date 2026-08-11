@@ -73,3 +73,28 @@ before repository mutation.
 ## Reuse objective
 
 This is a repository-owned reusable composition rather than a task-specific downloaded helper. The first intended consumer is the centralized-logging end-to-end SAGE thin slice. Future request classes can reuse the same request-to-operator contract by supplying a checksum-bound proposal package that passes the same authority, component, validation, safety, and exact-scope gates.
+
+## Proposal-bound Python safety baseline
+
+Request execution captures whole-source safety findings for each existing Python
+source path only after the clean working tree and exact proposal HEAD have been
+verified and before repository writes begin. That capture is the proposal-bound
+baseline for the transaction.
+
+The post-validation helper-safety step still uses the repository-owned
+`GitSafetyGuardrail`, but an existing Python module is rejected only for newly
+introduced safety findings beyond that verified baseline. An unchanged
+pre-existing finding is recorded as baseline state; it is not reinterpreted as
+behavior introduced by the proposal.
+
+New Python files have an empty proposal-bound baseline. Generated or new Python
+files therefore retain the whole-source fail-closed contract: direct subprocess,
+Git or GitHub mutation, credential inheritance or embedding, deployment
+mutation, and every other prohibited finding remains blocking.
+
+The comparison preserves duplicate findings and includes the source statement in
+each finding identity so moving unchanged source does not create a false new
+finding while changed unsafe statements remain fail closed. This exception is
+scoped only to baseline findings captured inside the current atomic
+request-execution transaction; it does not weaken `GitSafetyGuardrail` itself or
+authorize pre-existing unsafe behavior for reuse.

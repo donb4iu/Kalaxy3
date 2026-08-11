@@ -54,7 +54,9 @@ WORKFLOW_MARKERS = (
     "AuthorityReconciler",
     "ComponentSelector",
     "SageDiscovery(context.repo, context.runner).changed()",
-    "GitSafetyGuardrail.scan_paths",
+    "capture_python_safety_baseline(context)",
+    "introduced_safety_violations",
+    "GitSafetyGuardrail.scan_source",
     "OperatorGitProposal.build",
     "OutcomeMetrics.build_report",
     "verify_operator_result_action",
@@ -80,6 +82,9 @@ PROCESS_MARKERS = (
     "no Git",
     "no GitHub",
     "no deployment",
+    "proposal-bound baseline",
+    "newly introduced safety findings",
+    "new Python files",
 )
 
 
