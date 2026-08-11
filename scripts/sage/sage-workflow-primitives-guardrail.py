@@ -6,6 +6,7 @@ from __future__ import annotations
 import ast
 import importlib.util
 import json
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -31,13 +32,14 @@ SAFETY_CLI = SAGE_DIR / "sage-git-safety-guardrail.py"
 GAP_ROOT = ROOT / "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001"
 sys.path.insert(0, str(SAGE_DIR))
 
-from workflow import AuthorityReconciler, ComponentSelector, FailureDiagnoser, GitSafetyGuardrail, MakefileDocument, OutcomeMetrics  # noqa: E402
+from workflow import FRAMEWORK_VERSION, AuthorityReconciler, ComponentSelector, FailureDiagnoser, GitSafetyGuardrail, MakefileDocument, OutcomeMetrics  # noqa: E402
 
 REQUIRED_MODULES = {
     "workflow.catalog": "PrimitiveCatalog",
     "workflow.runner": "CommandRunner",
     "workflow.git": "GitRepository",
     "workflow.git_inspect": "GitInspector",
+    "workflow.github_inspect": "GitHubInspector",
     "workflow.authority": "AuthorityReconciler",
     "workflow.selection": "ComponentSelector",
     "workflow.gaps": "CapabilityGapRecorder",
@@ -68,6 +70,7 @@ REQUIRED_PRINCIPLES = {
     "versioned evolution from failure evidence",
     "candidate Makefile parsing before replacement",
     "least-authority read-only Git inspection",
+    "least-authority read-only GitHub inspection",
     "mode-preserving atomic file replacement",
     "operator-executed one-boundary proposals",
     "production helper Git and credential safety",
@@ -147,8 +150,8 @@ def validate_registry(payload: dict[str, Any]) -> list[str]:
     failures: list[str] = []
     if payload.get("schema_version") != "1.0":
         failures.append("registry schema_version must be 1.0")
-    if payload.get("framework_version") != "0.6.0":
-        failures.append("registry framework_version must be 0.6.0")
+    if payload.get("framework_version") != FRAMEWORK_VERSION:
+        failures.append("registry framework_version must match canonical FRAMEWORK_VERSION")
     if payload.get("status") != "pilot":
         failures.append("new framework must begin at pilot maturity")
 
@@ -462,6 +465,34 @@ def wrapper_failures(
     return failures
 
 
+
+def validate_framework_version_authority() -> list[str]:
+    failures: list[str] = []
+    payload = load_registry()
+    if payload.get("framework_version") != FRAMEWORK_VERSION:
+        failures.append(
+            "registry framework_version does not match canonical FRAMEWORK_VERSION"
+        )
+    current_consumers = (
+        ROOT / "scripts/sage/sage-workflow-primitives-guardrail.py",
+        ROOT / "scripts/sage/sage-operating-contract-guardrail.py",
+    )
+    version_literal = re.compile(
+        r"framework_version[^\n]*[=!]=?[^\n]*[\"\']\d+\.\d+\.\d+[\"\']"
+    )
+    for path in current_consumers:
+        source = path.read_text(encoding="utf-8")
+        if "FRAMEWORK_VERSION" not in source:
+            failures.append(
+                f"{path.relative_to(ROOT)} does not consume canonical FRAMEWORK_VERSION"
+            )
+        if version_literal.search(source):
+            failures.append(
+                f"{path.relative_to(ROOT)} hard-codes a current framework version"
+            )
+    return failures
+
+
 def validate_wrappers(payload: dict[str, Any]) -> list[str]:
     wrappers = sorted(WRAPPERS.glob("*.py"))
     if not wrappers:
@@ -518,6 +549,7 @@ def validate_docs_and_authority() -> list[str]:
             "primitive reuse ratio",
             "candidate Makefile",
             "git.inspect",
+            "github.inspect",
             "file.atomic-preserve-mode",
             "operator.git-proposal",
             "git.safety-guardrail",
@@ -558,6 +590,7 @@ def validate_docs_and_authority() -> list[str]:
             "scripts/sage/sage-workflow-usage.py",
             "scripts/sage/sage-git-safety-guardrail.py",
             "scripts/sage/workflow/git_inspect.py",
+            "scripts/sage/workflow/github_inspect.py",
             "scripts/sage/workflow/files.py",
             "scripts/sage/workflow/proposal.py",
             "scripts/sage/workflow/safety.py",
@@ -651,6 +684,7 @@ def validate_gap_receipts(payload: dict[str, Any]) -> list[str]:
 
     expected = {
         "git.inspect": GAP_ROOT / "capability-gap-git-inspect.json",
+        "github.inspect": GAP_ROOT / "capability-gap-github-inspect.json",
         "file.atomic-preserve-mode": GAP_ROOT / "capability-gap-atomic-file.json",
         "operator.git-proposal": GAP_ROOT / "capability-gap-operator-proposal.json",
         "git.safety-guardrail": GAP_ROOT / "capability-gap-git-safety.json",
@@ -731,6 +765,16 @@ def run():
         violations = GitSafetyGuardrail.scan_paths((mutating,))
         if not any(item.code == "GIT-MUTATION" for item in violations):
             failures.append("negative test accepted production Git mutation")
+        direct_github = root / "direct-github-api.py"
+        direct_github.write_text(
+            "from urllib.request import urlopen\n"
+            + "urlopen('https://api."
+            + "github.com/repos/example/repo/pulls')\n",
+            encoding="utf-8",
+        )
+        violations = GitSafetyGuardrail.scan_paths((direct_github,))
+        if not any(item.code == "GITHUB-DIRECT-API" for item in violations):
+            failures.append("negative test accepted direct GitHub API use")
         credential = root / "credential-helper.py"
         credential.write_text(
             "import os\ntoken = os.environ.get('GH_TOKEN')\n",
@@ -748,6 +792,7 @@ def main() -> int:
         payload = load_registry()
         failures.extend(validate_registry(payload))
         failures.extend(validate_sources())
+        failures.extend(validate_framework_version_authority())
         failures.extend(validate_wrappers(payload))
         failures.extend(validate_makefile())
         failures.extend(validate_docs_and_authority())
@@ -772,7 +817,7 @@ def main() -> int:
 
     print("PASS versioned primitive registry and pilot maturity")
     print("PASS centralized command, Git, discovery, lifecycle, Make, and evidence paths")
-    print("PASS least-authority Git inspection, atomic writes, operator proposals, and helper safety")
+    print("PASS least-authority Git and GitHub inspection, atomic writes, operator proposals, and helper safety")
     print("PASS authority reconciliation, component selection, capability gaps, and failure diagnosis")
     print("PASS semantic outcome metrics, null preservation, and comparable trends")
     print("PASS root operating-contract composition and guardrail integration")

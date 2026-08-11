@@ -10,6 +10,7 @@ from .files import AtomicFileTransaction, AtomicFileWriter, FileSnapshot
 from .gaps import CapabilityGapRecorder
 from .git import GitRepository
 from .git_inspect import GitAuthoritySnapshot, GitInspector
+from .github_inspect import GitHubInspector, GitHubPullRequestSnapshot
 from .lifecycle import ImprovementActionClient
 from .logging import JsonlEventLogger
 from .metrics import OutcomeMetrics
@@ -27,7 +28,7 @@ from .runner import CommandRunner
 from .usage import UsageAnalyzer
 from .validation import ValidationCommand, ValidationPlan
 
-FRAMEWORK_VERSION = "0.6.0"
+FRAMEWORK_VERSION = "0.7.0"
 
 __all__ = [
     "AuthorityAssertion",
@@ -43,6 +44,8 @@ __all__ = [
     "FileSnapshot",
     "GitAuthoritySnapshot",
     "GitInspector",
+    "GitHubInspector",
+    "GitHubPullRequestSnapshot",
     "GitSafetyGuardrail",
     "GitSafetyViolation",
     "OperatorGitProposal",

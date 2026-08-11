@@ -27,7 +27,7 @@ AGENTS = ROOT / "AGENTS.md"
 SAGE = ROOT / "SAGE.md"
 sys.path.insert(0, str(SAGE_DIR))
 
-from workflow import MakefileDocument  # noqa: E402
+from workflow import FRAMEWORK_VERSION, MakefileDocument  # noqa: E402
 
 EXPECTED_SEQUENCE = [
     "preserve-literal-request",
@@ -168,8 +168,8 @@ def validate_policy(payload: Mapping[str, Any]) -> list[str]:
 
 def validate_registry(payload: Mapping[str, Any]) -> list[str]:
     failures: list[str] = []
-    if payload.get("framework_version") != "0.6.0":
-        failures.append("workflow framework_version must be 0.6.0")
+    if payload.get("framework_version") != FRAMEWORK_VERSION:
+        failures.append("workflow framework_version must match canonical FRAMEWORK_VERSION")
     if "root operating-contract composition and guardrail enforcement" not in payload.get("principles", []):
         failures.append("workflow registry lacks root-enforcement principle")
     policy = payload.get("operating_contract_policy", {})

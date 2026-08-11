@@ -177,3 +177,35 @@ The tracked `sage.improvement-action-transition` composition reuses the existing
 The composition owns one authorized improvement-action status transition. It requires a clean synchronized non-main feature branch, invokes the canonical lifecycle tool in dry-run-then-explicit-apply order, permits only `sage-improvement-actions.json` to change, runs the registered lifecycle/learning/workflow/operating-contract validation plan, and emits exactly one `operator.git-proposal` stage boundary. The registry mutation is transactionally rolled back when validation or proposal creation fails.
 
 After the operator executes the emitted stage command, the composition delegates verification and the remaining commit/push boundaries to the existing request-execution continuation state machine. This preserves the Phase-2 rule that Git mutation is operator-executed one boundary at a time while avoiding external lifecycle or Git choreography. `git.repository` remains restricted to its documented temporary-test and legacy scope.
+
+## Least-authority GitHub inspection
+
+`github.inspect` is the repository-owned read-only authority for GitHub pull-request state.
+It uses only fixed GET-only GitHub REST endpoints needed to list or get pull requests and
+returns structured repository, pull-request, base-branch, head-branch, head-SHA,
+mergeability, merged-state, merged-at, and merge-commit facts.
+
+Generated workflow compositions must consume `github.inspect`; they must not invoke `gh`
+or GitHub HTTP APIs directly. `operator.git-proposal` remains the exclusive pull-request
+creation and merge mutation boundary. The inspector does not inherit `GH_TOKEN`,
+`GITHUB_TOKEN`, `GITHUB_PAT`, or `GH_CONFIG_DIR`; transport or access failure fails closed.
+
+Pull-request lookup after an operator boundary must be unambiguous and must match the
+expected base branch, head branch, and head SHA. A requested mergeability or merged-state
+claim must be affirmatively verifiable before workflow continuation.
+
+`git.safety-guardrail` rejects direct GitHub API use outside the exact trusted
+`scripts/sage/workflow/github_inspect.py` primitive path and continues to reject direct
+`gh`, mixed Git mutation authority, credential inheritance, and deployment mutation.
+
+## Canonical workflow framework version authority
+
+`workflow.FRAMEWORK_VERSION` is the canonical live runtime framework-version authority.
+`sage-workflow-primitives.json` declares the repository framework version and current
+contract guardrails compare that declaration and workflow state to the canonical runtime
+authority; current guardrails must not duplicate a semantic-version literal.
+
+Historical evidence, recorded closeouts, migration phases, and explicit regression fixtures
+retain the version they actually exercised. They are historical facts or test inputs rather
+than live framework-version authorities and must not be rewritten merely because the current
+framework advances.

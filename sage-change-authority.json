@@ -877,7 +877,10 @@
                 "request planner",
                 "planning composition",
                 "sage request plan",
-                "checkpoint promotion"
+                "checkpoint promotion",
+                "github inspection",
+                "github.inspect",
+                "pull request inspection"
             ],
             "path_prefixes": [
                 "sage-workflow-primitives.json",
@@ -968,7 +971,9 @@
                 "markdown/standards/sage-request-planning-source-schema-v1.0.json",
                 "scripts/sage/workflows/improvement_action_transition.py",
                 "scripts/sage/sage-improvement-action-transition.py",
-                "scripts/sage/sage-improvement-action-transition-guardrail.py"
+                "scripts/sage/sage-improvement-action-transition-guardrail.py",
+                "scripts/sage/workflow/github_inspect.py",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-github-inspect.json"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail",

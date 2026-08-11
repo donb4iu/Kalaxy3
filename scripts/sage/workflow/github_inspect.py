@@ -1,0 +1,243 @@
+"""Least-authority read-only GitHub pull-request inspection for Kalaxy3 SAGE."""
+from __future__ import annotations
+
+import json
+import re
+from dataclasses import dataclass
+from typing import Any, Mapping
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+from .model import WorkflowError
+
+_API_ROOT = "https://api." + "github.com"
+_API_VERSION = "2026-03-10"
+_ACCEPT = "application/vnd.github+json"
+_USER_AGENT = "Kalaxy3-SAGE-github.inspect/1.0.0"
+_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_BRANCH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
+_SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
+_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+
+
+@dataclass(frozen=True)
+class GitHubPullRequestSnapshot:
+    repository: str
+    number: int
+    state: str
+    draft: bool
+    base_branch: str
+    base_sha: str
+    head_repository: str
+    head_branch: str
+    head_sha: str
+    merged: bool
+    merged_at: str | None
+    merge_commit_sha: str | None
+    mergeable: bool | None
+    mergeable_state: str | None
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "repository": self.repository,
+            "number": self.number,
+            "state": self.state,
+            "draft": self.draft,
+            "base_branch": self.base_branch,
+            "base_sha": self.base_sha,
+            "head_repository": self.head_repository,
+            "head_branch": self.head_branch,
+            "head_sha": self.head_sha,
+            "merged": self.merged,
+            "merged_at": self.merged_at,
+            "merge_commit_sha": self.merge_commit_sha,
+            "mergeable": self.mergeable,
+            "mergeable_state": self.mergeable_state,
+        }
+
+
+class GitHubInspector:
+    """Read GitHub PR state through fixed GET-only public REST endpoints."""
+
+    def __init__(self, owner: str, repository: str, *, timeout_seconds: float = 20.0) -> None:
+        if not _NAME.fullmatch(owner):
+            raise WorkflowError(f"Invalid GitHub owner: {owner!r}")
+        if not _NAME.fullmatch(repository):
+            raise WorkflowError(f"Invalid GitHub repository: {repository!r}")
+        if timeout_seconds <= 0 or timeout_seconds > 120:
+            raise WorkflowError("github.inspect timeout must be between 0 and 120 seconds")
+        self.owner = owner
+        self.repository = repository
+        self.timeout_seconds = timeout_seconds
+
+    @property
+    def full_name(self) -> str:
+        return f"{self.owner}/{self.repository}"
+
+    @staticmethod
+    def _validate_branch(value: str, label: str) -> str:
+        if not _BRANCH.fullmatch(value) or ".." in value:
+            raise WorkflowError(f"Invalid GitHub {label}: {value!r}")
+        return value
+
+    @staticmethod
+    def _validate_sha(value: object, label: str) -> str:
+        if not isinstance(value, str) or not _SHA.fullmatch(value):
+            raise WorkflowError(f"Invalid GitHub {label}")
+        return value
+
+    def _request_json(self, path: str, query: Mapping[str, str] | None = None) -> Any:
+        if not path.startswith(f"/repos/{self.owner}/{self.repository}/pulls"):
+            raise WorkflowError("github.inspect rejected an unapproved endpoint")
+        suffix = f"?{urlencode(dict(query))}" if query else ""
+        request = Request(
+            _API_ROOT + path + suffix,
+            headers={
+                "Accept": _ACCEPT,
+                "X-GitHub-Api-Version": _API_VERSION,
+                "User-Agent": _USER_AGENT,
+            },
+            method="GET",
+        )
+        try:
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                data = response.read(_MAX_RESPONSE_BYTES + 1)
+        except HTTPError as error:
+            raise WorkflowError(f"github.inspect GitHub REST request failed with HTTP {error.code}") from error
+        except (URLError, TimeoutError, OSError) as error:
+            raise WorkflowError("github.inspect GitHub REST transport failed") from error
+        if len(data) > _MAX_RESPONSE_BYTES:
+            raise WorkflowError("github.inspect GitHub REST response exceeded size limit")
+        try:
+            return json.loads(data.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise WorkflowError("github.inspect received invalid GitHub JSON") from error
+
+    @staticmethod
+    def _mapping(value: object, label: str) -> Mapping[str, Any]:
+        if not isinstance(value, Mapping):
+            raise WorkflowError(f"github.inspect missing or invalid {label}")
+        return value
+
+    @staticmethod
+    def _string(value: object, label: str, *, nullable: bool = False) -> str | None:
+        if value is None and nullable:
+            return None
+        if not isinstance(value, str) or not value:
+            raise WorkflowError(f"github.inspect missing or invalid {label}")
+        return value
+
+    @staticmethod
+    def _bool(value: object, label: str, *, nullable: bool = False) -> bool | None:
+        if value is None and nullable:
+            return None
+        if not isinstance(value, bool):
+            raise WorkflowError(f"github.inspect missing or invalid {label}")
+        return value
+
+    def _snapshot(self, payload: object, expected_number: int) -> GitHubPullRequestSnapshot:
+        data = self._mapping(payload, "pull-request response")
+        number = data.get("number")
+        if not isinstance(number, int) or isinstance(number, bool) or number != expected_number or number <= 0:
+            raise WorkflowError("github.inspect pull-request number mismatch")
+        state = self._string(data.get("state"), "state")
+        if state not in {"open", "closed"}:
+            raise WorkflowError(f"github.inspect unsupported pull-request state: {state!r}")
+        draft = self._bool(data.get("draft"), "draft")
+        merged = self._bool(data.get("merged"), "merged")
+        base = self._mapping(data.get("base"), "base")
+        head = self._mapping(data.get("head"), "head")
+        base_repo = self._mapping(base.get("repo"), "base.repo")
+        head_repo = self._mapping(head.get("repo"), "head.repo")
+        base_full_name = self._string(base_repo.get("full_name"), "base.repo.full_name")
+        if base_full_name.lower() != self.full_name.lower():
+            raise WorkflowError(f"github.inspect base repository mismatch: expected={self.full_name}, observed={base_full_name}")
+        head_full_name = self._string(head_repo.get("full_name"), "head.repo.full_name")
+        base_branch = self._validate_branch(str(self._string(base.get("ref"), "base.ref")), "base branch")
+        head_branch = self._validate_branch(str(self._string(head.get("ref"), "head.ref")), "head branch")
+        base_sha = self._validate_sha(base.get("sha"), "base SHA")
+        head_sha = self._validate_sha(head.get("sha"), "head SHA")
+        merged_at = self._string(data.get("merged_at"), "merged_at", nullable=True)
+        merge_commit_raw = data.get("merge_commit_sha")
+        merge_commit_sha = None if merge_commit_raw is None else self._validate_sha(merge_commit_raw, "merge commit SHA")
+        mergeable = self._bool(data.get("mergeable"), "mergeable", nullable=True)
+        mergeable_state = self._string(data.get("mergeable_state"), "mergeable_state", nullable=True)
+        if merged is True:
+            if state != "closed" or merged_at is None or merge_commit_sha is None:
+                raise WorkflowError("github.inspect merged state is incomplete")
+        elif merged_at is not None:
+            raise WorkflowError("github.inspect unmerged pull request has merged_at")
+        return GitHubPullRequestSnapshot(
+            repository=self.full_name,
+            number=number,
+            state=str(state),
+            draft=bool(draft),
+            base_branch=base_branch,
+            base_sha=base_sha,
+            head_repository=str(head_full_name),
+            head_branch=head_branch,
+            head_sha=head_sha,
+            merged=bool(merged),
+            merged_at=merged_at,
+            merge_commit_sha=merge_commit_sha,
+            mergeable=mergeable,
+            mergeable_state=mergeable_state,
+        )
+
+    def get_pull_request(self, number: int) -> GitHubPullRequestSnapshot:
+        if not isinstance(number, int) or isinstance(number, bool) or number <= 0:
+            raise WorkflowError("github.inspect pull-request number must be a positive integer")
+        return self._snapshot(self._request_json(f"/repos/{self.owner}/{self.repository}/pulls/{number}"), number)
+
+    def require_pull_request(
+        self,
+        number: int,
+        *,
+        base_branch: str,
+        head_branch: str,
+        head_sha: str,
+        merged: bool | None = None,
+        require_mergeable: bool = False,
+    ) -> GitHubPullRequestSnapshot:
+        expected_base = self._validate_branch(base_branch, "expected base branch")
+        expected_head = self._validate_branch(head_branch, "expected head branch")
+        expected_sha = self._validate_sha(head_sha, "expected head SHA")
+        snapshot = self.get_pull_request(number)
+        if snapshot.base_branch != expected_base:
+            raise WorkflowError(f"github.inspect base branch mismatch: expected={expected_base}, observed={snapshot.base_branch}")
+        if snapshot.head_branch != expected_head:
+            raise WorkflowError(f"github.inspect head branch mismatch: expected={expected_head}, observed={snapshot.head_branch}")
+        if snapshot.head_sha != expected_sha:
+            raise WorkflowError(f"github.inspect head SHA mismatch: expected={expected_sha}, observed={snapshot.head_sha}")
+        if merged is not None and snapshot.merged is not merged:
+            raise WorkflowError(f"github.inspect merged-state mismatch: expected={merged}, observed={snapshot.merged}")
+        if require_mergeable and snapshot.mergeable is not True:
+            raise WorkflowError(f"github.inspect mergeability is not affirmatively true: {snapshot.mergeable!r}")
+        return snapshot
+
+    def find_pull_request(self, *, base_branch: str, head_branch: str, head_sha: str) -> GitHubPullRequestSnapshot:
+        expected_base = self._validate_branch(base_branch, "expected base branch")
+        expected_head = self._validate_branch(head_branch, "expected head branch")
+        expected_sha = self._validate_sha(head_sha, "expected head SHA")
+        payload = self._request_json(
+            f"/repos/{self.owner}/{self.repository}/pulls",
+            {"state": "all", "base": expected_base, "head": f"{self.owner}:{expected_head}", "per_page": "100"},
+        )
+        if not isinstance(payload, list):
+            raise WorkflowError("github.inspect list response is not an array")
+        if len(payload) >= 100:
+            raise WorkflowError("github.inspect pull-request lookup may be truncated; identity is unverifiable")
+        matches: list[int] = []
+        for raw in payload:
+            item = self._mapping(raw, "pull-request list item")
+            number = item.get("number")
+            base = self._mapping(item.get("base"), "list base")
+            head = self._mapping(item.get("head"), "list head")
+            if isinstance(number, int) and number > 0 and base.get("ref") == expected_base and head.get("ref") == expected_head and head.get("sha") == expected_sha:
+                matches.append(number)
+        if not matches:
+            raise WorkflowError("github.inspect found no matching pull request")
+        if len(matches) != 1:
+            raise WorkflowError(f"github.inspect pull-request identity is ambiguous: {matches}")
+        return self.require_pull_request(matches[0], base_branch=expected_base, head_branch=expected_head, head_sha=expected_sha)

@@ -1,6 +1,6 @@
 {
     "schema_version": "1.0",
-    "framework_version": "0.6.0",
+    "framework_version": "0.7.0",
     "status": "pilot",
     "principles": [
         "single-responsibility primitives",
@@ -16,6 +16,7 @@
         "versioned evolution from failure evidence",
         "candidate Makefile parsing before replacement",
         "least-authority read-only Git inspection",
+        "least-authority read-only GitHub inspection",
         "mode-preserving atomic file replacement",
         "operator-executed one-boundary proposals",
         "production helper Git and credential safety",
@@ -110,6 +111,25 @@
             ],
             "maturity": "pilot",
             "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-git-inspect.json"
+        },
+        {
+            "primitive_id": "github.inspect",
+            "version": "1.0.0",
+            "module": "workflow.github_inspect",
+            "symbol": "GitHubInspector",
+            "side_effects": "read-only GitHub pull-request inspection through fixed GET-only public REST endpoints",
+            "idempotency": "deterministic for unchanged GitHub pull-request state",
+            "logging": "caller records structured snapshot identity and verification outcome; raw HTTP response and credentials are not logged",
+            "failure_mode": "transport failure, invalid response, ambiguous identity, base/head/SHA mismatch, truncated lookup, or unverifiable requested merge state fails closed",
+            "tests": [
+                "pre-merge structured snapshot",
+                "post-merge structured snapshot",
+                "head SHA mismatch rejection",
+                "ambiguous identity rejection",
+                "direct GitHub API bypass rejection"
+            ],
+            "maturity": "pilot",
+            "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-github-inspect.json"
         },
         {
             "primitive_id": "sage.discovery",
@@ -259,19 +279,20 @@
         },
         {
             "primitive_id": "git.safety-guardrail",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "module": "workflow.safety",
             "symbol": "GitSafetyGuardrail",
             "side_effects": "read-only Python source analysis",
             "idempotency": "deterministic for unchanged source and fixture policy",
             "logging": "violation path, line, code, and redacted description",
-            "failure_mode": "Git, GitHub, credential, deployment, or mixed-authority path fails closed",
+            "failure_mode": "Git, GitHub CLI, direct GitHub HTTP API, credential, deployment, or mixed-authority path fails closed",
             "tests": [
                 "read-only helper pass",
                 "Git mutation rejection",
                 "GitHub mutation rejection",
                 "credential rejection",
-                "temporary fixture allowance"
+                "temporary fixture allowance",
+                "direct GitHub API rejection"
             ],
             "maturity": "pilot",
             "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-git-safety.json"
@@ -476,7 +497,9 @@
         "github_mutation_by_helper_forbidden": true,
         "deployment_mutation_by_helper_forbidden": true,
         "personal_credential_inheritance_forbidden": true,
-        "operator_proposal_required_for_mutation": true
+        "operator_proposal_required_for_mutation": true,
+        "production_helpers_use_github_inspect_for_github_reads": true,
+        "direct_github_api_by_helper_forbidden": true
     },
     "operating_contract_policy": {
         "status": "staged-root-enforcement",

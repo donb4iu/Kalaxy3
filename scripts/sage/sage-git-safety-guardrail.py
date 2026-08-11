@@ -19,6 +19,11 @@ def self_test() -> int:
     safe = """from workflow import GitInspector\nPRIMITIVES_USED = (\"git.inspect\",)\n"""
     bad_git = """import subprocess\nsubprocess.run([\"git\", \"add\", \".\"])\n"""
     bad_gh = """from workflow import CommandSpec\nCommandSpec(primitive_id=\"command.run\", label=\"x\", argv=(\"gh\", \"pr\", \"create\"), cwd=ROOT)\n"""
+    bad_api = (
+        "from urllib.request import urlopen\n"
+        + "urlopen('https://api."
+        + "github.com/repos/example/repo/pulls')\n"
+    )
     bad_secret = """import os\ntoken = os.environ.get(\"GH_TOKEN\")\n"""
     bad_deploy = """from workflow import CommandSpec\nCommandSpec(primitive_id=\"command.run\", label=\"x\", argv=(\"kubectl\", \"apply\", \"-f\", \"x\"), cwd=ROOT)\n"""
 
@@ -27,6 +32,7 @@ def self_test() -> int:
     for label, source, code in (
         ("git", bad_git, "GIT-MUTATION"),
         ("github", bad_gh, "GITHUB-MUTATION"),
+        ("github-api", bad_api, "GITHUB-DIRECT-API"),
         ("credential", bad_secret, "CREDENTIAL-INHERITANCE"),
         ("deployment", bad_deploy, "DEPLOYMENT-MUTATION"),
     ):
@@ -54,7 +60,7 @@ def self_test() -> int:
             raise RuntimeError("fixture allowance escaped its temporary root")
 
     print("PASS read-only helper path")
-    print("PASS Git and GitHub mutation rejection")
+    print("PASS Git mutation, GitHub mutation, and direct GitHub API rejection")
     print("PASS credential inheritance rejection")
     print("PASS deployment mutation rejection")
     print("PASS isolated temporary-repository fixture allowance")

@@ -25,6 +25,7 @@ from workflow import (  # noqa: E402
     CommandRunner,
     CommandSpec,
     GitInspector,
+    GitHubInspector,
     GitRepository,
     GitSafetyGuardrail,
     FailureDiagnoser,
@@ -74,6 +75,11 @@ def registry_fixture(path: Path) -> PrimitiveCatalog:
                     },
                     {
                         "primitive_id": "git.inspect",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "github.inspect",
                         "version": "1.0.0",
                         "maturity": "pilot",
                     },
@@ -139,7 +145,7 @@ def registry_fixture(path: Path) -> PrimitiveCatalog:
                     },
                     {
                         "primitive_id": "git.safety-guardrail",
-                        "version": "1.0.0",
+                        "version": "1.1.0",
                         "maturity": "pilot",
                     },
                     {
@@ -458,7 +464,7 @@ def test_least_authority_foundations(root: Path) -> None:
             "git.inspect": "1.0.0",
             "file.atomic-preserve-mode": "1.0.0",
             "operator.git-proposal": "1.0.0",
-            "git.safety-guardrail": "1.0.0",
+            "git.safety-guardrail": "1.1.0",
         },
     )
     runner = CommandRunner(logger, allowed_roots=(root,))
@@ -532,6 +538,69 @@ def test_least_authority_foundations(root: Path) -> None:
     violations = GitSafetyGuardrail.scan_source(bad, path=root / "bad.py")
     if not any(item.code == "GIT-MUTATION" for item in violations):
         raise RuntimeError("Git safety guardrail accepted Git mutation")
+
+
+def test_github_inspection(root: Path) -> None:
+    sha_head = "a" * 40
+    sha_base = "b" * 40
+    merge_sha = "c" * 40
+
+    def payload(*, number: int, merged: bool) -> dict[str, object]:
+        return {
+            "number": number,
+            "state": "closed" if merged else "open",
+            "draft": False,
+            "base": {"ref": "main", "sha": sha_base, "repo": {"full_name": "donb4iu/Kalaxy3"}},
+            "head": {"ref": "feature/example", "sha": sha_head, "repo": {"full_name": "donb4iu/Kalaxy3"}},
+            "merged": merged,
+            "merged_at": "2026-08-11T20:00:00Z" if merged else None,
+            "merge_commit_sha": merge_sha,
+            "mergeable": True,
+            "mergeable_state": "clean",
+        }
+
+    class FixtureGitHubInspector(GitHubInspector):
+        def __init__(self) -> None:
+            super().__init__("donb4iu", "Kalaxy3")
+            self.details = {17: payload(number=17, merged=False)}
+            self.list_items = [{"number": 17, "base": {"ref": "main"}, "head": {"ref": "feature/example", "sha": sha_head}}]
+
+        def _request_json(self, path: str, query=None):
+            if path.endswith("/pulls"):
+                return list(self.list_items)
+            return dict(self.details[int(path.rsplit("/", 1)[1])])
+
+    inspector = FixtureGitHubInspector()
+    observed = inspector.find_pull_request(base_branch="main", head_branch="feature/example", head_sha=sha_head)
+    if observed.number != 17 or observed.merged is not False:
+        raise RuntimeError("github.inspect pre-merge lookup failed")
+    inspector.require_pull_request(17, base_branch="main", head_branch="feature/example", head_sha=sha_head, merged=False, require_mergeable=True)
+    inspector.details[17] = payload(number=17, merged=True)
+    merged = inspector.require_pull_request(17, base_branch="main", head_branch="feature/example", head_sha=sha_head, merged=True)
+    if merged.merged_at is None or merged.merge_commit_sha != merge_sha:
+        raise RuntimeError("github.inspect post-merge verification failed")
+    try:
+        inspector.require_pull_request(17, base_branch="main", head_branch="feature/example", head_sha="d" * 40)
+    except Exception:
+        pass
+    else:
+        raise RuntimeError("github.inspect accepted mismatched head SHA")
+    inspector.list_items.append({"number": 18, "base": {"ref": "main"}, "head": {"ref": "feature/example", "sha": sha_head}})
+    try:
+        inspector.find_pull_request(base_branch="main", head_branch="feature/example", head_sha=sha_head)
+    except Exception:
+        pass
+    else:
+        raise RuntimeError("github.inspect accepted ambiguous PR identity")
+
+    direct_api = "from urllib.request import urlopen\n" + "urlopen('https://api." + "github.com/repos/example/repo/pulls')\n"
+    violations = GitSafetyGuardrail.scan_source(direct_api, path=root / "direct-github-api.py")
+    if not any(item.code == "GITHUB-DIRECT-API" for item in violations):
+        raise RuntimeError("Git safety guardrail accepted direct GitHub API use")
+    trusted = GitSafetyGuardrail.scan_source(direct_api, path=root / "scripts/sage/workflow/github_inspect.py")
+    if any(item.code == "GITHUB-DIRECT-API" for item in trusted):
+        raise RuntimeError("Git safety guardrail rejected trusted github.inspect transport")
+
 
 def test_discovery_parser() -> None:
     fixture = """
@@ -746,6 +815,7 @@ def main() -> int:
         test_runner_and_logging(root)
         test_git_and_lifecycle_runtime(root)
         test_least_authority_foundations(root)
+        test_github_inspection(root)
         test_decision_and_diagnosis_primitives()
         test_outcome_metrics()
         test_discovery_parser()
@@ -754,7 +824,7 @@ def main() -> int:
 
     print("PASS command execution, timeout, redaction, and version logging")
     print("PASS temporary-remote Git and canonical action lifecycle adapters")
-    print("PASS least-authority Git inspection, atomic files, operator proposals, and safety")
+    print("PASS least-authority Git and GitHub inspection, atomic files, operator proposals, and safety")
     print("PASS authority reconciliation, component selection, capability gaps, and failure diagnosis")
     print("PASS semantic outcome metrics, null preservation, and comparable trends")
     print("PASS SAGE discovery parsing")
