@@ -904,6 +904,59 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260811-002",
+            "title": "Add least-authority GitHub inspection capability",
+            "source_lessons": [
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "automation",
+            "desired_outcome": "SAGE has a reusable repository-owned least-authority GitHub inspection capability that lets governed workflows independently read and verify pull-request and repository-hosting state without granting those workflows GitHub mutation authority. The capability provides structured, machine-readable facts needed by checkpoint promotion and future workflows, while pull-request creation, merge, comments, labels, branch changes, and other GitHub mutations remain explicit operator.git-proposal boundaries. Generated workflow payloads consume the read-only capability through a stable interface and do not invoke gh or GitHub APIs directly.",
+            "acceptance_criteria": [
+                "A versioned repository-owned GitHub inspection capability exposes only read operations required by governed workflows and is registered through the existing workflow-primitives and capability-selection contracts.",
+                "The inspection interface returns structured machine-readable facts sufficient to identify a pull request and verify its base branch, head branch, head SHA, state, merge status, and other explicitly required promotion facts without parsing free-form operator output.",
+                "Checkpoint promotion can independently verify the result of an operator-executed pull-request-create boundary using the read-only GitHub inspection capability.",
+                "Checkpoint promotion can independently verify the result of an operator-executed pull-request-merge boundary using the read-only GitHub inspection capability, while final source-head containment in origin/main remains a Git read-authority check.",
+                "The capability cannot create, merge, close, reopen, comment on, label, approve, edit, or otherwise mutate a pull request, branch, repository, workflow run, release, issue, or other GitHub object.",
+                "Generated repository mutation payloads and ordinary workflow compositions are prohibited from invoking gh or GitHub HTTP APIs directly; they must consume the repository-owned inspection interface for reads and operator.git-proposal for mutations.",
+                "Any implementation-specific GitHub transport such as gh or an API client is encapsulated behind the trusted least-authority inspection primitive and is not exposed as general command authority to generated workflows.",
+                "Authentication or transport failure, ambiguous pull-request identity, mismatched base/head identity, missing expected SHA, or unverifiable merge state fails closed with a structured diagnosis rather than falling back to operator assertion.",
+                "The existing Git safety and GitHub mutation guardrails remain at least as strict as before this capability; no broad exception is added for generated helpers or workflow payloads.",
+                "Deterministic positive regressions verify read-only PR inspection for pre-merge and post-merge states, and deterministic negative regressions prove mutation attempts and direct gh/API use from generated workflows are rejected.",
+                "SAGE-ACTION-20260809-002 checkpoint promotion is updated only to consume the new read-only inspection capability and existing git.inspect/operator.git-proposal roles; it does not gain direct Git or GitHub mutation authority.",
+                "The generated-payload validation path invokes the canonical safety analysis early enough that a proposal containing the previously observed MIXED-GIT-AUTHORITY, GIT-MUTATION-API, or direct GITHUB-MUTATION patterns is rejected before request execution."
+            ],
+            "measurement_plan": [
+                "Track governed GitHub inspection calls by workflow, requested fact set, result, and failure disposition.",
+                "Track checkpoint-promotion PR-create and PR-merge continuations that are independently verified through structured GitHub inspection rather than operator-text interpretation.",
+                "Require zero successful GitHub mutations performed through the inspection capability.",
+                "Require zero generated workflow payloads accepted with direct gh or GitHub API mutation authority.",
+                "Track ambiguous or unverifiable GitHub states that fail closed and whether they lead to reusable capability or contract improvements.",
+                "Track recurrence of the checkpoint-promotion Git/GitHub safety failure class after this capability and the associated pre-execution validation regression are implemented.",
+                "Measure whether structured GitHub inspection reduces manual verification steps and time from validated checkpoint to safely verified promotion."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-11T02:08:32-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Register the missing least-authority GitHub inspection capability exposed by repeated checkpoint-promotion safety failures, while preserving operator.git-proposal as the exclusive PR mutation boundary.",
+                    "evidence_references": [
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "action:SAGE-ACTION-20260809-002",
+                        "action:SAGE-ACTION-20260811-001",
+                        "action:SAGE-ACTION-20260801-005"
+                    ]
+                }
+            ]
         }
     ]
 }
