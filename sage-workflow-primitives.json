@@ -264,18 +264,19 @@
         },
         {
             "primitive_id": "operator.git-proposal",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "module": "workflow.proposal",
             "symbol": "OperatorGitProposal",
-            "side_effects": "optional atomic local proposal receipt write; proposed command is never executed",
+            "side_effects": "optional atomic local proposal receipt write; command or browser interaction is never executed or opened by the helper",
             "idempotency": "deterministic for fixed inputs and created_at",
-            "logging": "command argv digest, boundary, validation references, and operator contract",
-            "failure_mode": "invalid boundary, command composition, credential marker, validation, or proposal identifier fails closed",
+            "logging": "operator-boundary interaction digest, boundary, validation references, and operator contract",
+            "failure_mode": "invalid boundary, command/browser composition, credential marker, validation, proposal identifier, or non-GitHub browser target fails closed",
             "tests": [
-                "one command",
-                "boundary-command match",
+                "one command for Git boundaries",
+                "browser-review PR create and merge boundaries",
+                "boundary-interaction match",
                 "secret rejection",
-                "non-execution contract"
+                "non-execution and non-open contract"
             ],
             "maturity": "pilot",
             "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-operator-proposal.json"

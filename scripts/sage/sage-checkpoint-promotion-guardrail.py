@@ -30,6 +30,14 @@ def main() -> int:
     require(promotion["require_all_applicable_gates"] is True, "all-gates requirement disabled")
     require(promotion["fail_if_target_advances_before_merge"] is True, "target-advance guard disabled")
     require(promotion["autonomous_git_or_github_mutation"] is False, "autonomous mutation enabled")
+    require(promotion["github_operator_mode"] == "browser-review", "browser-review mode disabled")
+    require(promotion["github_cli_required"] is False, "GitHub CLI became required")
+    require(promotion["prepared_pr_create_url_required"] is True, "prepared PR-create URL disabled")
+    require(promotion["prepared_pr_merge_url_required"] is True, "prepared PR-merge URL disabled")
+    require(
+        promotion["post_interaction_github_verification_required"] is True,
+        "post-interaction GitHub verification disabled",
+    )
     require(
         promotion["operator_boundaries"]
         == ["pull-request-create", "pull-request-merge", "post-merge-fetch"],
@@ -53,6 +61,18 @@ def main() -> int:
         'boundary="pull-request-create"' in workflow
         and 'boundary="pull-request-merge"' in workflow,
         "operator PR proposals missing",
+    )
+    require(
+        workflow.count("OperatorGitProposal.build_browser(") >= 2,
+        "browser-backed PR proposal composition missing",
+    )
+    require("github_compare_url(" in workflow, "prepared PR-create browser URL missing")
+    require("github_pull_url(" in workflow, "prepared PR-merge browser URL missing")
+    require("validate_browser_operator_result(" in workflow, "browser confirmation binding missing")
+    require('("gh", "pr"' not in workflow, "checkpoint promotion still requires GitHub CLI")
+    require(
+        "urllib" not in workflow and "http.client" not in workflow,
+        "checkpoint promotion browser path must not import HTTP libraries",
     )
     require(
         'boundary="other-git-mutation"' in workflow
@@ -92,7 +112,8 @@ def main() -> int:
     print("PASS checkpoint persistence remains distinct from promotion")
     print("PASS complete applicable gate and frozen-target requirements")
     print("PASS git.inspect + github.inspect least-authority composition")
-    print("PASS PR mutation and post-merge refresh remain operator proposals")
+    print("PASS PR mutation uses prepared browser-review operator proposals")
+    print("PASS post-merge refresh remains an exact operator Git proposal")
     print("PASS prior mixed-authority and GitHub-mutation classes fail closed")
     print("PASS ordinary request execution remains stage/commit/push")
     print("Kalaxy3 SAGE checkpoint promotion guardrail: PASS")

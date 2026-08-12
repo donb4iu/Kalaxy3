@@ -22,16 +22,22 @@ for Git facts and `github.inspect` for pull-request facts. It does not import
 `GitRepository`, perform workflow-side `git fetch`, invoke `gh` through the
 command runner, call GitHub APIs directly, or inherit GitHub credentials.
 
-PR creation and merge remain `operator.git-proposal` boundaries. After PR
-creation, `github.inspect` verifies the exact base, head branch, source SHA,
-open state, non-draft state, and affirmative mergeability while `git.inspect`
-proves the remote target has not advanced. Only then may the merge proposal be
-emitted.
+PR creation and merge remain `operator.git-proposal` boundaries, but they use the
+schema 1.1 `browser-review` mode rather than GitHub CLI commands. PR creation emits a
+checksum-bound GitHub compare URL with the base branch, head branch, title, and body
+pre-populated; the operator only reviews the rendered GitHub form and approves creation.
+After that approval, `github.inspect` verifies the exact base, head branch, source SHA,
+open state, non-draft state, and affirmative mergeability while `git.inspect` proves the
+remote target has not advanced. Only then may a browser-review merge proposal for that
+exact PR page be emitted.
 
-After the operator merge, `github.inspect` verifies the exact merged PR and
-merge commit. `git.inspect` independently verifies the remote target branch is
-that merge commit. Because final ancestry proof requires the merge object in
-the local graph, SAGE next emits one exact operator proposal for
+For merge, the operator reviews the independently verified PR page, selects Create a
+merge commit if GitHub presents multiple merge methods, and performs the final merge
+approval. The workflow itself never opens the browser or clicks GitHub controls. After
+the operator merge, `github.inspect` verifies the exact merged PR and merge commit.
+`git.inspect` independently verifies the remote target branch is that merge commit.
+Because final ancestry proof requires the merge object in the local graph, SAGE next
+emits one exact operator proposal for
 `git fetch origin main`. After that bounded refresh, `git.inspect` requires
 local `origin/main` and the remote target to equal the verified merge commit and
 proves the frozen source head is an ancestor of `origin/main`.

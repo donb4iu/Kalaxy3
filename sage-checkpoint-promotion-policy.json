@@ -29,7 +29,12 @@
             "pull-request-merge",
             "post-merge-fetch"
         ],
-        "autonomous_git_or_github_mutation": false
+        "autonomous_git_or_github_mutation": false,
+        "github_operator_mode": "browser-review",
+        "github_cli_required": false,
+        "prepared_pr_create_url_required": true,
+        "prepared_pr_merge_url_required": true,
+        "post_interaction_github_verification_required": true
     },
     "gate_rules": [
         {

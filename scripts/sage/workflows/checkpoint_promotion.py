@@ -111,6 +111,102 @@ def proposal_id(head: str, boundary: str) -> str:
     )
 
 
+_URL_UNRESERVED = frozenset(
+    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+)
+
+
+def percent_encode(value: str, *, safe: str = "") -> str:
+    safe_bytes = {ord(character) for character in safe}
+    encoded: list[str] = []
+    for byte in value.encode("utf-8"):
+        if byte in _URL_UNRESERVED or byte in safe_bytes:
+            encoded.append(chr(byte))
+        else:
+            encoded.append(f"%{byte:02X}")
+    return "".join(encoded)
+
+
+def query_string(values: Mapping[str, str]) -> str:
+    return "&".join(
+        f"{percent_encode(str(key))}={percent_encode(str(value))}"
+        for key, value in values.items()
+    )
+
+
+def github_compare_url(
+    github_policy: Mapping[str, Any],
+    *,
+    base_branch: str,
+    head_branch: str,
+    title: str,
+    body: str,
+) -> str:
+    owner = str(github_policy.get("owner", "")).strip()
+    name = str(github_policy.get("name", "")).strip()
+    if not owner or not name:
+        raise WorkflowError("GitHub repository policy is incomplete")
+    compare = (
+        f"https://github.com/{percent_encode(owner)}/{percent_encode(name)}/compare/"
+        f"{percent_encode(base_branch, safe='/')}...{percent_encode(head_branch, safe='/')}"
+    )
+    query = query_string(
+        {
+            "quick_pull": "1",
+            "title": title,
+            "body": body,
+        }
+    )
+    return f"{compare}?{query}"
+
+
+def github_pull_url(
+    github_policy: Mapping[str, Any],
+    *,
+    pull_request_number: int,
+) -> str:
+    owner = str(github_policy.get("owner", "")).strip()
+    name = str(github_policy.get("name", "")).strip()
+    if not owner or not name or pull_request_number <= 0:
+        raise WorkflowError("GitHub pull-request browser context is incomplete")
+    return (
+        f"https://github.com/{percent_encode(owner)}/{percent_encode(name)}/pull/"
+        f"{pull_request_number}"
+    )
+
+
+def validate_browser_operator_result(
+    payload: Mapping[str, Any],
+    proposal: Mapping[str, Any],
+) -> dict[str, Any]:
+    browser = proposal.get("browser")
+    if proposal.get("schema_version") != "1.1" or not isinstance(browser, Mapping):
+        raise WorkflowError("Browser operator result requires proposal schema 1.1")
+    if payload.get("schema_version") != "1.0":
+        raise WorkflowError("Browser operator result schema_version must be 1.0")
+    if payload.get("proposal_id") != proposal.get("proposal_id"):
+        raise WorkflowError("Browser operator result proposal_id mismatch")
+    if payload.get("browser_sha256") != browser.get("sha256"):
+        raise WorkflowError("Browser operator result interaction digest mismatch")
+    if payload.get("operator_confirmation_received") is not True:
+        raise WorkflowError("Browser operator confirmation is required")
+    allowed = {
+        "schema_version",
+        "proposal_id",
+        "browser_sha256",
+        "operator_confirmation_received",
+    }
+    extras = sorted(set(payload) - allowed)
+    if extras:
+        raise WorkflowError(f"Unexpected browser operator result fields: {extras}")
+    digest = hashlib.sha256(stable_json(dict(payload)).encode("utf-8")).hexdigest()
+    return {
+        "complete_output_sha256": digest,
+        "browser_sha256": str(browser["sha256"]),
+        "operator_confirmation_received": True,
+    }
+
+
 def build_context(
     *,
     repo: Path,
@@ -444,7 +540,8 @@ def proposal_validation(context: PromotionContext) -> tuple[dict[str, Any], ...]
 def create_pr_proposal(context: PromotionContext) -> dict[str, Any]:
     if context.authority_path is None or context.component_path is None:
         raise WorkflowError("Promotion receipts missing")
-    proposal = OperatorGitProposal.build(
+    github_policy = context.policy["github_repository"]
+    proposal = OperatorGitProposal.build_browser(
         proposal_id=proposal_id(context.expected_head, "pull-request-create"),
         controller=WORKFLOW_ID,
         repository=context.inspector.snapshot(),
@@ -453,26 +550,21 @@ def create_pr_proposal(context: PromotionContext) -> dict[str, Any]:
         boundary="pull-request-create",
         change_scope=context.changed_paths,
         validation=proposal_validation(context),
-        command_argv=(
-            "gh",
-            "pr",
-            "create",
-            "--base",
-            context.target_branch,
-            "--head",
-            context.source_branch,
-            "--title",
-            context.title,
-            "--body",
-            context.body,
+        browser_action="create-pull-request",
+        browser_url=github_compare_url(
+            github_policy,
+            base_branch=context.target_branch,
+            head_branch=context.source_branch,
+            title=context.title,
+            body=context.body,
         ),
         expected_result=(
-            "Create exactly one reviewable PR for the frozen validated checkpoint; "
-            "no merge occurs."
+            "Review the fully prepared GitHub pull-request form and click Create pull "
+            "request; no merge occurs."
         ),
-        risk="Creates GitHub review state only.",
+        risk="Creates GitHub review state only after explicit operator approval.",
         rollback="Close the PR without merging.",
-        post_command_verification=(
+        post_interaction_verification=(
             "github.inspect verifies exact base/head/source SHA",
             "git.inspect verifies frozen target remains unchanged",
         ),
@@ -653,12 +745,13 @@ def continue_promotion(
     state = load_state(resolved_state)
     proposal_path = Path(str(state["current_proposal"])).expanduser().resolve()
     proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
-    result = validate_operator_result(
-        json.loads(
-            operator_result_path.expanduser().resolve().read_text(encoding="utf-8")
-        ),
-        proposal,
+    operator_payload = json.loads(
+        operator_result_path.expanduser().resolve().read_text(encoding="utf-8")
     )
+    if proposal.get("schema_version") == "1.1" and "browser" in proposal:
+        result = validate_browser_operator_result(operator_payload, proposal)
+    else:
+        result = validate_operator_result(operator_payload, proposal)
     runner, inspector, github, writer, run_dir = continuation_runtime(
         resolved_repo, resolved_state
     )
@@ -701,7 +794,10 @@ def continue_promotion(
         if checked.base_sha != state["frozen_target_head"]:
             raise WorkflowError("Promotion PR base SHA differs from frozen target")
         state["pull_request_number"] = checked.number
-        next_proposal = OperatorGitProposal.build(
+        github_policy = json.loads(
+            (resolved_repo / POLICY_PATH).read_text(encoding="utf-8")
+        )["github_repository"]
+        next_proposal = OperatorGitProposal.build_browser(
             proposal_id=proposal_id(str(state["source_head"]), "pull-request-merge"),
             controller=WORKFLOW_ID,
             repository=inspector.snapshot(),
@@ -710,16 +806,22 @@ def continue_promotion(
             boundary="pull-request-merge",
             change_scope=tuple(state["changed_paths"]),
             validation=continuation_validation(state),
-            command_argv=("gh", "pr", "merge", str(checked.number), "--merge"),
-            expected_result=(
-                "Merge exactly the independently verified frozen checkpoint PR."
+            browser_action="merge-pull-request",
+            browser_url=github_pull_url(
+                github_policy,
+                pull_request_number=checked.number,
             ),
-            risk="Mutates main through the explicit GitHub operator boundary.",
+            expected_result=(
+                "Review the independently verified pull request, select Create a merge "
+                "commit if GitHub presents multiple merge methods, and click the final "
+                "merge confirmation."
+            ),
+            risk="Mutates main only after explicit operator approval in GitHub.",
             rollback=(
-                "Do not execute if review is not approved; a merged change requires "
+                "Do not approve if review is not complete; a merged change requires "
                 "a separately governed revert."
             ),
-            post_command_verification=(
+            post_interaction_verification=(
                 "github.inspect verifies merged state and exact source SHA",
                 "git.inspect verifies remote main equals the merge commit",
                 "an explicit operator fetch refreshes the local graph",
@@ -887,7 +989,14 @@ def self_test() -> int:
             "sha256": "a" * 64,
         },
     )
-    create = OperatorGitProposal.build(
+    create_url = github_compare_url(
+        {"owner": "example", "name": "repo"},
+        base_branch="main",
+        head_branch="staged/x",
+        title="x",
+        body="body x",
+    )
+    create = OperatorGitProposal.build_browser(
         proposal_id="SAGE-GIT-20260811-101",
         controller="self-test",
         repository=snapshot,
@@ -896,26 +1005,15 @@ def self_test() -> int:
         boundary="pull-request-create",
         change_scope=("README.md",),
         validation=validation,
-        command_argv=(
-            "gh",
-            "pr",
-            "create",
-            "--base",
-            "main",
-            "--head",
-            "staged/x",
-            "--title",
-            "x",
-            "--body",
-            "x",
-        ),
+        browser_action="create-pull-request",
+        browser_url=create_url,
         expected_result="x",
         risk="x",
         rollback="x",
-        post_command_verification=("x",),
+        post_interaction_verification=("x",),
         created_at="2026-08-11T18:00:00-05:00",
     )
-    merge = OperatorGitProposal.build(
+    merge = OperatorGitProposal.build_browser(
         proposal_id="SAGE-GIT-20260811-102",
         controller="self-test",
         repository=snapshot,
@@ -924,11 +1022,15 @@ def self_test() -> int:
         boundary="pull-request-merge",
         change_scope=("README.md",),
         validation=validation,
-        command_argv=("gh", "pr", "merge", "42", "--merge"),
+        browser_action="merge-pull-request",
+        browser_url=github_pull_url(
+            {"owner": "example", "name": "repo"},
+            pull_request_number=42,
+        ),
         expected_result="x",
         risk="x",
         rollback="x",
-        post_command_verification=("x",),
+        post_interaction_verification=("x",),
         created_at="2026-08-11T18:00:01-05:00",
     )
     refresh = OperatorGitProposal.build(
@@ -947,10 +1049,13 @@ def self_test() -> int:
         post_command_verification=("x",),
         created_at="2026-08-11T18:00:02-05:00",
     )
-    assert create["command"]["executed_by_helper"] is False
-    assert merge["command"]["executed_by_helper"] is False
+    assert create["browser"]["opened_by_helper"] is False
+    assert merge["browser"]["mutation_performed_by_helper"] is False
     assert refresh["command"]["executed_by_helper"] is False
-    print("PASS PR-create and PR-merge remain explicit operator boundaries")
+    assert "quick_pull=1" in create["browser"]["url"]
+    assert create["operator_contract"]["execution_mode"] == "browser-review"
+    assert merge["operator_contract"]["pasted_output_required"] is False
+    print("PASS PR-create and PR-merge use browser-backed operator approval")
     print("PASS post-merge Git graph refresh remains an explicit operator boundary")
     print("PASS workflow has no autonomous Git or GitHub mutation")
     print("Kalaxy3 checkpoint promotion workflow self-test: PASS")

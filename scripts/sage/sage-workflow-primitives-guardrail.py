@@ -27,6 +27,11 @@ STANDARD = (
     / "markdown/standards/"
     "kalaxy3-sage-workflow-primitives-process.md"
 )
+OPERATOR_BROWSER_SCHEMA = (
+    ROOT
+    / "markdown/standards/"
+    "sage-operator-git-proposal-schema-v1.1.json"
+)
 STATIC_GUARD = SAGE_DIR / "sage-python-static-guardrail.py"
 SAFETY_CLI = SAGE_DIR / "sage-git-safety-guardrail.py"
 GAP_ROOT = ROOT / "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001"
@@ -211,6 +216,18 @@ def validate_registry(payload: dict[str, Any]) -> list[str]:
                 f"registry missing {module}.{symbol}"
             )
 
+    operator_entry = next(
+        (
+            item
+            for item in entries
+            if isinstance(item, dict)
+            and item.get("primitive_id") == "operator.git-proposal"
+        ),
+        None,
+    )
+    if not isinstance(operator_entry, dict) or operator_entry.get("version") != "1.1.0":
+        failures.append("operator.git-proposal version must be 1.1.0")
+
     for policy in (
         "composition_policy",
         "logging_policy",
@@ -288,6 +305,19 @@ def validate_sources() -> list[str]:
             failures.append(
                 f"{path}: subprocess is allowed only in runner.py"
             )
+        if path.name == "proposal.py":
+            http_imports = sorted(
+                item
+                for item in imports(tree)
+                if item == "urllib"
+                or item.startswith("urllib.")
+                or item == "http"
+                or item.startswith("http.")
+            )
+            if http_imports:
+                failures.append(
+                    f"{path}: browser proposal must not import HTTP libraries {http_imports}"
+                )
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
@@ -339,6 +369,10 @@ def validate_sources() -> list[str]:
             "executed_by_helper",
             "contains_secret",
             "OperatorGitProposal",
+            "build_browser",
+            "browser-review",
+            "github-browser",
+            "mutation_performed_by_helper",
         ),
         "safety.py": (
             "GIT-MUTATION",
@@ -424,6 +458,19 @@ def wrapper_failures(
         failures.append(
             f"{path}: forbidden direct imports {direct}"
         )
+    if path.name == "checkpoint_promotion.py":
+        http_imports = sorted(
+            item
+            for item in imports(tree)
+            if item == "urllib"
+            or item.startswith("urllib.")
+            or item == "http"
+            or item.startswith("http.")
+        )
+        if http_imports:
+            failures.append(
+                f"{path}: browser checkpoint promotion must not import HTTP libraries {http_imports}"
+            )
 
     forbidden_definitions = set(
         policy.get("forbidden_helper_definitions", [])
@@ -552,6 +599,7 @@ def validate_docs_and_authority() -> list[str]:
             "github.inspect",
             "file.atomic-preserve-mode",
             "operator.git-proposal",
+            "browser-review",
             "git.safety-guardrail",
             "metrics.outcome",
             "Root operating-contract composition",
@@ -564,6 +612,17 @@ def validate_docs_and_authority() -> list[str]:
         failures.append("workflow primitive schema is missing")
     else:
         json.loads(SCHEMA.read_text(encoding="utf-8"))
+    if not OPERATOR_BROWSER_SCHEMA.is_file():
+        failures.append("browser-backed operator proposal schema is missing")
+    else:
+        browser_schema = json.loads(
+            OPERATOR_BROWSER_SCHEMA.read_text(encoding="utf-8")
+        )
+        if browser_schema.get("$id") != (
+            "https://kalaxy3.local/"
+            "sage-operator-git-proposal-schema-v1.1.json"
+        ):
+            failures.append("browser-backed operator proposal schema id mismatch")
 
     authority = json.loads(
         (ROOT / "sage-change-authority.json").read_text(
@@ -607,6 +666,7 @@ def validate_docs_and_authority() -> list[str]:
             "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
             "markdown/standards/kalaxy3-sage-workflow-primitives-process.md",
             "markdown/standards/sage-workflow-primitives-schema-v1.0.json",
+            "markdown/standards/sage-operator-git-proposal-schema-v1.1.json",
             "scripts/sage/workflows/operating_contract.py",
             "scripts/sage/sage-operating-contract-self-test.py",
             "scripts/sage/sage-operating-contract-guardrail.py",

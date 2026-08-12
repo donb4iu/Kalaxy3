@@ -119,7 +119,7 @@ Phase 2 adds four pilot primitives without activating autonomous mutation:
 
 - `git.inspect` exposes only allowlisted read-only Git inspection. It may inspect local refs, compare local ancestry/path deltas, and read exact remote branch heads with `git ls-remote`; it has no fetch, branch, stage, commit, push, ref-update, GitHub-mutation, or deployment method.
 - `file.atomic-preserve-mode` performs same-directory temporary writes, file and directory fsync, atomic replacement, existing-mode preservation, allowed-root checks, and transactional rollback.
-- `operator.git-proposal` emits one schema 1.0 operator-executed boundary containing exactly one secret-free command. It never executes the proposed command and blocks the next boundary until pasted output is verified.
+- `operator.git-proposal` supports two explicit operator modes. Git boundaries retain the schema 1.0 one-command contract. Pull-request creation and merge use schema 1.1 `browser-review` proposals containing one checksum-bound, uncredentialed `https://github.com/` interaction URL. The primitive never executes the Git command, opens the browser, clicks GitHub controls, or performs GitHub mutation; the next boundary remains blocked until operator confirmation and independent verification succeed. Browser URL validation and encoding are local deterministic string operations; production proposal/workflow modules do not import HTTP-client libraries.
 - `git.safety-guardrail` rejects production-helper Git, GitHub, credential-inheritance, and deployment mutation paths. Mutating Git is permitted only in an explicitly declared isolated temporary-repository fixture.
 
 The mixed-authority `git.repository` primitive remains available only to isolated temporary-repository tests and legacy operator-owned compositions until migrated. Downloaded implementation helpers must use `git.inspect` for repository state and must not import or instantiate `GitRepository`.
@@ -187,7 +187,11 @@ mergeability, merged-state, merged-at, and merge-commit facts.
 
 Generated workflow compositions must consume `github.inspect`; they must not invoke `gh`
 or GitHub HTTP APIs directly. `operator.git-proposal` remains the exclusive pull-request
-creation and merge mutation boundary. The inspector does not inherit `GH_TOKEN`,
+creation and merge mutation boundary. For those boundaries, `operator.git-proposal@1.1.0`
+uses `browser-review`: PR creation receives a GitHub compare URL with base/head, title, and
+body fully prepared, while PR merge receives the exact verified pull-request page URL.
+The operator reviews GitHub's rendered state and performs the final create/merge approval.
+No GitHub CLI installation is required. The inspector does not inherit `GH_TOKEN`,
 `GITHUB_TOKEN`, `GITHUB_PAT`, or `GH_CONFIG_DIR`; transport or access failure fails closed.
 
 Pull-request lookup after an operator boundary must be unambiguous and must match the
@@ -219,3 +223,20 @@ request-execution persistence. It reuses `git.inspect`, `github.inspect`,
 operator proposals. A final exact operator `git fetch origin main` refresh is
 required only after the merge has been independently verified so `git.inspect`
 can truthfully prove source containment in the refreshed target graph.
+
+## Browser-backed GitHub operator approval
+
+Browser-backed GitHub proposals are navigation and approval contracts, not mutation helpers.
+The proposal binds the exact GitHub URL and intended browser action with SHA-256, prohibits
+embedded credentials, and records that neither browser opening nor mutation is performed by
+the helper. A browser-result receipt binds the proposal identifier and interaction digest to
+an explicit operator confirmation; that confirmation is never treated as proof that GitHub
+changed. `github.inspect` supplies the authoritative post-click PR facts and `git.inspect`
+continues to enforce source and frozen-target authority.
+
+GitHub PR-create URLs follow GitHub's documented compare/query-parameter contract using
+`quick_pull=1`, `title`, and `body`. The source SHA is not trusted from the URL: after the
+operator clicks Create pull request, `github.inspect` must observe the exact expected head
+SHA and frozen base SHA before merge can be proposed. Merge proposals open only the exact
+independently verified PR page. The later merge-state, remote-target, and ancestry checks
+remain authoritative, so squash/rebase or wrong-PR outcomes fail closed.
