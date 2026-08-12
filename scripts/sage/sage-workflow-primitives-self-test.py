@@ -262,7 +262,9 @@ def test_runner_and_logging(root: Path) -> None:
 def prepare_git_repository(root: Path) -> tuple[Path, Path]:
     remote = root / "remote.git"
     work = root / "work"
-    fixture_command("git", "init", "--bare", str(remote), cwd=root)
+    fixture_command(
+        "git", "init", "--bare", "--initial-branch=main", str(remote), cwd=root
+    )
     fixture_command("git", "clone", str(remote), str(work), cwd=root)
     fixture_command(
         "git",
