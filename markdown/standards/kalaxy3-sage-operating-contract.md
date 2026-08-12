@@ -125,6 +125,38 @@ Downloaded helpers must not:
 - use personal credentials inside generated code;
 - combine multiple operator mutation boundaries.
 
+## Trusted routine Git lifecycle controller
+
+A repository-owned routine Git lifecycle controller may be used to reduce
+repetitive operator stage/commit/push choreography without making downloaded
+helpers mutating or authorizing autonomous repository changes.
+
+The only trusted controller path is
+`scripts/sage/workflows/routine_git_lifecycle.py`. That controller may consume
+`git.repository` only for `commit_and_push`, and only after one explicit
+operator approval that is checksum-bound to the active proposal, feature
+branch, expected HEAD, exact declared paths, commit message, push remote, and
+successful validation receipts.
+
+Before mutation, the controller must fail closed unless the feature branch and
+expected HEAD still match, the working tree contains exactly the declared
+paths, and live remote `main` still matches the proposal's base authority. It
+may not create or switch branches, fetch, merge, rebase, reset, delete refs,
+invoke GitHub mutation, inherit credentials, or perform deployment mutation.
+Direct Git commands remain prohibited in the controller; all mutation must flow
+through the registered `git.repository` primitive.
+
+The approved routine lifecycle is one operator mutation boundary containing the
+bounded stage → commit → push sequence. One command is executed by the operator
+to authorize and invoke that repository-owned controller. Independent
+`git.inspect` verification remains mandatory afterward and must prove the
+resulting commit, exact path scope, clean tree, upstream equality, and remote
+branch identity before the request can complete.
+
+This exception applies only to the tracked repository-owned controller. It does
+not change the downloaded-helper prohibition on Git mutation and does not
+authorize autonomous Git or GitHub mutation.
+
 ## Validation
 
 Syntax, token presence, or source inspection alone is not runtime validation.

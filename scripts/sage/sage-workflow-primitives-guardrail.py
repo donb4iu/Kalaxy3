@@ -228,6 +228,18 @@ def validate_registry(payload: dict[str, Any]) -> list[str]:
     if not isinstance(operator_entry, dict) or operator_entry.get("version") != "1.1.0":
         failures.append("operator.git-proposal version must be 1.1.0")
 
+    safety_entry = next(
+        (
+            item
+            for item in entries
+            if isinstance(item, dict)
+            and item.get("primitive_id") == "git.safety-guardrail"
+        ),
+        None,
+    )
+    if not isinstance(safety_entry, dict) or safety_entry.get("version") != "1.2.0":
+        failures.append("git.safety-guardrail version must be 1.2.0")
+
     for policy in (
         "composition_policy",
         "logging_policy",
@@ -379,6 +391,9 @@ def validate_sources() -> list[str]:
             "GITHUB-MUTATION",
             "CREDENTIAL-INHERITANCE",
             "DEPLOYMENT-MUTATION",
+            "_TRUSTED_ROUTINE_GIT_CONTROLLER_SUFFIX",
+            "_TRUSTED_ROUTINE_GIT_MUTATORS",
+            "_is_trusted_routine_git_controller",
         ),
         "lifecycle.py": (
             "sage-action-id.py",
@@ -601,6 +616,7 @@ def validate_docs_and_authority() -> list[str]:
             "operator.git-proposal",
             "browser-review",
             "git.safety-guardrail",
+            "routine Git lifecycle",
             "metrics.outcome",
             "Root operating-contract composition",
         ):

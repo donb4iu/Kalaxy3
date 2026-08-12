@@ -26,7 +26,8 @@
         "failure diagnosis before corrective mutation",
         "versioned composition manifests",
         "semantic raw metrics precede transparent derived rates and comparable trends",
-        "root operating-contract composition and guardrail enforcement"
+        "root operating-contract composition and guardrail enforcement",
+        "operator-approved bounded routine Git lifecycle controller"
     ],
     "primitives": [
         {
@@ -285,20 +286,22 @@
         },
         {
             "primitive_id": "git.safety-guardrail",
-            "version": "1.1.0",
+            "version": "1.2.0",
             "module": "workflow.safety",
             "symbol": "GitSafetyGuardrail",
-            "side_effects": "read-only Python source analysis",
+            "side_effects": "read-only Python source analysis with one exact repository-owned routine Git controller path allowance",
             "idempotency": "deterministic for unchanged source and fixture policy",
             "logging": "violation path, line, code, and redacted description",
-            "failure_mode": "Git, GitHub CLI, direct GitHub HTTP API, credential, deployment, or mixed-authority path fails closed",
+            "failure_mode": "Git, GitHub CLI, direct GitHub HTTP API, credential, deployment, mixed-authority, or out-of-scope trusted-controller mutation path fails closed",
             "tests": [
                 "read-only helper pass",
                 "Git mutation rejection",
                 "GitHub mutation rejection",
                 "credential rejection",
                 "temporary fixture allowance",
-                "direct GitHub API rejection"
+                "direct GitHub API rejection",
+                "trusted routine Git controller exact-path allowance",
+                "trusted routine Git controller mutator-scope rejection"
             ],
             "maturity": "pilot",
             "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-git-safety.json"

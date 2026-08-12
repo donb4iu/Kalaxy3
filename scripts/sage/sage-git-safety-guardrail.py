@@ -26,6 +26,16 @@ def self_test() -> int:
     )
     bad_secret = """import os\ntoken = os.environ.get(\"GH_TOKEN\")\n"""
     bad_deploy = """from workflow import CommandSpec\nCommandSpec(primitive_id=\"command.run\", label=\"x\", argv=(\"kubectl\", \"apply\", \"-f\", \"x\"), cwd=ROOT)\n"""
+    trusted_controller = (
+        "from workflow import GitRepository\n"
+        "repository = GitRepository(ROOT, RUNNER)\n"
+        "repository.commit_and_push(branch='feature/x', exact_paths=('x',), message='x', apply=True)\n"
+    )
+    trusted_forbidden = (
+        "from workflow import GitRepository\n"
+        "repository = GitRepository(ROOT, RUNNER)\n"
+        "repository.create_branch('feature/x', apply=True)\n"
+    )
 
     if GitSafetyGuardrail.scan_source(safe, path=Path("safe.py")):
         raise RuntimeError("safe helper was rejected")
@@ -39,6 +49,19 @@ def self_test() -> int:
         observed = GitSafetyGuardrail.scan_source(source, path=Path(f"bad-{label}.py"))
         if not any(item.code == code for item in observed):
             raise RuntimeError(f"{label} negative test did not fail closed")
+
+    trusted_path = Path("scripts/sage/workflows/routine_git_lifecycle.py")
+    if GitSafetyGuardrail.scan_source(trusted_controller, path=trusted_path):
+        raise RuntimeError("trusted routine Git controller commit-and-push path was rejected")
+    misplaced = GitSafetyGuardrail.scan_source(
+        trusted_controller,
+        path=Path("scripts/sage/workflows/not-trusted.py"),
+    )
+    if not any(item.code == "MIXED-GIT-AUTHORITY" for item in misplaced):
+        raise RuntimeError("trusted routine Git allowance escaped its exact path")
+    forbidden = GitSafetyGuardrail.scan_source(trusted_forbidden, path=trusted_path)
+    if not any(item.code == "GIT-MUTATION-API" for item in forbidden):
+        raise RuntimeError("trusted routine Git controller accepted branch creation")
 
     with tempfile.TemporaryDirectory(prefix="sage-git-safety-fixture-") as raw:
         root = Path(raw)
@@ -64,6 +87,7 @@ def self_test() -> int:
     print("PASS credential inheritance rejection")
     print("PASS deployment mutation rejection")
     print("PASS isolated temporary-repository fixture allowance")
+    print("PASS exact-path routine Git controller allowance for commit-and-push only")
     print("Kalaxy3 Git safety guardrail self-test: PASS")
     return 0
 
