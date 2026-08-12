@@ -242,6 +242,46 @@ print(AUTHORITY_DIGESTS["missing"])
     refresh_helper_digest(helper, manifest)
 
 
+def silent_self_test_source() -> str:
+    """Return a silent-zero self-test fixture."""
+    return (
+        "#!/usr/bin/env python3\nimport argparse\n"
+        "parser = argparse.ArgumentParser()\n"
+        "parser.add_argument('--self-test', action='store_true')\n"
+        "parser.add_argument('--package')\nargs = parser.parse_args()\n"
+        "if args.self_test:\n    raise SystemExit(0)\n"
+        "print('helper-operator-path=pass')\n"
+    )
+
+
+def silent_operator_source() -> str:
+    """Return a silent-zero operator fixture."""
+    return (
+        "#!/usr/bin/env python3\nimport argparse\n"
+        "parser = argparse.ArgumentParser()\n"
+        "parser.add_argument('--self-test', action='store_true')\n"
+        "parser.add_argument('--package')\nargs = parser.parse_args()\n"
+        "if args.self_test:\n    print('helper-self-test=pass')\n"
+        "    raise SystemExit(0)\nraise SystemExit(0)\n"
+    )
+
+
+def mutate_silent_self_test(
+    helper: Path, manifest: Path, *_: Path
+) -> None:
+    """Make the declared self-test silently exit zero."""
+    helper.write_text(silent_self_test_source(), encoding="utf-8")
+    refresh_helper_digest(helper, manifest)
+
+
+def mutate_silent_operator(
+    helper: Path, manifest: Path, *_: Path
+) -> None:
+    """Make the exact operator path silently exit zero."""
+    helper.write_text(silent_operator_source(), encoding="utf-8")
+    refresh_helper_digest(helper, manifest)
+
+
 def mutate_unsafe_helper(helper: Path, manifest: Path, *_: Path) -> None:
     """Inject prohibited Git mutation machinery."""
 
@@ -343,6 +383,8 @@ def main() -> int:
         ("unimported-hashlib", mutate_unimported_hashlib),
         ("undefined-authority", mutate_undefined_authority),
         ("invalid-late-path", mutate_invalid_late_path),
+        ("silent-self-test", mutate_silent_self_test),
+        ("silent-operator", mutate_silent_operator),
         ("unsafe-helper", mutate_unsafe_helper),
     )
     for name, mutation in cases:
@@ -353,6 +395,7 @@ def main() -> int:
     print("PASS helper and companion handoff failures")
     print("PASS hashlib and AUTHORITY_DIGESTS regressions")
     print("PASS defined late-path runtime failure")
+    print("PASS silent zero-exit runtime paths fail closed")
     print("PASS unsafe helper and stale receipt failures")
     print("PASS failed paths leave no partial receipt")
     print("Kalaxy3 generated-helper runtime self-test: PASS")

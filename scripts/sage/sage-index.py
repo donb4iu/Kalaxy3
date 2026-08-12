@@ -673,7 +673,7 @@ relationships.
             "generated_files_schema": "1.0",
             "generated_by": "scripts/sage/sage-index.py",
             "generated_paths": final_paths,
-            "removed_paths": stale,
+            "removed_paths": [],
         },
         indent=2,
         sort_keys=True,
@@ -718,23 +718,121 @@ def reconcile(repo: Path, *, write: bool) -> tuple[list[dict[str, Any]], list[st
     return entries, sorted(set(warnings)), sorted(set(changed)), sorted(set(generated.keys()) | set(stale))
 
 
+def self_test(repo: Path) -> None:
+    """Prove one reconciliation deletes obsolete output and is immediately current."""
+    import shutil
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="kalaxy3-sage-index-self-test-") as tmp:
+        sandbox = Path(tmp) / "repo"
+        shutil.copytree(
+            repo,
+            sandbox,
+            ignore=shutil.ignore_patterns(
+                ".git",
+                ".mkdocs-work",
+                ".mkdocs-venv",
+                "__pycache__",
+                ".pytest_cache",
+            ),
+        )
+
+        reconcile(sandbox, write=True)
+        _, _, baseline_changed, _ = reconcile(sandbox, write=False)
+        if baseline_changed:
+            raise IndexError(
+                "SAGE index self-test baseline did not converge: "
+                + ", ".join(baseline_changed)
+            )
+
+        manifest_path = sandbox / GENERATED_MANIFEST
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        generated_paths = manifest.get("generated_paths")
+        if not isinstance(generated_paths, list) or not all(
+            isinstance(item, str) for item in generated_paths
+        ):
+            raise IndexError(
+                "SAGE index self-test manifest lacks valid generated_paths"
+            )
+
+        obsolete = "markdown/evidence/subjects/sage-index-obsolete-self-test.md"
+        if obsolete in generated_paths:
+            raise IndexError(
+                "SAGE index self-test obsolete fixture unexpectedly generated"
+            )
+
+        obsolete_path = sandbox / obsolete
+        obsolete_path.parent.mkdir(parents=True, exist_ok=True)
+        obsolete_path.write_text(
+            "# obsolete generated fixture\n",
+            encoding="utf-8",
+        )
+
+        manifest["generated_paths"] = sorted([*generated_paths, obsolete])
+        manifest["removed_paths"] = []
+        write_text(
+            manifest_path,
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        )
+
+        _, _, changed, _ = reconcile(sandbox, write=True)
+        if obsolete not in changed:
+            raise IndexError(
+                "one-pass reconcile did not report obsolete generated path"
+            )
+        if obsolete_path.exists():
+            raise IndexError(
+                "one-pass reconcile did not delete obsolete generated file"
+            )
+
+        stable = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if stable.get("removed_paths") != []:
+            raise IndexError(
+                "stable generated manifest retained transactional removed_paths"
+            )
+        if obsolete in stable.get("generated_paths", []):
+            raise IndexError(
+                "stable generated manifest retained obsolete generated path"
+            )
+
+        _, _, immediate_changed, _ = reconcile(sandbox, write=False)
+        if immediate_changed:
+            raise IndexError(
+                "immediate post-reconcile check is not idempotent: "
+                + ", ".join(immediate_changed)
+            )
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Reconcile Kalaxy3 SAGE and legacy evidence navigation")
+    parser = argparse.ArgumentParser(
+        description="Reconcile Kalaxy3 SAGE and legacy evidence navigation"
+    )
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ["check", "reconcile"]:
+    for name in ["check", "reconcile", "self-test"]:
         cmd = sub.add_parser(name)
-        cmd.add_argument("--repo", help="repository path; defaults to current Git repository")
+        cmd.add_argument(
+            "--repo",
+            help="repository path; defaults to current Git repository",
+        )
     args = parser.parse_args()
     try:
         repo = repo_root(args.repo)
-        entries, warnings, changed, generated_paths = reconcile(repo, write=args.command == "reconcile")
+        if args.command == "self-test":
+            self_test(repo)
+            print("SAGE evidence reconciliation self-test: PASS")
+            return 0
+
+        entries, warnings, changed, generated_paths = reconcile(
+            repo,
+            write=args.command == "reconcile",
+        )
         if args.command == "check" and changed:
             raise IndexError(
                 "Generated evidence catalog is stale. Run: "
                 "python3 scripts/sage/sage-index.py reconcile\nChanged paths: "
                 + ", ".join(changed)
             )
-        print(f"SAGE evidence reconciliation: PASS")
+        print("SAGE evidence reconciliation: PASS")
         print(f"Records:          {len(entries)}")
         print(f"Generated paths:  {len(generated_paths)}")
         print(f"Changed paths:    {len(changed)}")
@@ -744,6 +842,7 @@ def main() -> int:
     except (IndexError, OSError, UnicodeError) as exc:
         print(f"SAGE evidence reconciliation failed: {exc}", file=sys.stderr)
         return 2
+
 
 
 if __name__ == "__main__":

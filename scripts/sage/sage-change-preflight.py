@@ -16,7 +16,7 @@ DEFAULT_MAP: Final = ROOT / "sage-change-authority.json"
 
 def normalize(value: str) -> str:
     """Normalize text for deterministic matching."""
-    return " ".join(value.lower().replace("_", " ").split())
+    return " ".join(value.lower().replace("_", " ").replace("-", " ").split())
 
 
 def load_authority_map(path: Path) -> dict[str, Any]:
@@ -353,6 +353,33 @@ def run_self_tests(
                 f"{request!r} did not infer {missing}"
             )
 
+
+    vocabulary_equivalence_cases = (
+        (
+            "repair request execution safety composition",
+            "repair request-execution safety composition",
+        ),
+        (
+            "continue checkpoint promotion workflow",
+            "continue checkpoint-promotion workflow",
+        ),
+    )
+    for spaced_request, hyphenated_request in vocabulary_equivalence_cases:
+        spaced_contexts = infer_for_request(payload, spaced_request)
+        hyphenated_contexts = infer_for_request(
+            payload,
+            hyphenated_request,
+        )
+        if spaced_contexts != hyphenated_contexts:
+            failures.append(
+                f"{hyphenated_request!r} did not classify equivalently "
+                f"to {spaced_request!r}"
+            )
+        if "workflow-primitives" not in hyphenated_contexts:
+            failures.append(
+                f"{hyphenated_request!r} did not infer workflow-primitives"
+            )
+
     path_cases = {
         "Helm repository path": (
             [
@@ -380,6 +407,17 @@ def run_self_tests(
             ],
             {
                 "continuous-improvement",
+                "repository-governance",
+                "evidence",
+            },
+        ),
+        "SAGE discovery normalization paths": (
+            [
+                "scripts/sage/sage-change-preflight.py",
+                "scripts/sage/sage-change-discovery-guardrail.py",
+            ],
+            {
+                "workflow-primitives",
                 "repository-governance",
                 "evidence",
             },

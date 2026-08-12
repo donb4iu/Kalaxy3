@@ -232,8 +232,14 @@
             "staged/"
         ],
         "small_cohesive_commits": true,
-        "validate_before_commit": true,
+        "checkpoint_persistence_may_precede_validation": true,
+        "checkpoint_may_be_incomplete": true,
+        "checkpoint_may_be_dependency_blocked": true,
+        "checkpoint_claims_validation": false,
+        "checkpoint_claims_promotability": false,
         "push_after_each_cohesive_commit": true,
+        "remote_synchronization_required": true,
+        "promotion_requires_complete_applicable_gate": true,
         "deployment_requires_explicit_gate": true,
         "revalidate_before_activation": true
     },

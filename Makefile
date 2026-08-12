@@ -45,6 +45,10 @@ help:
 	  '  make sage-candidate-self-test' \
 	  '  make sage-learning-self-test' \
 	  '  make sage-review-self-test' \
+	  '  SAGE_REQUEST="<request>" SAGE_SOURCE="<source.zip>" make sage-request-plan' \
+	  '  SAGE_REQUEST="<request>" SAGE_PROPOSAL="<proposal.zip>" make sage-request-execute' \
+	  '  SAGE_STATE="<state.json>" SAGE_OPERATOR_RESULT="<result.json>" make sage-request-continue' \
+	  '  SAGE_REQUEST="<request>" SAGE_ACTION_ID="<id>" SAGE_TO_STATUS="<status>" SAGE_ACTOR="<actor>" SAGE_REASON="<reason>" SAGE_EVIDENCE_REFERENCE="<ref>" SAGE_COMMIT_MESSAGE="<message>" make sage-improvement-action-transition' \
 	  '  SAGE_REQUEST="<request>" make sage-evidence-prepare' \
 	  '  SAGE_PACKAGE="<package.zip>" make sage-evidence-check'
 
@@ -60,13 +64,16 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test
+sage-self-test: sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 	python3 scripts/sage/sage-file-delivery-guardrail.py
 
 sage-discovery-guardrail:
 	$(SAGE_DISCOVERY_GUARDRAIL)
+
+sage-index-self-test:
+	$(SAGE_INDEX) self-test
 
 sage-index-check:
 	$(SAGE_INDEX) check
@@ -112,7 +119,7 @@ sage-operating-contract-check: sage-operating-contract-self-test sage-operating-
 
 sage-guardrails: sage-self-test sage-discovery-guardrail sage-operating-contract-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
-                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail
+                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail sage-checkpoint-promotion-guardrail
 	@echo "Kalaxy3 repository SAGE guardrails: PASS"
 
 .PHONY: sage-evidence-brief sage-evidence-prepare \
@@ -294,6 +301,23 @@ sage-capability-intelligence-self-test:
 
 sage-capability-intelligence-guardrail:
 	python3 scripts/sage/sage-capability-intelligence-guardrail.py
+.PHONY: sage-thin-slice-render sage-thin-slice-check \
+	sage-thin-slice-self-test sage-thin-slice-guardrail
+
+sage-thin-slice-render:
+	python3 scripts/sage/sage-thin-slice.py render
+	python3 scripts/sage/sage-thin-slice.py metrics
+
+sage-thin-slice-check:
+	python3 scripts/sage/sage-thin-slice.py check
+	python3 scripts/sage/sage-thin-slice.py render --check
+	python3 scripts/sage/sage-thin-slice.py metrics --check
+
+sage-thin-slice-self-test:
+	python3 scripts/sage/sage-thin-slice.py self-test
+
+sage-thin-slice-guardrail:
+	python3 scripts/sage/sage-thin-slice-guardrail.py
 .PHONY: sage-file-delivery-guardrail
 
 sage-file-delivery-guardrail:
@@ -323,3 +347,102 @@ sage-workflow-usage:
 
 sage-generated-helper-runtime-self-test:
 	python3 scripts/sage/sage-generated-helper-runtime-self-test.py
+
+
+.PHONY: sage-improvement-action-transition sage-improvement-action-transition-self-test sage-improvement-action-transition-guardrail
+
+sage-improvement-action-transition:
+	@test -n "$${SAGE_REQUEST:-}" || { \
+	  echo 'Usage: SAGE_REQUEST="<request>" SAGE_ACTION_ID="<id>" SAGE_TO_STATUS="<status>" SAGE_ACTOR="<actor>" SAGE_REASON="<reason>" SAGE_EVIDENCE_REFERENCE="<ref>" SAGE_COMMIT_MESSAGE="<message>" make sage-improvement-action-transition'; \
+	  exit 2; \
+	}
+	@test -n "$${SAGE_ACTION_ID:-}" || { echo 'SAGE_ACTION_ID is required'; exit 2; }
+	@test -n "$${SAGE_TO_STATUS:-}" || { echo 'SAGE_TO_STATUS is required'; exit 2; }
+	@test -n "$${SAGE_ACTOR:-}" || { echo 'SAGE_ACTOR is required'; exit 2; }
+	@test -n "$${SAGE_REASON:-}" || { echo 'SAGE_REASON is required'; exit 2; }
+	@test -n "$${SAGE_EVIDENCE_REFERENCE:-}" || { echo 'SAGE_EVIDENCE_REFERENCE is required'; exit 2; }
+	@test -n "$${SAGE_COMMIT_MESSAGE:-}" || { echo 'SAGE_COMMIT_MESSAGE is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-improvement-action-transition.py \
+	  --request "$$SAGE_REQUEST" \
+	  --action-id "$$SAGE_ACTION_ID" \
+	  --to-status "$$SAGE_TO_STATUS" \
+	  --actor "$$SAGE_ACTOR" \
+	  --reason "$$SAGE_REASON" \
+	  --evidence-reference "$$SAGE_EVIDENCE_REFERENCE" \
+	  --commit-message "$$SAGE_COMMIT_MESSAGE" \
+	  --push-remote "$${SAGE_PUSH_REMOTE:-origin}"
+
+sage-improvement-action-transition-self-test:
+	$(PYTHON) scripts/sage/sage-improvement-action-transition.py --self-test
+
+sage-improvement-action-transition-guardrail:
+	$(PYTHON) scripts/sage/sage-improvement-action-transition-guardrail.py
+
+.PHONY: sage-request-plan sage-request-plan-self-test sage-request-planning-guardrail sage-request-execute sage-request-continue sage-request-execute-self-test sage-request-execution-guardrail
+
+sage-request-plan:
+	@test -n "$${SAGE_REQUEST:-}" || { \
+	  echo 'Usage: SAGE_REQUEST="<request>" SAGE_SOURCE="<source.zip>" make sage-request-plan'; \
+	  exit 2; \
+	}
+	@test -n "$${SAGE_SOURCE:-}" || { \
+	  echo 'Usage: SAGE_REQUEST="<request>" SAGE_SOURCE="<source.zip>" make sage-request-plan'; \
+	  exit 2; \
+	}
+	$(PYTHON) scripts/sage/sage-request-plan.py --request "$$SAGE_REQUEST" --source "$$SAGE_SOURCE"
+
+sage-request-plan-self-test:
+	$(PYTHON) scripts/sage/sage-request-plan.py --self-test
+
+sage-request-planning-guardrail:
+	$(PYTHON) scripts/sage/sage-request-planning-guardrail.py
+
+sage-request-execute:
+	@test -n "$${SAGE_REQUEST:-}" || { \
+	  echo 'Usage: SAGE_REQUEST="<request>" SAGE_PROPOSAL="<proposal.zip>" make sage-request-execute'; \
+	  exit 2; \
+	}
+	@test -n "$${SAGE_PROPOSAL:-}" || { \
+	  echo 'Usage: SAGE_REQUEST="<request>" SAGE_PROPOSAL="<proposal.zip>" make sage-request-execute'; \
+	  exit 2; \
+	}
+	$(PYTHON) scripts/sage/sage-request-execute.py --request "$$SAGE_REQUEST" --proposal "$$SAGE_PROPOSAL"
+
+sage-request-continue:
+	@test -n "$${SAGE_STATE:-}" || { \
+	  echo 'Usage: SAGE_STATE="<state.json>" SAGE_OPERATOR_RESULT="<result.json>" make sage-request-continue'; \
+	  exit 2; \
+	}
+	@test -n "$${SAGE_OPERATOR_RESULT:-}" || { \
+	  echo 'Usage: SAGE_STATE="<state.json>" SAGE_OPERATOR_RESULT="<result.json>" make sage-request-continue'; \
+	  exit 2; \
+	}
+	$(PYTHON) scripts/sage/sage-request-execute.py --continue-state "$$SAGE_STATE" --operator-result "$$SAGE_OPERATOR_RESULT"
+
+sage-request-execute-self-test:
+	$(PYTHON) scripts/sage/sage-request-execute.py --self-test
+
+sage-request-execution-guardrail:
+	$(PYTHON) scripts/sage/sage-request-execution-guardrail.py
+
+.PHONY: sage-checkpoint-promotion-self-test sage-checkpoint-promotion-guardrail
+.PHONY: sage-checkpoint-promote sage-checkpoint-promotion-continue
+
+sage-checkpoint-promotion-self-test:
+	$(PYTHON) scripts/sage/sage-checkpoint-promote.py --self-test
+
+sage-checkpoint-promotion-guardrail: sage-checkpoint-promotion-self-test
+	$(PYTHON) scripts/sage/sage-checkpoint-promotion-guardrail.py
+
+sage-checkpoint-promote:
+	@test -n "$$SAGE_REQUEST" || (echo 'SAGE_REQUEST is required' >&2; exit 2)
+	@test -n "$$SAGE_SOURCE_BRANCH" || (echo 'SAGE_SOURCE_BRANCH is required' >&2; exit 2)
+	@test -n "$$SAGE_EXPECTED_HEAD" || (echo 'SAGE_EXPECTED_HEAD is required' >&2; exit 2)
+	@test -n "$$SAGE_PR_TITLE" || (echo 'SAGE_PR_TITLE is required' >&2; exit 2)
+	@test -n "$$SAGE_PR_BODY" || (echo 'SAGE_PR_BODY is required' >&2; exit 2)
+	$(PYTHON) scripts/sage/sage-checkpoint-promote.py --request "$$SAGE_REQUEST" --source-branch "$$SAGE_SOURCE_BRANCH" --expected-head "$$SAGE_EXPECTED_HEAD" --target-branch main --title "$$SAGE_PR_TITLE" --body "$$SAGE_PR_BODY" --repo "$(CURDIR)"
+
+sage-checkpoint-promotion-continue:
+	@test -n "$$SAGE_STATE" || (echo 'SAGE_STATE is required' >&2; exit 2)
+	@test -n "$$SAGE_OPERATOR_RESULT" || (echo 'SAGE_OPERATOR_RESULT is required' >&2; exit 2)
+	$(PYTHON) scripts/sage/sage-checkpoint-promote.py --continue-state "$$SAGE_STATE" --operator-result "$$SAGE_OPERATOR_RESULT" --repo "$(CURDIR)"

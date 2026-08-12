@@ -58,6 +58,10 @@ _GIT_REPOSITORY_MUTATORS = {
     "fetch",
 }
 
+_HTTP_CLIENT_IMPORTS = {"http.client", "requests", "urllib", "urllib.request"}
+_GITHUB_HOST_MARKER = "github.com"
+_TRUSTED_GITHUB_INSPECTOR_SUFFIX = "scripts/sage/workflow/github_inspect.py"
+
 
 @dataclass(frozen=True)
 class GitSafetyViolation:
@@ -72,6 +76,28 @@ class GitSafetyViolation:
 
 class GitSafetyGuardrail:
     """Statically reject helper paths that can mutate protected systems."""
+
+    @staticmethod
+    def _is_trusted_github_inspector(path: Path) -> bool:
+        normalized = path.expanduser().as_posix()
+        return normalized == _TRUSTED_GITHUB_INSPECTOR_SUFFIX or normalized.endswith("/" + _TRUSTED_GITHUB_INSPECTOR_SUFFIX)
+
+    @staticmethod
+    def _http_imports(tree: ast.AST) -> set[str]:
+        observed: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                observed.update(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                observed.add(node.module)
+        return observed
+
+    @staticmethod
+    def _github_literal_line(tree: ast.AST) -> int | None:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and _GITHUB_HOST_MARKER in node.value.lower():
+                return node.lineno
+        return None
 
     @staticmethod
     def _literal_sequence(node: ast.AST | None) -> tuple[str, ...] | None:
@@ -204,6 +230,22 @@ class GitSafetyGuardrail:
         tree = ast.parse(source, filename=str(path))
         violations: list[GitSafetyViolation] = []
         fixture_allowed = allow_fixture_mutation and cls._is_temp_fixture(path, fixture_root)
+
+        if not fixture_allowed and not cls._is_trusted_github_inspector(path):
+            imports_observed = cls._http_imports(tree)
+            github_line = cls._github_literal_line(tree)
+            if github_line is not None and any(
+                item in _HTTP_CLIENT_IMPORTS or item.startswith("urllib.") or item.startswith("http.")
+                for item in imports_observed
+            ):
+                violations.append(
+                    GitSafetyViolation(
+                        str(path),
+                        github_line,
+                        "GITHUB-DIRECT-API",
+                        "production helpers may not invoke GitHub HTTP APIs directly; use github.inspect",
+                    )
+                )
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

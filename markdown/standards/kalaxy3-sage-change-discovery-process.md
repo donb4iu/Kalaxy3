@@ -84,3 +84,19 @@ repository-owned evidence orchestrator.
 The handoff MUST automatically apply the canonical generation request.
 Requesters are not responsible for remembering or reproducing the SAGE
 evidence prompt.
+
+## Request-vocabulary normalization
+
+SAGE request discovery treats underscores and hyphens as word separators before
+deterministic authority matching. Authority contexts therefore store one
+canonical space-separated form rather than paired spellings. `request
+execution` governs both `request execution` and `request-execution`; `checkpoint
+promotion` governs both `checkpoint promotion` and `checkpoint-promotion`.
+
+Discovery regressions require the spaced and hyphenated forms to infer identical
+contexts. A mutation-negative restores the legacy hyphen-preserving normalizer
+and proves the hyphenated forms then lose their specialized
+`workflow-primitives` authority while the canonical spaced forms remain
+classified. Discovery implementation paths are explicitly owned by
+`workflow-primitives` so normalizer and guardrail changes remain classifiable by
+changed-path discovery.

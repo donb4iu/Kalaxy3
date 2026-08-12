@@ -190,7 +190,7 @@
         },
         {
             "lesson_id": "SAGE-LESSON-20260728-005",
-            "title": "Fetch and revalidate remote state before every cohesive mutation",
+            "title": "Reconcile remote state before cohesive mutation and before promotion",
             "status": "validated",
             "contexts": [
                 "repository-governance",
@@ -204,7 +204,10 @@
                 "origin/main",
                 "git fetch",
                 "remote state",
-                "branch synchronization"
+                "branch synchronization",
+                "checkpoint persistence",
+                "promotion validation",
+                "remote synchronization"
             ],
             "path_prefixes": [
                 ".github/workflows/"
@@ -215,21 +218,22 @@
                 "Generated-document automation advances origin/main after publication.",
                 "A subsequent commit is built against an obsolete baseline."
             ],
-            "root_cause": "Remote state was assumed rather than fetched and compared immediately before mutation.",
+            "root_cause": "Remote state was assumed rather than independently reconciled against expected local and remote authority before mutation or promotion.",
             "known_resolution": [
-                "Run git fetch origin.",
-                "Compare local HEAD, origin/feature branch, and origin/main to expected SHAs.",
-                "Stop and rediscover authority when the baseline advances."
+                "Read and compare the active branch, local upstream, and remote branch head before mutation; use an explicit operator Git refresh when the local graph is stale.",
+                "Permit a synchronized checkpoint commit/push to preserve incomplete or dependency-blocked work without claiming validation or promotability.",
+                "Before promotion, freeze the target head, require all applicable validation gates, and revalidate if the remote target advances."
             ],
             "preventive_control": [
-                "Require clean, synchronized feature branches before every cohesive edit.",
-                "Push each validated cohesive commit immediately.",
-                "Revalidate when origin/main changes."
+                "Require clean and synchronized scope where atomic lifecycle or promotion semantics need a stable baseline.",
+                "Push each cohesive checkpoint promptly for business continuity; checkpoint persistence does not imply validation.",
+                "Require the complete applicable composite gate and fresh source/target authority before promotion or activation."
             ],
             "preflight_detection": [
-                "Check origin/main and the active feature branch against the expected SHAs before mutation.",
-                "Check exact local and remote SHAs before mutation.",
-                "Fail closed on nonzero feature-branch divergence."
+                "Compare exact local upstream and remote source SHAs before mutation.",
+                "Before promotion, compare local origin/main with the independently read remote main head, freeze the exact target SHA, and revalidate if it advances before merge.",
+                "Compare local remote-tracking target authority with the independently read remote target before promotion.",
+                "Fail closed on source divergence, stale target authority, or promotion without the complete applicable gate."
             ],
             "first_evidence": [
                 "SAGE-K3-OBS-20260728-003"

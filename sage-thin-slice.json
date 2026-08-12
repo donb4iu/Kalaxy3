@@ -1,0 +1,233 @@
+{
+  "$schema": "markdown/standards/sage-thin-slice-schema-v1.0.json",
+  "schema_version": "1.0",
+  "thin_slice_id": "kalaxy3.centralized-logging",
+  "title": "Centralized logging: a first end-to-end SAGE case",
+  "status": "selected-validated-case",
+  "audience": "People evaluating or contributing to SAGE without requiring prior SAGE expertise.",
+  "introduction": "SAGE is Kalaxy3's federated decision partner: it preserves operator intent, current authority, alternatives, evidence, failures, human expertise, validation, and outcomes so that engineering decisions remain understandable and reviewable.",
+  "case_question": "Can Kalaxy3 introduce centralized logging through a governed path that remains reproducible, validates real runtime value, learns from failures without hiding them, and keeps human authority explicit?",
+  "selected_case": {
+    "capability_id": "operations.centralized-logging",
+    "selection_authority_id": "operator-intent",
+    "selection_rationale": "Centralized logging contains the fullest validated Kalaxy3 path from intent and governance through staged implementation, controlled activation, failure recovery, live seven-node validation, and evidence review.",
+    "evidence_refs": [
+      "SAGE-K3-GOVERNANCE-20260726-002",
+      "SAGE-K3-OBS-20260728-001",
+      "SAGE-K3-OBS-20260728-002",
+      "SAGE-K3-OBS-20260728-003",
+      "SAGE-K3-GUARDRAIL-20260731-001",
+      "SAGE-K3-OBSERVABILITY-20260802-002",
+      "SAGE-K3-OBS-20260804-001"
+    ]
+  },
+  "alternatives": [
+    {
+      "case_id": "capability-intelligence-walking-skeleton",
+      "title": "Use the capability-intelligence walking skeleton as the public case",
+      "disposition": "retained-foundation",
+      "rationale": "It supplies the governed decision model, but centralized logging provides a more concrete operational story with deployment, failure, recovery, and measured runtime results."
+    },
+    {
+      "case_id": "operations-dashboard",
+      "title": "Use the Grafana operations dashboard as the first public case",
+      "disposition": "deferred",
+      "rationale": "It demonstrates operational visibility, but it does not contain as complete a governance-to-runtime failure-and-recovery trace."
+    },
+    {
+      "case_id": "do-nothing",
+      "title": "Keep SAGE visible only through separate standards and evidence records",
+      "disposition": "rejected",
+      "rationale": "The existing material remains useful, but a newcomer still lacks one coherent path that explains what SAGE did, why it mattered, where humans decided, and what was measured."
+    }
+  ],
+  "end_to_end_trace": [
+    {
+      "sequence": 1,
+      "stage_id": "intent",
+      "title": "Start from a real operational need",
+      "source_statement": "Kalaxy3 needed centralized collection and query of logs across the cluster.",
+      "sage_contribution": "Preserve the literal objective and connect it to repository, observability, storage, validation, and evidence authority.",
+      "human_contribution": "The operator defined the desired outcome and retained authority over activation and Git boundaries.",
+      "evidence_refs": [
+        "SAGE-K3-OBS-20260728-001"
+      ]
+    },
+    {
+      "sequence": 2,
+      "stage_id": "governance-pause",
+      "title": "Stop when the path is not governable",
+      "source_statement": "A machine-local Helm escape path and missing preventive controls caused centralized-logging work to be checkpointed and paused.",
+      "sage_contribution": "Expose the authority gap instead of treating successful deployment as sufficient evidence.",
+      "human_contribution": "The operator accepted the pause and required repository-owned guardrails before proceeding.",
+      "evidence_refs": [
+        "SAGE-K3-GOVERNANCE-20260726-002"
+      ]
+    },
+    {
+      "sequence": 3,
+      "stage_id": "staged-implementation",
+      "title": "Build a reviewable staged implementation",
+      "source_statement": "Repository-owned discovery, Helm, validation, and evidence controls made Loki and Fluent Bit activation-ready without deploying them prematurely.",
+      "sage_contribution": "Prefer reusable repository mechanisms, preserve exact scope, and keep deployment state distinct from reviewable code.",
+      "human_contribution": "Engineering judgment resolved repository and platform details while keeping activation closed.",
+      "evidence_refs": [
+        "SAGE-K3-OBS-20260728-001"
+      ]
+    },
+    {
+      "sequence": 4,
+      "stage_id": "activation-and-correction",
+      "title": "Activate through controlled boundaries and correct the real system",
+      "source_statement": "Loki and Fluent Bit were activated, Grafana datasource reconciliation was corrected, and storage plus collection paths were validated.",
+      "sage_contribution": "Keep the deployment path tied to declared repository state and validate semantic outcomes rather than command success alone.",
+      "human_contribution": "The operator executed controlled boundaries and supplied runtime interpretation when the deployed system differed from intent.",
+      "evidence_refs": [
+        "SAGE-K3-OBS-20260728-002"
+      ]
+    },
+    {
+      "sequence": 5,
+      "stage_id": "failure-recovery",
+      "title": "Preserve failures and convert them into reusable controls",
+      "source_statement": "Lifecycle, interpreter, metadata, and runtime-validation failures were preserved; after activation, a render-only validator correctly rejected the active lifecycle state and the repository-owned runtime validator was used instead of falsifying the gate.",
+      "sage_contribution": "Retain failed paths, retrieve prior experience, reject validators that do not match lifecycle state, diagnose ownership, and harden reusable controls rather than hiding rework.",
+      "human_contribution": "Human review distinguished genuine runtime problems from invalid validation paths and selected the corrective boundary.",
+      "evidence_refs": [
+        "SAGE-K3-GUARDRAIL-20260731-001",
+        "SAGE-K3-OBS-20260804-001",
+        "centralized_logging.render_validator_after_activation"
+      ]
+    },
+    {
+      "sequence": 6,
+      "stage_id": "runtime-validation",
+      "title": "Measure the useful outcome",
+      "source_statement": "Fluent Bit and Loki were validated across all seven Kalaxy3 nodes with healthy storage, Grafana access, queryable logs, and availability SLOs.",
+      "sage_contribution": "Bind claims to machine-readable runtime checks and preserve the implementation and validation evidence together.",
+      "human_contribution": "The operator judged whether the observed behavior satisfied the actual operational need.",
+      "evidence_refs": [
+        "SAGE-K3-OBSERVABILITY-20260802-002",
+        "SAGE-K3-OBS-20260804-001"
+      ]
+    },
+    {
+      "sequence": 7,
+      "stage_id": "evidence-and-review",
+      "title": "Make the decision inspectable and reusable",
+      "source_statement": "The centralized-logging evidence package was independently audited for quality and prompt-equivalent completeness.",
+      "sage_contribution": "Publish a trace that future operators and contributors can retrieve, challenge, and reuse.",
+      "human_contribution": "Reviewers remain responsible for accepting claims, correcting interpretation, and deciding whether evidence applies to a new case.",
+      "evidence_refs": [
+        "SAGE-K3-OBS-20260728-003"
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "measure_id": "cluster-node-log-coverage",
+      "description": "Cluster nodes represented in centralized logging validation.",
+      "target": 7,
+      "actual": 7,
+      "unit": "nodes",
+      "status": "met",
+      "measurement_type": "measured",
+      "evidence_refs": [
+        "SAGE-K3-OBS-20260804-001"
+      ]
+    },
+    {
+      "measure_id": "queryable-centralized-logs",
+      "description": "Centralized logs can be queried through the validated observability path.",
+      "target": true,
+      "actual": true,
+      "unit": "boolean",
+      "status": "met",
+      "measurement_type": "measured",
+      "evidence_refs": [
+        "SAGE-K3-OBS-20260728-002",
+        "SAGE-K3-OBS-20260804-001"
+      ]
+    },
+    {
+      "measure_id": "availability-slo-active",
+      "description": "Centralized-logging availability recording rules are live and healthy.",
+      "target": true,
+      "actual": true,
+      "unit": "boolean",
+      "status": "met",
+      "measurement_type": "measured",
+      "evidence_refs": [
+        "SAGE-K3-OBSERVABILITY-20260802-002"
+      ]
+    },
+    {
+      "measure_id": "evidence-quality-audit",
+      "description": "The public case's core deployment evidence passes independent quality review.",
+      "target": true,
+      "actual": true,
+      "unit": "boolean",
+      "status": "met",
+      "measurement_type": "measured",
+      "evidence_refs": [
+        "SAGE-K3-OBS-20260728-003"
+      ]
+    },
+    {
+      "measure_id": "evidence-use-reduces-rework",
+      "description": "Future changes measurably use this evidence and reduce avoidable rework or time to validation.",
+      "target": true,
+      "actual": null,
+      "unit": "boolean",
+      "status": "not-measured",
+      "measurement_type": "unavailable",
+      "evidence_refs": [
+        "SAGE-REVIEW-20260730-001"
+      ]
+    },
+    {
+      "measure_id": "new-participant-completion",
+      "description": "A contributor without prior SAGE expertise can follow the case and complete one governed contribution.",
+      "target": 1,
+      "actual": null,
+      "unit": "participants",
+      "status": "not-measured",
+      "measurement_type": "unavailable",
+      "evidence_refs": []
+    }
+  ],
+  "participation_paths": [
+    {
+      "participant": "reader",
+      "entry_action": "Read the public case from intent through measured outcome and follow any evidence reference that needs verification.",
+      "authority": "May challenge clarity and claim-to-evidence traceability; does not authorize mutation."
+    },
+    {
+      "participant": "operator",
+      "entry_action": "Supply literal intent, approve one controlled boundary, and paste the complete result for verification.",
+      "authority": "Owns operational and mutation decisions within the delegated scope."
+    },
+    {
+      "participant": "domain-expert",
+      "entry_action": "Add attributed expertise, assumptions, failure conditions, or corrections to the case model.",
+      "authority": "Owns expertise within the explicitly identified domain; SAGE does not silently override it."
+    },
+    {
+      "participant": "engineer",
+      "entry_action": "Improve a repository-owned component, test, validator, or evidence path used by the case.",
+      "authority": "Proposes implementation; repository validation and operator review determine acceptance."
+    },
+    {
+      "participant": "reviewer",
+      "entry_action": "Verify selected and rejected alternatives, machine-readable receipts, runtime evidence, and remaining unknowns.",
+      "authority": "May accept, reject, or request correction; cannot convert inference into source fact."
+    }
+  ],
+  "future_capability": [
+    "Reuse the same public-case contract for cost intelligence, storage resilience, and future AI workloads.",
+    "Measure whether retrieved evidence is actually applied and whether it reduces rework or time to validated implementation.",
+    "Add new cases without changing SAGE's federated authority, one-boundary mutation, or evidence contracts.",
+    "Use participant feedback to improve clarity while keeping source assertions, inference, predictions, and outcomes separate.",
+    "Keep evidence-learning claims open until retrieval/application and outcome metrics demonstrate reduced rework or faster validated delivery."
+  ]
+}

@@ -1,0 +1,89 @@
+{
+    "schema_version": "1.0",
+    "policy_id": "sage-checkpoint-promotion",
+    "implementation_action_id": "SAGE-ACTION-20260809-002",
+    "inspection_dependency_action_id": "SAGE-ACTION-20260811-002",
+    "github_repository": {
+        "owner": "donb4iu",
+        "name": "Kalaxy3"
+    },
+    "checkpoint_policy": {
+        "persistence_is_promotion": false,
+        "checkpoint_may_be_incomplete": true,
+        "checkpoint_may_be_dependency_blocked": true,
+        "remote_synchronization_required": true,
+        "checkpoint_claims_validation": false,
+        "checkpoint_claims_promotability": false
+    },
+    "promotion_policy": {
+        "target_branch": "main",
+        "require_clean_source_branch": true,
+        "require_local_upstream_equal": true,
+        "require_remote_source_equal": true,
+        "require_local_target_equal_remote": true,
+        "require_source_descends_from_frozen_target": true,
+        "require_all_applicable_gates": true,
+        "fail_if_target_advances_before_merge": true,
+        "operator_boundaries": [
+            "pull-request-create",
+            "pull-request-merge",
+            "post-merge-fetch"
+        ],
+        "autonomous_git_or_github_mutation": false,
+        "github_operator_mode": "browser-review",
+        "github_cli_required": false,
+        "prepared_pr_create_url_required": true,
+        "prepared_pr_merge_url_required": true,
+        "post_interaction_github_verification_required": true
+    },
+    "gate_rules": [
+        {
+            "gate_id": "repository-sage",
+            "label": "Repository SAGE composite guardrails",
+            "argv": [
+                "make",
+                "sage-guardrails"
+            ],
+            "always": true,
+            "path_prefixes": [],
+            "path_exact": []
+        },
+        {
+            "gate_id": "documentation-publication",
+            "label": "Strict MkDocs staged publication validation",
+            "argv": [
+                "make",
+                "docs-mkdocs-publication-test"
+            ],
+            "always": false,
+            "path_prefixes": [
+                "markdown/",
+                "scripts/docs/",
+                "docs/"
+            ],
+            "path_exact": [
+                "README.md",
+                "mkdocs.yml",
+                "requirements-docs.txt",
+                "requirements-docs.lock.txt",
+                "mkdocs-navigation-policy.json",
+                ".github/workflows/kalaxy3_build_publish.yml"
+            ]
+        },
+        {
+            "gate_id": "homelab-cluster",
+            "label": "Homelab cluster guardrails",
+            "argv": [
+                "make",
+                "-C",
+                "infrastructure/k3s-homelab",
+                "cluster-guardrails"
+            ],
+            "always": false,
+            "path_prefixes": [
+                "infrastructure/k3s-homelab/"
+            ],
+            "path_exact": []
+        }
+    ]
+}

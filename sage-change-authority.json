@@ -20,7 +20,10 @@
                 "discovery",
                 "generated helper runtime validation",
                 "helper delivery receipt",
-                "companion artifact validation"
+                "companion artifact validation",
+                "checkpoint persistence",
+                "checkpoint promotion",
+                "promotion eligibility"
             ],
             "path_prefixes": [
                 "AGENTS.md",
@@ -47,6 +50,7 @@
                 "markdown/standards/sage-authority-reconciliation-schema-v1.0.json",
                 "markdown/standards/sage-failure-diagnosis-schema-v1.0.json",
                 "markdown/standards/sage-operator-git-proposal-schema-v1.0.json",
+                "markdown/standards/sage-operator-git-proposal-schema-v1.1.json",
                 "sage-actionable-failure-registry.json",
                 "sage-actionable-failures.json",
                 "sage-change-authority.json",
@@ -84,7 +88,22 @@
                 "scripts/sage/workflows/generated_helper_delivery.py",
                 "scripts/sage/sage-generated-helper-runtime-self-test.py",
                 "markdown/standards/kalaxy3-sage-generated-helper-runtime-validation-process.md",
-                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json"
+                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json",
+                "scripts/sage/request_execution.py",
+                "scripts/sage/workflows/request_execution.py",
+                "scripts/sage/sage-request-execute.py",
+                "scripts/sage/sage-request-execution-guardrail.py",
+                "markdown/standards/kalaxy3-sage-request-execution-process.md",
+                "markdown/standards/sage-request-execution-proposal-schema-v1.0.json",
+                "scripts/sage/request_planning.py",
+                "scripts/sage/workflows/request_planning.py",
+                "scripts/sage/sage-request-plan.py",
+                "scripts/sage/sage-request-planning-guardrail.py",
+                "markdown/standards/kalaxy3-sage-request-planning-process.md",
+                "markdown/standards/sage-request-planning-source-schema-v1.0.json",
+                "scripts/sage/workflows/improvement_action_transition.py",
+                "scripts/sage/sage-improvement-action-transition.py",
+                "scripts/sage/sage-improvement-action-transition-guardrail.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
@@ -318,7 +337,10 @@
                 "trend reporting",
                 "generated helper runtime validation",
                 "helper delivery receipt",
-                "companion artifact validation"
+                "companion artifact validation",
+                "checkpoint persistence",
+                "checkpoint promotion",
+                "promotion eligibility"
             ],
             "path_prefixes": [
                 "sage-continuous-improvement-",
@@ -425,7 +447,16 @@
                 "scripts/sage/workflows/generated_helper_delivery.py",
                 "scripts/sage/sage-generated-helper-runtime-self-test.py",
                 "markdown/standards/kalaxy3-sage-generated-helper-runtime-validation-process.md",
-                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json"
+                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json",
+                "scripts/sage/workflows/improvement_action_transition.py",
+                "scripts/sage/sage-improvement-action-transition.py",
+                "scripts/sage/sage-improvement-action-transition-guardrail.py",
+                "sage-checkpoint-promotion-policy.json",
+                "scripts/sage/checkpoint_promotion.py",
+                "scripts/sage/workflows/checkpoint_promotion.py",
+                "scripts/sage/sage-checkpoint-promote.py",
+                "scripts/sage/sage-checkpoint-promotion-guardrail.py",
+                "markdown/standards/kalaxy3-sage-checkpoint-promotion-process.md"
             ],
             "baseline_checks": [
                 "make sage-active-session-self-test",
@@ -765,7 +796,12 @@
                 "scripts/sage/sage-capability-intelligence",
                 "markdown/standards/kalaxy3-sage-capability-intelligence",
                 "markdown/standards/sage-capability-intelligence",
-                "markdown/architecture/kalaxy3-sage-capability-intelligence"
+                "markdown/architecture/kalaxy3-sage-capability-intelligence",
+                "sage-thin-slice.json",
+                "scripts/sage/sage-thin-slice",
+                "markdown/standards/kalaxy3-sage-thin-slice",
+                "markdown/standards/sage-thin-slice",
+                "markdown/architecture/kalaxy3-sage-thin-slice"
             ],
             "requires": [
                 "continuous-improvement",
@@ -779,26 +815,37 @@
                 "markdown/standards/sage-capability-intelligence-schema-v1.0.json",
                 "markdown/standards/kalaxy3-sage-capability-intelligence-process.md",
                 "scripts/sage/sage-capability-intelligence.py",
-                "scripts/sage/sage-capability-intelligence-guardrail.py"
+                "scripts/sage/sage-capability-intelligence-guardrail.py",
+                "sage-thin-slice.json",
+                "markdown/standards/sage-thin-slice-schema-v1.0.json",
+                "markdown/standards/kalaxy3-sage-thin-slice-process.md",
+                "scripts/sage/sage-thin-slice.py",
+                "scripts/sage/sage-thin-slice-guardrail.py"
             ],
             "baseline_checks": [
                 "make sage-capability-intelligence-self-test",
                 "make sage-capability-intelligence-check",
-                "make sage-index-check"
+                "make sage-index-check",
+                "make sage-thin-slice-self-test",
+                "make sage-thin-slice-check"
             ],
             "required_validation": [
                 "make sage-capability-intelligence-self-test",
                 "make sage-capability-intelligence-guardrail",
                 "make sage-self-test",
                 "make sage-discovery-guardrail",
-                "make sage-index-check"
+                "make sage-index-check",
+                "make sage-thin-slice-guardrail",
+                "make sage-thin-slice-self-test"
             ],
             "evidence_process": [
                 "Preserve the versioned mission, target, and current capability picture.",
                 "Preserve consulted authority assertions and visible conflicts.",
                 "Preserve immutable branch predictions before outcomes.",
                 "Record the selected authority decision, actual outcome, and calibration.",
-                "Do not claim autonomy beyond the delegated domain and level."
+                "Do not claim autonomy beyond the delegated domain and level.",
+                "Preserve a coherent public case that separates source statements, SAGE contribution, and human authority.",
+                "Measure participant completion and evidence-use outcomes before claiming broader learning or maturity."
             ]
         },
         {
@@ -833,7 +880,22 @@
                 "capability gap",
                 "generated helper runtime validation",
                 "helper delivery receipt",
-                "companion artifact validation"
+                "companion artifact validation",
+                "request execution",
+                "request executor",
+                "request-to-operator proposal",
+                "proposal package",
+                "sage request execute",
+                "request planning",
+                "request planner",
+                "planning composition",
+                "sage request plan",
+                "checkpoint promotion",
+                "github inspection",
+                "github.inspect",
+                "pull request inspection",
+                "checkpoint persistence",
+                "promotion eligibility"
             ],
             "path_prefixes": [
                 "sage-workflow-primitives.json",
@@ -843,7 +905,9 @@
                 "markdown/standards/sage-workflow-primitives",
                 "markdown/standards/kalaxy3-sage-workflow-primitives",
                 "scripts/sage/sage-operating-contract",
-                "scripts/sage/workflows/operating_contract.py"
+                "scripts/sage/workflows/operating_contract.py",
+                "scripts/sage/sage-change-preflight.py",
+                "scripts/sage/sage-change-discovery-guardrail.py"
             ],
             "requires": [
                 "repository-governance",
@@ -870,6 +934,7 @@
                 "markdown/standards/sage-component-selection-manifest-schema-v1.0.json",
                 "markdown/standards/sage-failure-diagnosis-schema-v1.0.json",
                 "markdown/standards/sage-operator-git-proposal-schema-v1.0.json",
+                "markdown/standards/sage-operator-git-proposal-schema-v1.1.json",
                 "markdown/standards/sage-outcome-metrics-schema-v1.0.json",
                 "markdown/standards/sage-workflow-primitives-schema-v1.0.json",
                 "sage-change-authority.json",
@@ -907,7 +972,30 @@
                 "scripts/sage/workflows/generated_helper_delivery.py",
                 "scripts/sage/sage-generated-helper-runtime-self-test.py",
                 "markdown/standards/kalaxy3-sage-generated-helper-runtime-validation-process.md",
-                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json"
+                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json",
+                "scripts/sage/request_execution.py",
+                "scripts/sage/workflows/request_execution.py",
+                "scripts/sage/sage-request-execute.py",
+                "scripts/sage/sage-request-execution-guardrail.py",
+                "markdown/standards/kalaxy3-sage-request-execution-process.md",
+                "markdown/standards/sage-request-execution-proposal-schema-v1.0.json",
+                "scripts/sage/request_planning.py",
+                "scripts/sage/workflows/request_planning.py",
+                "scripts/sage/sage-request-plan.py",
+                "scripts/sage/sage-request-planning-guardrail.py",
+                "markdown/standards/kalaxy3-sage-request-planning-process.md",
+                "markdown/standards/sage-request-planning-source-schema-v1.0.json",
+                "scripts/sage/workflows/improvement_action_transition.py",
+                "scripts/sage/sage-improvement-action-transition.py",
+                "scripts/sage/sage-improvement-action-transition-guardrail.py",
+                "scripts/sage/workflow/github_inspect.py",
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-github-inspect.json",
+                "sage-checkpoint-promotion-policy.json",
+                "scripts/sage/checkpoint_promotion.py",
+                "scripts/sage/workflows/checkpoint_promotion.py",
+                "scripts/sage/sage-checkpoint-promote.py",
+                "scripts/sage/sage-checkpoint-promotion-guardrail.py",
+                "markdown/standards/kalaxy3-sage-checkpoint-promotion-process.md"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail",

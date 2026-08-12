@@ -210,6 +210,57 @@ def run_negative_tests(
     return failures
 
 
+
+
+def validate_request_vocabulary_normalization_mutation(
+    module: ModuleType,
+) -> list[str]:
+    # Prove hyphen equivalence depends on the canonical normalizer.
+    payload = module.load_authority_map(
+        ROOT / "sage-change-authority.json"
+    )
+    original_normalize = module.normalize
+
+    def legacy_normalize(value: str) -> str:
+        return " ".join(value.lower().replace("_", " ").split())
+
+    failures: list[str] = []
+    module.normalize = legacy_normalize
+    try:
+        cases = (
+            (
+                "repair request execution safety composition",
+                "repair request-execution safety composition",
+            ),
+            (
+                "continue checkpoint promotion workflow",
+                "continue checkpoint-promotion workflow",
+            ),
+        )
+        for spaced_request, hyphenated_request in cases:
+            spaced_contexts = module.infer_for_request(
+                payload,
+                spaced_request,
+            )
+            hyphenated_contexts = module.infer_for_request(
+                payload,
+                hyphenated_request,
+            )
+            if "workflow-primitives" not in spaced_contexts:
+                failures.append(
+                    f"Canonical authority missing for {spaced_request!r}"
+                )
+            if "workflow-primitives" in hyphenated_contexts:
+                failures.append(
+                    f"Legacy normalizer unexpectedly classified "
+                    f"{hyphenated_request!r}"
+                )
+    finally:
+        module.normalize = original_normalize
+
+    return failures
+
+
 def main() -> int:
     """Run the discovery-path guardrail."""
     try:
@@ -218,6 +269,11 @@ def main() -> int:
         failures.extend(validate_entrypoint_markers())
         failures.extend(validate_make_request_transport())
         failures.extend(run_negative_tests(module))
+        failures.extend(
+            validate_request_vocabulary_normalization_mutation(
+                module
+            )
+        )
         failures.extend(
             module.run_self_tests(
                 module.load_authority_map(
@@ -260,6 +316,7 @@ def main() -> int:
     print(
         "PASS authority-map mutation negative tests"
     )
+    print("PASS request-vocabulary normalization mutation negatives")
     print("Kalaxy3 SAGE discovery guardrail: PASS")
     return 0
 

@@ -229,8 +229,12 @@ def validate_policy(payload: Any) -> list[str]:
     branch_policy = payload.get("branch_policy", {})
     for key in (
         "small_cohesive_commits",
-        "validate_before_commit",
+        "checkpoint_persistence_may_precede_validation",
+        "checkpoint_may_be_incomplete",
+        "checkpoint_may_be_dependency_blocked",
         "push_after_each_cohesive_commit",
+        "remote_synchronization_required",
+        "promotion_requires_complete_applicable_gate",
         "deployment_requires_explicit_gate",
         "revalidate_before_activation",
     ):
@@ -238,6 +242,19 @@ def validate_policy(payload: Any) -> list[str]:
             failures.append(
                 f"branch_policy.{key} must be true"
             )
+    for key in (
+        "checkpoint_claims_validation",
+        "checkpoint_claims_promotability",
+    ):
+        if branch_policy.get(key) is not False:
+            failures.append(
+                f"branch_policy.{key} must be false"
+            )
+    if "validate_before_commit" in branch_policy:
+        failures.append(
+            "branch_policy.validate_before_commit is obsolete; checkpoint "
+            "persistence is distinct from promotion validation"
+        )
 
     metric_policy = payload.get("metric_policy", {})
     if metric_policy.get(
@@ -1806,6 +1823,21 @@ def mutation_tests(
         "push_after_each_cohesive_commit"
     ] = False
     policy_cases.append(("frequent push disabled", no_push))
+    no_remote_sync = copy.deepcopy(policy)
+    no_remote_sync["branch_policy"][
+        "remote_synchronization_required"
+    ] = False
+    policy_cases.append(("remote synchronization disabled", no_remote_sync))
+    no_promotion_gate = copy.deepcopy(policy)
+    no_promotion_gate["branch_policy"][
+        "promotion_requires_complete_applicable_gate"
+    ] = False
+    policy_cases.append(("promotion composite gate disabled", no_promotion_gate))
+    false_validation_claim = copy.deepcopy(policy)
+    false_validation_claim["branch_policy"][
+        "checkpoint_claims_validation"
+    ] = True
+    policy_cases.append(("checkpoint claims validation", false_validation_claim))
     composite = copy.deepcopy(policy)
     composite["metric_policy"][
         "allow_composite_score_before_baseline"

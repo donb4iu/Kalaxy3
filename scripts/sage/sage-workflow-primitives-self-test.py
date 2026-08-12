@@ -25,6 +25,7 @@ from workflow import (  # noqa: E402
     CommandRunner,
     CommandSpec,
     GitInspector,
+    GitHubInspector,
     GitRepository,
     GitSafetyGuardrail,
     FailureDiagnoser,
@@ -40,6 +41,7 @@ from workflow import (  # noqa: E402
     UsageAnalyzer,
     Workflow,
     WorkflowCommandError,
+    WorkflowError,
 )
 
 
@@ -74,6 +76,11 @@ def registry_fixture(path: Path) -> PrimitiveCatalog:
                     },
                     {
                         "primitive_id": "git.inspect",
+                        "version": "1.0.0",
+                        "maturity": "pilot",
+                    },
+                    {
+                        "primitive_id": "github.inspect",
                         "version": "1.0.0",
                         "maturity": "pilot",
                     },
@@ -134,12 +141,12 @@ def registry_fixture(path: Path) -> PrimitiveCatalog:
                     },
                     {
                         "primitive_id": "operator.git-proposal",
-                        "version": "1.0.0",
+                        "version": "1.1.0",
                         "maturity": "pilot",
                     },
                     {
                         "primitive_id": "git.safety-guardrail",
-                        "version": "1.0.0",
+                        "version": "1.1.0",
                         "maturity": "pilot",
                     },
                     {
@@ -458,7 +465,7 @@ def test_least_authority_foundations(root: Path) -> None:
             "git.inspect": "1.0.0",
             "file.atomic-preserve-mode": "1.0.0",
             "operator.git-proposal": "1.0.0",
-            "git.safety-guardrail": "1.0.0",
+            "git.safety-guardrail": "1.1.0",
         },
     )
     runner = CommandRunner(logger, allowed_roots=(root,))
@@ -525,6 +532,97 @@ def test_least_authority_foundations(root: Path) -> None:
     if proposal["command"]["command_count"] != 1:
         raise RuntimeError("operator proposal command count failed")
 
+    browser = OperatorGitProposal.build_browser(
+        proposal_id="SAGE-GIT-20260801-002",
+        controller="self-test",
+        repository=clean,
+        authority_receipt="fixture:authority",
+        component_manifest="fixture:manifest",
+        boundary="pull-request-create",
+        change_scope=("README.md",),
+        validation=({
+            "label": "fixture validation",
+            "status": "pass",
+            "reference": "fixture:validation",
+            "sha256": None,
+        },),
+        browser_action="create-pull-request",
+        browser_url=(
+            "https://github.com/example/repo/compare/main...staged%2Fx"
+            "?quick_pull=1&title=Fixture&body=Fixture"
+        ),
+        expected_result="Review and create the prepared PR.",
+        risk="Fixture GitHub review state.",
+        rollback="Close the PR.",
+        post_interaction_verification=("github.inspect",),
+        created_at="2026-08-01T21:55:01-05:00",
+    )
+    if browser["schema_version"] != "1.1":
+        raise RuntimeError("browser proposal schema version failed")
+    if browser["operator_contract"]["execution_mode"] != "browser-review":
+        raise RuntimeError("browser proposal execution mode failed")
+    if browser["browser"]["provider"] != "github-browser":
+        raise RuntimeError("browser proposal provider contract failed")
+    if browser["browser"]["opened_by_helper"] is not False:
+        raise RuntimeError("browser proposal open contract failed")
+    if browser["browser"]["mutation_performed_by_helper"] is not False:
+        raise RuntimeError("browser proposal mutation contract failed")
+    if "command" in browser:
+        raise RuntimeError("browser proposal unexpectedly contains a command")
+    try:
+        OperatorGitProposal.build(
+            proposal_id="SAGE-GIT-20260801-003",
+            controller="self-test",
+            repository=clean,
+            authority_receipt="fixture:authority",
+            component_manifest="fixture:manifest",
+            boundary="pull-request-create",
+            change_scope=("README.md",),
+            validation=({
+                "label": "fixture validation",
+                "status": "pass",
+                "reference": "fixture:validation",
+                "sha256": None,
+            },),
+            command_argv=("gh", "pr", "create"),
+            expected_result="x",
+            risk="x",
+            rollback="x",
+            post_command_verification=("x",),
+            created_at="2026-08-01T21:55:02-05:00",
+        )
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("operator proposal accepted GitHub CLI PR mutation")
+    try:
+        OperatorGitProposal.build_browser(
+            proposal_id="SAGE-GIT-20260801-004",
+            controller="self-test",
+            repository=clean,
+            authority_receipt="fixture:authority",
+            component_manifest="fixture:manifest",
+            boundary="pull-request-merge",
+            change_scope=("README.md",),
+            validation=({
+                "label": "fixture validation",
+                "status": "pass",
+                "reference": "fixture:validation",
+                "sha256": None,
+            },),
+            browser_action="merge-pull-request",
+            browser_url="https://example.com/not-github",
+            expected_result="x",
+            risk="x",
+            rollback="x",
+            post_interaction_verification=("x",),
+            created_at="2026-08-01T21:55:03-05:00",
+        )
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("operator proposal accepted non-GitHub browser target")
+
     safe = "from workflow import GitInspector\nPRIMITIVES_USED = ('git.inspect',)\n"
     bad = "import subprocess\nsubprocess.run(['git', 'push', 'origin', 'main'])\n"
     if GitSafetyGuardrail.scan_source(safe, path=root / "safe.py"):
@@ -532,6 +630,83 @@ def test_least_authority_foundations(root: Path) -> None:
     violations = GitSafetyGuardrail.scan_source(bad, path=root / "bad.py")
     if not any(item.code == "GIT-MUTATION" for item in violations):
         raise RuntimeError("Git safety guardrail accepted Git mutation")
+
+
+def test_github_inspection(root: Path) -> None:
+    sha_head = "a" * 40
+    sha_base = "b" * 40
+    merge_sha = "c" * 40
+
+    def payload(*, number: int, merged: bool) -> dict[str, object]:
+        return {
+            "number": number,
+            "state": "closed" if merged else "open",
+            "draft": False,
+            "base": {"ref": "main", "sha": sha_base, "repo": {"full_name": "donb4iu/Kalaxy3"}},
+            "head": {"ref": "feature/example", "sha": sha_head, "repo": {"full_name": "donb4iu/Kalaxy3"}},
+            "merged": merged,
+            "merged_at": "2026-08-11T20:00:00Z" if merged else None,
+            "merge_commit_sha": merge_sha,
+            "mergeable": True,
+            "mergeable_state": "clean",
+        }
+
+    class FixtureGitHubInspector(GitHubInspector):
+        def __init__(self) -> None:
+            super().__init__("donb4iu", "Kalaxy3")
+            self.details = {17: payload(number=17, merged=False)}
+            self.list_items = [{"number": 17, "base": {"ref": "main"}, "head": {"ref": "feature/example", "sha": sha_head}}]
+
+        def _request_json(self, path: str, query=None):
+            if path.endswith("/pulls"):
+                return list(self.list_items)
+            return dict(self.details[int(path.rsplit("/", 1)[1])])
+
+    inspector = FixtureGitHubInspector()
+    observed = inspector.find_pull_request(base_branch="main", head_branch="feature/example", head_sha=sha_head)
+    if observed.number != 17 or observed.merged is not False:
+        raise RuntimeError("github.inspect pre-merge lookup failed")
+    inspector.require_pull_request(17, base_branch="main", head_branch="feature/example", head_sha=sha_head, merged=False, require_mergeable=True)
+    inspector.details[17] = payload(number=17, merged=True)
+    merged = inspector.require_pull_request(17, base_branch="main", head_branch="feature/example", head_sha=sha_head, merged=True)
+    if merged.merged_at is None or merged.merge_commit_sha != merge_sha:
+        raise RuntimeError("github.inspect post-merge verification failed")
+    try:
+        inspector.require_pull_request(17, base_branch="main", head_branch="feature/example", head_sha="d" * 40)
+    except Exception:
+        pass
+    else:
+        raise RuntimeError("github.inspect accepted mismatched head SHA")
+    inspector.list_items.append({"number": 18, "base": {"ref": "main"}, "head": {"ref": "feature/example", "sha": sha_head}})
+    try:
+        inspector.find_pull_request(base_branch="main", head_branch="feature/example", head_sha=sha_head)
+    except Exception:
+        pass
+    else:
+        raise RuntimeError("github.inspect accepted ambiguous PR identity")
+
+    for relative in (
+        "scripts/sage/workflow/proposal.py",
+        "scripts/sage/workflows/checkpoint_promotion.py",
+    ):
+        production_source = (ROOT / relative).read_text(encoding="utf-8")
+        production_violations = GitSafetyGuardrail.scan_source(
+            production_source,
+            path=ROOT / relative,
+        )
+        if any(item.code == "GITHUB-DIRECT-API" for item in production_violations):
+            raise RuntimeError(
+                f"browser proposal path incorrectly acquires direct GitHub API capability: {relative}"
+            )
+
+    direct_api = "from urllib.request import urlopen\n" + "urlopen('https://api." + "github.com/repos/example/repo/pulls')\n"
+    violations = GitSafetyGuardrail.scan_source(direct_api, path=root / "direct-github-api.py")
+    if not any(item.code == "GITHUB-DIRECT-API" for item in violations):
+        raise RuntimeError("Git safety guardrail accepted direct GitHub API use")
+    trusted = GitSafetyGuardrail.scan_source(direct_api, path=root / "scripts/sage/workflow/github_inspect.py")
+    if any(item.code == "GITHUB-DIRECT-API" for item in trusted):
+        raise RuntimeError("Git safety guardrail rejected trusted github.inspect transport")
+
 
 def test_discovery_parser() -> None:
     fixture = """
@@ -746,6 +921,7 @@ def main() -> int:
         test_runner_and_logging(root)
         test_git_and_lifecycle_runtime(root)
         test_least_authority_foundations(root)
+        test_github_inspection(root)
         test_decision_and_diagnosis_primitives()
         test_outcome_metrics()
         test_discovery_parser()
@@ -754,7 +930,7 @@ def main() -> int:
 
     print("PASS command execution, timeout, redaction, and version logging")
     print("PASS temporary-remote Git and canonical action lifecycle adapters")
-    print("PASS least-authority Git inspection, atomic files, operator proposals, and safety")
+    print("PASS least-authority Git and GitHub inspection, atomic files, operator proposals, and safety")
     print("PASS authority reconciliation, component selection, capability gaps, and failure diagnosis")
     print("PASS semantic outcome metrics, null preservation, and comparable trends")
     print("PASS SAGE discovery parsing")

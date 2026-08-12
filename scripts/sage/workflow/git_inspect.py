@@ -11,6 +11,9 @@ from .model import CommandResult, CommandSpec, WorkflowError
 from .runner import CommandRunner
 
 _SAFE_REF = re.compile(r"^(?:HEAD|@\{upstream\}|[A-Za-z0-9][A-Za-z0-9._/-]*)$")
+_SAFE_REMOTE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_SAFE_BRANCH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
+_SHA = re.compile(r"^[0-9a-f]{40}$")
 _FIXED_READ_ONLY = {
     ("branch", "--show-current"),
     ("status", "--porcelain=v1", "--untracked-files=all"),
@@ -69,6 +72,39 @@ class GitInspector:
             and ".." not in arguments[1]
         ):
             return
+        if (
+            len(arguments) == 4
+            and arguments[:2] == ("ls-remote", "--heads")
+            and _SAFE_REMOTE.fullmatch(arguments[2])
+            and arguments[3].startswith("refs/heads/")
+            and _SAFE_BRANCH.fullmatch(arguments[3][len("refs/heads/"):])
+            and ".." not in arguments[3]
+        ):
+            return
+        if (
+            len(arguments) == 4
+            and arguments[:2] == ("merge-base", "--is-ancestor")
+            and all(
+                _SAFE_REF.fullmatch(reference)
+                and not reference.startswith("-")
+                and ".." not in reference
+                for reference in arguments[2:]
+            )
+        ):
+            return
+        if (
+            len(arguments) == 3
+            and arguments[:2] == ("diff", "--name-only")
+            and arguments[2].count("...") == 1
+        ):
+            base, head = arguments[2].split("...", 1)
+            if all(
+                _SAFE_REF.fullmatch(reference)
+                and not reference.startswith("-")
+                and ".." not in reference
+                for reference in (base, head)
+            ):
+                return
         raise WorkflowError(
             "git.inspect rejected non-read-only or unapproved Git arguments: "
             + repr(arguments)
@@ -114,6 +150,58 @@ class GitInspector:
         if result.returncode == 128:
             return None
         return result.stdout.rstrip("\n")
+
+    def remote_head(self, remote: str, branch: str) -> str:
+        """Read one remote branch head without mutating local Git references."""
+
+        reference = f"refs/heads/{branch}"
+        result = self.run_read_only(
+            ("ls-remote", "--heads", remote, reference),
+            label=f"Read remote branch {remote}/{branch}",
+        )
+        lines = [line for line in result.stdout.splitlines() if line]
+        if len(lines) != 1:
+            raise WorkflowError(
+                f"Expected exactly one remote branch {remote}/{branch}, "
+                f"found {len(lines)}"
+            )
+        fields = lines[0].split("\t")
+        if len(fields) != 2 or fields[1] != reference or not _SHA.fullmatch(fields[0]):
+            raise WorkflowError(
+                f"Invalid remote branch response for {remote}/{branch}"
+            )
+        return fields[0]
+
+    def is_ancestor(self, ancestor: str, descendant: str) -> bool:
+        """Return whether one locally available commit is an ancestor of another."""
+
+        result = self.run_read_only(
+            ("merge-base", "--is-ancestor", ancestor, descendant),
+            label=f"Check Git ancestry {ancestor} -> {descendant}",
+            expected_codes=(0, 1),
+        )
+        return result.returncode == 0
+
+    def diff_paths(
+        self,
+        base: str,
+        head: str,
+        *,
+        three_dot: bool = True,
+    ) -> set[str]:
+        """Read the path delta between two locally available Git authorities."""
+
+        if not three_dot:
+            raise WorkflowError("git.inspect path delta requires three-dot semantics")
+        result = self.run_read_only(
+            ("diff", "--name-only", f"{base}...{head}"),
+            label=f"Inspect Git path delta {base}...{head}",
+        )
+        return {
+            line
+            for line in result.stdout.splitlines()
+            if line
+        }
 
     def status_porcelain(self) -> str:
         return self.run_read_only(
