@@ -31,7 +31,7 @@ from workflow import (
 from workflows.request_planning import derive_component_plan
 
 WORKFLOW_ID = "sage.checkpoint-promotion"
-WORKFLOW_VERSION = "1.0.0"
+WORKFLOW_VERSION = "1.1.0"
 POLICY_PATH = "sage-checkpoint-promotion-policy.json"
 PRIMITIVES_USED = (
     "catalog.registry",
@@ -756,15 +756,26 @@ def continue_promotion(
         resolved_repo, resolved_state
     )
 
+    boundary = str(proposal["boundary"])
     inspector.require_clean()
     inspector.require_branch(str(state["source_branch"]))
-    inspector.require_head(str(state["source_head"]))
+    current_source = inspector.head()
     inspector.require_upstream_equal()
     remote_source = inspector.remote_head("origin", str(state["source_branch"]))
-    if remote_source != state["source_head"]:
-        raise WorkflowError("Remote source changed after promotion validation")
+    if remote_source != current_source:
+        raise WorkflowError(
+            "Current source branch is not synchronized: "
+            f"local={current_source}, remote={remote_source}"
+        )
+    frozen_source = str(state["source_head"])
+    if boundary == "pull-request-create":
+        if current_source != frozen_source:
+            raise WorkflowError("Remote source changed before pull-request verification")
+    elif not inspector.is_ancestor(frozen_source, current_source):
+        raise WorkflowError(
+            "Frozen promotion source is not an ancestor of current source branch"
+        )
 
-    boundary = str(proposal["boundary"])
     next_proposal: dict[str, Any] | None = None
     verification: dict[str, Any]
 
@@ -849,17 +860,20 @@ def continue_promotion(
             head_sha=str(state["source_head"]),
             merged=True,
         )
-        if pr.merged_at is None or pr.merge_commit_sha is None:
-            raise WorkflowError("Merged PR lacks complete merge facts")
+        if pr.merged_at is None:
+            raise WorkflowError("Merged PR lacks merged_at")
+        if pr.base_sha != state["frozen_target_head"]:
+            raise WorkflowError("Merged PR base SHA differs from frozen target")
         remote_target = inspector.remote_head(
             "origin", str(state["target_branch"])
         )
-        if remote_target != pr.merge_commit_sha:
+        if remote_target == state["frozen_target_head"]:
             raise WorkflowError(
-                "Remote target does not equal the independently verified merge "
-                f"commit: remote={remote_target}, merge={pr.merge_commit_sha}"
+                "Remote target has not advanced after the independently verified merge"
             )
-        state["merge_commit_sha"] = pr.merge_commit_sha
+        state["github_merge_commit_sha"] = pr.merge_commit_sha
+        state["post_merge_remote_head"] = remote_target
+        state["merge_commit_sha"] = None
         next_proposal = OperatorGitProposal.build(
             proposal_id=proposal_id(str(state["source_head"]), "post-merge-fetch"),
             controller=WORKFLOW_ID,
@@ -877,8 +891,9 @@ def continue_promotion(
             risk="Updates local remote-tracking Git references only.",
             rollback="No content rollback; verification fails closed on any mismatch.",
             post_command_verification=(
-                "git.inspect verifies origin/main equals the merge commit",
-                "git.inspect proves frozen source is an ancestor of origin/main",
+                "git.inspect verifies refreshed origin/main equals live remote main",
+                "git.inspect finds one exact merge commit whose first parent is the frozen target and second parent is the frozen source",
+                "git.inspect permits only descendant post-merge automation commits after that exact merge",
             ),
         )
         next_path = run_dir / "operator-git-proposal-post-merge-fetch.json"
@@ -901,20 +916,39 @@ def continue_promotion(
                 "Checkpoint promotion permits only the exact post-merge fetch "
                 f"at this boundary: expected={expected}, observed={command}"
             )
-        merge_commit = state.get("merge_commit_sha")
-        if not isinstance(merge_commit, str) or not merge_commit:
-            raise WorkflowError("Promotion state lacks verified merge commit")
         local_target = inspector.head(f"origin/{state['target_branch']}")
         remote_target = inspector.remote_head("origin", str(state["target_branch"]))
-        if local_target != merge_commit or remote_target != merge_commit:
+        if local_target != remote_target:
             raise WorkflowError(
-                "Post-merge Git authority mismatch: "
-                f"local={local_target}, remote={remote_target}, merge={merge_commit}"
+                "Post-merge local/remote target authority mismatch: "
+                f"local={local_target}, remote={remote_target}"
             )
-        if not inspector.is_ancestor(str(state["source_head"]), local_target):
+        frozen_target = str(state["frozen_target_head"])
+        source_head = str(state["source_head"])
+        if not inspector.is_ancestor(frozen_target, local_target):
+            raise WorkflowError(
+                "Frozen target is not contained in refreshed origin/main"
+            )
+        if not inspector.is_ancestor(source_head, local_target):
             raise WorkflowError(
                 "Frozen source head is not contained in refreshed origin/main"
             )
+        merge_commit = inspector.find_merge_commit(
+            base_parent=frozen_target,
+            merged_parent=source_head,
+            descendant=local_target,
+        )
+        github_merge_commit = state.get("github_merge_commit_sha")
+        if github_merge_commit is not None and github_merge_commit != merge_commit:
+            raise WorkflowError(
+                "GitHub merge commit differs from exact Git topology proof: "
+                f"github={github_merge_commit}, git={merge_commit}"
+            )
+        if not inspector.is_ancestor(merge_commit, local_target):
+            raise WorkflowError(
+                "Verified merge commit is not contained in refreshed origin/main"
+            )
+        state["merge_commit_sha"] = merge_commit
         state["current_boundary"] = "complete"
         state["current_proposal"] = None
         verification = {
@@ -924,6 +958,9 @@ def continue_promotion(
             "origin_main": local_target,
             "remote_main": remote_target,
             "source_contained_in_main": True,
+            "frozen_target_contained_in_main": True,
+            "merge_commit_sha": merge_commit,
+            "post_merge_descendants_permitted": local_target != merge_commit,
         }
 
     else:

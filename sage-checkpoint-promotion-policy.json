@@ -34,7 +34,13 @@
         "github_cli_required": false,
         "prepared_pr_create_url_required": true,
         "prepared_pr_merge_url_required": true,
-        "post_interaction_github_verification_required": true
+        "post_interaction_github_verification_required": true,
+        "allow_post_merge_target_descendants": true,
+        "require_post_fetch_local_remote_target_equal": true,
+        "require_exact_merge_parent_topology": true,
+        "merge_commit_first_parent": "frozen-target",
+        "merge_commit_second_parent": "frozen-source",
+        "allow_synchronized_source_descendant_after_merge": true
     },
     "gate_rules": [
         {

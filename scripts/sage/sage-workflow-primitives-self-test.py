@@ -462,7 +462,7 @@ def test_least_authority_foundations(root: Path) -> None:
         root / "least-authority-events.jsonl",
         "least-authority-self-test",
         primitive_versions={
-            "git.inspect": "1.0.0",
+            "git.inspect": "1.2.0",
             "file.atomic-preserve-mode": "1.0.0",
             "operator.git-proposal": "1.0.0",
             "git.safety-guardrail": "1.1.0",
@@ -474,6 +474,35 @@ def test_least_authority_foundations(root: Path) -> None:
     if clean.working_tree_status != "clean":
         raise RuntimeError("git.inspect clean snapshot failed")
     inspector.require_upstream_equal()
+    base_head = inspector.head()
+    fixture_command("git", "checkout", "-b", "feature/merge-proof", cwd=work)
+    (work / "MERGE_PROOF.md").write_text("source\n", encoding="utf-8")
+    fixture_command("git", "add", "MERGE_PROOF.md", cwd=work)
+    fixture_command("git", "commit", "-m", "merge proof source", cwd=work)
+    source_head = inspector.head()
+    fixture_command("git", "checkout", "main", cwd=work)
+    fixture_command("git", "merge", "--no-ff", "feature/merge-proof", "-m", "merge proof", cwd=work)
+    merge_head = inspector.head()
+    if inspector.find_merge_commit(
+        base_parent=base_head, merged_parent=source_head, descendant=merge_head
+    ) != merge_head:
+        raise RuntimeError("git.inspect exact merge topology proof failed")
+    (work / "POST_MERGE.md").write_text("automation descendant\n", encoding="utf-8")
+    fixture_command("git", "add", "POST_MERGE.md", cwd=work)
+    fixture_command("git", "commit", "-m", "post merge automation", cwd=work)
+    descendant_head = inspector.head()
+    if inspector.find_merge_commit(
+        base_parent=base_head, merged_parent=source_head, descendant=descendant_head
+    ) != merge_head:
+        raise RuntimeError("git.inspect lost merge proof beneath post-merge descendant")
+    try:
+        inspector.find_merge_commit(
+            base_parent=source_head, merged_parent=base_head, descendant=descendant_head
+        )
+    except Exception:
+        pass
+    else:
+        raise RuntimeError("git.inspect accepted reversed merge parents")
     try:
         inspector.run_read_only(("add", "README.md"))
     except Exception:
@@ -637,7 +666,9 @@ def test_github_inspection(root: Path) -> None:
     sha_base = "b" * 40
     merge_sha = "c" * 40
 
-    def payload(*, number: int, merged: bool) -> dict[str, object]:
+    def payload(
+        *, number: int, merged: bool, merge_commit_sha: str | None = merge_sha
+    ) -> dict[str, object]:
         return {
             "number": number,
             "state": "closed" if merged else "open",
@@ -646,7 +677,7 @@ def test_github_inspection(root: Path) -> None:
             "head": {"ref": "feature/example", "sha": sha_head, "repo": {"full_name": "donb4iu/Kalaxy3"}},
             "merged": merged,
             "merged_at": "2026-08-11T20:00:00Z" if merged else None,
-            "merge_commit_sha": merge_sha,
+            "merge_commit_sha": merge_commit_sha,
             "mergeable": True,
             "mergeable_state": "clean",
         }
@@ -671,6 +702,16 @@ def test_github_inspection(root: Path) -> None:
     merged = inspector.require_pull_request(17, base_branch="main", head_branch="feature/example", head_sha=sha_head, merged=True)
     if merged.merged_at is None or merged.merge_commit_sha != merge_sha:
         raise RuntimeError("github.inspect post-merge verification failed")
+    inspector.details[17] = payload(number=17, merged=True, merge_commit_sha=None)
+    merged_without_sha = inspector.require_pull_request(
+        17,
+        base_branch="main",
+        head_branch="feature/example",
+        head_sha=sha_head,
+        merged=True,
+    )
+    if merged_without_sha.merged_at is None or merged_without_sha.merge_commit_sha is not None:
+        raise RuntimeError("github.inspect rejected or altered nullable merged commit SHA")
     try:
         inspector.require_pull_request(17, base_branch="main", head_branch="feature/example", head_sha="d" * 40)
     except Exception:

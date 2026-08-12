@@ -50,13 +50,18 @@ def main() -> int:
         for item in registry["primitives"]
         if isinstance(item, dict) and "primitive_id" in item
     }
-    require(primitives["git.inspect"]["version"] == "1.1.0", "git.inspect version mismatch")
-    require("github.inspect" in primitives, "github.inspect missing")
+    require(primitives["git.inspect"]["version"] == "1.2.0", "git.inspect version mismatch")
+    require(primitives["github.inspect"]["version"] == "1.1.0", "github.inspect version mismatch")
     workflow = (ROOT / "scripts/sage/workflows/checkpoint_promotion.py").read_text(encoding="utf-8")
     require("GitRepository" not in workflow, "promotion imported mixed Git mutation authority")
     require(".fetch(" not in workflow, "promotion performs workflow-side Git fetch")
     require("GitHubInspector" in workflow, "promotion does not consume github.inspect")
-    require("remote_head(" in workflow and "is_ancestor(" in workflow, "Git read authority incomplete")
+    require(
+        "remote_head(" in workflow
+        and "is_ancestor(" in workflow
+        and "find_merge_commit(" in workflow,
+        "Git read authority or exact merge-topology proof incomplete",
+    )
     require(
         'boundary="pull-request-create"' in workflow
         and 'boundary="pull-request-merge"' in workflow,
@@ -78,6 +83,11 @@ def main() -> int:
         'boundary="other-git-mutation"' in workflow
         and 'command_argv=("git", "fetch", "origin"' in workflow,
         "explicit post-merge Git refresh proposal missing",
+    )
+    require(
+        'if boundary == "pull-request-create":' in workflow
+        and "Frozen promotion source is not an ancestor of current source branch" in workflow,
+        "post-merge synchronized source-descendant recovery contract missing",
     )
 
     bad_mixed = "from workflow import GitRepository\nPRIMITIVES_USED = ('git.repository',)\n"
@@ -114,6 +124,9 @@ def main() -> int:
     print("PASS git.inspect + github.inspect least-authority composition")
     print("PASS PR mutation uses prepared browser-review operator proposals")
     print("PASS post-merge refresh remains an exact operator Git proposal")
+    print("PASS nullable GitHub merge SHA falls back to exact post-fetch Git merge topology")
+    print("PASS post-merge automation descendants are permitted only after exact merge proof")
+    print("PASS synchronized source branch may advance after merge while frozen source remains authoritative")
     print("PASS prior mixed-authority and GitHub-mutation classes fail closed")
     print("PASS ordinary request execution remains stage/commit/push")
     print("Kalaxy3 SAGE checkpoint promotion guardrail: PASS")

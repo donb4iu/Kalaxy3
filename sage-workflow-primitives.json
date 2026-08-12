@@ -96,13 +96,13 @@
         },
         {
             "primitive_id": "git.inspect",
-            "version": "1.1.0",
+            "version": "1.2.0",
             "module": "workflow.git_inspect",
             "symbol": "GitInspector",
-            "side_effects": "read-only local and remote-reference Git inspection through an explicit command allowlist; no fetch or local reference mutation",
+            "side_effects": "read-only local and remote-reference Git inspection through an explicit command allowlist, including exact merge-topology proof after an operator fetch; no fetch or local reference mutation",
             "idempotency": "deterministic for unchanged local Git state and remote references",
             "logging": "delegated to command.run as git.inspect events",
-            "failure_mode": "unknown Git arguments, missing repository/ref, stale local/remote authority, ambiguous remote branch, ancestry failure, or exact-scope mismatch fails closed",
+            "failure_mode": "unknown Git arguments, missing repository/ref, stale local/remote authority, ambiguous remote branch, ancestry failure, non-unique exact merge topology, or exact-scope mismatch fails closed",
             "tests": [
                 "clean snapshot",
                 "changed-path scope",
@@ -110,26 +110,28 @@
                 "mutating command rejection",
                 "remote branch head read",
                 "read-only ancestry check",
-                "three-dot path delta"
+                "three-dot path delta",
+                "exact ordered-parent merge topology proof"
             ],
             "maturity": "pilot",
             "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-git-inspect.json"
         },
         {
             "primitive_id": "github.inspect",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "module": "workflow.github_inspect",
             "symbol": "GitHubInspector",
             "side_effects": "read-only GitHub pull-request inspection through fixed GET-only public REST endpoints",
             "idempotency": "deterministic for unchanged GitHub pull-request state",
             "logging": "caller records structured snapshot identity and verification outcome; raw HTTP response and credentials are not logged",
-            "failure_mode": "transport failure, invalid response, ambiguous identity, base/head/SHA mismatch, truncated lookup, or unverifiable requested merge state fails closed",
+            "failure_mode": "transport failure, invalid response, ambiguous identity, base/head/SHA mismatch, truncated lookup, or unverifiable requested merge state fails closed; merged_at is authoritative for affirmative merged state even when GitHub omits merge_commit_sha, which remains nullable until Git topology verification",
             "tests": [
                 "pre-merge structured snapshot",
                 "post-merge structured snapshot",
                 "head SHA mismatch rejection",
                 "ambiguous identity rejection",
-                "direct GitHub API bypass rejection"
+                "direct GitHub API bypass rejection",
+                "merged state with nullable merge_commit_sha"
             ],
             "maturity": "pilot",
             "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-github-inspect.json"
