@@ -34,17 +34,26 @@ exact PR page be emitted.
 For merge, the operator reviews the independently verified PR page, selects Create a
 merge commit if GitHub presents multiple merge methods, and performs the final merge
 approval. The workflow itself never opens the browser or clicks GitHub controls. After
-the operator merge, `github.inspect` verifies the exact merged PR and merge commit.
-`git.inspect` independently verifies the remote target branch is that merge commit.
-Because final ancestry proof requires the merge object in the local graph, SAGE next
-emits one exact operator proposal for
-`git fetch origin main`. After that bounded refresh, `git.inspect` requires
-local `origin/main` and the remote target to equal the verified merge commit and
-proves the frozen source head is an ancestor of `origin/main`.
+the operator merge, `github.inspect` verifies the exact PR identity, closed/merged
+state, and `merged_at`. GitHub's `merge_commit_sha` is retained when present but is
+nullable because the REST response may omit it for an already merged PR. SAGE therefore
+reads the live remote target head only to prove that the frozen target has advanced, then
+emits one exact operator proposal for `git fetch origin main`. After that bounded refresh,
+`git.inspect` requires local `origin/main` to equal the independently read live remote
+target and finds exactly one reachable merge commit whose first parent is the frozen
+target and whose second parent is the frozen source. If GitHub supplied a merge commit
+SHA, it must equal that Git proof. Commits produced by repository automation after the
+merge are permitted only as descendants of that exact merge commit. After the merge
+interaction, the source branch itself may also receive a synchronized repair or recovery
+commit without rewriting the frozen promotion source; continuation requires that the frozen
+source remain an ancestor of the current synchronized source branch. Before PR verification,
+source equality remains exact.
 
-Any target advancement, source divergence, stale local target, ambiguous PR,
-head/base/SHA mismatch, missing merge facts, missing/failed gate, unexpected
-operator command, or failed final ancestry proof fails closed.
+Any target advancement before merge, source divergence, stale local target, ambiguous
+PR, head/base/SHA mismatch, missing affirmative merged state, missing/failed gate,
+unexpected operator command, local/remote target divergence after fetch, non-unique or
+wrong-parent merge topology, GitHub/Git merge-SHA disagreement, or failed final ancestry
+proof fails closed.
 
 Ordinary `sage.request-execution` remains the repository-content
 `stage -> commit -> push` lifecycle. The checkpoint-promotion workflow is a

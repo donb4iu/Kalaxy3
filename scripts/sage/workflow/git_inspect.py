@@ -94,6 +94,20 @@ class GitInspector:
             return
         if (
             len(arguments) == 3
+            and arguments[:2] == ("rev-list", "--parents")
+            and arguments[2].count("..") == 1
+            and "..." not in arguments[2]
+        ):
+            base, head = arguments[2].split("..", 1)
+            if all(
+                _SAFE_REF.fullmatch(reference)
+                and not reference.startswith("-")
+                and ".." not in reference
+                for reference in (base, head)
+            ):
+                return
+        if (
+            len(arguments) == 3
             and arguments[:2] == ("diff", "--name-only")
             and arguments[2].count("...") == 1
         ):
@@ -181,6 +195,39 @@ class GitInspector:
             expected_codes=(0, 1),
         )
         return result.returncode == 0
+
+    def find_merge_commit(
+        self,
+        *,
+        base_parent: str,
+        merged_parent: str,
+        descendant: str,
+    ) -> str:
+        """Find one reachable merge commit with the exact ordered parents."""
+
+        if not _SHA.fullmatch(base_parent) or not _SHA.fullmatch(merged_parent):
+            raise WorkflowError("git.inspect merge-parent proof requires exact commit SHAs")
+        result = self.run_read_only(
+            ("rev-list", "--parents", f"{base_parent}..{descendant}"),
+            label=(
+                "Find exact merge topology "
+                f"{base_parent} + {merged_parent} -> {descendant}"
+            ),
+        )
+        matches: list[str] = []
+        for line in result.stdout.splitlines():
+            fields = line.split()
+            if len(fields) == 3 and fields[1:] == [base_parent, merged_parent]:
+                if not _SHA.fullmatch(fields[0]):
+                    raise WorkflowError("git.inspect received invalid merge commit SHA")
+                matches.append(fields[0])
+        if len(matches) != 1:
+            raise WorkflowError(
+                "git.inspect exact merge topology is not unique: "
+                f"base={base_parent}, source={merged_parent}, "
+                f"descendant={descendant}, matches={matches}"
+            )
+        return matches[0]
 
     def diff_paths(
         self,

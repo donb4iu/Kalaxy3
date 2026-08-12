@@ -14,7 +14,7 @@ from .model import WorkflowError
 _API_ROOT = "https://api." + "github.com"
 _API_VERSION = "2026-03-10"
 _ACCEPT = "application/vnd.github+json"
-_USER_AGENT = "Kalaxy3-SAGE-github.inspect/1.0.0"
+_USER_AGENT = "Kalaxy3-SAGE-github.inspect/1.1.0"
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _BRANCH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 _SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -164,7 +164,7 @@ class GitHubInspector:
         mergeable = self._bool(data.get("mergeable"), "mergeable", nullable=True)
         mergeable_state = self._string(data.get("mergeable_state"), "mergeable_state", nullable=True)
         if merged is True:
-            if state != "closed" or merged_at is None or merge_commit_sha is None:
+            if state != "closed" or merged_at is None:
                 raise WorkflowError("github.inspect merged state is incomplete")
         elif merged_at is not None:
             raise WorkflowError("github.inspect unmerged pull request has merged_at")
