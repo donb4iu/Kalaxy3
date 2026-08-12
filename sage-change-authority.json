@@ -20,7 +20,10 @@
                 "discovery",
                 "generated helper runtime validation",
                 "helper delivery receipt",
-                "companion artifact validation"
+                "companion artifact validation",
+                "checkpoint persistence",
+                "checkpoint promotion",
+                "promotion eligibility"
             ],
             "path_prefixes": [
                 "AGENTS.md",
@@ -333,7 +336,10 @@
                 "trend reporting",
                 "generated helper runtime validation",
                 "helper delivery receipt",
-                "companion artifact validation"
+                "companion artifact validation",
+                "checkpoint persistence",
+                "checkpoint promotion",
+                "promotion eligibility"
             ],
             "path_prefixes": [
                 "sage-continuous-improvement-",
@@ -443,7 +449,13 @@
                 "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json",
                 "scripts/sage/workflows/improvement_action_transition.py",
                 "scripts/sage/sage-improvement-action-transition.py",
-                "scripts/sage/sage-improvement-action-transition-guardrail.py"
+                "scripts/sage/sage-improvement-action-transition-guardrail.py",
+                "sage-checkpoint-promotion-policy.json",
+                "scripts/sage/checkpoint_promotion.py",
+                "scripts/sage/workflows/checkpoint_promotion.py",
+                "scripts/sage/sage-checkpoint-promote.py",
+                "scripts/sage/sage-checkpoint-promotion-guardrail.py",
+                "markdown/standards/kalaxy3-sage-checkpoint-promotion-process.md"
             ],
             "baseline_checks": [
                 "make sage-active-session-self-test",
@@ -880,7 +892,9 @@
                 "checkpoint promotion",
                 "github inspection",
                 "github.inspect",
-                "pull request inspection"
+                "pull request inspection",
+                "checkpoint persistence",
+                "promotion eligibility"
             ],
             "path_prefixes": [
                 "sage-workflow-primitives.json",
@@ -973,7 +987,13 @@
                 "scripts/sage/sage-improvement-action-transition.py",
                 "scripts/sage/sage-improvement-action-transition-guardrail.py",
                 "scripts/sage/workflow/github_inspect.py",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-github-inspect.json"
+                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-github-inspect.json",
+                "sage-checkpoint-promotion-policy.json",
+                "scripts/sage/checkpoint_promotion.py",
+                "scripts/sage/workflows/checkpoint_promotion.py",
+                "scripts/sage/sage-checkpoint-promote.py",
+                "scripts/sage/sage-checkpoint-promotion-guardrail.py",
+                "markdown/standards/kalaxy3-sage-checkpoint-promotion-process.md"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail",

@@ -119,7 +119,7 @@ sage-operating-contract-check: sage-operating-contract-self-test sage-operating-
 
 sage-guardrails: sage-self-test sage-discovery-guardrail sage-operating-contract-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
-                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail
+                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail sage-checkpoint-promotion-guardrail
 	@echo "Kalaxy3 repository SAGE guardrails: PASS"
 
 .PHONY: sage-evidence-brief sage-evidence-prepare \
@@ -424,3 +424,25 @@ sage-request-execute-self-test:
 
 sage-request-execution-guardrail:
 	$(PYTHON) scripts/sage/sage-request-execution-guardrail.py
+
+.PHONY: sage-checkpoint-promotion-self-test sage-checkpoint-promotion-guardrail
+.PHONY: sage-checkpoint-promote sage-checkpoint-promotion-continue
+
+sage-checkpoint-promotion-self-test:
+	$(PYTHON) scripts/sage/sage-checkpoint-promote.py --self-test
+
+sage-checkpoint-promotion-guardrail: sage-checkpoint-promotion-self-test
+	$(PYTHON) scripts/sage/sage-checkpoint-promotion-guardrail.py
+
+sage-checkpoint-promote:
+	@test -n "$$SAGE_REQUEST" || (echo 'SAGE_REQUEST is required' >&2; exit 2)
+	@test -n "$$SAGE_SOURCE_BRANCH" || (echo 'SAGE_SOURCE_BRANCH is required' >&2; exit 2)
+	@test -n "$$SAGE_EXPECTED_HEAD" || (echo 'SAGE_EXPECTED_HEAD is required' >&2; exit 2)
+	@test -n "$$SAGE_PR_TITLE" || (echo 'SAGE_PR_TITLE is required' >&2; exit 2)
+	@test -n "$$SAGE_PR_BODY" || (echo 'SAGE_PR_BODY is required' >&2; exit 2)
+	$(PYTHON) scripts/sage/sage-checkpoint-promote.py --request "$$SAGE_REQUEST" --source-branch "$$SAGE_SOURCE_BRANCH" --expected-head "$$SAGE_EXPECTED_HEAD" --target-branch main --title "$$SAGE_PR_TITLE" --body "$$SAGE_PR_BODY" --repo "$(CURDIR)"
+
+sage-checkpoint-promotion-continue:
+	@test -n "$$SAGE_STATE" || (echo 'SAGE_STATE is required' >&2; exit 2)
+	@test -n "$$SAGE_OPERATOR_RESULT" || (echo 'SAGE_OPERATOR_RESULT is required' >&2; exit 2)
+	$(PYTHON) scripts/sage/sage-checkpoint-promote.py --continue-state "$$SAGE_STATE" --operator-result "$$SAGE_OPERATOR_RESULT" --repo "$(CURDIR)"

@@ -251,3 +251,15 @@ make sage-operating-contract-check
 ```
 
 It is also included in `make sage-self-test` and `make sage-guardrails`.
+
+## Checkpoint persistence versus promotion
+
+A checkpoint commit or push is durable engineering-state persistence, not a
+validation or promotability assertion. Synchronized incomplete or
+dependency-blocked work may be checkpointed for business continuity while
+remaining explicitly non-promotable.
+
+Crossing to `main` is a separate trust boundary. Promotion requires fresh
+source/target authority, the complete applicable composite validation gate,
+structured PR verification, and explicit operator mutation proposals. Any
+authority drift or unverifiable result fails closed.

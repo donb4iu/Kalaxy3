@@ -96,18 +96,21 @@
         },
         {
             "primitive_id": "git.inspect",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "module": "workflow.git_inspect",
             "symbol": "GitInspector",
-            "side_effects": "read-only local Git inspection through an explicit command allowlist",
-            "idempotency": "deterministic for unchanged local Git references and working tree",
+            "side_effects": "read-only local and remote-reference Git inspection through an explicit command allowlist; no fetch or local reference mutation",
+            "idempotency": "deterministic for unchanged local Git state and remote references",
             "logging": "delegated to command.run as git.inspect events",
-            "failure_mode": "unknown Git arguments, missing repository, branch, HEAD, upstream, or exact scope fail closed",
+            "failure_mode": "unknown Git arguments, missing repository/ref, stale local/remote authority, ambiguous remote branch, ancestry failure, or exact-scope mismatch fails closed",
             "tests": [
                 "clean snapshot",
                 "changed-path scope",
                 "upstream equality",
-                "mutating command rejection"
+                "mutating command rejection",
+                "remote branch head read",
+                "read-only ancestry check",
+                "three-dot path delta"
             ],
             "maturity": "pilot",
             "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-git-inspect.json"

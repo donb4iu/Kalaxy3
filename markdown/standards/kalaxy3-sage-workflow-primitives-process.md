@@ -117,7 +117,7 @@ deprecated.
 
 Phase 2 adds four pilot primitives without activating autonomous mutation:
 
-- `git.inspect` exposes only allowlisted local read-only Git inspection. It has no fetch, branch, stage, commit, push, ref, GitHub, or deployment method.
+- `git.inspect` exposes only allowlisted read-only Git inspection. It may inspect local refs, compare local ancestry/path deltas, and read exact remote branch heads with `git ls-remote`; it has no fetch, branch, stage, commit, push, ref-update, GitHub-mutation, or deployment method.
 - `file.atomic-preserve-mode` performs same-directory temporary writes, file and directory fsync, atomic replacement, existing-mode preservation, allowed-root checks, and transactional rollback.
 - `operator.git-proposal` emits one schema 1.0 operator-executed boundary containing exactly one secret-free command. It never executes the proposed command and blocks the next boundary until pasted output is verified.
 - `git.safety-guardrail` rejects production-helper Git, GitHub, credential-inheritance, and deployment mutation paths. Mutating Git is permitted only in an explicitly declared isolated temporary-repository fixture.
@@ -209,3 +209,13 @@ Historical evidence, recorded closeouts, migration phases, and explicit regressi
 retain the version they actually exercised. They are historical facts or test inputs rather
 than live framework-version authorities and must not be rewritten merely because the current
 framework advances.
+
+## Checkpoint promotion composition
+
+`sage.checkpoint-promotion` is a higher-trust composition distinct from ordinary
+request-execution persistence. It reuses `git.inspect`, `github.inspect`,
+`validation.plan`, and `operator.git-proposal`. It does not import
+`GitRepository` or execute Git/GitHub mutation. PR creation and merge are
+operator proposals. A final exact operator `git fetch origin main` refresh is
+required only after the merge has been independently verified so `git.inspect`
+can truthfully prove source containment in the refreshed target graph.
