@@ -104,3 +104,16 @@ finding while changed unsafe statements remain fail closed. This exception is
 scoped only to baseline findings captured inside the current atomic
 request-execution transaction; it does not weaken `GitSafetyGuardrail` itself or
 authorize pre-existing unsafe behavior for reuse.
+
+## Legacy continuation-state compatibility
+
+Request-execution continuation states opened before the bounded routine Git
+lifecycle introduced `base_main_head` remain compatibility inputs only for the
+legacy `stage`, `commit`, and `push` boundaries. The loader may accept that
+exact legacy state shape without synthesizing missing main-branch authority.
+
+Every newly written state and every `routine-git-lifecycle` state must include
+a valid 40-hex `base_main_head`. Missing or malformed main authority fails
+closed. This compatibility exception does not authorize new legacy states and
+does not relax frozen-main verification for the one-approval routine Git
+lifecycle controller.
