@@ -115,8 +115,13 @@ def main() -> int:
         ROOT / "scripts/sage/workflows/request_execution.py"
     ).read_text(encoding="utf-8")
     require(
-        'if boundary not in {"stage", "commit", "push"}:' in request_execution,
-        "ordinary request execution lifecycle was overloaded",
+        'if boundary not in {"routine-git-lifecycle", "stage", "commit", "push"}:' in request_execution,
+        "ordinary request execution lifecycle contract drifted",
+    )
+    require(
+        '"routine-git-lifecycle"' in request_execution
+        and "scripts/sage/sage-routine-git-lifecycle.py" in request_execution,
+        "ordinary request execution lost the bounded routine Git lifecycle path",
     )
 
     print("PASS checkpoint persistence remains distinct from promotion")
@@ -128,7 +133,7 @@ def main() -> int:
     print("PASS post-merge automation descendants are permitted only after exact merge proof")
     print("PASS synchronized source branch may advance after merge while frozen source remains authoritative")
     print("PASS prior mixed-authority and GitHub-mutation classes fail closed")
-    print("PASS ordinary request execution remains stage/commit/push")
+    print("PASS ordinary request execution adds bounded routine Git lifecycle without checkpoint authority")
     print("Kalaxy3 SAGE checkpoint promotion guardrail: PASS")
     return 0
 

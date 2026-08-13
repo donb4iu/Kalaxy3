@@ -103,7 +103,9 @@
                 "markdown/standards/sage-request-planning-source-schema-v1.0.json",
                 "scripts/sage/workflows/improvement_action_transition.py",
                 "scripts/sage/sage-improvement-action-transition.py",
-                "scripts/sage/sage-improvement-action-transition-guardrail.py"
+                "scripts/sage/sage-improvement-action-transition-guardrail.py",
+                "scripts/sage/workflows/routine_git_lifecycle.py",
+                "scripts/sage/sage-routine-git-lifecycle.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
@@ -895,7 +897,10 @@
                 "github.inspect",
                 "pull request inspection",
                 "checkpoint persistence",
-                "promotion eligibility"
+                "promotion eligibility",
+                "routine git lifecycle",
+                "one-approval git lifecycle",
+                "routine-git-lifecycle"
             ],
             "path_prefixes": [
                 "sage-workflow-primitives.json",
@@ -907,7 +912,8 @@
                 "scripts/sage/sage-operating-contract",
                 "scripts/sage/workflows/operating_contract.py",
                 "scripts/sage/sage-change-preflight.py",
-                "scripts/sage/sage-change-discovery-guardrail.py"
+                "scripts/sage/sage-change-discovery-guardrail.py",
+                "scripts/sage/sage-routine-git-lifecycle.py"
             ],
             "requires": [
                 "repository-governance",
@@ -995,7 +1001,9 @@
                 "scripts/sage/workflows/checkpoint_promotion.py",
                 "scripts/sage/sage-checkpoint-promote.py",
                 "scripts/sage/sage-checkpoint-promotion-guardrail.py",
-                "markdown/standards/kalaxy3-sage-checkpoint-promotion-process.md"
+                "markdown/standards/kalaxy3-sage-checkpoint-promotion-process.md",
+                "scripts/sage/workflows/routine_git_lifecycle.py",
+                "scripts/sage/sage-routine-git-lifecycle.py"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail",

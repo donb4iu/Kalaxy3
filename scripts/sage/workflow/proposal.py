@@ -21,6 +21,7 @@ _COMMAND_BOUNDARIES = {
     "stage": ("git", "add"),
     "commit": ("git", "commit"),
     "push": ("git", "push"),
+    "routine-git-lifecycle": ("python3", "scripts/sage/sage-routine-git-lifecycle.py"),
     "branch-delete": ("git", "branch"),
     "tag": ("git", "tag"),
     "other-git-mutation": ("git",),

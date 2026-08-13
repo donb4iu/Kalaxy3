@@ -19,17 +19,23 @@ The executor uses `scripts/sage/workflows/operating_contract.py` and preserves i
 7. Reconcile evidence indexes only through the fixed repository `sage-index.py reconcile` path when the proposal declares generated evidence paths.
 8. Run changed-path SAGE discovery and the proposal's shell-free SAGE validation targets.
 9. Scan proposed Python source through the repository Git/GitHub/credential/deployment safety guardrail.
-10. Emit one non-executed operator proposal for the exact Git staging boundary.
+10. Emit one non-executed operator proposal. When the feature branch has a synchronized upstream and live remote `main` still matches the captured authority, the proposal is the one-approval `routine-git-lifecycle` controller boundary; otherwise request execution fails closed rather than silently broadening authority.
 
-After the operator executes a proposal and returns the complete result, SAGE resumes through the mandatory post-operator sequence rather than handing control back to ad hoc instructions:
+The **routine Git lifecycle** is the ordinary one-approval path after validation. For ordinary validated changes, the operator executes one checksum-bound `routine-git-lifecycle` proposal. That one approval invokes the exact tracked repository controller at `scripts/sage/sage-routine-git-lifecycle.py`, which delegates mutation only to `scripts/sage/workflows/routine_git_lifecycle.py` and `git.repository.commit_and_push`. Before any mutation the controller re-verifies the feature branch, approved HEAD, exact declared paths, synchronized upstream and remote feature branch, frozen remote `main`, pass-only validation receipts, authority/component receipts, and the proposal command digest.
 
-1. Verify the pasted operator result is bound to the exact proposal command and independently verify the resulting Git state through `git.inspect`.
-2. Record directly observed boundary outcomes through `metrics.outcome`, preserving unavailable measurements as null.
-3. Write local evidence closeout through `evidence.closeout`.
-4. Only after those three steps pass, emit the next deterministic operator proposal: stage → commit → push.
-5. After push verification confirms the branch is clean and equal to its upstream, mark the repository Git lifecycle complete. No further mutation boundary is emitted automatically.
+The bounded controller performs exactly stage → commit → push. It does not create or switch branches, merge, rebase, reset, delete refs, mutate GitHub, inherit credential variables, or mutate deployment state. It records a local controller receipt and event log.
 
-The proposal package declares the single-line commit message and push remote used by that deterministic lifecycle. Pasted operator output is untrusted evidence: SAGE hashes it, records no raw output in closeout, and verifies repository state independently.
+After the operator returns the complete controller result, SAGE resumes through the mandatory post-operator sequence:
+
+1. Bind the pasted result to the exact active proposal command and independently inspect the resulting Git state through `git.inspect`.
+2. Prove exactly one commit descends directly from the approved HEAD, the committed path delta equals the declared scope, the working tree is clean, local HEAD equals its upstream, and the remote feature branch equals that same commit.
+3. Record directly observed outcomes through `metrics.outcome`, preserving unavailable measurements as null.
+4. Write local evidence closeout through `evidence.closeout`.
+5. Mark the repository Git lifecycle complete. No additional stage, commit, or push approval is emitted.
+
+The legacy deterministic stage → commit → push continuation remains available only as a compatibility path for already-open request-execution states. New ordinary request execution uses the one-approval routine lifecycle and fails closed when its authority prerequisites are not satisfied.
+
+The proposal package declares the single-line commit message and `origin` push remote used by that deterministic lifecycle. Pasted operator output remains untrusted evidence: SAGE hashes it, records no raw output in closeout, and verifies repository state independently.
 
 The transaction commits only after all validation and safety checks pass and the operator proposal has been written. Any unexpected failure triggers rollback of the declared repository content before closeout and requires failure retrieval and diagnosis before retry.
 
@@ -44,7 +50,7 @@ A proposal ZIP contains exactly `sage-proposal.json` plus `payload/<repository-r
 - evidence references used by the proposal;
 - required capabilities and explicit repository component candidates;
 - `new_primitive_required=false` for this composition;
-- a one-line commit message and validated push remote for the deterministic stage → commit → push operator plan; and
+- a one-line commit message and validated `origin` push remote for the bounded one-approval stage → commit → push controller; and
 - shell-free validation commands restricted to non-mutating `make sage-*` targets.
 
 Unknown archive files, path traversal, symlinks, duplicate paths, stale digests, request mismatch, branch/HEAD mismatch, unregistered component versions, unsafe validation targets, unsafe Python source, unresolved capability selection, or changed-path scope drift fail closed.
@@ -53,7 +59,7 @@ Unknown archive files, path traversal, symlinks, duplicate paths, stale digests,
 
 SAGE owns discovery, authority reconciliation, component selection, capability-gap gating, atomic application, validation, safety analysis, failure diagnosis, and construction of the operator proposal. Human or model expertise can propose content, rationale, alternatives, evidence references, and capabilities, but cannot convert those claims into authority by putting them in the package.
 
-The executor performs **no Git mutation**, **no GitHub mutation**, and **no deployment mutation**. It may change only declared repository content atomically. Every generated Git command is a single non-executed operator proposal. The operator reviews and runs exactly one proposal, returns the complete output, and SAGE must complete post-operator verification, outcome metrics, and evidence closeout before it can emit the next boundary.
+The request executor itself performs **no Git mutation**, **no GitHub mutation**, and **no deployment mutation**. It may change only declared repository content atomically. For ordinary validated changes it emits one non-executed command proposal that invokes the exact repository-owned routine Git controller. The operator's execution of that one proposal is the explicit approval for the bounded stage/commit/push lifecycle. SAGE must then complete independent post-operator verification, outcome metrics, and evidence closeout before the request is complete.
 
 ## Canonical request planning
 

@@ -183,7 +183,7 @@ def validate_operator_result(value: object, proposal: Mapping[str, Any]) -> dict
 def next_operator_boundary(boundary: str) -> str | None:
     """Return the next deterministic Git boundary after successful verification."""
 
-    order = {"stage": "commit", "commit": "push", "push": None}
+    order = {"routine-git-lifecycle": None, "stage": "commit", "commit": "push", "push": None}
     if boundary not in order:
         raise ProposalError(f"request execution cannot continue unsupported boundary: {boundary}")
     return order[boundary]

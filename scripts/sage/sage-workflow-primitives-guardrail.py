@@ -225,8 +225,8 @@ def validate_registry(payload: dict[str, Any]) -> list[str]:
         ),
         None,
     )
-    if not isinstance(operator_entry, dict) or operator_entry.get("version") != "1.1.0":
-        failures.append("operator.git-proposal version must be 1.1.0")
+    if not isinstance(operator_entry, dict) or operator_entry.get("version") != "1.2.0":
+        failures.append("operator.git-proposal version must be 1.2.0")
 
     safety_entry = next(
         (
@@ -386,6 +386,8 @@ def validate_sources() -> list[str]:
             "browser-review",
             "github-browser",
             "mutation_performed_by_helper",
+            "routine-git-lifecycle",
+            "sage-routine-git-lifecycle.py",
         ),
         "safety.py": (
             "GIT-MUTATION",
@@ -662,6 +664,8 @@ def validate_docs_and_authority() -> list[str]:
             "sage-workflow-primitives.json",
             "scripts/sage/workflow/",
             "scripts/sage/workflows/",
+            "scripts/sage/workflows/routine_git_lifecycle.py",
+            "scripts/sage/sage-routine-git-lifecycle.py",
             "scripts/sage/sage-workflow-primitives-self-test.py",
             "scripts/sage/sage-workflow-primitives-guardrail.py",
             "scripts/sage/sage-workflow-usage.py",
