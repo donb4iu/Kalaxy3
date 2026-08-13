@@ -26,6 +26,8 @@ WORKFLOW_PATH = "scripts/sage/workflows/request_execution.py"
 DOMAIN_PATH = "scripts/sage/request_execution.py"
 CLI_PATH = "scripts/sage/sage-request-execute.py"
 GUARDRAIL_PATH = "scripts/sage/sage-request-execution-guardrail.py"
+ROUTINE_CONTROLLER_PATH = "scripts/sage/workflows/routine_git_lifecycle.py"
+ROUTINE_CLI_PATH = "scripts/sage/sage-routine-git-lifecycle.py"
 PROCESS_PATH = "markdown/standards/kalaxy3-sage-request-execution-process.md"
 SCHEMA_PATH = "markdown/standards/sage-request-execution-proposal-schema-v1.0.json"
 REQUIRED_PATHS = {
@@ -35,6 +37,8 @@ REQUIRED_PATHS = {
     GUARDRAIL_PATH,
     PROCESS_PATH,
     SCHEMA_PATH,
+    ROUTINE_CONTROLLER_PATH,
+    ROUTINE_CLI_PATH,
 }
 SHA256_PATTERN = r"^[0-9a-f]{64}$"
 GIT_OBJECT_ID_PATTERN = r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
@@ -63,6 +67,8 @@ WORKFLOW_MARKERS = (
     "outcome_metrics_action",
     "evidence_closeout_action",
     "continue_request",
+    "routine-git-lifecycle",
+    "base_main_head",
     'argv=("python3", "scripts/sage/sage-index.py", "reconcile")',
     'argv=("python3", "-S", "scripts/sage/sage-failure-retrieval-gate.py"',
 )
@@ -78,6 +84,8 @@ PROCESS_MARKERS = (
     "post-operator",
     "metrics.outcome",
     "evidence.closeout",
+    "one-approval",
+    "routine Git lifecycle",
     "stage → commit → push",
     "no Git",
     "no GitHub",
@@ -159,7 +167,7 @@ def source_failures() -> list[str]:
             failures.append(f"request-execution workflow marker missing: {marker}")
     if "subprocess" in workflow:
         failures.append("request-execution workflow imports or references subprocess")
-    paths = tuple(ROOT / path for path in (WORKFLOW_PATH, DOMAIN_PATH, CLI_PATH, GUARDRAIL_PATH))
+    paths = tuple(ROOT / path for path in (WORKFLOW_PATH, DOMAIN_PATH, CLI_PATH, GUARDRAIL_PATH, ROUTINE_CONTROLLER_PATH, ROUTINE_CLI_PATH))
     violations = GitSafetyGuardrail.scan_paths(paths)
     failures.extend(item.render() for item in violations)
     return failures
@@ -272,6 +280,7 @@ def main() -> int:
     print("PASS untrusted checksum-bound proposal package")
     print("PASS exact authority, component, gap, validation, and safety boundaries")
     print("PASS atomic rollback and one operator Git proposal")
+    print("PASS one-approval routine Git lifecycle with legacy stage/commit/push fallback")
     print("PASS Python payload runtime-name validation precedes repository writes")
     print("PASS mandatory post-operator verification, metrics, closeout, and deterministic continuation")
     print("PASS Make, authority, process, schema, and negative-test integration")

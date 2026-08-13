@@ -1,7 +1,7 @@
 {
     "schema_version": "1.0",
     "policy_id": "kalaxy3-sage-operating-contract",
-    "policy_version": "1.0.0",
+    "policy_version": "1.1.0",
     "status": "root-enforcement-staged",
     "standard_path": "markdown/standards/kalaxy3-sage-operating-contract.md",
     "contracts": {
@@ -135,7 +135,15 @@
         "read_only_post_verification_required": true,
         "next_boundary_blocked_until_verified": true,
         "helper_execution_of_proposed_command_forbidden": true,
-        "root_composition_required": true
+        "root_composition_required": true,
+        "bounded_routine_git_lifecycle_allowed": true,
+        "routine_git_lifecycle_boundary": "routine-git-lifecycle",
+        "routine_git_lifecycle_actions": [
+            "stage",
+            "commit",
+            "push"
+        ],
+        "routine_git_lifecycle_requires_exact_authority": true
     },
     "metrics_policy": {
         "raw_before_derived": true,
@@ -237,5 +245,23 @@
             "readiness_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/root-enforcement-readiness.json"
         },
         "evidence_publication_mode": "split"
+    },
+    "trusted_operator_controller_policy": {
+        "routine_git_lifecycle_path": "scripts/sage/workflows/routine_git_lifecycle.py",
+        "operator_approval_required": true,
+        "allowed_git_primitive": "git.repository",
+        "allowed_git_methods": [
+            "commit_and_push"
+        ],
+        "feature_branch_only": true,
+        "exact_declared_paths_required": true,
+        "expected_head_required": true,
+        "remote_main_must_match_base_head": true,
+        "github_mutation_allowed": false,
+        "deployment_mutation_allowed": false,
+        "credential_inheritance_allowed": false,
+        "direct_git_command_allowed": false,
+        "helper_execution_allowed": false,
+        "read_only_post_verification_required": true
     }
 }

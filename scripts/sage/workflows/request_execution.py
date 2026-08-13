@@ -83,6 +83,7 @@ class ExecutionContext:
     writer: AtomicFileWriter
     discovery: Any = None
     git_snapshot: Any = None
+    remote_main_head: str | None = None
     authority_path: Path | None = None
     component_path: Path | None = None
     gap_path: Path | None = None
@@ -165,14 +166,26 @@ def discovery_action(context: ExecutionContext) -> Mapping[str, Any]:
 
 
 def git_action(context: ExecutionContext) -> Mapping[str, Any]:
-    """Require exact clean branch and proposal-bound HEAD."""
+    """Require exact clean branch, proposal-bound HEAD, and live main authority."""
 
     repository = context.bundle.manifest["repository"]
     context.inspector.require_clean()
     context.inspector.require_branch(str(repository["branch"]))
     context.inspector.require_head(str(repository["head"]))
     context.git_snapshot = context.inspector.snapshot()
-    return context.git_snapshot.as_dict()
+    context.remote_main_head = context.inspector.remote_head("origin", "main")
+    if not context.inspector.is_ancestor(
+        context.remote_main_head,
+        context.git_snapshot.head,
+    ):
+        raise WorkflowError(
+            "Feature branch HEAD is not based on current remote main authority: "
+            f"main={context.remote_main_head}, head={context.git_snapshot.head}"
+        )
+    return {
+        **context.git_snapshot.as_dict(),
+        "remote_main_head": context.remote_main_head,
+    }
 
 
 def authority_assertions(context: ExecutionContext, captured: str) -> tuple[AuthorityAssertion, ...]:
@@ -194,6 +207,7 @@ def authority_assertions(context: ExecutionContext, captured: str) -> tuple[Auth
         AuthorityAssertion("ASSERT-003", "github", "repository-policy", "sage-operating-contract-policy.json#helper_policy", subject="GitHub mutation boundary", statement="SAGE request execution may not mutate GitHub; an operator boundary is required.", measurement_type="declared", evidence_sha256=sha256_file(policy), **common),
         AuthorityAssertion("ASSERT-004", "repository-policy", "repository", "markdown/standards/kalaxy3-sage-operating-contract.md", subject="repository mutation policy", statement="Repository content may be changed atomically and validated before one operator-executed Git proposal.", measurement_type="declared", evidence_sha256=sha256_file(standard), **common),
         AuthorityAssertion("ASSERT-005", "sage", "repository", "sage-change-authority.json", subject="SAGE discovery authority", statement="The literal request was classified through current repository SAGE discovery and its authoritative files were readable.", measurement_type="measured", evidence_sha256=discovery_digest, **common),
+        AuthorityAssertion("ASSERT-006", "git", "git", f"origin/main:{context.remote_main_head}", subject="remote main authority", statement=f"Live origin/main is {context.remote_main_head} and is an ancestor of the active feature HEAD.", measurement_type="measured", evidence_sha256=hashlib.sha256(str(context.remote_main_head).encode()).hexdigest(), **common),
     )
 
 
@@ -507,25 +521,56 @@ def no_failure_action() -> Mapping[str, str]:
 
 
 def proposal_action(context: ExecutionContext) -> Mapping[str, Any]:
-    """Produce one non-executed exact-scope Git staging proposal."""
+    """Produce one exact-scope routine Git lifecycle proposal when authority permits."""
 
     snapshot = context.inspector.snapshot()
+    plan = context.bundle.manifest["operator_plan"]
+    branch = snapshot.branch
+    if context.remote_main_head is None:
+        raise WorkflowError("routine Git lifecycle main authority is missing")
+    if snapshot.upstream_head is None:
+        raise WorkflowError(
+            "routine Git lifecycle requires an existing synchronized feature-branch upstream"
+        )
+    if snapshot.upstream_head != snapshot.head:
+        raise WorkflowError(
+            "routine Git lifecycle requires local HEAD to equal the feature-branch upstream"
+        )
+    if context.inspector.remote_head(str(plan["push_remote"]), branch) != snapshot.head:
+        raise WorkflowError("routine Git lifecycle remote feature branch authority drifted")
+    if context.inspector.remote_head(str(plan["push_remote"]), "main") != context.remote_main_head:
+        raise WorkflowError("routine Git lifecycle remote main authority changed during validation")
+
+    context.proposal_path = context.state_dir / "operator-git-proposal.json"
+    state_path = context.state_dir / "request-execution-state.json"
     payload = OperatorGitProposal.build(
         proposal_id=f"SAGE-GIT-{datetime.now().strftime('%Y%m%d')}-801",
         controller="sage-request-execution",
         repository=snapshot,
         authority_receipt=str(context.authority_path),
         component_manifest=str(context.component_path),
-        boundary="stage",
+        boundary="routine-git-lifecycle",
         change_scope=context.bundle.declared_paths,
         validation=context.validation,
-        command_argv=("git", "add", "--", *context.bundle.declared_paths),
-        expected_result="Exactly the declared request-execution paths become staged on the active feature branch.",
-        risk="Repository-content changes remain local and reviewable; SAGE executes no Git, GitHub, credential, or deployment mutation.",
-        rollback="Do not execute the proposal, or restore the declared paths from Git after operator review.",
-        post_command_verification=("git branch --show-current", "git status --porcelain=v1 --untracked-files=all"),
+        command_argv=(
+            "python3",
+            "scripts/sage/sage-routine-git-lifecycle.py",
+            "--state",
+            str(state_path),
+            "--proposal",
+            str(context.proposal_path),
+            "--apply",
+        ),
+        expected_result="One explicitly approved repository-owned controller stages exactly the declared paths, creates exactly one commit, pushes the feature branch, and records a deterministic receipt.",
+        risk="The approved command performs bounded Git stage/commit/push mutation on the declared feature branch only; GitHub, credential, deployment, branch-management, merge, rebase, reset, and ref-deletion mutation remain prohibited.",
+        rollback="Do not execute the proposal; after execution any commit or remote rollback requires a separately governed operator boundary.",
+        post_command_verification=(
+            "git branch --show-current",
+            "git status --porcelain=v1 --untracked-files=all",
+            "git rev-parse HEAD",
+            "git rev-parse @{upstream}",
+        ),
     )
-    context.proposal_path = context.state_dir / "operator-git-proposal.json"
     OperatorGitProposal.write(context.proposal_path, payload, context.writer)
     return payload
 
@@ -615,6 +660,7 @@ def write_execution_state(
         "proposal_package_sha256": sha256_file(context.bundle.package_path),
         "repository_branch": str(context.bundle.manifest["repository"]["branch"]),
         "base_head": str(context.bundle.manifest["repository"]["head"]),
+        "base_main_head": str(context.remote_main_head),
         "declared_paths": list(context.bundle.declared_paths),
         "authority_receipt": str(context.authority_path),
         "component_manifest": str(context.component_path),
@@ -644,6 +690,7 @@ def load_state(path: Path) -> dict[str, Any]:
         "proposal_package_sha256",
         "repository_branch",
         "base_head",
+        "base_main_head",
         "declared_paths",
         "authority_receipt",
         "component_manifest",
@@ -654,7 +701,12 @@ def load_state(path: Path) -> dict[str, Any]:
         "current_proposal",
         "history",
     }
-    if set(payload) != required:
+    legacy_required = required - {"base_main_head"}
+    boundary = payload.get("current_boundary")
+    fields = set(payload)
+    if fields != required and not (
+        fields == legacy_required and boundary in {"stage", "commit", "push"}
+    ):
         raise WorkflowError("request execution state fields are invalid")
     if payload.get("schema_version") != "1.0" or payload.get("record_type") != "sage-request-execution-state":
         raise WorkflowError("request execution state version/type mismatch")
@@ -664,6 +716,12 @@ def load_state(path: Path) -> dict[str, Any]:
     package = Path(str(payload.get("proposal_package", ""))).expanduser().resolve()
     if not package.is_file() or sha256_file(package) != payload.get("proposal_package_sha256"):
         raise WorkflowError("request execution state proposal-package digest mismatch")
+    base_main_head = payload.get("base_main_head")
+    if base_main_head is not None and (
+        not isinstance(base_main_head, str)
+        or re.fullmatch(r"[0-9a-f]{40}", base_main_head) is None
+    ):
+        raise WorkflowError("request execution state base_main_head is invalid")
     paths = payload.get("declared_paths")
     if not isinstance(paths, list) or not paths or not all(isinstance(item, str) and item for item in paths):
         raise WorkflowError("request execution state declared_paths are invalid")
@@ -764,7 +822,32 @@ def verify_operator_result_action(context: ContinuationContext) -> Mapping[str, 
         raise WorkflowError("operator proposal repository authority is missing")
     expected_head = str(repository.get("head", ""))
     context.inspector.require_branch(expected_branch)
-    if boundary == "stage":
+    if boundary == "routine-git-lifecycle":
+        context.inspector.require_clean()
+        current_head = context.inspector.head()
+        if current_head == expected_head:
+            raise WorkflowError("routine Git lifecycle did not advance HEAD")
+        history = context.inspector.run_read_only(
+            ("rev-list", "--parents", f"{expected_head}..{current_head}"),
+            label="Verify routine Git lifecycle single-commit topology",
+        )
+        rows = [line.split() for line in history.stdout.splitlines() if line]
+        if rows != [[current_head, expected_head]]:
+            raise WorkflowError(
+                "routine Git lifecycle did not create exactly one commit from the approved HEAD"
+            )
+        changed = context.inspector.diff_paths(expected_head, current_head)
+        if changed != set(declared):
+            raise WorkflowError(
+                f"routine Git lifecycle committed path mismatch: expected={sorted(declared)}, observed={sorted(changed)}"
+            )
+        context.inspector.require_upstream_equal()
+        plan = context.state["operator_plan"]
+        remote = str(plan["push_remote"])
+        if context.inspector.remote_head(remote, expected_branch) != current_head:
+            raise WorkflowError("routine Git lifecycle remote feature branch does not equal local HEAD")
+        snapshot = context.inspector.snapshot()
+    elif boundary == "stage":
         context.inspector.require_head(expected_head)
         context.inspector.require_exact_paths(declared)
         staged = context.inspector.staged_paths()
@@ -839,14 +922,14 @@ def raw_boundary_metrics(boundary: str) -> dict[str, int | float | None]:
         "known_failures_recurred": None,
         "mutation_opportunities": 1,
         "failures_detected_pre_mutation": None,
-        "authoritative_repository_git_mutations": 1,
+        "authoritative_repository_git_mutations": 3 if boundary == "routine-git-lifecycle" else 1,
         "disposable_fixture_git_mutations": 0,
         "github_mutations": 0,
         "deployment_mutations": 0,
         "avoidable_rework_minutes": None,
         "prompt_to_validated_change_minutes": None,
     }
-    if boundary not in {"stage", "commit", "push"}:
+    if boundary not in {"routine-git-lifecycle", "stage", "commit", "push"}:
         raise WorkflowError(f"unsupported metrics boundary: {boundary}")
     return raw
 

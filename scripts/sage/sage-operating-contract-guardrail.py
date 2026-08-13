@@ -124,6 +124,26 @@ def validate_policy(payload: Mapping[str, Any]) -> list[str]:
     if helper.get("read_only_git_inspection_allowed") is not True:
         failures.append("helper policy must allow read-only Git inspection")
 
+    trusted = payload.get("trusted_operator_controller_policy", {})
+    expected_trusted = {
+        "routine_git_lifecycle_path": "scripts/sage/workflows/routine_git_lifecycle.py",
+        "operator_approval_required": True,
+        "allowed_git_primitive": "git.repository",
+        "allowed_git_methods": ["commit_and_push"],
+        "feature_branch_only": True,
+        "exact_declared_paths_required": True,
+        "expected_head_required": True,
+        "remote_main_must_match_base_head": True,
+        "github_mutation_allowed": False,
+        "deployment_mutation_allowed": False,
+        "credential_inheritance_allowed": False,
+        "direct_git_command_allowed": False,
+        "helper_execution_allowed": False,
+        "read_only_post_verification_required": True,
+    }
+    if trusted != expected_trusted:
+        failures.append("trusted routine Git controller policy drifted")
+
     mutation = payload.get("operator_mutation_policy", {})
     for field in (
         "operator_executed",
@@ -133,9 +153,15 @@ def validate_policy(payload: Mapping[str, Any]) -> list[str]:
         "next_boundary_blocked_until_verified",
         "helper_execution_of_proposed_command_forbidden",
         "root_composition_required",
+        "bounded_routine_git_lifecycle_allowed",
+        "routine_git_lifecycle_requires_exact_authority",
     ):
         if mutation.get(field) is not True:
             failures.append(f"operator mutation policy must enable {field}")
+    if mutation.get("routine_git_lifecycle_boundary") != "routine-git-lifecycle":
+        failures.append("routine Git lifecycle boundary identifier drifted")
+    if mutation.get("routine_git_lifecycle_actions") != ["stage", "commit", "push"]:
+        failures.append("routine Git lifecycle action scope drifted")
 
     validation = payload.get("validation_policy", {})
     if validation.get("root_guardrail_required") is not True:

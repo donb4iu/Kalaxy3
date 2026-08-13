@@ -136,6 +136,7 @@ def self_test() -> int:
         )
         from workflows.request_execution import (  # noqa: PLC0415
             capture_python_safety_baseline,
+            load_state,
             safety_action,
             validate_python_payloads,
         )
@@ -365,8 +366,75 @@ def self_test() -> int:
         observed = validate_operator_result(operator_result, operator_proposal)
         if observed["complete_output_sha256"] != digest(b""):
             raise RuntimeError("operator-result output digest mismatch")
-        if [next_operator_boundary(item) for item in ("stage", "commit", "push")] != ["commit", "push", None]:
+        if [next_operator_boundary(item) for item in ("routine-git-lifecycle", "stage", "commit", "push")] != [None, "commit", "push", None]:
             raise RuntimeError("operator continuation boundary sequence mismatch")
+
+        legacy_state = {
+            "schema_version": "1.0",
+            "record_type": "sage-request-execution-state",
+            "request": request,
+            "request_sha256": hashlib.sha256(
+                request.encode("utf-8")
+            ).hexdigest(),
+            "proposal_package": str(positive),
+            "proposal_package_sha256": hashlib.sha256(
+                positive.read_bytes()
+            ).hexdigest(),
+            "repository_branch": "feature/fixture",
+            "base_head": "0" * 40,
+            "declared_paths": ["fixture.txt"],
+            "authority_receipt": "authority.json",
+            "component_manifest": "components.json",
+            "capability_gap_decision": "gap.json",
+            "validation": [],
+            "operator_plan": {
+                "commit_message": "Fixture request execution",
+                "push_remote": "origin",
+            },
+            "current_boundary": "stage",
+            "current_proposal": "operator-git-proposal.json",
+            "history": [],
+        }
+        legacy_path = root / "legacy-stage-state.json"
+        legacy_path.write_text(
+            json.dumps(legacy_state, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        loaded_legacy = load_state(legacy_path)
+        if "base_main_head" in loaded_legacy:
+            raise RuntimeError(
+                "legacy stage state unexpectedly gained main authority"
+            )
+
+        routine_state = dict(legacy_state)
+        routine_state["current_boundary"] = "routine-git-lifecycle"
+        routine_path = root / "routine-state-missing-main.json"
+        routine_path.write_text(
+            json.dumps(routine_state, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        try:
+            load_state(routine_path)
+        except WorkflowError as error:
+            if "state fields are invalid" not in str(error):
+                raise RuntimeError(
+                    f"unexpected routine state rejection: {error}"
+                ) from error
+        else:
+            raise RuntimeError(
+                "routine lifecycle state without base_main_head passed"
+            )
+
+        routine_state["base_main_head"] = "1" * 40
+        routine_path.write_text(
+            json.dumps(routine_state, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        loaded_routine = load_state(routine_path)
+        if loaded_routine.get("base_main_head") != "1" * 40:
+            raise RuntimeError(
+                "routine lifecycle main authority was not preserved"
+            )
     print("PASS exact literal-request binding")
     print("PASS checksum-bound source payload")
     print("PASS Git SHA-1 and SHA-256 object-ID validation")
@@ -377,7 +445,7 @@ def self_test() -> int:
     print("PASS introduced Git and GitHub safety findings rejected before repository mutation")
     print("PASS unchanged proposal-bound safety findings remain baseline-only")
     print("PASS newly introduced and new-file unsafe findings fail closed")
-    print("PASS pasted operator-result binding and stage-commit-push continuation")
+    print("PASS pasted operator-result binding, one-approval routine lifecycle, and legacy stage-commit-push continuation")
     print("Kalaxy3 SAGE request execution self-test: PASS")
     return 0
 

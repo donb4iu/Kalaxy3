@@ -9,17 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-_READ_ONLY_GIT = {
-    ("git", "branch", "--show-current"),
-    ("git", "status", "--porcelain=v1", "--untracked-files=all"),
-    ("git", "diff", "--name-only"),
-    ("git", "diff", "--cached", "--name-only"),
-    ("git", "diff", "--check"),
-    ("git", "diff", "--cached", "--check"),
-    ("git", "ls-files", "--others", "--exclude-standard"),
-    ("git", "rev-parse", "HEAD"),
-    ("git", "rev-parse", "@{upstream}"),
-}
+from .git_inspect import is_read_only_git_arguments
+
 _MUTATING_GIT = {
     "add",
     "am",
@@ -61,6 +52,8 @@ _GIT_REPOSITORY_MUTATORS = {
 _HTTP_CLIENT_IMPORTS = {"http.client", "requests", "urllib", "urllib.request"}
 _GITHUB_HOST_MARKER = "github.com"
 _TRUSTED_GITHUB_INSPECTOR_SUFFIX = "scripts/sage/workflow/github_inspect.py"
+_TRUSTED_ROUTINE_GIT_CONTROLLER_SUFFIX = "scripts/sage/workflows/routine_git_lifecycle.py"
+_TRUSTED_ROUTINE_GIT_MUTATORS = {"commit_and_push"}
 
 
 @dataclass(frozen=True)
@@ -81,6 +74,14 @@ class GitSafetyGuardrail:
     def _is_trusted_github_inspector(path: Path) -> bool:
         normalized = path.expanduser().as_posix()
         return normalized == _TRUSTED_GITHUB_INSPECTOR_SUFFIX or normalized.endswith("/" + _TRUSTED_GITHUB_INSPECTOR_SUFFIX)
+
+    @staticmethod
+    def _is_trusted_routine_git_controller(path: Path) -> bool:
+        normalized = path.expanduser().as_posix()
+        return (
+            normalized == _TRUSTED_ROUTINE_GIT_CONTROLLER_SUFFIX
+            or normalized.endswith("/" + _TRUSTED_ROUTINE_GIT_CONTROLLER_SUFFIX)
+        )
 
     @staticmethod
     def _http_imports(tree: ast.AST) -> set[str]:
@@ -179,7 +180,7 @@ class GitSafetyGuardrail:
         fixture_allowed = allow_fixture_mutation and cls._is_temp_fixture(path, fixture_root)
         command = argv[0]
         if command == "git":
-            if argv in _READ_ONLY_GIT:
+            if is_read_only_git_arguments(argv[1:]):
                 return []
             subcommand = argv[1] if len(argv) > 1 else ""
             if fixture_allowed and subcommand in _MUTATING_GIT:
@@ -230,6 +231,7 @@ class GitSafetyGuardrail:
         tree = ast.parse(source, filename=str(path))
         violations: list[GitSafetyViolation] = []
         fixture_allowed = allow_fixture_mutation and cls._is_temp_fixture(path, fixture_root)
+        trusted_routine_git = cls._is_trusted_routine_git_controller(path)
 
         if not fixture_allowed and not cls._is_trusted_github_inspector(path):
             imports_observed = cls._http_imports(tree)
@@ -266,7 +268,11 @@ class GitSafetyGuardrail:
                         )
                     )
                 for alias in node.names:
-                    if alias.name == "GitRepository" and not fixture_allowed:
+                    if (
+                        alias.name == "GitRepository"
+                        and not fixture_allowed
+                        and not trusted_routine_git
+                    ):
                         violations.append(
                             GitSafetyViolation(
                                 str(path), node.lineno, "MIXED-GIT-AUTHORITY",
@@ -275,13 +281,18 @@ class GitSafetyGuardrail:
                         )
             elif isinstance(node, ast.Call):
                 name = cls._call_name(node)
-                if name.split(".")[-1] in _GIT_REPOSITORY_MUTATORS and not fixture_allowed:
-                    violations.append(
-                        GitSafetyViolation(
-                            str(path), node.lineno, "GIT-MUTATION-API",
-                            f"prohibited mutation method {name}",
+                mutator = name.split(".")[-1]
+                if mutator in _GIT_REPOSITORY_MUTATORS and not fixture_allowed:
+                    if not (
+                        trusted_routine_git
+                        and mutator in _TRUSTED_ROUTINE_GIT_MUTATORS
+                    ):
+                        violations.append(
+                            GitSafetyViolation(
+                                str(path), node.lineno, "GIT-MUTATION-API",
+                                f"prohibited mutation method {name}",
+                            )
                         )
-                    )
                 argv = cls._command_from_call(node)
                 if argv is not None:
                     violations.extend(

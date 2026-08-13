@@ -44,6 +44,8 @@ from workflow import (  # noqa: E402
     WorkflowError,
 )
 
+from workflows.routine_git_lifecycle import run_controller  # noqa: E402
+
 
 def fixture_command(
     *args: str,
@@ -451,6 +453,121 @@ def test_git_and_lifecycle_runtime(root: Path) -> None:
 
 
 
+def test_routine_git_lifecycle_controller(root: Path) -> None:
+    fixture_root = root / "routine-controller"
+    fixture_root.mkdir()
+    _, work = prepare_git_repository(fixture_root)
+    (work / "README.md").write_text("baseline\n", encoding="utf-8")
+    (work / "sage-workflow-primitives.json").write_bytes(
+        (ROOT / "sage-workflow-primitives.json").read_bytes()
+    )
+    fixture_command("git", "add", ".", cwd=work)
+    fixture_command("git", "commit", "-m", "baseline", cwd=work)
+    fixture_command("git", "push", "-u", "origin", "main", cwd=work)
+    base_main = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=work,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    fixture_command("git", "switch", "-c", "feature/routine-controller", cwd=work)
+    fixture_command(
+        "git",
+        "push",
+        "-u",
+        "origin",
+        "feature/routine-controller",
+        cwd=work,
+    )
+    (work / "README.md").write_text("baseline\nroutine\n", encoding="utf-8")
+
+    state_dir = fixture_root / "state"
+    state_dir.mkdir()
+    state_path = state_dir / "request-execution-state.json"
+    proposal_path = state_dir / "operator-git-proposal.json"
+    validation = [
+        {
+            "label": "Fixture validation",
+            "reference": "fixture",
+            "status": "pass",
+            "sha256": None,
+        }
+    ]
+    logger = JsonlEventLogger(
+        fixture_root / "proposal-events.jsonl",
+        "routine-controller-proposal-self-test",
+    )
+    runner = CommandRunner(logger, allowed_roots=(fixture_root,))
+    snapshot = GitInspector(work, runner).snapshot()
+    proposal = OperatorGitProposal.build(
+        proposal_id="SAGE-GIT-20260812-901",
+        controller="sage-request-execution",
+        repository=snapshot,
+        authority_receipt=str(state_dir / "authority.json"),
+        component_manifest=str(state_dir / "components.json"),
+        boundary="routine-git-lifecycle",
+        change_scope=("README.md",),
+        validation=validation,
+        command_argv=(
+            "python3",
+            "scripts/sage/sage-routine-git-lifecycle.py",
+            "--state",
+            str(state_path.resolve()),
+            "--proposal",
+            str(proposal_path.resolve()),
+            "--apply",
+        ),
+        expected_result="Fixture routine lifecycle succeeds.",
+        risk="Fixture mutation only.",
+        rollback="Discard fixture.",
+        post_command_verification=("git status --porcelain=v1",),
+    )
+    proposal_path.write_text(json.dumps(proposal, indent=4) + "\n", encoding="utf-8")
+    state = {
+        "record_type": "sage-request-execution-state",
+        "current_boundary": "routine-git-lifecycle",
+        "current_proposal": str(proposal_path.resolve()),
+        "repository_branch": "feature/routine-controller",
+        "base_head": base_main,
+        "base_main_head": base_main,
+        "declared_paths": ["README.md"],
+        "operator_plan": {
+            "commit_message": "exercise routine controller",
+            "push_remote": "origin",
+        },
+        "validation": validation,
+        "authority_receipt": str(state_dir / "authority.json"),
+        "component_manifest": str(state_dir / "components.json"),
+    }
+    state_path.write_text(json.dumps(state, indent=4) + "\n", encoding="utf-8")
+
+    try:
+        run_controller(work, state_path, proposal_path, apply=False)
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("routine Git lifecycle accepted missing operator approval")
+
+    result = run_controller(work, state_path, proposal_path, apply=True)
+    commit = str(result["commit"])
+    if commit == base_main or len(commit) != 40:
+        raise RuntimeError("routine Git lifecycle returned an invalid commit")
+    if result["declared_paths"] != ["README.md"]:
+        raise RuntimeError("routine Git lifecycle receipt path scope drifted")
+    if not Path(str(result["receipt"])).is_file():
+        raise RuntimeError("routine Git lifecycle receipt is missing")
+    remote = subprocess.run(
+        ["git", "ls-remote", "--heads", "origin", "refs/heads/feature/routine-controller"],
+        cwd=work,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.split("\t", 1)[0]
+    if remote != commit:
+        raise RuntimeError("routine Git lifecycle did not publish the exact commit")
+
+
 def test_least_authority_foundations(root: Path) -> None:
     inspect_root = root / "inspect-fixture"
     inspect_root.mkdir()
@@ -466,8 +583,8 @@ def test_least_authority_foundations(root: Path) -> None:
         primitive_versions={
             "git.inspect": "1.2.0",
             "file.atomic-preserve-mode": "1.0.0",
-            "operator.git-proposal": "1.0.0",
-            "git.safety-guardrail": "1.1.0",
+            "operator.git-proposal": "1.2.0",
+            "git.safety-guardrail": "1.2.0",
         },
     )
     runner = CommandRunner(logger, allowed_roots=(root,))
@@ -963,6 +1080,7 @@ def main() -> int:
         root = Path(raw)
         test_runner_and_logging(root)
         test_git_and_lifecycle_runtime(root)
+        test_routine_git_lifecycle_controller(root)
         test_least_authority_foundations(root)
         test_github_inspection(root)
         test_decision_and_diagnosis_primitives()
@@ -973,6 +1091,7 @@ def main() -> int:
 
     print("PASS command execution, timeout, redaction, and version logging")
     print("PASS temporary-remote Git and canonical action lifecycle adapters")
+    print("PASS operator-approved bounded routine Git lifecycle controller")
     print("PASS least-authority Git and GitHub inspection, atomic files, operator proposals, and safety")
     print("PASS authority reconciliation, component selection, capability gaps, and failure diagnosis")
     print("PASS semantic outcome metrics, null preservation, and comparable trends")
