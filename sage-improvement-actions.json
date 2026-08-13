@@ -1120,7 +1120,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -1233,6 +1233,22 @@
                     "actor": "architect",
                     "reason": "Register the Architect-confirmed SAGE intent interpretation, negotiation, semantic confirmation, feasibility, observability-derived capability-gap, governance-exception, and external-documentation composition required by accepted epic SAGE-ACTION-20260811-001.",
                     "evidence_references": [
+                        "action:SAGE-ACTION-20260811-001",
+                        "action:SAGE-ACTION-20260808-001",
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "terminal-session:2026-08-13-sage-intent-negotiation-confirmation-001"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-13T18:32:24-05:00",
+                    "actor": "architect",
+                    "reason": "Accept the Architect-confirmed SAGE intent-understanding, negotiation, feasibility, governance-exception, observability, and external-documentation composition for implementation.",
+                    "evidence_references": [
+                        "action:SAGE-ACTION-20260813-001",
                         "action:SAGE-ACTION-20260811-001",
                         "action:SAGE-ACTION-20260808-001",
                         "lesson:SAGE-LESSON-20260801-001",
