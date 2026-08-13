@@ -35,7 +35,7 @@ from workflow import (
 from workflows.request_planning import derive_component_plan
 
 WORKFLOW_ID = "sage.improvement-action-transition"
-WORKFLOW_VERSION = "1.0.0"
+WORKFLOW_VERSION = "1.1.0"
 REGISTRY_PATH = "sage-improvement-actions.json"
 PRIMITIVES_USED = (
     "catalog.registry",
@@ -65,12 +65,15 @@ SECRET_ENVIRONMENT_NAMES = (
 
 @dataclass
 class TransitionContext:
-    """State for one generic improvement-action lifecycle transition."""
+    """State for one governed improvement-action lifecycle mutation."""
 
     repo: Path
     request: str
     action_id: str
-    to_status: str
+    operation: str
+    to_status: str | None
+    replacement_path: Path | None
+    expected_contract_sha256: str | None
     actor: str
     reason: str
     evidence_references: tuple[str, ...]
@@ -92,6 +95,7 @@ class TransitionContext:
     provenance_path: Path | None = None
     validation: list[dict[str, Any]] = field(default_factory=list)
     transition_status: str | None = None
+    lifecycle_event: dict[str, Any] | None = None
 
 
 def stable_json(value: Mapping[str, Any]) -> str:
@@ -123,7 +127,10 @@ def build_context(
     repo: Path,
     request: str,
     action_id: str,
-    to_status: str,
+    operation: str,
+    to_status: str | None,
+    replacement_path: Path | None,
+    expected_contract_sha256: str | None,
     actor: str,
     reason: str,
     evidence_references: tuple[str, ...],
@@ -131,6 +138,16 @@ def build_context(
     push_remote: str,
 ) -> TransitionContext:
     """Build the primitive-backed least-authority workflow context."""
+
+    if operation not in {"transition", "amendment"}:
+        raise WorkflowError(f"Unsupported action lifecycle operation: {operation}")
+    if operation == "transition" and not to_status:
+        raise WorkflowError("Transition operation requires to_status")
+    if operation == "amendment":
+        if replacement_path is None or not expected_contract_sha256:
+            raise WorkflowError(
+                "Amendment operation requires replacement path and expected contract digest"
+            )
 
     resolved = repo.expanduser().resolve()
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
@@ -160,7 +177,10 @@ def build_context(
         resolved,
         request,
         action_id,
+        operation,
         to_status,
+        replacement_path,
+        expected_contract_sha256,
         actor,
         reason,
         evidence_references,
@@ -185,7 +205,7 @@ def discovery_action(context: TransitionContext) -> Mapping[str, Any]:
     retrieval = context.runner.run(
         CommandSpec(
             primitive_id="command.run",
-            label="Retrieve evidence for improvement-action transition",
+            label="Retrieve evidence for improvement-action lifecycle mutation",
             argv=("make", "sage-evidence-retrieve"),
             cwd=context.repo,
             environment={"SAGE_REQUEST": context.request},
@@ -208,7 +228,7 @@ def git_action(context: TransitionContext) -> Mapping[str, Any]:
     branch = context.inspector.branch()
     if not branch or branch == "main":
         raise WorkflowError(
-            "Improvement-action transitions require an active non-main branch"
+            "Improvement-action lifecycle mutations require an active non-main branch"
         )
     context.inspector.require_upstream_equal()
     context.git_snapshot = context.inspector.snapshot()
@@ -334,7 +354,7 @@ def authority_action(context: TransitionContext) -> Mapping[str, Any]:
 
 
 def component_action(context: TransitionContext) -> Mapping[str, Any]:
-    """Derive transition component semantics from the live repository registry."""
+    """Derive lifecycle-mutation component semantics from the live repository registry."""
 
     if context.authority_path is None:
         raise WorkflowError("Authority reconciliation receipt is missing")
@@ -352,7 +372,7 @@ def component_action(context: TransitionContext) -> Mapping[str, Any]:
             plan.gap_receipt,
         )
         raise WorkflowError(
-            "Existing registered primitives cannot satisfy the transition workflow"
+            "Existing registered primitives cannot satisfy the action lifecycle workflow"
         )
     context.component_path = write_local(
         context,
@@ -379,23 +399,48 @@ def component_action(context: TransitionContext) -> Mapping[str, Any]:
     return plan.selection_manifest
 
 
-def transition_action(context: TransitionContext) -> Mapping[str, Any]:
-    """Run canonical dry-run then explicit lifecycle apply for one action."""
+def lifecycle_action(context: TransitionContext) -> Mapping[str, Any]:
+    """Run canonical dry-run then explicit apply for one lifecycle mutation."""
 
     client = ImprovementActionClient(
         context.inspector,
         context.runner,
     )
-    record = client.transition(
-        action_id=context.action_id,
-        to_status=context.to_status,
-        actor=context.actor,
-        reason=context.reason,
-        evidence_references=context.evidence_references,
-        apply=True,
-    )
+    if context.operation == "transition":
+        if context.to_status is None:
+            raise WorkflowError("Transition target status is missing")
+        record = client.transition(
+            action_id=context.action_id,
+            to_status=context.to_status,
+            actor=context.actor,
+            reason=context.reason,
+            evidence_references=context.evidence_references,
+            apply=True,
+        )
+    else:
+        if (
+            context.replacement_path is None
+            or context.expected_contract_sha256 is None
+        ):
+            raise WorkflowError("Amendment contract inputs are missing")
+        record = client.amend(
+            action_id=context.action_id,
+            replacement_path=context.replacement_path,
+            expected_contract_sha256=context.expected_contract_sha256,
+            actor=context.actor,
+            reason=context.reason,
+            evidence_references=context.evidence_references,
+            apply=True,
+        )
     context.inspector.require_exact_paths((REGISTRY_PATH,))
     context.transition_status = str(record["current_status"])
+    history = record.get("history")
+    if not isinstance(history, list) or not history:
+        raise WorkflowError("Action lifecycle result has no history")
+    event = history[-1]
+    if not isinstance(event, dict):
+        raise WorkflowError("Action lifecycle result event is invalid")
+    context.lifecycle_event = event
     return record
 
 
@@ -452,7 +497,7 @@ def proposal_id(context: TransitionContext) -> str:
     """Build one deterministic valid proposal suffix."""
 
     digest = hashlib.sha256(
-        f"{context.action_id}:{context.to_status}".encode("utf-8")
+        f"{context.action_id}:{context.operation}:{context.to_status or context.expected_contract_sha256}".encode("utf-8")
     ).hexdigest()
     suffix = int(digest[:8], 16) % 1000
     return (
@@ -467,11 +512,11 @@ def proposal_action(context: TransitionContext) -> Mapping[str, Any]:
 
     if context.authority_path is None or context.component_path is None:
         raise WorkflowError(
-            "Transition authority/component receipts are missing"
+            "Lifecycle authority/component receipts are missing"
         )
     payload = OperatorGitProposal.build(
         proposal_id=proposal_id(context),
-        controller="sage-improvement-action-transition",
+        controller="sage-improvement-action-lifecycle",
         repository=context.inspector.snapshot(),
         authority_receipt=str(context.authority_path),
         component_manifest=str(context.component_path),
@@ -521,24 +566,27 @@ def continuation_state_action(
         or context.git_snapshot is None
     ):
         raise WorkflowError(
-            "Transition continuation receipts are incomplete"
+            "Lifecycle continuation receipts are incomplete"
         )
     provenance = {
         "schema_version": "1.0",
-        "record_type": "sage-improvement-action-transition-provenance",
+        "record_type": "sage-improvement-action-lifecycle-provenance",
         "workflow_version": WORKFLOW_VERSION,
         "request": context.request,
         "request_sha256": request_sha256(context.request),
         "action_id": context.action_id,
+        "operation": context.operation,
         "to_status": context.to_status,
+        "expected_contract_sha256": context.expected_contract_sha256,
         "actor": context.actor,
         "reason": context.reason,
         "evidence_references": list(context.evidence_references),
         "resulting_status": context.transition_status,
+        "lifecycle_event": context.lifecycle_event,
     }
     context.provenance_path = write_local(
         context,
-        "transition-provenance.json",
+        "lifecycle-provenance.json",
         provenance,
     )
     state = {
@@ -575,7 +623,7 @@ def continuation_state_action(
 
 
 def action_map(context: TransitionContext) -> dict[str, Any]:
-    """Return the generic transition composition actions."""
+    """Return the shared lifecycle-mutation composition actions."""
 
     results: dict[str, Any] = {}
 
@@ -597,7 +645,7 @@ def action_map(context: TransitionContext) -> dict[str, Any]:
         "inspect": lambda: git_action(context),
         "authority": lambda: authority_action(context),
         "components": lambda: component_action(context),
-        "transition": lambda: transition_action(context),
+        "lifecycle": lambda: lifecycle_action(context),
         "validation": lambda: validation_action(context),
         "proposal": propose,
         "continuation": state,
@@ -605,7 +653,7 @@ def action_map(context: TransitionContext) -> dict[str, Any]:
 
 
 def workflow_for(context: TransitionContext) -> Workflow:
-    """Build the thin registered transition workflow."""
+    """Build the shared registered action-lifecycle workflow."""
 
     actions = action_map(context)
     return Workflow(
@@ -626,9 +674,9 @@ def workflow_for(context: TransitionContext) -> Workflow:
                 actions["components"],
             ),
             Step(
-                "transition",
+                "lifecycle",
                 "sage.action-lifecycle",
-                actions["transition"],
+                actions["lifecycle"],
             ),
             Step(
                 "validation",
@@ -655,7 +703,7 @@ def write_closeout(
     status: str,
     details: Mapping[str, Any],
 ) -> Path:
-    """Write transition closeout evidence with primitive provenance."""
+    """Write lifecycle closeout evidence with primitive provenance."""
 
     return CloseoutWriter(
         destination_directory=context.state_dir,
@@ -671,6 +719,69 @@ def write_closeout(
     )
 
 
+def _closeout_details(context: TransitionContext) -> dict[str, Any]:
+    """Return shared closeout facts for one lifecycle mutation."""
+
+    return {
+        "action_id": context.action_id,
+        "operation": context.operation,
+        "to_status": context.to_status,
+        "expected_contract_sha256": context.expected_contract_sha256,
+        "resulting_status": context.transition_status,
+        "registry_path": REGISTRY_PATH,
+        "proposal": str(context.proposal_path),
+        "continuation_state": str(context.state_path),
+        "git_mutation": False,
+        "github_mutation": False,
+        "deployment_mutation": False,
+        "next_continuation": "make sage-request-continue",
+    }
+
+
+def run_lifecycle(context: TransitionContext) -> Mapping[str, Any]:
+    """Apply one governed lifecycle mutation and stop at the stage boundary."""
+
+    transaction = AtomicFileTransaction(
+        context.writer,
+        (context.repo / REGISTRY_PATH,),
+    )
+    try:
+        with transaction:
+            workflow_for(context).run()
+            if context.proposal_path is None or context.state_path is None:
+                raise WorkflowError(
+                    "Lifecycle workflow completed without operator continuation"
+                )
+            transaction.commit()
+    except Exception as error:
+        details = _closeout_details(context)
+        details.update(
+            {
+                "error": f"{type(error).__name__}: {error}",
+                "repository_registry_rollback": True,
+            }
+        )
+        write_closeout(context, status="failed-rolled-back", details=details)
+        raise
+
+    closeout = write_closeout(
+        context,
+        status="operator-review-required",
+        details=_closeout_details(context),
+    )
+    return {
+        "status": "operator-review-required",
+        "action_id": context.action_id,
+        "operation": context.operation,
+        "to_status": context.to_status,
+        "resulting_status": context.transition_status,
+        "proposal": str(context.proposal_path),
+        "state": str(context.state_path),
+        "closeout": str(closeout),
+        "event_log": str(context.state_dir / "events.jsonl"),
+    }
+
+
 def start_transition(
     *,
     repo: Path,
@@ -683,78 +794,59 @@ def start_transition(
     commit_message: str,
     push_remote: str = "origin",
 ) -> Mapping[str, Any]:
-    """Apply one canonical registry transition and stop at the stage boundary."""
+    """Build and run one canonical improvement-action status transition."""
 
     context = build_context(
         repo=repo,
         request=request,
         action_id=action_id,
+        operation="transition",
         to_status=to_status,
+        replacement_path=None,
+        expected_contract_sha256=None,
         actor=actor,
         reason=reason,
         evidence_references=evidence_references,
         commit_message=commit_message,
         push_remote=push_remote,
     )
-    transaction = AtomicFileTransaction(
-        context.writer,
-        (context.repo / REGISTRY_PATH,),
-    )
-    try:
-        with transaction:
-            workflow_for(context).run()
-            if (
-                context.proposal_path is None
-                or context.state_path is None
-            ):
-                raise WorkflowError(
-                    "Transition workflow completed without operator "
-                    "continuation"
-                )
-            transaction.commit()
-    except Exception as error:
-        write_closeout(
-            context,
-            status="failed-rolled-back",
-            details={
-                "action_id": action_id,
-                "to_status": to_status,
-                "error": f"{type(error).__name__}: {error}",
-                "repository_registry_rollback": True,
-                "git_mutation": False,
-                "github_mutation": False,
-                "deployment_mutation": False,
-            },
-        )
-        raise
+    return run_lifecycle(context)
 
-    closeout = write_closeout(
-        context,
-        status="operator-review-required",
-        details={
-            "action_id": action_id,
-            "to_status": to_status,
-            "resulting_status": context.transition_status,
-            "registry_path": REGISTRY_PATH,
-            "proposal": str(context.proposal_path),
-            "continuation_state": str(context.state_path),
-            "git_mutation": False,
-            "github_mutation": False,
-            "deployment_mutation": False,
-            "next_continuation": "make sage-request-continue",
-        },
-    )
-    return {
-        "status": "operator-review-required",
-        "action_id": action_id,
-        "to_status": to_status,
-        "resulting_status": context.transition_status,
-        "proposal": str(context.proposal_path),
-        "state": str(context.state_path),
-        "closeout": str(closeout),
-        "event_log": str(context.state_dir / "events.jsonl"),
-    }
 
+def start_amendment(
+    *,
+    repo: Path,
+    request: str,
+    replacement_path: Path,
+    expected_contract_sha256: str,
+    actor: str,
+    reason: str,
+    evidence_references: tuple[str, ...],
+    commit_message: str,
+    push_remote: str = "origin",
+) -> Mapping[str, Any]:
+    """Build and run one identified action-contract amendment."""
+
+    resolved_replacement = replacement_path.expanduser().resolve()
+    replacement = json.loads(resolved_replacement.read_text(encoding="utf-8"))
+    action_id = replacement.get("action_id")
+    if not isinstance(action_id, str) or not action_id:
+        raise WorkflowError("Amendment replacement action_id is missing")
+    context = build_context(
+        repo=repo,
+        request=request,
+        action_id=action_id,
+        operation="amendment",
+        to_status=None,
+        replacement_path=resolved_replacement,
+        expected_contract_sha256=expected_contract_sha256,
+        actor=actor,
+        reason=reason,
+        evidence_references=evidence_references,
+        commit_message=commit_message,
+        push_remote=push_remote,
+    )
+    return run_lifecycle(context)
 
 def self_test() -> int:
     """Exercise least-authority and continuation contracts without mutation."""
@@ -778,6 +870,8 @@ def self_test() -> int:
             "Restricted git.repository primitive entered production "
             "composition"
         )
+    if not callable(getattr(ImprovementActionClient, "amend", None)):
+        raise RuntimeError("ImprovementActionClient lacks amendment method")
     required = {
         "git.inspect",
         "sage.action-lifecycle",
@@ -795,7 +889,7 @@ def self_test() -> int:
     print("PASS GitInspector satisfies lifecycle RepositoryState contract")
     print("PASS GitInspector exposes no lifecycle Git mutation methods")
     print("PASS least-authority Git inspection contract")
-    print("PASS canonical improvement-action lifecycle ownership")
+    print("PASS canonical improvement-action transition and amendment ownership")
     print("PASS exact single-registry mutation scope")
     print("PASS operator stage boundary with request-execution continuation")
     print(

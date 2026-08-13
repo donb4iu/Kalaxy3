@@ -13,6 +13,7 @@ WORKFLOW = (
     / "scripts/sage/workflows/improvement_action_transition.py"
 )
 CLI = ROOT / "scripts/sage/sage-improvement-action-transition.py"
+AMENDMENT_CLI = ROOT / "scripts/sage/sage-improvement-action-amendment.py"
 LIFECYCLE = ROOT / "scripts/sage/workflow/lifecycle.py"
 REGISTRY = ROOT / "sage-workflow-primitives.json"
 MAKEFILE = ROOT / "Makefile"
@@ -51,6 +52,7 @@ def main() -> int:
     workflow_source = WORKFLOW.read_text(encoding="utf-8")
     lifecycle_source = LIFECYCLE.read_text(encoding="utf-8")
     cli_source = CLI.read_text(encoding="utf-8")
+    amendment_cli_source = AMENDMENT_CLI.read_text(encoding="utf-8")
     make_source = MAKEFILE.read_text(encoding="utf-8")
     tree = ast.parse(workflow_source, filename=str(WORKFLOW))
     primitives = set(manifest(tree))
@@ -111,6 +113,7 @@ def main() -> int:
         "sage-improvement-action-transition:",
         "sage-improvement-action-transition-self-test:",
         "sage-improvement-action-transition-guardrail:",
+        "sage-improvement-action-amendment:",
     ):
         if marker not in make_source:
             failures.append(f"Makefile missing {marker}")
@@ -120,6 +123,23 @@ def main() -> int:
     ):
         failures.append(
             "CLI does not consume tracked transition workflow"
+        )
+    if "from workflows.improvement_action_transition import" not in amendment_cli_source:
+        failures.append(
+            "amendment CLI does not consume tracked shared lifecycle workflow"
+        )
+    if "start_amendment" not in amendment_cli_source:
+        failures.append("amendment CLI does not call shared amendment entry point")
+    workflows_dir = ROOT / "scripts/sage/workflows"
+    parallel = [
+        path.name
+        for path in workflows_dir.glob("*improvement_action*amend*.py")
+        if path.name != "improvement_action_transition.py"
+    ]
+    if parallel:
+        failures.append(
+            "parallel improvement-action amendment workflow detected: "
+            + ", ".join(sorted(parallel))
         )
     if "make sage-request-continue" not in workflow_source:
         failures.append(

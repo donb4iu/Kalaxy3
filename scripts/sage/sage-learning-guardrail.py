@@ -17,7 +17,7 @@ BASELINE_REGISTRY_PATH: Final = (
 )
 ACTION_SCHEMA_PATH: Final = (
     ROOT / "markdown/standards/"
-    "sage-improvement-action-schema-v1.0.json"
+    "sage-improvement-action-schema-v1.1.json"
 )
 BASELINE_SCHEMA_PATH: Final = (
     ROOT / "markdown/standards/"
@@ -68,7 +68,7 @@ def validate_policy(payload: Any) -> list[str]:
     expected_contracts = {
         "improvement_action_schema": (
             "markdown/standards/"
-            "sage-improvement-action-schema-v1.0.json"
+            "sage-improvement-action-schema-v1.1.json"
         ),
         "continuous_improvement_baseline_schema": (
             "markdown/standards/"
@@ -108,11 +108,20 @@ def validate_policy(payload: Any) -> list[str]:
             "atomic_write_required",
             "direct_status_edits_forbidden",
             "registration_requires_source",
+            "contract_amendment_requires_expected_sha256",
+            "contract_amendment_preserves_prior_values",
+            "contract_amendment_status_unchanged",
         ):
             if lifecycle.get(key) is not True:
                 failures.append(
                     f"action lifecycle {key} must be true"
                 )
+        if lifecycle.get(
+            "contract_amendment_allowed_statuses"
+        ) != ["identified"]:
+            failures.append(
+                "action contract amendments must be identified-only"
+            )
 
     baseline_policy = payload.get(
         "baseline_extraction_policy"
@@ -254,6 +263,18 @@ def mutation_tests(
     if not validate_policy(altered_policy):
         failures.append(
             "non-dry-run action policy was accepted"
+        )
+
+    broad_amendment = copy.deepcopy(policy)
+    broad_amendment[
+        "improvement_action_lifecycle_policy"
+    ]["contract_amendment_allowed_statuses"] = [
+        "identified",
+        "accepted",
+    ]
+    if not validate_policy(broad_amendment):
+        failures.append(
+            "post-acceptance action amendment policy was accepted"
         )
 
     composite = copy.deepcopy(policy)
@@ -400,7 +421,8 @@ def main() -> int:
 
     print("PASS canonical improvement-action lifecycle policy")
     print("PASS evidence-backed action registry")
-    print("PASS append-only dry-run action tooling")
+    print("PASS append-only dry-run action and amendment tooling")
+    print("PASS identified-only action contract amendment policy")
     print("PASS deterministic repository baseline extraction")
     print("PASS unavailable process metrics remain null")
     print("PASS prediction and provenance references preserved")

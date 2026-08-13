@@ -155,16 +155,17 @@
     },
     {
       "primitive_id": "sage.action-lifecycle",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "module": "workflow.lifecycle",
       "symbol": "ImprovementActionClient",
-      "side_effects": "canonical ID allocation, registration, and transitions",
-      "idempotency": "dry-run first; explicit apply; clean tree required",
+      "side_effects": "canonical ID allocation, registration, identified-contract amendment, and transitions",
+      "idempotency": "dry-run first; explicit apply; clean tree and expected contract digest required for amendment",
       "logging": "delegated to command.run",
       "failure_mode": "canonical action tooling or exact-scope check fails closed",
       "tests": [
         "allocation adapter",
         "registration adapter",
+        "contract amendment adapter",
         "transition adapter"
       ],
       "maturity": "pilot"

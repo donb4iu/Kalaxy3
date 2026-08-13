@@ -349,7 +349,7 @@ sage-generated-helper-runtime-self-test:
 	python3 scripts/sage/sage-generated-helper-runtime-self-test.py
 
 
-.PHONY: sage-improvement-action-transition sage-improvement-action-transition-self-test sage-improvement-action-transition-guardrail
+.PHONY: sage-improvement-action-transition sage-improvement-action-amendment sage-improvement-action-transition-self-test sage-improvement-action-transition-guardrail
 
 sage-improvement-action-transition:
 	@test -n "$${SAGE_REQUEST:-}" || { \
@@ -366,6 +366,27 @@ sage-improvement-action-transition:
 	  --request "$$SAGE_REQUEST" \
 	  --action-id "$$SAGE_ACTION_ID" \
 	  --to-status "$$SAGE_TO_STATUS" \
+	  --actor "$$SAGE_ACTOR" \
+	  --reason "$$SAGE_REASON" \
+	  --evidence-reference "$$SAGE_EVIDENCE_REFERENCE" \
+	  --commit-message "$$SAGE_COMMIT_MESSAGE" \
+	  --push-remote "$${SAGE_PUSH_REMOTE:-origin}"
+
+sage-improvement-action-amendment:
+	@test -n "$${SAGE_REQUEST:-}" || { \
+	  echo 'Usage: SAGE_REQUEST="<request>" SAGE_AMEND_FILE="<replacement.json>" SAGE_EXPECTED_CONTRACT_SHA256="<sha256>" SAGE_ACTOR="<actor>" SAGE_REASON="<reason>" SAGE_EVIDENCE_REFERENCE="<ref>" SAGE_COMMIT_MESSAGE="<message>" make sage-improvement-action-amendment'; \
+	  exit 2; \
+	}
+	@test -n "$${SAGE_AMEND_FILE:-}" || { echo 'SAGE_AMEND_FILE is required'; exit 2; }
+	@test -n "$${SAGE_EXPECTED_CONTRACT_SHA256:-}" || { echo 'SAGE_EXPECTED_CONTRACT_SHA256 is required'; exit 2; }
+	@test -n "$${SAGE_ACTOR:-}" || { echo 'SAGE_ACTOR is required'; exit 2; }
+	@test -n "$${SAGE_REASON:-}" || { echo 'SAGE_REASON is required'; exit 2; }
+	@test -n "$${SAGE_EVIDENCE_REFERENCE:-}" || { echo 'SAGE_EVIDENCE_REFERENCE is required'; exit 2; }
+	@test -n "$${SAGE_COMMIT_MESSAGE:-}" || { echo 'SAGE_COMMIT_MESSAGE is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-improvement-action-amendment.py \
+	  --request "$$SAGE_REQUEST" \
+	  --amend-file "$$SAGE_AMEND_FILE" \
+	  --expected-contract-sha256 "$$SAGE_EXPECTED_CONTRACT_SHA256" \
 	  --actor "$$SAGE_ACTOR" \
 	  --reason "$$SAGE_REASON" \
 	  --evidence-reference "$$SAGE_EVIDENCE_REFERENCE" \
