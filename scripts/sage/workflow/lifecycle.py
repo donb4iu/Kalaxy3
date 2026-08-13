@@ -157,6 +157,82 @@ class ImprovementActionClient:
             )
         return record
 
+    def amend(
+        self,
+        *,
+        action_id: str,
+        replacement_path: Path,
+        expected_contract_sha256: str,
+        actor: str,
+        reason: str,
+        evidence_references: Iterable[str],
+        apply: bool,
+    ) -> Mapping[str, Any]:
+        """Dry-run, then optionally apply, one identified contract amendment."""
+
+        self.repository.require_clean()
+        replacement = json.loads(
+            replacement_path.read_text(encoding="utf-8")
+        )
+        if replacement.get("action_id") != action_id:
+            raise WorkflowError(
+                "Amendment replacement action_id does not match target"
+            )
+        before = self._record(action_id)
+        if before.get("current_status") != "identified":
+            raise WorkflowError(
+                f"{action_id}: contract amendment requires identified status"
+            )
+
+        recorded_at = (
+            datetime.now()
+            .astimezone()
+            .isoformat(timespec="seconds")
+        )
+        command = [
+            "python3",
+            self.tool,
+            "--amend-file",
+            str(replacement_path),
+            "--expected-contract-sha256",
+            expected_contract_sha256,
+            "--actor",
+            actor,
+            "--reason",
+            reason,
+        ]
+        for reference in evidence_references:
+            command.extend(["--evidence-reference", reference])
+        command.extend(["--recorded-at", recorded_at])
+
+        self.runner.run(
+            CommandSpec(
+                primitive_id="sage.action-lifecycle",
+                label=f"Plan action contract amendment {action_id}",
+                argv=tuple(command),
+                cwd=self.repository.root,
+            )
+        )
+        self.repository.require_clean()
+        if not apply:
+            return before
+
+        self.runner.run(
+            CommandSpec(
+                primitive_id="sage.action-lifecycle",
+                label=f"Apply action contract amendment {action_id}",
+                argv=tuple((*command, "--apply")),
+                cwd=self.repository.root,
+            )
+        )
+        self.repository.require_exact_paths({self.registry})
+        record = self._record(action_id)
+        if record.get("current_status") != "identified":
+            raise WorkflowError(
+                f"{action_id}: amendment changed lifecycle status"
+            )
+        return record
+
     def transition(
         self,
         *,

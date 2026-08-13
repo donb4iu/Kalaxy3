@@ -388,8 +388,24 @@ Each action must reference at least one lesson or session and preserve:
 - desired outcome;
 - acceptance criteria;
 - measurement plan;
-- append-only transition history;
+- append-only lifecycle and contract-amendment history;
 - evidence references for every lifecycle event.
+
+An action contract may be amended only while the action remains `identified`.
+Amendment is not a lifecycle-state transition: `from_status` and `to_status`
+remain `identified`. The canonical action tool requires the caller to supply
+the expected SHA-256 of the current action contract and fails closed when that
+digest is stale, the replacement is a no-op, the action has progressed beyond
+`identified`, or an immutable field would change.
+
+Every amendment event preserves the complete before and after action contracts,
+their SHA-256 digests, the exact changed fields, actor, rationale, timestamp,
+and evidence references. The action identifier, lifecycle status, and prior
+history cannot be amended. This lets SAGE refine an identified objective before
+acceptance without silently rewriting the decision record or creating a
+duplicate action.
+
+The repository-owned `sage.improvement-action-transition` composition is shared by both status transitions and contract amendments. The amendment CLI delegates to that same discovery, authority reconciliation, validation, transactional rollback, operator Git boundary, and continuation path; a separate amendment workflow is prohibited.
 
 Action planning is dry-run by default. Registry mutation requires the explicit
 `--apply` flag and a clean working tree.
@@ -413,7 +429,7 @@ The machine-readable authority is:
 
 - `sage-improvement-actions.json`;
 - `sage-continuous-improvement-baseline-registry.json`;
-- `markdown/standards/sage-improvement-action-schema-v1.0.json`;
+- `markdown/standards/sage-improvement-action-schema-v1.1.json`;
 - `markdown/standards/sage-continuous-improvement-baseline-schema-v1.0.json`;
 - `scripts/sage/sage-improvement-actions.py`;
 - `scripts/sage/sage-baseline-extract.py`;

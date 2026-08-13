@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import os
+import re
 import subprocess
 import tempfile
 from datetime import datetime
@@ -16,6 +18,29 @@ from typing import Any, Final, Sequence
 ROOT: Final = Path(__file__).resolve().parents[2]
 POLICY_PATH: Final = ROOT / "sage-continuous-improvement-policy.json"
 REGISTRY_PATH: Final = ROOT / "sage-improvement-actions.json"
+CONTRACT_FIELDS: Final = (
+    "action_id",
+    "title",
+    "source_lessons",
+    "source_sessions",
+    "owner",
+    "priority",
+    "target_control_type",
+    "desired_outcome",
+    "acceptance_criteria",
+    "measurement_plan",
+)
+MUTABLE_CONTRACT_FIELDS: Final = CONTRACT_FIELDS[1:]
+CORE_EVENT_FIELDS: Final = {
+    "sequence",
+    "from_status",
+    "to_status",
+    "transition_type",
+    "recorded_at",
+    "actor",
+    "reason",
+    "evidence_references",
+}
 
 
 def load_json(path: Path) -> Any:
@@ -35,6 +60,93 @@ def parse_timestamp(value: str) -> None:
         raise ValueError(
             "recorded_at must be an ISO-8601 timestamp"
         ) from error
+
+
+def action_contract(action: dict[str, Any]) -> dict[str, Any]:
+    """Return the canonical mutable contract carried by one action."""
+    return {
+        key: copy.deepcopy(action[key])
+        for key in CONTRACT_FIELDS
+    }
+
+
+def contract_sha256(contract: dict[str, Any]) -> str:
+    """Return the stable digest used for stale-contract protection."""
+    payload = json.dumps(
+        contract,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def validate_contract(
+    contract: Any,
+    *,
+    label: str,
+) -> list[str]:
+    """Validate one action contract independent of lifecycle history."""
+    failures: list[str] = []
+    if not isinstance(contract, dict):
+        return [f"{label} must be an object"]
+    if set(contract) != set(CONTRACT_FIELDS):
+        return [f"{label} fields must match the contract"]
+
+    action_id = str(contract.get("action_id", ""))
+    if not re.fullmatch(r"SAGE-ACTION-[0-9]{8}-[0-9]{3}", action_id):
+        failures.append(f"{label} action_id invalid")
+    for key in ("title", "owner", "desired_outcome"):
+        try:
+            require_string(contract.get(key), f"{label} {key}")
+        except ValueError as error:
+            failures.append(str(error))
+
+    lessons = contract.get("source_lessons")
+    sessions = contract.get("source_sessions")
+    if not isinstance(lessons, list):
+        failures.append(f"{label} source_lessons must be a list")
+        lessons = []
+    if not isinstance(sessions, list):
+        failures.append(f"{label} source_sessions must be a list")
+        sessions = []
+    if not lessons and not sessions:
+        failures.append(f"{label}: at least one source is required")
+    for source_label, values in (
+        ("source_lessons", lessons),
+        ("source_sessions", sessions),
+    ):
+        if (
+            len(values) != len(set(values))
+            or not all(isinstance(value, str) and value for value in values)
+        ):
+            failures.append(f"{label}: {source_label} invalid")
+
+    if contract.get("priority") not in (
+        "low",
+        "medium",
+        "high",
+        "critical",
+    ):
+        failures.append(f"{label}: priority invalid")
+    if contract.get("target_control_type") not in (
+        "manual",
+        "template",
+        "preflight",
+        "guardrail",
+        "runbook",
+        "automation",
+        "no-action",
+    ):
+        failures.append(f"{label}: target_control_type invalid")
+    for key in ("acceptance_criteria", "measurement_plan"):
+        values = contract.get(key)
+        if (
+            not isinstance(values, list)
+            or not values
+            or not all(isinstance(value, str) and value for value in values)
+        ):
+            failures.append(f"{label}: {key} must be non-empty")
+    return failures
 
 
 def validate_policy(policy: Any) -> list[str]:
@@ -88,6 +200,9 @@ def validate_policy(policy: Any) -> list[str]:
         "atomic_write_required",
         "direct_status_edits_forbidden",
         "registration_requires_source",
+        "contract_amendment_requires_expected_sha256",
+        "contract_amendment_preserves_prior_values",
+        "contract_amendment_status_unchanged",
     ):
         if lifecycle.get(key) is not True:
             failures.append(
@@ -97,6 +212,18 @@ def validate_policy(policy: Any) -> list[str]:
 
     if lifecycle.get("initial_status") != "identified":
         failures.append("action initial status changed")
+    if lifecycle.get("contract_amendment_allowed_statuses") != [
+        "identified"
+    ]:
+        failures.append(
+            "action contract amendments must be identified-only"
+        )
+    if lifecycle.get("contract_amendment_mutable_fields") != list(
+        MUTABLE_CONTRACT_FIELDS
+    ):
+        failures.append(
+            "action contract amendment mutable fields changed"
+        )
     return failures
 
 
@@ -104,12 +231,13 @@ def validate_registry(
     registry: Any,
     policy: dict[str, Any],
 ) -> list[str]:
+    """Validate action contracts and append-only lifecycle/amendment history."""
     failures: list[str] = []
     if not isinstance(registry, dict):
         return ["action registry must be an object"]
-    if registry.get("schema_version") != "1.0":
+    if registry.get("schema_version") != "1.1":
         failures.append(
-            "action registry schema_version must be 1.0"
+            "action registry schema_version must be 1.1"
         )
     if registry.get("registry_type") != "improvement-actions":
         failures.append(
@@ -122,9 +250,11 @@ def validate_registry(
         return failures
 
     statuses = set(policy["improvement_action_statuses"])
-    allowed = policy[
-        "improvement_action_lifecycle_policy"
-    ]["allowed_transitions"]
+    lifecycle = policy["improvement_action_lifecycle_policy"]
+    allowed = lifecycle["allowed_transitions"]
+    amendment_statuses = set(
+        lifecycle["contract_amendment_allowed_statuses"]
+    )
     identifiers: list[str] = []
 
     for item in actions:
@@ -133,17 +263,8 @@ def validate_registry(
             continue
 
         required = {
-            "action_id",
-            "title",
-            "source_lessons",
-            "source_sessions",
+            *CONTRACT_FIELDS,
             "current_status",
-            "owner",
-            "priority",
-            "target_control_type",
-            "desired_outcome",
-            "acceptance_criteria",
-            "measurement_plan",
             "history",
         }
         if set(item) != required:
@@ -153,91 +274,21 @@ def validate_registry(
 
         action_id = str(item.get("action_id", ""))
         identifiers.append(action_id)
-
-        for key in (
-            "title",
-            "owner",
-            "desired_outcome",
-        ):
-            try:
-                require_string(item.get(key), f"{action_id} {key}")
-            except ValueError as error:
-                failures.append(str(error))
-
-        lessons = item.get("source_lessons")
-        sessions = item.get("source_sessions")
-        if not isinstance(lessons, list):
-            failures.append(
-                f"{action_id}: source_lessons must be a list"
+        failures.extend(
+            validate_contract(
+                {
+                    key: item.get(key)
+                    for key in CONTRACT_FIELDS
+                },
+                label=action_id or "action",
             )
-            lessons = []
-        if not isinstance(sessions, list):
-            failures.append(
-                f"{action_id}: source_sessions must be a list"
-            )
-            sessions = []
-        if not lessons and not sessions:
-            failures.append(
-                f"{action_id}: at least one source is required"
-            )
-        for label, values in (
-            ("source_lessons", lessons),
-            ("source_sessions", sessions),
-        ):
-            if (
-                len(values) != len(set(values))
-                or not all(
-                    isinstance(value, str) and value
-                    for value in values
-                )
-            ):
-                failures.append(
-                    f"{action_id}: {label} invalid"
-                )
+        )
 
         status = item.get("current_status")
         if status not in statuses:
             failures.append(
                 f"{action_id}: current_status invalid"
             )
-
-        if item.get("priority") not in (
-            "low",
-            "medium",
-            "high",
-            "critical",
-        ):
-            failures.append(f"{action_id}: priority invalid")
-
-        if item.get("target_control_type") not in (
-            "manual",
-            "template",
-            "preflight",
-            "guardrail",
-            "runbook",
-            "automation",
-            "no-action",
-        ):
-            failures.append(
-                f"{action_id}: target_control_type invalid"
-            )
-
-        for key in (
-            "acceptance_criteria",
-            "measurement_plan",
-        ):
-            values = item.get(key)
-            if (
-                not isinstance(values, list)
-                or not values
-                or not all(
-                    isinstance(value, str) and value
-                    for value in values
-                )
-            ):
-                failures.append(
-                    f"{action_id}: {key} must be non-empty"
-                )
 
         history = item.get("history")
         if not isinstance(history, list) or not history:
@@ -248,23 +299,20 @@ def validate_registry(
 
         previous_status: str | None = None
         previous_time: datetime | None = None
+        previous_amendment_after: dict[str, Any] | None = None
+
         for index, event in enumerate(history, start=1):
             if not isinstance(event, dict):
                 failures.append(
                     f"{action_id}: history event invalid"
                 )
                 continue
-            event_required = {
-                "sequence",
-                "from_status",
-                "to_status",
-                "transition_type",
-                "recorded_at",
-                "actor",
-                "reason",
-                "evidence_references",
-            }
-            if set(event) != event_required:
+
+            event_type = event.get("transition_type")
+            expected_fields = set(CORE_EVENT_FIELDS)
+            if event_type == "contract-amendment":
+                expected_fields.add("amendment")
+            if set(event) != expected_fields:
                 failures.append(
                     f"{action_id}: event fields invalid"
                 )
@@ -275,7 +323,6 @@ def validate_registry(
 
             source = event.get("from_status")
             target = event.get("to_status")
-            event_type = event.get("transition_type")
             if index == 1:
                 if source is not None:
                     failures.append(
@@ -289,14 +336,10 @@ def validate_registry(
                     failures.append(
                         f"{action_id}: initial event type invalid"
                     )
-            else:
+            elif event_type == "status-transition":
                 if source != previous_status:
                     failures.append(
                         f"{action_id}: event chain not contiguous"
-                    )
-                if event_type != "status-transition":
-                    failures.append(
-                        f"{action_id}: transition event type invalid"
                     )
                 if (
                     source not in allowed
@@ -305,6 +348,36 @@ def validate_registry(
                     failures.append(
                         f"{action_id}: transition "
                         f"{source} -> {target} not allowed"
+                    )
+            elif event_type == "contract-amendment":
+                if source != previous_status or target != source:
+                    failures.append(
+                        f"{action_id}: amendment must preserve status"
+                    )
+                if source not in amendment_statuses:
+                    failures.append(
+                        f"{action_id}: amendment status not allowed"
+                    )
+                amendment = event.get("amendment")
+                if not isinstance(amendment, dict):
+                    failures.append(
+                        f"{action_id}: amendment metadata invalid"
+                    )
+                else:
+                    failures.extend(
+                        validate_amendment(
+                            action_id,
+                            amendment,
+                            previous_amendment_after,
+                        )
+                    )
+                    after_contract = amendment.get("after_contract")
+                    if isinstance(after_contract, dict):
+                        previous_amendment_after = after_contract
+            else:
+                if index != 1:
+                    failures.append(
+                        f"{action_id}: transition event type invalid"
                     )
 
             for key in ("actor", "reason"):
@@ -356,9 +429,96 @@ def validate_registry(
             failures.append(
                 f"{action_id}: final event and status differ"
             )
+        if previous_amendment_after is not None:
+            if previous_amendment_after != action_contract(item):
+                failures.append(
+                    f"{action_id}: current contract does not match "
+                    "latest amendment"
+                )
 
     if len(identifiers) != len(set(identifiers)):
         failures.append("action identifiers must be unique")
+    return failures
+
+
+def validate_amendment(
+    action_id: str,
+    amendment: dict[str, Any],
+    previous_after: dict[str, Any] | None,
+) -> list[str]:
+    """Validate one immutable contract-amendment receipt."""
+    failures: list[str] = []
+    required = {
+        "changed_fields",
+        "before_contract",
+        "after_contract",
+        "before_contract_sha256",
+        "after_contract_sha256",
+    }
+    if set(amendment) != required:
+        return [f"{action_id}: amendment fields invalid"]
+
+    before = amendment.get("before_contract")
+    after = amendment.get("after_contract")
+    failures.extend(
+        validate_contract(
+            before,
+            label=f"{action_id} amendment before_contract",
+        )
+    )
+    failures.extend(
+        validate_contract(
+            after,
+            label=f"{action_id} amendment after_contract",
+        )
+    )
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return failures
+
+    if before.get("action_id") != action_id:
+        failures.append(
+            f"{action_id}: amendment before action_id changed"
+        )
+    if after.get("action_id") != action_id:
+        failures.append(
+            f"{action_id}: amendment after action_id changed"
+        )
+    if previous_after is not None and before != previous_after:
+        failures.append(
+            f"{action_id}: amendment contract chain not contiguous"
+        )
+
+    changed = amendment.get("changed_fields")
+    expected_changed = [
+        key
+        for key in MUTABLE_CONTRACT_FIELDS
+        if before.get(key) != after.get(key)
+    ]
+    if (
+        not isinstance(changed, list)
+        or changed != expected_changed
+        or not changed
+    ):
+        failures.append(
+            f"{action_id}: amendment changed_fields invalid"
+        )
+
+    before_digest = amendment.get("before_contract_sha256")
+    after_digest = amendment.get("after_contract_sha256")
+    if (
+        not isinstance(before_digest, str)
+        or before_digest != contract_sha256(before)
+    ):
+        failures.append(
+            f"{action_id}: amendment before digest invalid"
+        )
+    if (
+        not isinstance(after_digest, str)
+        or after_digest != contract_sha256(after)
+    ):
+        failures.append(
+            f"{action_id}: amendment after digest invalid"
+        )
     return failures
 
 
@@ -467,6 +627,108 @@ def plan_registration(
             + "; ".join(failures)
         )
     return updated, ordered
+
+
+
+def plan_amendment(
+    registry: dict[str, Any],
+    policy: dict[str, Any],
+    replacement: dict[str, Any],
+    *,
+    expected_contract_sha256: str,
+    recorded_at: str,
+    actor: str,
+    reason: str,
+    evidence_references: Sequence[str],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Plan one pre-acceptance contract amendment without changing status."""
+    if set(replacement) != set(CONTRACT_FIELDS):
+        raise ValueError("amendment replacement fields invalid")
+    action_id = require_string(
+        replacement.get("action_id"),
+        "amendment action_id",
+    )
+    action = action_by_id(registry, action_id)
+    source = str(action["current_status"])
+    lifecycle = policy["improvement_action_lifecycle_policy"]
+    if source not in lifecycle["contract_amendment_allowed_statuses"]:
+        raise ValueError(
+            f"contract amendment is not allowed from {source}"
+        )
+
+    require_string(actor, "actor")
+    require_string(reason, "reason")
+    parse_timestamp(recorded_at)
+    if not re.fullmatch(r"[0-9a-f]{64}", expected_contract_sha256):
+        raise ValueError("expected contract SHA-256 invalid")
+    if (
+        not evidence_references
+        or len(evidence_references)
+        != len(set(evidence_references))
+        or not all(
+            isinstance(value, str) and value
+            for value in evidence_references
+        )
+    ):
+        raise ValueError("evidence references invalid")
+
+    before = action_contract(action)
+    before_digest = contract_sha256(before)
+    if expected_contract_sha256 != before_digest:
+        raise ValueError(
+            "stale action contract: expected SHA-256 does not match"
+        )
+
+    failures = validate_contract(
+        replacement,
+        label=f"{action_id} replacement",
+    )
+    if failures:
+        raise ValueError("; ".join(failures))
+
+    changed_fields = [
+        key
+        for key in MUTABLE_CONTRACT_FIELDS
+        if before[key] != replacement[key]
+    ]
+    if not changed_fields:
+        raise ValueError("contract amendment has no changes")
+    permitted = set(lifecycle["contract_amendment_mutable_fields"])
+    if not set(changed_fields).issubset(permitted):
+        raise ValueError("contract amendment changes forbidden fields")
+
+    updated = copy.deepcopy(registry)
+    changed = action_by_id(updated, action_id)
+    for key in MUTABLE_CONTRACT_FIELDS:
+        changed[key] = copy.deepcopy(replacement[key])
+
+    after = action_contract(changed)
+    event = {
+        "sequence": len(changed["history"]) + 1,
+        "from_status": source,
+        "to_status": source,
+        "transition_type": "contract-amendment",
+        "recorded_at": recorded_at,
+        "actor": actor,
+        "reason": reason,
+        "evidence_references": list(evidence_references),
+        "amendment": {
+            "changed_fields": changed_fields,
+            "before_contract": before,
+            "after_contract": after,
+            "before_contract_sha256": before_digest,
+            "after_contract_sha256": contract_sha256(after),
+        },
+    }
+    changed["history"].append(event)
+
+    failures = validate_registry(updated, policy)
+    if failures:
+        raise ValueError(
+            "planned amendment invalid: "
+            + "; ".join(failures)
+        )
+    return updated, event
 
 
 def plan_transition(
@@ -582,6 +844,13 @@ def representative_policy() -> dict[str, Any]:
             "atomic_write_required": True,
             "direct_status_edits_forbidden": True,
             "registration_requires_source": True,
+            "contract_amendment_allowed_statuses": ["identified"],
+            "contract_amendment_mutable_fields": list(
+                MUTABLE_CONTRACT_FIELDS
+            ),
+            "contract_amendment_requires_expected_sha256": True,
+            "contract_amendment_preserves_prior_values": True,
+            "contract_amendment_status_unchanged": True,
         },
     }
 
@@ -613,7 +882,7 @@ def run_self_tests() -> list[str]:
     failures: list[str] = []
     policy = representative_policy()
     registry = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "registry_type": "improvement-actions",
         "actions": [],
     }
@@ -637,8 +906,41 @@ def run_self_tests() -> list[str]:
         if action["current_status"] != "identified":
             failures.append("initial action status changed")
 
-        accepted, event = plan_transition(
+        replacement = representative_draft()
+        replacement["title"] = "Amended fixture action"
+        replacement["desired_outcome"] = (
+            "Preserve amended intent before acceptance."
+        )
+        expected = contract_sha256(action_contract(action))
+        amended, amendment_event = plan_amendment(
             registered,
+            policy,
+            replacement,
+            expected_contract_sha256=expected,
+            recorded_at="2026-07-28T23:00:30-05:00",
+            actor="self-test",
+            reason="Reconcile the identified action contract.",
+            evidence_references=["self-test:amendment"],
+        )
+        amended_action = action_by_id(
+            amended,
+            action["action_id"],
+        )
+        if amended_action["current_status"] != "identified":
+            failures.append("amendment changed action status")
+        if amendment_event["sequence"] != 2:
+            failures.append("amendment sequence changed")
+        if amendment_event["transition_type"] != (
+            "contract-amendment"
+        ):
+            failures.append("amendment event type changed")
+        if amendment_event["amendment"]["before_contract"] != (
+            action_contract(action)
+        ):
+            failures.append("prior action contract was not preserved")
+
+        accepted, event = plan_transition(
+            amended,
             policy,
             action_id=action["action_id"],
             to_status="accepted",
@@ -647,12 +949,67 @@ def run_self_tests() -> list[str]:
             reason="Accept the improvement action.",
             evidence_references=["self-test:accepted"],
         )
-        if event["sequence"] != 2:
+        if event["sequence"] != 3:
             failures.append("action transition sequence changed")
-        if accepted["actions"][0][
-            "current_status"
-        ] != "accepted":
+        if action_by_id(
+            accepted,
+            action["action_id"],
+        )["current_status"] != "accepted":
             failures.append("accepted action status changed")
+
+        try:
+            plan_amendment(
+                accepted,
+                policy,
+                replacement,
+                expected_contract_sha256=contract_sha256(
+                    action_contract(
+                        action_by_id(
+                            accepted,
+                            action["action_id"],
+                        )
+                    )
+                ),
+                recorded_at="2026-07-28T23:02:00-05:00",
+                actor="self-test",
+                reason="Invalid post-acceptance amendment.",
+                evidence_references=["self-test:invalid"],
+            )
+            failures.append(
+                "post-acceptance contract amendment was accepted"
+            )
+        except ValueError:
+            pass
+
+        try:
+            plan_amendment(
+                registered,
+                policy,
+                replacement,
+                expected_contract_sha256="0" * 64,
+                recorded_at="2026-07-28T23:00:30-05:00",
+                actor="self-test",
+                reason="Stale amendment attempt.",
+                evidence_references=["self-test:stale"],
+            )
+            failures.append("stale contract amendment was accepted")
+        except ValueError:
+            pass
+
+        try:
+            plan_amendment(
+                registered,
+                policy,
+                representative_draft(),
+                expected_contract_sha256=expected,
+                recorded_at="2026-07-28T23:00:30-05:00",
+                actor="self-test",
+                reason="No-op amendment attempt.",
+                evidence_references=["self-test:no-op"],
+            )
+            failures.append("no-op contract amendment was accepted")
+        except ValueError:
+            pass
     except ValueError as error:
         failures.append(f"valid action lifecycle failed: {error}")
 
@@ -715,6 +1072,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--status", action="store_true")
     parser.add_argument("--register-file", type=Path)
+    parser.add_argument("--amend-file", type=Path)
+    parser.add_argument("--expected-contract-sha256")
     parser.add_argument("--action-id")
     parser.add_argument("--to-status")
     parser.add_argument("--actor")
@@ -744,7 +1103,12 @@ def main() -> int:
         print("PASS canonical improvement-action lifecycle")
         print("PASS evidence-backed registration")
         print("PASS append-only contiguous action history")
-        print("PASS dry-run registration and transition planning")
+        print("PASS dry-run registration, amendment, and transition planning")
+        print("PASS identified-only contract amendment with stale-digest protection")
+        print(
+            "PASS prior and resulting action contracts preserved "
+            "in amendment history"
+        )
         print("PASS explicit apply required for mutation")
         print("PASS invalid transitions fail closed")
         print(
@@ -778,6 +1142,14 @@ def main() -> int:
             )
         )
 
+        if (
+            args.register_file is not None
+            and args.amend_file is not None
+        ):
+            raise ValueError(
+                "registration and amendment are mutually exclusive"
+            )
+
         if args.register_file is not None:
             draft = load_json(args.register_file)
             planned, event = plan_registration(
@@ -791,10 +1163,31 @@ def main() -> int:
                     args.evidence_reference
                 ),
             )
+        elif args.amend_file is not None:
+            replacement = load_json(args.amend_file)
+            if not args.expected_contract_sha256:
+                raise ValueError(
+                    "--expected-contract-sha256 is required "
+                    "for amendment"
+                )
+            planned, event = plan_amendment(
+                registry,
+                policy,
+                replacement,
+                expected_contract_sha256=(
+                    args.expected_contract_sha256
+                ),
+                recorded_at=recorded_at,
+                actor=args.actor or "",
+                reason=args.reason or "",
+                evidence_references=(
+                    args.evidence_reference
+                ),
+            )
         else:
             if not args.action_id or not args.to_status:
                 raise ValueError(
-                    "use --status, --register-file, "
+                    "use --status, --register-file, --amend-file, "
                     "or provide --action-id and --to-status"
                 )
             planned, event = plan_transition(

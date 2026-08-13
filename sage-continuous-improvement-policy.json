@@ -330,7 +330,7 @@
         "session_scorecard_schema": "markdown/standards/sage-session-scorecard-schema-v1.0.json",
         "feedback_comparison_schema": "markdown/standards/sage-feedback-comparison-schema-v1.0.json",
         "candidate_lifecycle_schema": "markdown/standards/sage-change-candidate-lifecycle-schema-v1.0.json",
-        "improvement_action_schema": "markdown/standards/sage-improvement-action-schema-v1.0.json",
+        "improvement_action_schema": "markdown/standards/sage-improvement-action-schema-v1.1.json",
         "continuous_improvement_baseline_schema": "markdown/standards/sage-continuous-improvement-baseline-schema-v1.0.json",
         "post_session_review_schema": "markdown/standards/sage-post-session-review-schema-v1.0.json",
         "status": "implemented"
@@ -479,7 +479,24 @@
         "apply_requires_explicit_flag": true,
         "atomic_write_required": true,
         "direct_status_edits_forbidden": true,
-        "registration_requires_source": true
+        "registration_requires_source": true,
+        "contract_amendment_allowed_statuses": [
+            "identified"
+        ],
+        "contract_amendment_mutable_fields": [
+            "title",
+            "source_lessons",
+            "source_sessions",
+            "owner",
+            "priority",
+            "target_control_type",
+            "desired_outcome",
+            "acceptance_criteria",
+            "measurement_plan"
+        ],
+        "contract_amendment_requires_expected_sha256": true,
+        "contract_amendment_preserves_prior_values": true,
+        "contract_amendment_status_unchanged": true
     },
     "baseline_extraction_policy": {
         "git_metrics_measured": true,

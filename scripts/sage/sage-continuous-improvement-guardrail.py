@@ -439,6 +439,7 @@ def validate_registry_header(
     *,
     registry_type: str,
     collection: str,
+    schema_version: str = "1.0",
 ) -> list[str]:
     """Validate fields shared by all registries."""
     failures: list[str] = []
@@ -454,9 +455,10 @@ def validate_registry_header(
         failures.append(
             f"{registry_type} registry keys must be {expected_keys}"
         )
-    if payload.get("schema_version") != "1.0":
+    if payload.get("schema_version") != schema_version:
         failures.append(
-            f"{registry_type} schema_version must be 1.0"
+            f"{registry_type} schema_version must be "
+            f"{schema_version}"
         )
     if payload.get("registry_type") != registry_type:
         failures.append(
@@ -497,6 +499,7 @@ def validate_action_registry(
         payload,
         registry_type=registry_type,
         collection=collection,
+        schema_version="1.1",
     )
     if failures:
         return failures
@@ -519,7 +522,7 @@ def validate_action_registry_contract(
     try:
         action_tool = load_action_tool()
         empty_registry = {
-            "schema_version": "1.0",
+            "schema_version": "1.1",
             "registry_type": "improvement-actions",
             "actions": [],
         }
@@ -548,6 +551,55 @@ def validate_action_registry_contract(
             failures.append(
                 "populated action registry initial status changed"
             )
+
+        replacement = action_tool.representative_draft()
+        replacement["title"] = "Amended guardrail fixture action"
+        expected_contract = action_tool.contract_sha256(
+            action_tool.action_contract(action)
+        )
+        amended, amendment_event = action_tool.plan_amendment(
+            populated,
+            policy,
+            replacement,
+            expected_contract_sha256=expected_contract,
+            recorded_at="2026-07-31T00:00:30-05:00",
+            actor="continuous-guardrail-self-test",
+            reason="Validate governed identified contract amendment.",
+            evidence_references=[
+                "self-test:action-contract-amendment",
+            ],
+        )
+        failures.extend(
+            f"amended action registry: {failure}"
+            for failure in action_tool.validate_registry(
+                amended,
+                policy,
+            )
+        )
+        if amendment_event.get("transition_type") != (
+            "contract-amendment"
+        ):
+            failures.append(
+                "action contract amendment event type changed"
+            )
+        try:
+            action_tool.plan_amendment(
+                populated,
+                policy,
+                replacement,
+                expected_contract_sha256="0" * 64,
+                recorded_at="2026-07-31T00:00:30-05:00",
+                actor="continuous-guardrail-self-test",
+                reason="Reject stale action contract amendment.",
+                evidence_references=[
+                    "self-test:stale-action-contract",
+                ],
+            )
+            failures.append(
+                "stale action contract amendment was accepted"
+            )
+        except ValueError:
+            pass
 
         malformed = json.loads(json.dumps(populated))
         malformed["actions"][0]["history"][0]["sequence"] = 2
