@@ -858,7 +858,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -1026,6 +1026,21 @@
                         "before_contract_sha256": "4b6895e3ddaaead0c3807e1d77354900e3f649a875a4f12a1c6496a26aa2f00f",
                         "after_contract_sha256": "0bd4ea3a7d2ec75e5afcc60c1b4d01b108320a34e271e68e7381ffae152437a3"
                     }
+                },
+                {
+                    "sequence": 3,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-13T16:59:13-05:00",
+                    "actor": "architect",
+                    "reason": "Accept the reconciled SAGE Shared-Responsibility, Governed Orchestration, and Outcome Metamodel as the authorized implementation-neutral contract for the next SAGE epic.",
+                    "evidence_references": [
+                        "action:SAGE-ACTION-20260811-001",
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "evidence:SAGE-K3-SAGE-20260729-001",
+                        "evidence:SAGE-K3-SAGE-20260731-001"
+                    ]
                 }
             ]
         },
