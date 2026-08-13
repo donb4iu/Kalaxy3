@@ -853,7 +853,7 @@
         },
         {
             "action_id": "SAGE-ACTION-20260811-001",
-            "title": "Codify fit-for-purpose SAGE role and orchestration metamodel",
+            "title": "SAGE Shared-Responsibility, Governed Orchestration, and Outcome Metamodel",
             "source_lessons": [
                 "SAGE-LESSON-20260801-001"
             ],
@@ -862,30 +862,43 @@
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
-            "desired_outcome": "SAGE has an explicit implementation-neutral role and orchestration metamodel in which the human architect owns intended future state, requirements, constraints, Definition of Done, approval boundaries, and governed interventions; SAGE governs intent, applicability, authority, evidence, capability selection, progression, and disposition of unexpected contexts; LLMs remain untrusted stochastic proposers rather than owners of deterministic workflow state or graph traversal; and a deterministic orchestration role owns workflow state, transitions, decisions, retry, compensation, and continuation without prematurely selecting BPMN, a graph engine, or another product. The metamodel makes architect intervention, context applicability, workflow observability, provenance, capability gaps, and conversion of validated workflow experience into reusable repository-owned capability explicit and measurable.",
+            "desired_outcome": "SAGE has an explicit implementation-neutral shared-responsibility, governed-orchestration, verification, observability, and outcome metamodel for evidence-informed intent-to-outcome system engineering. Human participants provide legitimate intent and accountable authority; the LLM is a first-class contributor of external/world knowledge, alternatives, critique, and verification ideas without human-reserved approval authority; Kalaxy3 provides accumulated local evidence, experience, standards, and measured outcomes; and deterministic orchestration owns reproducible workflow state, transitions, retry, compensation, and continuation. SAGE federates and reconciles those participant contributions under cross-cutting governance, verification/assurance, observability, and continuous improvement. The human Architect role retains end-to-end accountable architectural ownership and a governed, attributable break-glass path that can regain architectural control without making the intervention unaccountable. Success is evaluated first by mandatory outcome gates and then by a provenance-preserving multidimensional outcome vector against human-owned intent, requirements, constraints, and Definition of Done; any scalar fitness or utility function is optional, context-specific, and human-owned/approved. The metamodel remains implementation-neutral and does not prematurely select BPMN, a workflow engine, graph technology, or another orchestration product.",
             "acceptance_criteria": [
-                "The SAGE operating contract explicitly defines the human architect as owner of intended future state, requirements, constraints, Definition of Done, approval boundaries, and explicit governed intervention when platform immaturity requires it.",
-                "Every architect intervention is required to be scoped, contextualized, justified, traceable, and observable rather than silently altering SAGE behavior or learned workflow assumptions.",
-                "SAGE is explicitly responsible for governing intent, applicability, authority, evidence, capability selection, progression, and disposition of unexpected inferred contexts.",
-                "LLMs are explicitly classified as untrusted stochastic proposers for exploration, interpretation, design, and candidate mutations and are prohibited from owning deterministic directed workflow state, transition authority, or graph traversal.",
-                "An implementation-neutral deterministic orchestration role is defined for workflow state, transitions, decisions, branches, retry, compensation, and continuation without choosing BPMN, a graph engine, a graph database, or another orchestration product.",
-                "Canonical SAGE vocabulary defines workflow, state, transition, decision, branch, compensation, orchestration, human intervention, observability, provenance, and capability gap sufficiently for deterministic discovery and future capability selection.",
-                "Unexpected inferred contexts cannot be suppressed merely because they are broader than the immediate implementation; each must receive an evidence-backed disposition such as applicable-now, conceptually-applicable-but-not-currently-instrumented, capability-gap, or demonstrably-not-applicable.",
-                "Workflow observability is distinguished from infrastructure observability so conceptually applicable workflow telemetry that is not yet instrumented is represented as an instrumentation or capability gap rather than a false-positive context.",
-                "The continuous-improvement model explicitly permits repeated architect interventions, workflow outcomes, evidence use, failures, and validated paths to be converted into reusable repository-owned workflow capability and measured for effectiveness, efficiency, recurrence, and avoidable rework.",
+                "The metamodel defines four first-class participant classes: human participants, LLM, Kalaxy3 evidence/experience, and deterministic orchestration/execution, with SAGE defined as the governing system-engineering federation that reconciles their inputs into governed decisions.",
+                "Human participant roles include stakeholder/sponsor/product owner, architect/engineer, operator, and reviewer/approver; the same human may hold multiple roles, and authority is represented as an explicit governed property rather than inferred from technical capability.",
+                "Shared-responsibility vocabulary defines Accountable Owner, Responsible, Contributor, Authority-Approver, and optional Informed responsibilities per activity; capability overlap is allowed while accountability and legitimate authority remain explicit.",
+                "The human Architect role has end-to-end accountable architectural responsibility for intended future state, requirements, constraints, Definition of Done, approval boundaries, and architectural fitness; multiple qualified humans may hold the role, but nothing inside SAGE can make the Architect unable to regain architectural control.",
+                "Architect break-glass intervention is exceptional, explicit, minimum-scope, attributable, and records trigger, rationale, controls or assumptions overridden, resulting risk, and required post-verification; it cannot nullify external legal, security, compliance, or other nondelegable constraints, and recurring intervention classes become continuous-improvement evidence.",
+                "The LLM is a first-class contributor of external/world knowledge, state-of-practice patterns, alternatives, critique, risk identification, and verification ideas, while remaining untrusted with authority: it cannot be the Accountable Architect, sole source of legitimate stakeholder intent, or holder of human-reserved approval authority.",
+                "Kalaxy3 is explicitly modeled as accumulated local evidence and experience, including current facts, validated lessons, standards, workflow experience, measurements, and reusable capability; SAGE reconciles this local experience with human intent, LLM knowledge, and current evidence.",
+                "Deterministic orchestration/execution owns reproducible workflow state, transitions, decisions, branches, retry, compensation, continuation, and exact mutation boundaries; LLM output may propose or inform these operations but does not own deterministic workflow state or transition authority.",
+                "Governance is cross-cutting across the lifecycle and covers intent, authority, provenance, evidence applicability/admissibility, mutation scope, capability selection, validation, approvals, promotion, completion, and evidence-backed disposition of unexpected inferred contexts.",
+                "Unexpected inferred contexts receive an explicit evidence-backed disposition of applicable-now, conceptually-applicable-but-not-currently-instrumented, capability-gap, or demonstrably-not-applicable; broader applicable contexts are not suppressed merely because the immediate implementation is narrower.",
+                "Verification/assurance spans the complete lifecycle rather than being a terminal box: humans contribute semantic correctness and judgment, LLMs contribute challenge and validation ideas that require corroboration, Kalaxy3 contributes facts and prior evidence, SAGE determines applicable checks and evidence sufficiency, deterministic primitives perform reproducible validation, and observability contributes measured evidence.",
+                "The lifecycle is explicitly represented as Intent -> Understanding -> Decision -> Execution -> Measurement/Learning -> Improved capability, with verification/assurance and governance spanning all stages.",
+                "Observability is a quantitative SAGE capability covering workflow and decision observability in addition to infrastructure/application observability, including effectiveness, efficiency, quality, friction, rework, failure recurrence, time to validated outcome, human intervention, prediction calibration, cost, reuse, outcome/system metrics, and optimization opportunities.",
+                "Continuous improvement consumes verified outcomes, observability, failures, interventions, evidence use, and validated paths to create or harden reusable repository-owned capability and to reduce recurrence, avoidable rework, and repeated governance reconstruction.",
+                "Result semantics use mandatory outcome gates for functional correctness, quality, safety/security/compliance, verification evidence, and prohibited side effects; failure of a mandatory gate cannot be averaged away by better performance on another dimension.",
+                "Beyond mandatory gates, SAGE preserves a provenance-backed multidimensional outcome vector against human-owned intent, requirements, constraints, and Definition of Done, including attainment, correctness/quality, reliability, time, human effort, cost, rework, recurrence, automation leverage, maintainability, stakeholder value, architectural fitness, and improvement opportunity where applicable.",
+                "A scalar fitness/utility score is used only when comparison or optimization requires it; its semantics, normalization, tradeoffs, and weights are explicitly human-owned and approved, SAGE/LLM may propose but may not invent the value function, and the underlying vector components and provenance remain available.",
+                "Anti-gaming controls prevent SAGE, an LLM, or an implementation from redefining success around convenient metrics, silently changing weights or gates, or substituting proxy optimization for the human-owned Definition of Done.",
                 "The metamodel is reconciled with the existing SAGE operating contract, workflow primitives, continuous-improvement model, evidence model, observability model, SAGE-ACTION-20260810-001, and SAGE-ACTION-20260809-002 without absorbing those actions' narrower implementation scopes.",
-                "Deterministic positive and negative regressions prove that applicable-but-not-currently-instrumented contexts are preserved and dispositioned, while demonstrably non-applicable contexts require evidence before exclusion.",
-                "No orchestration implementation product is selected by this action; product selection remains a later capability-selection decision governed by measured requirements and evidence."
+                "An external-framework review is documented and published using authoritative current sources, covering relevant AWS, Microsoft Azure, IBM, Google Cloud, and NIST governance/architecture guidance; alignment is characterized as comparison, not certification or endorsement, and SAGE-specific extensions are explicitly identified.",
+                "Deterministic positive and negative regressions prove shared-responsibility authority boundaries, LLM non-authority, architect break-glass accountability, evidence-backed context disposition, mandatory-gate behavior, outcome-vector preservation, and human-owned scalar semantics.",
+                "No orchestration implementation product is selected by this action; BPMN, workflow engines, graph engines/databases, or other products remain later capability-selection decisions governed by measured requirements and evidence."
             ],
             "measurement_plan": [
-                "Track architect interventions by reason, governed scope, disposition, downstream outcome, and whether the intervention later becomes reusable repository-owned capability.",
-                "Track inferred-context dispositions by applicable-now, conceptually-applicable-but-not-currently-instrumented, capability-gap, and demonstrably-not-applicable.",
-                "Track workflow decisions and continuations that are deterministically executed versus manually reconstructed by an LLM or operator.",
-                "Track reusable workflow paths created from validated interventions and outcomes, including recurrence prevented and avoidable rework reduced.",
-                "Track workflow-observability coverage and distinguish missing instrumentation from true non-applicability.",
-                "Require zero cases where an LLM independently owns deterministic workflow state or transition authority outside the governed orchestration role.",
-                "Require zero unexpected-context suppressions without an evidence-backed applicability disposition.",
-                "Measure whether the role/orchestration metamodel reduces repeated governance reconstruction, manual correction, and time to validated continuation across subsequent SAGE actions."
+                "Track activity-level responsibility assignments and authority boundaries, including Accountable Owner, Responsible, Contributor, Authority-Approver, and optional Informed roles, and record ambiguous or conflicting assignments as defects.",
+                "Track Architect interventions and break-glass events by trigger, rationale, minimum governed scope, controls or assumptions overridden, resulting risk, post-verification result, recurrence class, and whether the class becomes reusable capability.",
+                "Track LLM contributions by contribution type (external knowledge, alternatives, critique/risk, verification idea, candidate change), provenance, corroboration outcome, and whether any attempted use crossed a human-reserved or deterministic authority boundary.",
+                "Track inferred-context dispositions by applicable-now, conceptually-applicable-but-not-currently-instrumented, capability-gap, and demonstrably-not-applicable, with zero suppressions lacking evidence-backed disposition.",
+                "Track deterministic workflow decisions, transitions, retries, compensation, and continuations versus manual reconstruction, including failure recurrence, avoidable rework, and time to validated continuation.",
+                "Track workflow/decision observability coverage separately from infrastructure/application observability and measure missing instrumentation, human intervention, process friction, decision latency, and verification evidence availability.",
+                "For each governed outcome, record mandatory gate results independently and preserve the applicable multidimensional outcome vector with provenance; require zero cases where a failed mandatory gate is masked by aggregation.",
+                "Where a scalar fitness/utility score is used, record the human-approved value-function semantics, normalization, weights, tradeoffs, approval provenance, component vector, and sensitivity to changed assumptions; otherwise preserve scalar neutrality.",
+                "Measure effectiveness, efficiency, correctness/quality, reliability, time to validated outcome, human effort, cost, rework, recurrence, automation leverage, maintainability, stakeholder value, architectural fitness, prediction calibration, reuse, and improvement opportunity where the dimensions are applicable and observable.",
+                "Measure whether verified interventions, workflow outcomes, evidence use, failures, and repeated patterns are converted into reusable repository-owned capabilities that reduce recurrence, manual correction, governance reconstruction, and avoidable rework.",
+                "Record the external-framework review scope, authoritative source provenance, comparison date, identified alignments, deliberate SAGE-specific extensions, and unresolved gaps without treating comparison as certification or endorsement."
             ],
             "history": [
                 {
@@ -902,6 +915,117 @@
                         "action:SAGE-ACTION-20260809-002",
                         "action:SAGE-ACTION-20260808-001"
                     ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "identified",
+                    "transition_type": "contract-amendment",
+                    "recorded_at": "2026-08-13T16:31:45-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Reconcile the identified SAGE role/orchestration action with the approved shared-responsibility, governed-orchestration, verification, observability, Architect break-glass, and multidimensional outcome metamodel before acceptance.",
+                    "evidence_references": [
+                        "lesson:SAGE-LESSON-20260801-001",
+                        "action:SAGE-ACTION-20260810-001",
+                        "action:SAGE-ACTION-20260809-002",
+                        "evidence:SAGE-K3-SAGE-20260729-001",
+                        "evidence:SAGE-K3-SAGE-20260731-001"
+                    ],
+                    "amendment": {
+                        "changed_fields": [
+                            "title",
+                            "desired_outcome",
+                            "acceptance_criteria",
+                            "measurement_plan"
+                        ],
+                        "before_contract": {
+                            "action_id": "SAGE-ACTION-20260811-001",
+                            "title": "Codify fit-for-purpose SAGE role and orchestration metamodel",
+                            "source_lessons": [
+                                "SAGE-LESSON-20260801-001"
+                            ],
+                            "source_sessions": [],
+                            "owner": "repository-workflow",
+                            "priority": "high",
+                            "target_control_type": "guardrail",
+                            "desired_outcome": "SAGE has an explicit implementation-neutral role and orchestration metamodel in which the human architect owns intended future state, requirements, constraints, Definition of Done, approval boundaries, and governed interventions; SAGE governs intent, applicability, authority, evidence, capability selection, progression, and disposition of unexpected contexts; LLMs remain untrusted stochastic proposers rather than owners of deterministic workflow state or graph traversal; and a deterministic orchestration role owns workflow state, transitions, decisions, retry, compensation, and continuation without prematurely selecting BPMN, a graph engine, or another product. The metamodel makes architect intervention, context applicability, workflow observability, provenance, capability gaps, and conversion of validated workflow experience into reusable repository-owned capability explicit and measurable.",
+                            "acceptance_criteria": [
+                                "The SAGE operating contract explicitly defines the human architect as owner of intended future state, requirements, constraints, Definition of Done, approval boundaries, and explicit governed intervention when platform immaturity requires it.",
+                                "Every architect intervention is required to be scoped, contextualized, justified, traceable, and observable rather than silently altering SAGE behavior or learned workflow assumptions.",
+                                "SAGE is explicitly responsible for governing intent, applicability, authority, evidence, capability selection, progression, and disposition of unexpected inferred contexts.",
+                                "LLMs are explicitly classified as untrusted stochastic proposers for exploration, interpretation, design, and candidate mutations and are prohibited from owning deterministic directed workflow state, transition authority, or graph traversal.",
+                                "An implementation-neutral deterministic orchestration role is defined for workflow state, transitions, decisions, branches, retry, compensation, and continuation without choosing BPMN, a graph engine, a graph database, or another orchestration product.",
+                                "Canonical SAGE vocabulary defines workflow, state, transition, decision, branch, compensation, orchestration, human intervention, observability, provenance, and capability gap sufficiently for deterministic discovery and future capability selection.",
+                                "Unexpected inferred contexts cannot be suppressed merely because they are broader than the immediate implementation; each must receive an evidence-backed disposition such as applicable-now, conceptually-applicable-but-not-currently-instrumented, capability-gap, or demonstrably-not-applicable.",
+                                "Workflow observability is distinguished from infrastructure observability so conceptually applicable workflow telemetry that is not yet instrumented is represented as an instrumentation or capability gap rather than a false-positive context.",
+                                "The continuous-improvement model explicitly permits repeated architect interventions, workflow outcomes, evidence use, failures, and validated paths to be converted into reusable repository-owned workflow capability and measured for effectiveness, efficiency, recurrence, and avoidable rework.",
+                                "The metamodel is reconciled with the existing SAGE operating contract, workflow primitives, continuous-improvement model, evidence model, observability model, SAGE-ACTION-20260810-001, and SAGE-ACTION-20260809-002 without absorbing those actions' narrower implementation scopes.",
+                                "Deterministic positive and negative regressions prove that applicable-but-not-currently-instrumented contexts are preserved and dispositioned, while demonstrably non-applicable contexts require evidence before exclusion.",
+                                "No orchestration implementation product is selected by this action; product selection remains a later capability-selection decision governed by measured requirements and evidence."
+                            ],
+                            "measurement_plan": [
+                                "Track architect interventions by reason, governed scope, disposition, downstream outcome, and whether the intervention later becomes reusable repository-owned capability.",
+                                "Track inferred-context dispositions by applicable-now, conceptually-applicable-but-not-currently-instrumented, capability-gap, and demonstrably-not-applicable.",
+                                "Track workflow decisions and continuations that are deterministically executed versus manually reconstructed by an LLM or operator.",
+                                "Track reusable workflow paths created from validated interventions and outcomes, including recurrence prevented and avoidable rework reduced.",
+                                "Track workflow-observability coverage and distinguish missing instrumentation from true non-applicability.",
+                                "Require zero cases where an LLM independently owns deterministic workflow state or transition authority outside the governed orchestration role.",
+                                "Require zero unexpected-context suppressions without an evidence-backed applicability disposition.",
+                                "Measure whether the role/orchestration metamodel reduces repeated governance reconstruction, manual correction, and time to validated continuation across subsequent SAGE actions."
+                            ]
+                        },
+                        "after_contract": {
+                            "action_id": "SAGE-ACTION-20260811-001",
+                            "title": "SAGE Shared-Responsibility, Governed Orchestration, and Outcome Metamodel",
+                            "source_lessons": [
+                                "SAGE-LESSON-20260801-001"
+                            ],
+                            "source_sessions": [],
+                            "owner": "repository-workflow",
+                            "priority": "high",
+                            "target_control_type": "guardrail",
+                            "desired_outcome": "SAGE has an explicit implementation-neutral shared-responsibility, governed-orchestration, verification, observability, and outcome metamodel for evidence-informed intent-to-outcome system engineering. Human participants provide legitimate intent and accountable authority; the LLM is a first-class contributor of external/world knowledge, alternatives, critique, and verification ideas without human-reserved approval authority; Kalaxy3 provides accumulated local evidence, experience, standards, and measured outcomes; and deterministic orchestration owns reproducible workflow state, transitions, retry, compensation, and continuation. SAGE federates and reconciles those participant contributions under cross-cutting governance, verification/assurance, observability, and continuous improvement. The human Architect role retains end-to-end accountable architectural ownership and a governed, attributable break-glass path that can regain architectural control without making the intervention unaccountable. Success is evaluated first by mandatory outcome gates and then by a provenance-preserving multidimensional outcome vector against human-owned intent, requirements, constraints, and Definition of Done; any scalar fitness or utility function is optional, context-specific, and human-owned/approved. The metamodel remains implementation-neutral and does not prematurely select BPMN, a workflow engine, graph technology, or another orchestration product.",
+                            "acceptance_criteria": [
+                                "The metamodel defines four first-class participant classes: human participants, LLM, Kalaxy3 evidence/experience, and deterministic orchestration/execution, with SAGE defined as the governing system-engineering federation that reconciles their inputs into governed decisions.",
+                                "Human participant roles include stakeholder/sponsor/product owner, architect/engineer, operator, and reviewer/approver; the same human may hold multiple roles, and authority is represented as an explicit governed property rather than inferred from technical capability.",
+                                "Shared-responsibility vocabulary defines Accountable Owner, Responsible, Contributor, Authority-Approver, and optional Informed responsibilities per activity; capability overlap is allowed while accountability and legitimate authority remain explicit.",
+                                "The human Architect role has end-to-end accountable architectural responsibility for intended future state, requirements, constraints, Definition of Done, approval boundaries, and architectural fitness; multiple qualified humans may hold the role, but nothing inside SAGE can make the Architect unable to regain architectural control.",
+                                "Architect break-glass intervention is exceptional, explicit, minimum-scope, attributable, and records trigger, rationale, controls or assumptions overridden, resulting risk, and required post-verification; it cannot nullify external legal, security, compliance, or other nondelegable constraints, and recurring intervention classes become continuous-improvement evidence.",
+                                "The LLM is a first-class contributor of external/world knowledge, state-of-practice patterns, alternatives, critique, risk identification, and verification ideas, while remaining untrusted with authority: it cannot be the Accountable Architect, sole source of legitimate stakeholder intent, or holder of human-reserved approval authority.",
+                                "Kalaxy3 is explicitly modeled as accumulated local evidence and experience, including current facts, validated lessons, standards, workflow experience, measurements, and reusable capability; SAGE reconciles this local experience with human intent, LLM knowledge, and current evidence.",
+                                "Deterministic orchestration/execution owns reproducible workflow state, transitions, decisions, branches, retry, compensation, continuation, and exact mutation boundaries; LLM output may propose or inform these operations but does not own deterministic workflow state or transition authority.",
+                                "Governance is cross-cutting across the lifecycle and covers intent, authority, provenance, evidence applicability/admissibility, mutation scope, capability selection, validation, approvals, promotion, completion, and evidence-backed disposition of unexpected inferred contexts.",
+                                "Unexpected inferred contexts receive an explicit evidence-backed disposition of applicable-now, conceptually-applicable-but-not-currently-instrumented, capability-gap, or demonstrably-not-applicable; broader applicable contexts are not suppressed merely because the immediate implementation is narrower.",
+                                "Verification/assurance spans the complete lifecycle rather than being a terminal box: humans contribute semantic correctness and judgment, LLMs contribute challenge and validation ideas that require corroboration, Kalaxy3 contributes facts and prior evidence, SAGE determines applicable checks and evidence sufficiency, deterministic primitives perform reproducible validation, and observability contributes measured evidence.",
+                                "The lifecycle is explicitly represented as Intent -> Understanding -> Decision -> Execution -> Measurement/Learning -> Improved capability, with verification/assurance and governance spanning all stages.",
+                                "Observability is a quantitative SAGE capability covering workflow and decision observability in addition to infrastructure/application observability, including effectiveness, efficiency, quality, friction, rework, failure recurrence, time to validated outcome, human intervention, prediction calibration, cost, reuse, outcome/system metrics, and optimization opportunities.",
+                                "Continuous improvement consumes verified outcomes, observability, failures, interventions, evidence use, and validated paths to create or harden reusable repository-owned capability and to reduce recurrence, avoidable rework, and repeated governance reconstruction.",
+                                "Result semantics use mandatory outcome gates for functional correctness, quality, safety/security/compliance, verification evidence, and prohibited side effects; failure of a mandatory gate cannot be averaged away by better performance on another dimension.",
+                                "Beyond mandatory gates, SAGE preserves a provenance-backed multidimensional outcome vector against human-owned intent, requirements, constraints, and Definition of Done, including attainment, correctness/quality, reliability, time, human effort, cost, rework, recurrence, automation leverage, maintainability, stakeholder value, architectural fitness, and improvement opportunity where applicable.",
+                                "A scalar fitness/utility score is used only when comparison or optimization requires it; its semantics, normalization, tradeoffs, and weights are explicitly human-owned and approved, SAGE/LLM may propose but may not invent the value function, and the underlying vector components and provenance remain available.",
+                                "Anti-gaming controls prevent SAGE, an LLM, or an implementation from redefining success around convenient metrics, silently changing weights or gates, or substituting proxy optimization for the human-owned Definition of Done.",
+                                "The metamodel is reconciled with the existing SAGE operating contract, workflow primitives, continuous-improvement model, evidence model, observability model, SAGE-ACTION-20260810-001, and SAGE-ACTION-20260809-002 without absorbing those actions' narrower implementation scopes.",
+                                "An external-framework review is documented and published using authoritative current sources, covering relevant AWS, Microsoft Azure, IBM, Google Cloud, and NIST governance/architecture guidance; alignment is characterized as comparison, not certification or endorsement, and SAGE-specific extensions are explicitly identified.",
+                                "Deterministic positive and negative regressions prove shared-responsibility authority boundaries, LLM non-authority, architect break-glass accountability, evidence-backed context disposition, mandatory-gate behavior, outcome-vector preservation, and human-owned scalar semantics.",
+                                "No orchestration implementation product is selected by this action; BPMN, workflow engines, graph engines/databases, or other products remain later capability-selection decisions governed by measured requirements and evidence."
+                            ],
+                            "measurement_plan": [
+                                "Track activity-level responsibility assignments and authority boundaries, including Accountable Owner, Responsible, Contributor, Authority-Approver, and optional Informed roles, and record ambiguous or conflicting assignments as defects.",
+                                "Track Architect interventions and break-glass events by trigger, rationale, minimum governed scope, controls or assumptions overridden, resulting risk, post-verification result, recurrence class, and whether the class becomes reusable capability.",
+                                "Track LLM contributions by contribution type (external knowledge, alternatives, critique/risk, verification idea, candidate change), provenance, corroboration outcome, and whether any attempted use crossed a human-reserved or deterministic authority boundary.",
+                                "Track inferred-context dispositions by applicable-now, conceptually-applicable-but-not-currently-instrumented, capability-gap, and demonstrably-not-applicable, with zero suppressions lacking evidence-backed disposition.",
+                                "Track deterministic workflow decisions, transitions, retries, compensation, and continuations versus manual reconstruction, including failure recurrence, avoidable rework, and time to validated continuation.",
+                                "Track workflow/decision observability coverage separately from infrastructure/application observability and measure missing instrumentation, human intervention, process friction, decision latency, and verification evidence availability.",
+                                "For each governed outcome, record mandatory gate results independently and preserve the applicable multidimensional outcome vector with provenance; require zero cases where a failed mandatory gate is masked by aggregation.",
+                                "Where a scalar fitness/utility score is used, record the human-approved value-function semantics, normalization, weights, tradeoffs, approval provenance, component vector, and sensitivity to changed assumptions; otherwise preserve scalar neutrality.",
+                                "Measure effectiveness, efficiency, correctness/quality, reliability, time to validated outcome, human effort, cost, rework, recurrence, automation leverage, maintainability, stakeholder value, architectural fitness, prediction calibration, reuse, and improvement opportunity where the dimensions are applicable and observable.",
+                                "Measure whether verified interventions, workflow outcomes, evidence use, failures, and repeated patterns are converted into reusable repository-owned capabilities that reduce recurrence, manual correction, governance reconstruction, and avoidable rework.",
+                                "Record the external-framework review scope, authoritative source provenance, comparison date, identified alignments, deliberate SAGE-specific extensions, and unresolved gaps without treating comparison as certification or endorsement."
+                            ]
+                        },
+                        "before_contract_sha256": "4b6895e3ddaaead0c3807e1d77354900e3f649a875a4f12a1c6496a26aa2f00f",
+                        "after_contract_sha256": "0bd4ea3a7d2ec75e5afcc60c1b4d01b108320a34e271e68e7381ffae152437a3"
+                    }
                 }
             ]
         },
