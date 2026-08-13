@@ -237,8 +237,8 @@ def validate_registry(payload: dict[str, Any]) -> list[str]:
         ),
         None,
     )
-    if not isinstance(safety_entry, dict) or safety_entry.get("version") != "1.2.0":
-        failures.append("git.safety-guardrail version must be 1.2.0")
+    if not isinstance(safety_entry, dict) or safety_entry.get("version") != "1.3.0":
+        failures.append("git.safety-guardrail version must be 1.3.0")
 
     for policy in (
         "composition_policy",
@@ -365,6 +365,7 @@ def validate_sources() -> list[str]:
         ),
         "git_inspect.py": (
             "_FIXED_READ_ONLY",
+            "is_read_only_git_arguments",
             "git.inspect",
             "require_upstream_equal",
             "require_exact_paths",
@@ -394,6 +395,7 @@ def validate_sources() -> list[str]:
             "_TRUSTED_ROUTINE_GIT_CONTROLLER_SUFFIX",
             "_TRUSTED_ROUTINE_GIT_MUTATORS",
             "_is_trusted_routine_git_controller",
+            "is_read_only_git_arguments(argv[1:])",
         ),
         "lifecycle.py": (
             "sage-action-id.py",
@@ -792,6 +794,54 @@ def validate_gap_receipts(payload: dict[str, Any]) -> list[str]:
             failures.append(f"{primitive_id}: registry gap receipt linkage mismatch")
     return failures
 
+
+def git_safety_contract_tests(root: Path) -> list[str]:
+    """Exercise canonical read-only Git parity and nearby fail-closed variants."""
+    failures: list[str] = []
+    read_only = (
+        ("git", "branch", "--show-current"),
+        ("git", "status", "--porcelain=v1", "--untracked-files=all"),
+        ("git", "diff", "--name-only"),
+        ("git", "diff", "--cached", "--name-only"),
+        ("git", "diff", "--check"),
+        ("git", "diff", "--cached", "--check"),
+        ("git", "ls-files", "--others", "--exclude-standard"),
+        ("git", "rev-parse", "origin/main"),
+        ("git", "ls-remote", "--heads", "origin", "refs/heads/feature/example"),
+        ("git", "merge-base", "--is-ancestor", "main", "feature/example"),
+        ("git", "rev-list", "--parents", "main..feature/example"),
+        ("git", "diff", "--name-only", "main...feature/example"),
+    )
+    rejected = (
+        ("git", "rev-parse", "--verify"),
+        ("git", "ls-remote", "origin", "refs/heads/feature/example"),
+        ("git", "ls-remote", "--heads", "origin", "refs/heads/../main"),
+        ("git", "merge-base", "main", "feature/example"),
+        ("git", "rev-list", "main..feature/example"),
+        ("git", "diff", "--name-only", "main..feature/example"),
+        ("git", "fetch", "origin", "main"),
+        ("git", "push", "origin", "main"),
+    )
+    template = (
+        "from workflow import CommandSpec\n"
+        "CommandSpec(primitive_id='command.run', label='x', "
+        "argv={argv!r}, cwd=ROOT)\n"
+    )
+    for index, argv in enumerate(read_only):
+        source = template.format(argv=argv)
+        path = root / f"read-only-{index}.py"
+        violations = GitSafetyGuardrail.scan_source(source, path=path)
+        if any(item.code == "GIT-MUTATION" for item in violations):
+            failures.append(f"canonical read-only Git command rejected: {argv!r}")
+    for index, argv in enumerate(rejected):
+        source = template.format(argv=argv)
+        path = root / f"rejected-{index}.py"
+        violations = GitSafetyGuardrail.scan_source(source, path=path)
+        if not any(item.code == "GIT-MUTATION" for item in violations):
+            failures.append(f"unsafe or unapproved Git command accepted: {argv!r}")
+    return failures
+
+
 def negative_tests(payload: dict[str, Any]) -> list[str]:
     failures: list[str] = []
     with tempfile.TemporaryDirectory(
@@ -833,6 +883,7 @@ def run():
             failures.append(
                 "negative Make continuation regression failed"
             )
+        failures.extend(git_safety_contract_tests(root))
         mutating = root / "mutating-helper.py"
         mutating.write_text(
             "import subprocess\nsubprocess.run(['git', 'push', 'origin', 'main'])\n",

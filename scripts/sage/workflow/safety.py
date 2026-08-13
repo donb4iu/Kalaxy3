@@ -9,17 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-_READ_ONLY_GIT = {
-    ("git", "branch", "--show-current"),
-    ("git", "status", "--porcelain=v1", "--untracked-files=all"),
-    ("git", "diff", "--name-only"),
-    ("git", "diff", "--cached", "--name-only"),
-    ("git", "diff", "--check"),
-    ("git", "diff", "--cached", "--check"),
-    ("git", "ls-files", "--others", "--exclude-standard"),
-    ("git", "rev-parse", "HEAD"),
-    ("git", "rev-parse", "@{upstream}"),
-}
+from .git_inspect import is_read_only_git_arguments
+
 _MUTATING_GIT = {
     "add",
     "am",
@@ -189,7 +180,7 @@ class GitSafetyGuardrail:
         fixture_allowed = allow_fixture_mutation and cls._is_temp_fixture(path, fixture_root)
         command = argv[0]
         if command == "git":
-            if argv in _READ_ONLY_GIT:
+            if is_read_only_git_arguments(argv[1:]):
                 return []
             subcommand = argv[1] if len(argv) > 1 else ""
             if fixture_allowed and subcommand in _MUTATING_GIT:

@@ -286,13 +286,13 @@
         },
         {
             "primitive_id": "git.safety-guardrail",
-            "version": "1.2.0",
+            "version": "1.3.0",
             "module": "workflow.safety",
             "symbol": "GitSafetyGuardrail",
             "side_effects": "read-only Python source analysis with one exact repository-owned routine Git controller path allowance",
             "idempotency": "deterministic for unchanged source and fixture policy",
             "logging": "violation path, line, code, and redacted description",
-            "failure_mode": "Git, GitHub CLI, direct GitHub HTTP API, credential, deployment, mixed-authority, or out-of-scope trusted-controller mutation path fails closed",
+            "failure_mode": "Git outside canonical git.inspect read-only authority, GitHub CLI, direct GitHub HTTP API, credential, deployment, mixed-authority, or out-of-scope trusted-controller mutation path fails closed",
             "tests": [
                 "read-only helper pass",
                 "Git mutation rejection",
@@ -301,7 +301,9 @@
                 "temporary fixture allowance",
                 "direct GitHub API rejection",
                 "trusted routine Git controller exact-path allowance",
-                "trusted routine Git controller mutator-scope rejection"
+                "trusted routine Git controller mutator-scope rejection",
+                "canonical git.inspect read-only command parity",
+                "near-neighbor Git command rejection"
             ],
             "maturity": "pilot",
             "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-git-safety.json"

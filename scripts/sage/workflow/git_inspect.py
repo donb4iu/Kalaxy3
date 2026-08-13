@@ -25,6 +25,55 @@ _FIXED_READ_ONLY = {
 }
 
 
+
+def _safe_reference(value: str) -> bool:
+    """Return whether one Git reference is safe for read-only inspection."""
+    return bool(
+        _SAFE_REF.fullmatch(value)
+        and not value.startswith("-")
+        and ".." not in value
+    )
+
+
+def is_read_only_git_arguments(arguments: tuple[str, ...]) -> bool:
+    """Return whether arguments match the canonical git.inspect read contract."""
+    if arguments in _FIXED_READ_ONLY:
+        return True
+    if len(arguments) == 2 and arguments[0] == "rev-parse":
+        return _safe_reference(arguments[1])
+    if len(arguments) == 4 and arguments[:2] == ("ls-remote", "--heads"):
+        prefix = "refs/heads/"
+        branch = arguments[3][len(prefix):] if arguments[3].startswith(prefix) else ""
+        return bool(
+            _SAFE_REMOTE.fullmatch(arguments[2])
+            and _SAFE_BRANCH.fullmatch(branch)
+            and ".." not in arguments[3]
+        )
+    if len(arguments) == 4 and arguments[:2] == ("merge-base", "--is-ancestor"):
+        return all(_safe_reference(reference) for reference in arguments[2:])
+    if len(arguments) == 3 and arguments[:2] == ("rev-list", "--parents"):
+        if arguments[2].count("..") != 1 or "..." in arguments[2]:
+            return False
+        base, head = arguments[2].split("..", 1)
+        return all(_safe_reference(reference) for reference in (base, head))
+    if len(arguments) == 3 and arguments[:2] == ("diff", "--name-only"):
+        if arguments[2].count("...") != 1:
+            return False
+        base, head = arguments[2].split("...", 1)
+        return all(_safe_reference(reference) for reference in (base, head))
+    return False
+
+
+def validate_read_only_git_arguments(arguments: tuple[str, ...]) -> None:
+    """Fail closed unless arguments match the canonical read-only Git contract."""
+    if is_read_only_git_arguments(arguments):
+        return
+    raise WorkflowError(
+        "git.inspect rejected non-read-only or unapproved Git arguments: "
+        + repr(arguments)
+    )
+
+
 @dataclass(frozen=True)
 class GitAuthoritySnapshot:
     """Read-only repository authority captured from local Git state."""
@@ -62,67 +111,8 @@ class GitInspector:
 
     @staticmethod
     def _validate(arguments: tuple[str, ...]) -> None:
-        if arguments in _FIXED_READ_ONLY:
-            return
-        if (
-            len(arguments) == 2
-            and arguments[0] == "rev-parse"
-            and _SAFE_REF.fullmatch(arguments[1])
-            and not arguments[1].startswith("-")
-            and ".." not in arguments[1]
-        ):
-            return
-        if (
-            len(arguments) == 4
-            and arguments[:2] == ("ls-remote", "--heads")
-            and _SAFE_REMOTE.fullmatch(arguments[2])
-            and arguments[3].startswith("refs/heads/")
-            and _SAFE_BRANCH.fullmatch(arguments[3][len("refs/heads/"):])
-            and ".." not in arguments[3]
-        ):
-            return
-        if (
-            len(arguments) == 4
-            and arguments[:2] == ("merge-base", "--is-ancestor")
-            and all(
-                _SAFE_REF.fullmatch(reference)
-                and not reference.startswith("-")
-                and ".." not in reference
-                for reference in arguments[2:]
-            )
-        ):
-            return
-        if (
-            len(arguments) == 3
-            and arguments[:2] == ("rev-list", "--parents")
-            and arguments[2].count("..") == 1
-            and "..." not in arguments[2]
-        ):
-            base, head = arguments[2].split("..", 1)
-            if all(
-                _SAFE_REF.fullmatch(reference)
-                and not reference.startswith("-")
-                and ".." not in reference
-                for reference in (base, head)
-            ):
-                return
-        if (
-            len(arguments) == 3
-            and arguments[:2] == ("diff", "--name-only")
-            and arguments[2].count("...") == 1
-        ):
-            base, head = arguments[2].split("...", 1)
-            if all(
-                _SAFE_REF.fullmatch(reference)
-                and not reference.startswith("-")
-                and ".." not in reference
-                for reference in (base, head)
-            ):
-                return
-        raise WorkflowError(
-            "git.inspect rejected non-read-only or unapproved Git arguments: "
-            + repr(arguments)
-        )
+        """Validate against the shared canonical read-only contract."""
+        validate_read_only_git_arguments(arguments)
 
     def run_read_only(
         self,
