@@ -16,7 +16,7 @@ sys.path.insert(0, str(SAGE_DIR))
 from request_execution import ProposalError
 from semantic_understanding import load_engineering_contribution
 from workflow import WorkflowError
-from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap
+from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap, default_planning_source_path
 
 
 def self_test() -> int:
@@ -50,8 +50,24 @@ def self_test() -> int:
             pass
         else:
             raise RuntimeError("external sage-source.json contribution was accepted")
+        first = default_planning_source_path("SAGE-ACTION-TEST-001", "a" * 64)
+        second = default_planning_source_path("SAGE-ACTION-TEST-001", "b" * 64)
+        repeat = default_planning_source_path("SAGE-ACTION-TEST-001", "a" * 64)
+        if first == second:
+            raise RuntimeError("distinct semantic confirmations collided on one default planning-source path")
+        if first != repeat:
+            raise RuntimeError("identical semantic confirmation did not produce deterministic planning-source identity")
+        if ("a" * 64) not in first.name or "SAGE-ACTION-TEST-001" not in first.name:
+            raise RuntimeError("default planning-source identity omits action or semantic confirmation digest")
+        try:
+            default_planning_source_path("SAGE-ACTION-TEST-001", "not-a-digest")
+        except WorkflowError:
+            pass
+        else:
+            raise RuntimeError("invalid semantic confirmation digest was accepted for planning-source identity")
     print("PASS engineering contribution without caller-authored SAGE hashes")
     print("PASS external sage-source.json authorship fails closed")
+    print("PASS semantic-confirmation digest scopes default planning-source identity")
     print("Kalaxy3 SAGE semantic bootstrap self-test: PASS")
     return 0
 

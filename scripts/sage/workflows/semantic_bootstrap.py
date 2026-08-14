@@ -27,7 +27,7 @@ from workflow import (
 )
 
 WORKFLOW_ID = "sage.semantic-bootstrap"
-WORKFLOW_VERSION = "0.1.0"
+WORKFLOW_VERSION = "0.2.0"
 PRIMITIVES_USED = (
     "catalog.registry",
     "logging.events",
@@ -232,6 +232,20 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
     }
 
 
+
+def default_planning_source_path(action_id: str, confirmation_sha256: str) -> Path:
+    """Return the immutable default planning-source path for one confirmed semantic slice."""
+
+    if not action_id or "/" in action_id or "\\" in action_id:
+        raise WorkflowError("semantic bootstrap action ID is invalid for planning-source identity")
+    if (
+        len(confirmation_sha256) != 64
+        or confirmation_sha256 != confirmation_sha256.lower()
+        or any(character not in "0123456789abcdef" for character in confirmation_sha256)
+    ):
+        raise WorkflowError("semantic confirmation digest is invalid for planning-source identity")
+    return Path("~/Downloads").expanduser() / f"sage-action-{action_id}-semantic-{confirmation_sha256}-source.zip"
+
 def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, actor: str, output: Path | None = None) -> Mapping[str, Any]:
     if actor != "architect":
         raise WorkflowError("semantic confirmation must be exercised by the Architect role")
@@ -255,7 +269,7 @@ def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, a
     if sha256_file(contribution_path) != state.get("contribution_sha256"):
         raise WorkflowError("engineering contribution changed after semantic interpretation")
     contribution = load_engineering_contribution(contribution_path)
-    output = (output or (Path("~/Downloads").expanduser() / f"sage-action-{state['action_id']}-source.zip")).expanduser().resolve()
+    output = (output or default_planning_source_path(str(state["action_id"]), confirmation_sha256)).expanduser().resolve()
     validations = [{"label": f"Run {target}", "argv": ["make", target], "timeout_seconds": 3600} for target in DEFAULT_VALIDATIONS]
     confirmation = {
         "schema_version": "1.0",

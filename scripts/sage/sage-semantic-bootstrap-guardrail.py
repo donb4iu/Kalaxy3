@@ -26,6 +26,7 @@ def validate() -> list[str]:
     domain = (ROOT / "scripts/sage/semantic_understanding.py").read_text(encoding="utf-8")
     planning = (ROOT / "scripts/sage/request_planning.py").read_text(encoding="utf-8")
     cli = (ROOT / "scripts/sage/sage-request-plan.py").read_text(encoding="utf-8")
+    bootstrap_cli = (ROOT / "scripts/sage/sage-action-bootstrap.py").read_text(encoding="utf-8")
     process = (ROOT / "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md").read_text(encoding="utf-8").casefold()
     markers = (
         "load_improvement_action",
@@ -41,6 +42,8 @@ def validate() -> list[str]:
         "render_operator_command",
         "semantic_understanding_path",
         "semantic_confirmation_path",
+        "default_planning_source_path",
+        "semantic-{confirmation_sha256}-source.zip",
     )
     for marker in markers:
         if marker not in workflow:
@@ -56,9 +59,11 @@ def validate() -> list[str]:
             failures.append(f"semantic planning-authority propagation marker missing: {marker}")
     if "_fixture_source" in cli:
         failures.append("request-planning self-test still relies on caller-style fixture source writer")
+    if "default_planning_source_path" not in bootstrap_cli or "semantic-confirmation digest scopes default planning-source identity" not in bootstrap_cli:
+        failures.append("semantic-bootstrap self-test does not cover distinct confirmed-slice planning-source identity")
     if "sage-source.json" not in domain or "may not author sage control artifact" not in domain.casefold():
         failures.append("engineering contribution does not reject external sage-source authorship")
-    for marker in ("anti-goose-chase", "semantic confirmation is not feasibility", "bootstrap exception", "confirmed semantic authority"):
+    for marker in ("anti-goose-chase", "semantic confirmation is not feasibility", "bootstrap exception", "confirmed semantic authority", "semantic-confirmation digest", "multiple confirmed slices"):
         if marker not in process:
             failures.append(f"semantic-bootstrap process marker missing: {marker}")
     for path in ("markdown/standards/sage-engineering-contribution-schema-v1.0.json", "markdown/standards/sage-semantic-understanding-schema-v1.0.json"):
@@ -88,6 +93,7 @@ def main() -> int:
     print("PASS repository-owned planning-source generation")
     print("PASS existing planner/executor reuse")
     print("PASS confirmed semantic authority is bound into downstream planning")
+    print("PASS semantic-confirmation digest scopes immutable planning-source identity")
     print("Kalaxy3 SAGE semantic bootstrap guardrail: PASS")
     return 0
 
