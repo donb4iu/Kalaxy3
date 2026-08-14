@@ -49,6 +49,7 @@ help:
 	  '  SAGE_REQUEST="<request>" SAGE_SOURCE="<source.zip>" make sage-request-plan' \
 	  '  SAGE_REQUEST="<request>" SAGE_PROPOSAL="<proposal.zip>" make sage-request-execute' \
 	  '  SAGE_STATE="<state.json>" SAGE_OPERATOR_RESULT="<result.json>" make sage-request-continue' \
+	  '  SAGE_STATE="<state.json>" SAGE_ROUTINE_RECEIPT="<receipt.json>" make sage-request-continue-routine' \
 	  '  SAGE_REQUEST="<request>" SAGE_ACTION_ID="<id>" SAGE_TO_STATUS="<status>" SAGE_ACTOR="<actor>" SAGE_REASON="<reason>" SAGE_EVIDENCE_REFERENCE="<ref>" SAGE_COMMIT_MESSAGE="<message>" make sage-improvement-action-transition' \
 	  '  SAGE_REQUEST="<request>" make sage-evidence-prepare' \
 	  '  SAGE_PACKAGE="<package.zip>" make sage-evidence-check'
@@ -420,7 +421,7 @@ sage-semantic-bootstrap-self-test:
 sage-semantic-bootstrap-guardrail:
 	$(PYTHON) scripts/sage/sage-semantic-bootstrap-guardrail.py
 
-.PHONY: sage-request-plan sage-request-plan-self-test sage-request-planning-guardrail sage-request-execute sage-request-continue sage-request-execute-self-test sage-request-execution-guardrail
+.PHONY: sage-request-plan sage-request-plan-self-test sage-request-planning-guardrail sage-request-execute sage-request-continue sage-request-continue-routine sage-request-execute-self-test sage-request-execution-guardrail
 
 sage-request-plan:
 	@test -n "$${SAGE_REQUEST:-}" || { \
@@ -460,6 +461,18 @@ sage-request-continue:
 	  exit 2; \
 	}
 	$(PYTHON) scripts/sage/sage-request-execute.py --continue-state "$$SAGE_STATE" --operator-result "$$SAGE_OPERATOR_RESULT"
+
+
+sage-request-continue-routine:
+	@test -n "$${SAGE_STATE:-}" || { \
+	  echo 'Usage: SAGE_STATE="<state.json>" SAGE_ROUTINE_RECEIPT="<receipt.json>" make sage-request-continue-routine'; \
+	  exit 2; \
+	}
+	@test -n "$${SAGE_ROUTINE_RECEIPT:-}" || { \
+	  echo 'Usage: SAGE_STATE="<state.json>" SAGE_ROUTINE_RECEIPT="<receipt.json>" make sage-request-continue-routine'; \
+	  exit 2; \
+	}
+	$(PYTHON) scripts/sage/sage-request-execute.py --continue-state "$$SAGE_STATE" --routine-receipt "$$SAGE_ROUTINE_RECEIPT"
 
 sage-request-execute-self-test:
 	$(PYTHON) scripts/sage/sage-request-execute.py --self-test

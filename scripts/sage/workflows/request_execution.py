@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
-from request_execution import ProposalBundle, load_proposal, next_operator_boundary, validate_operator_result
+from request_execution import ProposalBundle, load_proposal, next_operator_boundary, validate_operator_result, validate_routine_git_lifecycle_receipt
 from workflow import (
     AtomicFileTransaction,
     AtomicFileWriter,
@@ -753,7 +753,7 @@ class ContinuationContext:
     state_path: Path
     state: dict[str, Any]
     proposal: dict[str, Any]
-    operator_result: dict[str, Any]
+    result_evidence: dict[str, Any]
     state_dir: Path
     catalog: PrimitiveCatalog
     logger: JsonlEventLogger
@@ -766,19 +766,16 @@ class ContinuationContext:
     next_proposal_path: Path | None = None
 
 
-def build_continuation_context(
+def _build_continuation_context(
     repo: Path,
-    state_path: Path,
-    operator_result_path: Path,
+    resolved_state: Path,
+    state: dict[str, Any],
+    proposal: dict[str, Any],
+    result_evidence: dict[str, Any],
+    evidence_path: Path,
 ) -> ContinuationContext:
-    """Resolve the trusted local state and untrusted pasted result."""
+    """Build one post-boundary context from already normalized result evidence."""
 
-    resolved_state = state_path.expanduser().resolve()
-    state = load_state(resolved_state)
-    proposal_path = Path(str(state["current_proposal"])).expanduser().resolve()
-    proposal = load_operator_proposal(proposal_path)
-    result_payload = json.loads(operator_result_path.expanduser().resolve().read_text(encoding="utf-8"))
-    operator_result = validate_operator_result(result_payload, proposal)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     state_dir = Path("~/.local/state/kalaxy3/sage-request-execution").expanduser() / ("continue-" + stamp)
     state_dir.mkdir(parents=True, exist_ok=False)
@@ -791,7 +788,7 @@ def build_continuation_context(
     )
     runner = CommandRunner(
         logger,
-        allowed_roots=(repo, state_dir, resolved_state.parent, operator_result_path.expanduser().resolve().parent),
+        allowed_roots=(repo, state_dir, resolved_state.parent, evidence_path.parent),
         base_environment={name: "" for name in SECRET_ENVIRONMENT_NAMES},
     )
     inspector = GitInspector(repo, runner)
@@ -801,13 +798,78 @@ def build_continuation_context(
         resolved_state,
         state,
         proposal,
-        operator_result,
+        result_evidence,
         state_dir,
         catalog,
         logger,
         runner,
         inspector,
         writer,
+    )
+
+
+def build_continuation_context(
+    repo: Path,
+    state_path: Path,
+    operator_result_path: Path,
+) -> ContinuationContext:
+    """Resolve legacy/manual pasted-result continuation evidence."""
+
+    resolved_state = state_path.expanduser().resolve()
+    state = load_state(resolved_state)
+    if state.get("current_boundary") == "routine-git-lifecycle":
+        raise WorkflowError(
+            "routine Git lifecycle continuation requires its repository-owned controller receipt"
+        )
+    proposal_path = Path(str(state["current_proposal"])).expanduser().resolve()
+    proposal = load_operator_proposal(proposal_path)
+    result_path = operator_result_path.expanduser().resolve()
+    result_payload = json.loads(result_path.read_text(encoding="utf-8"))
+    result_evidence = validate_operator_result(result_payload, proposal)
+    return _build_continuation_context(
+        repo,
+        resolved_state,
+        state,
+        proposal,
+        result_evidence,
+        result_path,
+    )
+
+
+def build_routine_receipt_continuation_context(
+    repo: Path,
+    state_path: Path,
+    receipt_path: Path,
+) -> ContinuationContext:
+    """Resolve a repository-owned routine-controller receipt as first-class evidence."""
+
+    resolved_state = state_path.expanduser().resolve()
+    state = load_state(resolved_state)
+    if state.get("current_boundary") != "routine-git-lifecycle":
+        raise WorkflowError("routine-controller receipt requires the active routine-git-lifecycle boundary")
+    proposal_path = Path(str(state["current_proposal"])).expanduser().resolve()
+    proposal = load_operator_proposal(proposal_path)
+    resolved_receipt = receipt_path.expanduser().resolve()
+    expected_receipt = resolved_state.parent / "routine-git-lifecycle-receipt.json"
+    if resolved_receipt != expected_receipt or not resolved_receipt.is_file():
+        raise WorkflowError("routine-controller receipt path is not the canonical request-state receipt")
+    payload = json.loads(resolved_receipt.read_text(encoding="utf-8"))
+    result_evidence = validate_routine_git_lifecycle_receipt(
+        payload,
+        proposal,
+        state,
+        receipt_sha256=sha256_file(resolved_receipt),
+    )
+    expected_event_log = (resolved_state.parent / "routine-git-lifecycle-events.jsonl").resolve()
+    if Path(str(result_evidence["event_log"])).expanduser().resolve() != expected_event_log:
+        raise WorkflowError("routine-controller receipt event-log path drifted")
+    return _build_continuation_context(
+        repo,
+        resolved_state,
+        state,
+        proposal,
+        result_evidence,
+        resolved_receipt,
     )
 
 
@@ -827,6 +889,11 @@ def verify_operator_result_action(context: ContinuationContext) -> Mapping[str, 
         current_head = context.inspector.head()
         if current_head == expected_head:
             raise WorkflowError("routine Git lifecycle did not advance HEAD")
+        if (
+            context.result_evidence.get("source_kind") != "routine-controller-receipt"
+            or context.result_evidence.get("result_commit") != current_head
+        ):
+            raise WorkflowError("routine-controller receipt does not bind the observed resulting HEAD")
         history = context.inspector.run_read_only(
             ("rev-list", "--parents", f"{expected_head}..{current_head}"),
             label="Verify routine Git lifecycle single-commit topology",
@@ -882,8 +949,8 @@ def verify_operator_result_action(context: ContinuationContext) -> Mapping[str, 
         "status": "pass",
         "boundary": boundary,
         "proposal_id": str(context.proposal.get("proposal_id")),
-        "command_sha256": str(context.operator_result["command_sha256"]),
-        "operator_output_sha256": str(context.operator_result["complete_output_sha256"]),
+        "command_sha256": str(context.result_evidence["command_sha256"]),
+        "boundary_result_sha256": str(context.result_evidence["result_sha256"]),
         "repository": snapshot.as_dict(),
         "declared_paths": list(declared),
     }
@@ -947,7 +1014,7 @@ def outcome_metrics_action(context: ContinuationContext) -> Mapping[str, Any]:
         raw_metrics=raw_boundary_metrics(boundary),
         provenance=(
             {"kind": "operator-proposal", "reference": str(context.state["current_proposal"])},
-            {"kind": "operator-output-sha256", "reference": str(context.operator_result["complete_output_sha256"])},
+            {"kind": "boundary-result-sha256", "reference": str(context.result_evidence["result_sha256"])},
             {"kind": "git-inspect", "reference": "post-operator-verification.json"},
         ),
         limitations=(
@@ -978,7 +1045,7 @@ def evidence_closeout_action(context: ContinuationContext) -> Mapping[str, Any]:
             "boundary": str(context.proposal["boundary"]),
             "verification": str(context.state_dir / "post-operator-verification.json"),
             "metrics": str(context.metrics_path),
-            "operator_output_sha256": str(context.operator_result["complete_output_sha256"]),
+            "boundary_result_sha256": str(context.result_evidence["result_sha256"]),
         },
     )
     return {"status": "pass", "closeout": str(context.evidence_path)}
@@ -988,7 +1055,7 @@ def continuation_action_map(context: ContinuationContext) -> dict[str, Any]:
     """Bind the mandatory post-operator operating-contract actions."""
 
     return {
-        "verify-pasted-operator-result": lambda: verify_operator_result_action(context),
+        "verify-boundary-result": lambda: verify_operator_result_action(context),
         "record-outcomes-and-trends": lambda: outcome_metrics_action(context),
         "publish-sage-evidence": lambda: evidence_closeout_action(context),
     }
@@ -1082,7 +1149,7 @@ def update_continuation_state(
         {
             "boundary": str(context.proposal["boundary"]),
             "proposal": str(context.state["current_proposal"]),
-            "operator_output_sha256": str(context.operator_result["complete_output_sha256"]),
+            "boundary_result_sha256": str(context.result_evidence["result_sha256"]),
             "verification": str(context.state_dir / "post-operator-verification.json"),
             "metrics": str(context.metrics_path),
             "evidence_closeout": str(context.evidence_path),
@@ -1102,18 +1169,9 @@ def update_continuation_state(
     )
 
 
-def continue_request(
-    repo: Path,
-    state_path: Path,
-    operator_result_path: Path,
-) -> Mapping[str, Any]:
-    """Resume exactly one request after one operator-executed boundary."""
+def _continue_context(context: ContinuationContext) -> Mapping[str, Any]:
+    """Run the shared post-boundary verification, metrics, evidence, and state progression."""
 
-    context = build_continuation_context(
-        repo.expanduser().resolve(),
-        state_path,
-        operator_result_path,
-    )
     if str(context.state["current_boundary"]) != str(context.proposal.get("boundary")):
         raise WorkflowError("continuation state boundary does not match active operator proposal")
     workflow = build_post_operator_workflow(
@@ -1136,6 +1194,38 @@ def continue_request(
         "proposal_path": str(context.next_proposal_path) if context.next_proposal_path else None,
         "event_log": str(context.state_dir / "events.jsonl"),
     }
+
+
+def continue_request(
+    repo: Path,
+    state_path: Path,
+    operator_result_path: Path,
+) -> Mapping[str, Any]:
+    """Resume one legacy/manual operator boundary from pasted result evidence."""
+
+    return _continue_context(
+        build_continuation_context(
+            repo.expanduser().resolve(),
+            state_path,
+            operator_result_path,
+        )
+    )
+
+
+def continue_request_from_routine_receipt(
+    repo: Path,
+    state_path: Path,
+    receipt_path: Path,
+) -> Mapping[str, Any]:
+    """Resume and close one routine lifecycle from its repository-owned receipt."""
+
+    return _continue_context(
+        build_routine_receipt_continuation_context(
+            repo.expanduser().resolve(),
+            state_path,
+            receipt_path,
+        )
+    )
 
 
 def execute_request(repo: Path, request: str, proposal: Path) -> Mapping[str, Any]:

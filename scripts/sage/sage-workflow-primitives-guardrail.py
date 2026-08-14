@@ -27,6 +27,11 @@ STANDARD = (
     / "markdown/standards/"
     "kalaxy3-sage-workflow-primitives-process.md"
 )
+OPERATOR_ROUTINE_SCHEMA = (
+    ROOT
+    / "markdown/standards/"
+    "sage-operator-git-proposal-schema-v1.2.json"
+)
 OPERATOR_BROWSER_SCHEMA = (
     ROOT
     / "markdown/standards/"
@@ -225,8 +230,8 @@ def validate_registry(payload: dict[str, Any]) -> list[str]:
         ),
         None,
     )
-    if not isinstance(operator_entry, dict) or operator_entry.get("version") != "1.2.0":
-        failures.append("operator.git-proposal version must be 1.2.0")
+    if not isinstance(operator_entry, dict) or operator_entry.get("version") != "1.3.0":
+        failures.append("operator.git-proposal version must be 1.3.0")
 
     safety_entry = next(
         (
@@ -388,6 +393,8 @@ def validate_sources() -> list[str]:
             "mutation_performed_by_helper",
             "routine-git-lifecycle",
             "sage-routine-git-lifecycle.py",
+            "repository_receipt_required",
+            'routine_receipt = boundary == "routine-git-lifecycle"',
         ),
         "safety.py": (
             "GIT-MUTATION",
@@ -632,6 +639,12 @@ def validate_docs_and_authority() -> list[str]:
         failures.append("workflow primitive schema is missing")
     else:
         json.loads(SCHEMA.read_text(encoding="utf-8"))
+    if not OPERATOR_ROUTINE_SCHEMA.is_file():
+        failures.append("routine-receipt operator proposal schema is missing")
+    else:
+        routine_schema = json.loads(OPERATOR_ROUTINE_SCHEMA.read_text(encoding="utf-8"))
+        if routine_schema.get("$id") != "https://kalaxy3.local/sage-operator-git-proposal-schema-v1.2.json":
+            failures.append("routine-receipt operator proposal schema id mismatch")
     if not OPERATOR_BROWSER_SCHEMA.is_file():
         failures.append("browser-backed operator proposal schema is missing")
     else:
@@ -689,6 +702,7 @@ def validate_docs_and_authority() -> list[str]:
             "markdown/standards/kalaxy3-sage-workflow-primitives-process.md",
             "markdown/standards/sage-workflow-primitives-schema-v1.0.json",
             "markdown/standards/sage-operator-git-proposal-schema-v1.1.json",
+            "markdown/standards/sage-operator-git-proposal-schema-v1.2.json",
             "scripts/sage/workflows/operating_contract.py",
             "scripts/sage/sage-operating-contract-self-test.py",
             "scripts/sage/sage-operating-contract-guardrail.py",

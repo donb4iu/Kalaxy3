@@ -85,6 +85,28 @@ def _validate_authorization(
         raise WorkflowError("active request proposal path does not match controller proposal")
     if proposal.get("boundary") != "routine-git-lifecycle":
         raise WorkflowError("operator proposal is not a routine Git lifecycle boundary")
+    proposal_schema = proposal.get("schema_version")
+    contract = proposal.get("operator_contract")
+    if not isinstance(contract, dict):
+        raise WorkflowError("routine Git lifecycle operator contract is invalid")
+    if proposal_schema == "1.2":
+        if (
+            contract.get("approval_required") is not True
+            or contract.get("pasted_output_required") is not False
+            or contract.get("repository_receipt_required") is not True
+            or contract.get("next_boundary_blocked_until_verified") is not True
+        ):
+            raise WorkflowError("routine Git lifecycle repository-receipt operator contract drifted")
+    elif proposal_schema == "1.0":
+        if (
+            contract.get("approval_required") is not True
+            or contract.get("pasted_output_required") is not True
+            or contract.get("repository_receipt_required") not in {None, False}
+            or contract.get("next_boundary_blocked_until_verified") is not True
+        ):
+            raise WorkflowError("already-open legacy routine proposal contract drifted")
+    else:
+        raise WorkflowError("routine Git lifecycle requires schema 1.2 or an already-open legacy schema 1.0 proposal")
     if proposal.get("controller") != "sage-request-execution":
         raise WorkflowError("routine Git lifecycle controller ownership drifted")
 

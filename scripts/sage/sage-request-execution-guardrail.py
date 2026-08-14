@@ -28,6 +28,7 @@ CLI_PATH = "scripts/sage/sage-request-execute.py"
 GUARDRAIL_PATH = "scripts/sage/sage-request-execution-guardrail.py"
 ROUTINE_CONTROLLER_PATH = "scripts/sage/workflows/routine_git_lifecycle.py"
 ROUTINE_CLI_PATH = "scripts/sage/sage-routine-git-lifecycle.py"
+ROUTINE_OPERATOR_SCHEMA_PATH = "markdown/standards/sage-operator-git-proposal-schema-v1.2.json"
 PROCESS_PATH = "markdown/standards/kalaxy3-sage-request-execution-process.md"
 SCHEMA_PATH = "markdown/standards/sage-request-execution-proposal-schema-v1.0.json"
 REQUIRED_PATHS = {
@@ -39,6 +40,7 @@ REQUIRED_PATHS = {
     SCHEMA_PATH,
     ROUTINE_CONTROLLER_PATH,
     ROUTINE_CLI_PATH,
+    ROUTINE_OPERATOR_SCHEMA_PATH,
 }
 SHA256_PATTERN = r"^[0-9a-f]{64}$"
 GIT_OBJECT_ID_PATTERN = r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
@@ -68,6 +70,9 @@ WORKFLOW_MARKERS = (
     "evidence_closeout_action",
     "continue_request",
     "routine-git-lifecycle",
+    "validate_routine_git_lifecycle_receipt",
+    "continue_request_from_routine_receipt",
+    "boundary_result_sha256",
     "base_main_head",
     'argv=("python3", "scripts/sage/sage-index.py", "reconcile")',
     'argv=("python3", "-S", "scripts/sage/sage-failure-retrieval-gate.py"',
@@ -86,6 +91,8 @@ PROCESS_MARKERS = (
     "evidence.closeout",
     "one-approval",
     "routine Git lifecycle",
+    "repository-owned controller receipt",
+    "caller-authored",
     "stage → commit → push",
     "no Git",
     "no GitHub",
@@ -142,8 +149,10 @@ def makefile_failures(text: str) -> list[str]:
         "sage-request-execution-guardrail:",
         'SAGE_REQUEST="<request>" SAGE_PROPOSAL="<proposal.zip>" make sage-request-execute',
         'SAGE_STATE="<state.json>" SAGE_OPERATOR_RESULT="<result.json>" make sage-request-continue',
+        'SAGE_STATE="<state.json>" SAGE_ROUTINE_RECEIPT="<receipt.json>" make sage-request-continue-routine',
         'scripts/sage/sage-request-execute.py --request "$$SAGE_REQUEST" --proposal "$$SAGE_PROPOSAL"',
         'scripts/sage/sage-request-execute.py --continue-state "$$SAGE_STATE" --operator-result "$$SAGE_OPERATOR_RESULT"',
+        'scripts/sage/sage-request-execute.py --continue-state "$$SAGE_STATE" --routine-receipt "$$SAGE_ROUTINE_RECEIPT"',
     )
     for marker in markers:
         if marker not in text:
@@ -162,11 +171,21 @@ def source_failures() -> list[str]:
 
     failures: list[str] = []
     workflow = (ROOT / WORKFLOW_PATH).read_text(encoding="utf-8")
+    routine_cli = (ROOT / ROUTINE_CLI_PATH).read_text(encoding="utf-8")
     for marker in WORKFLOW_MARKERS:
         if marker not in workflow:
             failures.append(f"request-execution workflow marker missing: {marker}")
     if "subprocess" in workflow:
         failures.append("request-execution workflow imports or references subprocess")
+    if "continue_request_from_routine_receipt" not in routine_cli:
+        failures.append("routine Git CLI does not consume its repository-owned receipt")
+    if "operator-result" in routine_cli or "pasted_output_received" in routine_cli:
+        failures.append("routine Git CLI still depends on caller-authored pasted operator results")
+    routine_controller = (ROOT / "scripts/sage/workflows/routine_git_lifecycle.py").read_text(encoding="utf-8")
+    request_domain = (ROOT / "scripts/sage/request_execution.py").read_text(encoding="utf-8")
+    legacy_marker = "already-open legacy schema 1.0 proposal"
+    if legacy_marker not in routine_controller or legacy_marker not in request_domain:
+        failures.append("bounded already-open routine activation compatibility is missing")
     paths = tuple(ROOT / path for path in (WORKFLOW_PATH, DOMAIN_PATH, CLI_PATH, GUARDRAIL_PATH, ROUTINE_CONTROLLER_PATH, ROUTINE_CLI_PATH))
     violations = GitSafetyGuardrail.scan_paths(paths)
     failures.extend(item.render() for item in violations)
@@ -201,6 +220,27 @@ def schema_failures(schema: dict[str, Any]) -> list[str]:
         failures.append("repository.head Git object-ID schema mismatch")
     return failures
 
+
+
+def routine_operator_schema_failures(schema: dict[str, Any]) -> list[str]:
+    """Require the routine command proposal to use repository-owned receipt binding."""
+
+    failures: list[str] = []
+    expected_id = "https://kalaxy3.local/sage-operator-git-proposal-schema-v1.2.json"
+    if schema.get("$id") != expected_id:
+        failures.append("routine operator proposal schema id mismatch")
+    properties = schema.get("properties", {})
+    if properties.get("schema_version", {}).get("const") != "1.2":
+        failures.append("routine operator proposal schema_version must be 1.2")
+    if properties.get("boundary", {}).get("const") != "routine-git-lifecycle":
+        failures.append("routine operator proposal schema must be routine-git-lifecycle only")
+    operator = schema.get("$defs", {}).get("operator", {})
+    operator_properties = operator.get("properties", {}) if isinstance(operator, dict) else {}
+    if operator_properties.get("pasted_output_required", {}).get("const") is not False:
+        failures.append("routine operator proposal must not require pasted output")
+    if operator_properties.get("repository_receipt_required", {}).get("const") is not True:
+        failures.append("routine operator proposal must require repository receipt")
+    return failures
 
 def git_head_contract_failures(schema: dict[str, Any]) -> list[str]:
     """Require the live Git HEAD to satisfy the proposal head schema."""
@@ -262,6 +302,7 @@ def validate() -> list[str]:
     schema = load_object(ROOT / SCHEMA_PATH)
     failures.extend(schema_failures(schema))
     failures.extend(git_head_contract_failures(schema))
+    failures.extend(routine_operator_schema_failures(load_object(ROOT / ROUTINE_OPERATOR_SCHEMA_PATH)))
     failures.extend(process_failures((ROOT / PROCESS_PATH).read_text(encoding="utf-8")))
     failures.extend(runtime_self_test())
     return failures
@@ -280,7 +321,7 @@ def main() -> int:
     print("PASS untrusted checksum-bound proposal package")
     print("PASS exact authority, component, gap, validation, and safety boundaries")
     print("PASS atomic rollback and one operator Git proposal")
-    print("PASS one-approval routine Git lifecycle with legacy stage/commit/push fallback")
+    print("PASS one-approval routine Git lifecycle self-closes from repository-owned receipt with legacy stage/commit/push fallback")
     print("PASS Python payload runtime-name validation precedes repository writes")
     print("PASS mandatory post-operator verification, metrics, closeout, and deterministic continuation")
     print("PASS Make, authority, process, schema, and negative-test integration")

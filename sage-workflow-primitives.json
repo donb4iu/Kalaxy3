@@ -28,7 +28,8 @@
     "semantic raw metrics precede transparent derived rates and comparable trends",
     "root operating-contract composition and guardrail enforcement",
     "operator-approved bounded routine Git lifecycle controller",
-    "one-approval bounded routine Git lifecycle composition"
+    "one-approval bounded routine Git lifecycle composition",
+    "repository-owned observable results do not require caller-authored result envelopes"
   ],
   "primitives": [
     {
@@ -269,12 +270,12 @@
     },
     {
       "primitive_id": "operator.git-proposal",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "module": "workflow.proposal",
       "symbol": "OperatorGitProposal",
       "side_effects": "optional atomic local proposal receipt write; Git commands, repository-owned routine Git controller commands, and browser interactions are never executed or opened by the proposal primitive",
       "idempotency": "deterministic for fixed inputs and created_at",
-      "logging": "operator-boundary interaction digest, boundary, validation references, and operator contract",
+      "logging": "operator-boundary interaction digest, boundary, validation references, operator contract, and repository-receipt result mode",
       "failure_mode": "invalid boundary, Git/controller command composition, browser composition, credential marker, validation, proposal identifier, or non-GitHub browser target fails closed",
       "tests": [
         "one command for Git boundaries",
@@ -282,7 +283,8 @@
         "browser-review PR create and merge boundaries",
         "boundary-interaction match",
         "secret rejection",
-        "non-execution and non-open contract"
+        "non-execution and non-open contract",
+        "routine controller repository-receipt result contract"
       ],
       "maturity": "pilot",
       "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-operator-proposal.json"

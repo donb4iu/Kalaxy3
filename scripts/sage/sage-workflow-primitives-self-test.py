@@ -523,6 +523,12 @@ def test_routine_git_lifecycle_controller(root: Path) -> None:
         rollback="Discard fixture.",
         post_command_verification=("git status --porcelain=v1",),
     )
+    if proposal["schema_version"] != "1.2":
+        raise RuntimeError("routine Git lifecycle did not use operator proposal schema 1.2")
+    if proposal["operator_contract"].get("pasted_output_required") is not False:
+        raise RuntimeError("routine Git lifecycle still requires pasted operator output")
+    if proposal["operator_contract"].get("repository_receipt_required") is not True:
+        raise RuntimeError("routine Git lifecycle does not require repository-owned receipt")
     proposal_path.write_text(json.dumps(proposal, indent=4) + "\n", encoding="utf-8")
     state = {
         "record_type": "sage-request-execution-state",
@@ -583,7 +589,7 @@ def test_least_authority_foundations(root: Path) -> None:
         primitive_versions={
             "git.inspect": "1.2.0",
             "file.atomic-preserve-mode": "1.0.0",
-            "operator.git-proposal": "1.2.0",
+            "operator.git-proposal": "1.3.0",
             "git.safety-guardrail": "1.2.0",
         },
     )
@@ -677,6 +683,8 @@ def test_least_authority_foundations(root: Path) -> None:
     )
     if proposal["command"]["executed_by_helper"] is not False:
         raise RuntimeError("operator proposal execution contract failed")
+    if proposal["schema_version"] != "1.0" or proposal["operator_contract"].get("pasted_output_required") is not True:
+        raise RuntimeError("legacy/manual command proposal pasted-output compatibility changed")
     if proposal["command"]["command_count"] != 1:
         raise RuntimeError("operator proposal command count failed")
 

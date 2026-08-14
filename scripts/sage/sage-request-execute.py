@@ -14,7 +14,7 @@ from pathlib import Path
 SAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SAGE_DIR))
 
-from request_execution import ProposalError, load_proposal, next_operator_boundary, request_sha256, validate_operator_result  # noqa: E402
+from request_execution import ProposalError, load_proposal, next_operator_boundary, request_sha256, validate_operator_result, validate_routine_git_lifecycle_receipt  # noqa: E402
 
 
 def digest(payload: bytes) -> str:
@@ -364,8 +364,73 @@ def self_test() -> int:
             "complete_output": "",
         }
         observed = validate_operator_result(operator_result, operator_proposal)
-        if observed["complete_output_sha256"] != digest(b""):
+        if observed["complete_output_sha256"] != digest(b"") or observed["result_sha256"] != digest(b""):
             raise RuntimeError("operator-result output digest mismatch")
+        routine_proposal = {
+            "schema_version": "1.2",
+            "proposal_id": "SAGE-GIT-20260806-002",
+            "boundary": "routine-git-lifecycle",
+            "repository": {"branch": "feature/fixture", "head": "0" * 40},
+            "command": {"sha256": "b" * 64},
+            "operator_contract": {
+                "execution_mode": "operator-executed",
+                "approval_required": True,
+                "pasted_output_required": False,
+                "repository_receipt_required": True,
+                "next_boundary_blocked_until_verified": True,
+            },
+        }
+        routine_state_contract = {
+            "repository_branch": "feature/fixture",
+            "base_head": "0" * 40,
+            "base_main_head": "1" * 40,
+            "declared_paths": ["fixture.txt"],
+            "operator_plan": {"commit_message": "Fixture", "push_remote": "origin"},
+        }
+        routine_receipt = {
+            "schema_version": "1.0",
+            "record_type": "sage-routine-git-lifecycle-receipt",
+            "status": "pass",
+            "proposal_id": "SAGE-GIT-20260806-002",
+            "command_sha256": "b" * 64,
+            "branch": "feature/fixture",
+            "pre_head": "0" * 40,
+            "base_main_head": "1" * 40,
+            "commit": "2" * 40,
+            "remote": "origin",
+            "remote_branch_head": "2" * 40,
+            "declared_paths": ["fixture.txt"],
+            "event_log": "/tmp/routine-events.jsonl",
+        }
+        receipt_evidence = validate_routine_git_lifecycle_receipt(
+            routine_receipt,
+            routine_proposal,
+            routine_state_contract,
+            receipt_sha256="c" * 64,
+        )
+        if receipt_evidence["source_kind"] != "routine-controller-receipt" or receipt_evidence["result_commit"] != "2" * 40:
+            raise RuntimeError("routine-controller receipt normalization failed")
+        legacy_routine_proposal = {
+            "schema_version": "1.0",
+            "proposal_id": "SAGE-GIT-20260806-002",
+            "boundary": "routine-git-lifecycle",
+            "repository": {"branch": "feature/fixture", "head": "0" * 40},
+            "command": {"sha256": "b" * 64},
+            "operator_contract": {
+                "execution_mode": "operator-executed",
+                "approval_required": True,
+                "pasted_output_required": True,
+                "next_boundary_blocked_until_verified": True,
+            },
+        }
+        legacy_receipt_evidence = validate_routine_git_lifecycle_receipt(
+            routine_receipt,
+            legacy_routine_proposal,
+            routine_state_contract,
+            receipt_sha256="c" * 64,
+        )
+        if legacy_receipt_evidence["source_kind"] != "routine-controller-receipt":
+            raise RuntimeError("already-open legacy routine receipt compatibility failed")
         if [next_operator_boundary(item) for item in ("routine-git-lifecycle", "stage", "commit", "push")] != [None, "commit", "push", None]:
             raise RuntimeError("operator continuation boundary sequence mismatch")
 
@@ -445,7 +510,7 @@ def self_test() -> int:
     print("PASS introduced Git and GitHub safety findings rejected before repository mutation")
     print("PASS unchanged proposal-bound safety findings remain baseline-only")
     print("PASS newly introduced and new-file unsafe findings fail closed")
-    print("PASS pasted operator-result binding, one-approval routine lifecycle, and legacy stage-commit-push continuation")
+    print("PASS repository-receipt routine lifecycle continuation and legacy pasted stage/commit/push compatibility")
     print("Kalaxy3 SAGE request execution self-test: PASS")
     return 0
 
@@ -458,6 +523,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--proposal", type=Path)
     parser.add_argument("--continue-state", type=Path)
     parser.add_argument("--operator-result", type=Path)
+    parser.add_argument("--routine-receipt", type=Path)
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument("--self-test", action="store_true")
     return parser.parse_args()
@@ -470,15 +536,25 @@ def main() -> int:
     if args.self_test:
         return self_test()
     repo = args.repo.expanduser().resolve()
-    continuing = args.continue_state is not None or args.operator_result is not None
+    legacy_continuing = args.operator_result is not None
+    routine_continuing = args.routine_receipt is not None
+    continuing = args.continue_state is not None or legacy_continuing or routine_continuing
     starting = bool(args.request) or args.proposal is not None
     if continuing and starting:
         raise ProposalError("start and continue arguments are mutually exclusive")
     if continuing:
-        if args.continue_state is None or args.operator_result is None:
-            raise ProposalError("--continue-state and --operator-result are both required")
-        from workflows.request_execution import continue_request  # noqa: PLC0415
-        result = continue_request(repo, args.continue_state, args.operator_result)
+        if args.continue_state is None or legacy_continuing == routine_continuing:
+            raise ProposalError(
+                "--continue-state requires exactly one of --operator-result or --routine-receipt"
+            )
+        if routine_continuing:
+            from workflows.request_execution import continue_request_from_routine_receipt  # noqa: PLC0415
+            result = continue_request_from_routine_receipt(
+                repo, args.continue_state, args.routine_receipt
+            )
+        else:
+            from workflows.request_execution import continue_request  # noqa: PLC0415
+            result = continue_request(repo, args.continue_state, args.operator_result)
         print("Kalaxy3 SAGE request continuation: PASS")
         print(f"Verified boundary: {result['verified_boundary']}")
         print(f"Verification: {result['verification']}")
@@ -511,7 +587,10 @@ def main() -> int:
     print(f"Event log: {result['event_log']}")
     print("Next operator boundary:")
     print(proposal["command"]["display"])
-    print("Stop after that one operator command and paste its complete output.")
+    if proposal.get("boundary") == "routine-git-lifecycle":
+        print("That one approval performs the bounded Git lifecycle and consumes its repository-owned receipt to complete request verification, metrics, and evidence closeout.")
+    else:
+        print("Stop after that one operator command and paste its complete output.")
     return 0
 
 

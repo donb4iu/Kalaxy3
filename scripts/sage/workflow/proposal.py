@@ -221,8 +221,9 @@ class OperatorGitProposal:
             post_operator_verification=post_command_verification,
         )
         timestamp = created_at or datetime.now().astimezone().isoformat(timespec="seconds")
+        routine_receipt = boundary == "routine-git-lifecycle"
         return {
-            "schema_version": "1.0",
+            "schema_version": "1.2" if routine_receipt else "1.0",
             "proposal_id": proposal_id,
             "created_at": timestamp,
             "controller": controller,
@@ -240,7 +241,8 @@ class OperatorGitProposal:
             "operator_contract": {
                 "execution_mode": "operator-executed",
                 "approval_required": True,
-                "pasted_output_required": True,
+                "pasted_output_required": not routine_receipt,
+                **({"repository_receipt_required": True} if routine_receipt else {}),
                 "next_boundary_blocked_until_verified": True,
             },
         }
@@ -305,7 +307,7 @@ class OperatorGitProposal:
         writer: AtomicFileWriter,
     ) -> str:
         schema_version = payload.get("schema_version")
-        if schema_version == "1.0":
+        if schema_version in {"1.0", "1.2"}:
             command = payload.get("command")
             if (
                 not isinstance(command, Mapping)
