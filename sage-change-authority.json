@@ -51,6 +51,7 @@
                 "markdown/standards/sage-failure-diagnosis-schema-v1.0.json",
                 "markdown/standards/sage-operator-git-proposal-schema-v1.0.json",
                 "markdown/standards/sage-operator-git-proposal-schema-v1.1.json",
+                "markdown/standards/sage-operator-git-proposal-schema-v1.2.json",
                 "sage-actionable-failure-registry.json",
                 "sage-actionable-failures.json",
                 "sage-change-authority.json",
@@ -101,12 +102,20 @@
                 "scripts/sage/sage-request-planning-guardrail.py",
                 "markdown/standards/kalaxy3-sage-request-planning-process.md",
                 "markdown/standards/sage-request-planning-source-schema-v1.0.json",
+                "markdown/standards/sage-request-planning-source-schema-v1.1.json",
                 "scripts/sage/workflows/improvement_action_transition.py",
                 "scripts/sage/sage-improvement-action-transition.py",
                 "scripts/sage/sage-improvement-action-amendment.py",
                 "scripts/sage/sage-improvement-action-transition-guardrail.py",
                 "scripts/sage/workflows/routine_git_lifecycle.py",
-                "scripts/sage/sage-routine-git-lifecycle.py"
+                "scripts/sage/sage-routine-git-lifecycle.py",
+                "scripts/sage/semantic_understanding.py",
+                "scripts/sage/workflows/semantic_bootstrap.py",
+                "scripts/sage/sage-action-bootstrap.py",
+                "scripts/sage/sage-semantic-bootstrap-guardrail.py",
+                "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
+                "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
+                "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail"
@@ -461,7 +470,14 @@
                 "scripts/sage/workflows/checkpoint_promotion.py",
                 "scripts/sage/sage-checkpoint-promote.py",
                 "scripts/sage/sage-checkpoint-promotion-guardrail.py",
-                "markdown/standards/kalaxy3-sage-checkpoint-promotion-process.md"
+                "markdown/standards/kalaxy3-sage-checkpoint-promotion-process.md",
+                "scripts/sage/semantic_understanding.py",
+                "scripts/sage/workflows/semantic_bootstrap.py",
+                "scripts/sage/sage-action-bootstrap.py",
+                "scripts/sage/sage-semantic-bootstrap-guardrail.py",
+                "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
+                "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
+                "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
             ],
             "baseline_checks": [
                 "make sage-active-session-self-test",
@@ -944,6 +960,7 @@
                 "markdown/standards/sage-failure-diagnosis-schema-v1.0.json",
                 "markdown/standards/sage-operator-git-proposal-schema-v1.0.json",
                 "markdown/standards/sage-operator-git-proposal-schema-v1.1.json",
+                "markdown/standards/sage-operator-git-proposal-schema-v1.2.json",
                 "markdown/standards/sage-outcome-metrics-schema-v1.0.json",
                 "markdown/standards/sage-workflow-primitives-schema-v1.0.json",
                 "sage-change-authority.json",
@@ -994,6 +1011,7 @@
                 "scripts/sage/sage-request-planning-guardrail.py",
                 "markdown/standards/kalaxy3-sage-request-planning-process.md",
                 "markdown/standards/sage-request-planning-source-schema-v1.0.json",
+                "markdown/standards/sage-request-planning-source-schema-v1.1.json",
                 "scripts/sage/workflows/improvement_action_transition.py",
                 "scripts/sage/sage-improvement-action-transition.py",
                 "scripts/sage/sage-improvement-action-amendment.py",
@@ -1007,7 +1025,14 @@
                 "scripts/sage/sage-checkpoint-promotion-guardrail.py",
                 "markdown/standards/kalaxy3-sage-checkpoint-promotion-process.md",
                 "scripts/sage/workflows/routine_git_lifecycle.py",
-                "scripts/sage/sage-routine-git-lifecycle.py"
+                "scripts/sage/sage-routine-git-lifecycle.py",
+                "scripts/sage/semantic_understanding.py",
+                "scripts/sage/workflows/semantic_bootstrap.py",
+                "scripts/sage/sage-action-bootstrap.py",
+                "scripts/sage/sage-semantic-bootstrap-guardrail.py",
+                "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
+                "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
+                "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
             ],
             "baseline_checks": [
                 "make sage-discovery-guardrail",
@@ -1034,6 +1059,68 @@
                 "Record primitive versions used by each workflow.",
                 "Preserve structured event-log and closeout digests.",
                 "Measure reuse, recurrence, and avoidable rework."
+            ]
+        },
+        {
+            "id": "semantic-understanding",
+            "priority": 105,
+            "match_terms": [
+                "semantic understanding",
+                "intent interpretation",
+                "architect confirmation",
+                "semantic confirmation",
+                "implementation bootstrap",
+                "accepted action implementation",
+                "meaning feasibility authorization"
+            ],
+            "path_prefixes": [
+                "scripts/sage/semantic_understanding.py",
+                "scripts/sage/workflows/semantic_bootstrap.py",
+                "scripts/sage/sage-action-bootstrap.py",
+                "scripts/sage/sage-semantic-bootstrap-guardrail.py",
+                "markdown/standards/kalaxy3-sage-semantic-bootstrap",
+                "markdown/standards/sage-engineering-contribution",
+                "markdown/standards/sage-semantic-understanding"
+            ],
+            "requires": [
+                "repository-governance",
+                "evidence",
+                "continuous-improvement",
+                "workflow-primitives"
+            ],
+            "working_directory": ".",
+            "authoritative_files": [
+                "sage-improvement-actions.json",
+                "sage-change-authority.json",
+                "sage-workflow-primitives.json",
+                "scripts/sage/request_planning.py",
+                "scripts/sage/workflows/request_planning.py",
+                "scripts/sage/workflow/lifecycle.py",
+                "scripts/sage/semantic_understanding.py",
+                "scripts/sage/workflows/semantic_bootstrap.py",
+                "scripts/sage/sage-action-bootstrap.py",
+                "scripts/sage/sage-semantic-bootstrap-guardrail.py",
+                "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
+                "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
+                "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
+            ],
+            "baseline_checks": [
+                "make sage-discovery-guardrail",
+                "make sage-request-plan-self-test",
+                "make sage-operating-contract-check"
+            ],
+            "required_validation": [
+                "make sage-semantic-bootstrap-self-test",
+                "make sage-semantic-bootstrap-guardrail",
+                "make sage-request-planning-guardrail",
+                "make sage-guardrails",
+                "make sage-index-check",
+                "make sage-operating-contract-check"
+            ],
+            "evidence_process": [
+                "Record interpretation provenance and context dispositions.",
+                "Preserve Architect semantic-confirmation digest separately from feasibility and authorization.",
+                "Measure clarification, scope churn, capability gaps, and avoidable rework."
             ]
         }
     ]

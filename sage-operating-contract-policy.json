@@ -24,7 +24,7 @@
         "validate-real-runtime-path",
         "diagnose-unexpected-failures",
         "propose-one-operator-mutation-boundary",
-        "verify-pasted-operator-result",
+        "verify-boundary-result",
         "record-outcomes-and-trends",
         "publish-sage-evidence"
     ],

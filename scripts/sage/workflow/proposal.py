@@ -40,6 +40,29 @@ _SECRET_NAMES = {
 }
 
 
+
+
+def render_operator_command(argv: Iterable[str]) -> dict[str, object]:
+    """Render one operator command through the canonical proposal serializer."""
+
+    command = tuple(str(argument) for argument in argv)
+    if not command:
+        raise WorkflowError("Operator command must not be empty")
+    digest_input = json.dumps(
+        list(command),
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return {
+        "display": shlex.join(command),
+        "argv": list(command),
+        "sha256": hashlib.sha256(digest_input).hexdigest(),
+        "contains_secret": False,
+        "command_count": 1,
+        "executed_by_helper": False,
+    }
+
+
 class OperatorGitProposal:
     """Build and optionally write one operator boundary without executing it."""
 
@@ -150,19 +173,7 @@ class OperatorGitProposal:
 
     @staticmethod
     def _command_payload(argv: tuple[str, ...]) -> dict[str, object]:
-        digest_input = json.dumps(
-            list(argv),
-            separators=(",", ":"),
-            ensure_ascii=False,
-        ).encode("utf-8")
-        return {
-            "display": shlex.join(argv),
-            "argv": list(argv),
-            "sha256": hashlib.sha256(digest_input).hexdigest(),
-            "contains_secret": False,
-            "command_count": 1,
-            "executed_by_helper": False,
-        }
+        return render_operator_command(argv)
 
     @staticmethod
     def _browser_payload(action: str, url: str) -> dict[str, object]:
@@ -210,8 +221,9 @@ class OperatorGitProposal:
             post_operator_verification=post_command_verification,
         )
         timestamp = created_at or datetime.now().astimezone().isoformat(timespec="seconds")
+        routine_receipt = boundary == "routine-git-lifecycle"
         return {
-            "schema_version": "1.0",
+            "schema_version": "1.2" if routine_receipt else "1.0",
             "proposal_id": proposal_id,
             "created_at": timestamp,
             "controller": controller,
@@ -229,7 +241,8 @@ class OperatorGitProposal:
             "operator_contract": {
                 "execution_mode": "operator-executed",
                 "approval_required": True,
-                "pasted_output_required": True,
+                "pasted_output_required": not routine_receipt,
+                **({"repository_receipt_required": True} if routine_receipt else {}),
                 "next_boundary_blocked_until_verified": True,
             },
         }
@@ -294,7 +307,7 @@ class OperatorGitProposal:
         writer: AtomicFileWriter,
     ) -> str:
         schema_version = payload.get("schema_version")
-        if schema_version == "1.0":
+        if schema_version in {"1.0", "1.2"}:
             command = payload.get("command")
             if (
                 not isinstance(command, Mapping)

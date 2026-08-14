@@ -39,7 +39,7 @@ PRE_MUTATION_SEQUENCE = (
 )
 
 POST_OPERATOR_SEQUENCE = (
-    ("verify-pasted-operator-result", "git.inspect"),
+    ("verify-boundary-result", "git.inspect"),
     ("record-outcomes-and-trends", "metrics.outcome"),
     ("publish-sage-evidence", "evidence.closeout"),
 )

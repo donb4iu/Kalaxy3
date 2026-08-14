@@ -12,6 +12,31 @@ from .model import CommandSpec, WorkflowError
 from .runner import CommandRunner
 
 
+def load_improvement_action(
+    repository_root: Path,
+    action_id: str,
+    *,
+    registry: str = "sage-improvement-actions.json",
+) -> Mapping[str, Any]:
+    """Read exactly one improvement action without acquiring Git mutation authority."""
+
+    payload = json.loads(
+        (repository_root.expanduser().resolve() / registry).read_text(encoding="utf-8")
+    )
+    if not isinstance(payload, dict):
+        raise WorkflowError("Improvement-action registry must be an object")
+    matches = [
+        item
+        for item in payload.get("actions", [])
+        if isinstance(item, dict) and item.get("action_id") == action_id
+    ]
+    if len(matches) != 1:
+        raise WorkflowError(
+            f"Expected one action {action_id}, found {len(matches)}"
+        )
+    return dict(matches[0])
+
+
 class ImprovementActionClient:
     """Use canonical action tools rather than reimplementing lifecycle rules."""
 
@@ -43,17 +68,11 @@ class ImprovementActionClient:
         return payload
 
     def _record(self, action_id: str) -> Mapping[str, Any]:
-        matches = [
-            item
-            for item in self._registry_payload().get("actions", [])
-            if isinstance(item, dict)
-            and item.get("action_id") == action_id
-        ]
-        if len(matches) != 1:
-            raise WorkflowError(
-                f"Expected one action {action_id}, found {len(matches)}"
-            )
-        return matches[0]
+        return load_improvement_action(
+            self.repository.root,
+            action_id,
+            registry=self.registry,
+        )
 
     def allocate_id(self, *, date_token: str | None = None) -> str:
         """Allocate through the canonical read-only action-ID CLI."""

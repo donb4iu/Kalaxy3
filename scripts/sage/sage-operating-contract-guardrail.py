@@ -41,7 +41,7 @@ EXPECTED_SEQUENCE = [
     "validate-real-runtime-path",
     "diagnose-unexpected-failures",
     "propose-one-operator-mutation-boundary",
-    "verify-pasted-operator-result",
+    "verify-boundary-result",
     "record-outcomes-and-trends",
     "publish-sage-evidence",
 ]
@@ -58,7 +58,7 @@ EXPECTED_PRE = (
     ("propose-one-operator-boundary", "operator.git-proposal"),
 )
 EXPECTED_POST = (
-    ("verify-pasted-operator-result", "git.inspect"),
+    ("verify-boundary-result", "git.inspect"),
     ("record-outcomes-and-trends", "metrics.outcome"),
     ("publish-sage-evidence", "evidence.closeout"),
 )

@@ -170,15 +170,121 @@ def validate_operator_result(value: object, proposal: Mapping[str, Any]) -> dict
         raise ProposalError("operator_result complete_output must be a string")
     if returncode != 0:
         raise ProposalError(f"operator command failed with returncode={returncode}")
+    result_sha256 = sha256_bytes(output.encode("utf-8"))
     return {
         "schema_version": "1.0",
+        "source_kind": "operator-result",
         "proposal_id": str(payload["proposal_id"]),
         "command_sha256": str(payload["command_sha256"]),
         "returncode": returncode,
         "pasted_output_received": True,
-        "complete_output_sha256": sha256_bytes(output.encode("utf-8")),
+        "complete_output_sha256": result_sha256,
+        "result_sha256": result_sha256,
     }
 
+
+
+ROUTINE_GIT_RECEIPT_FIELDS = {
+    "schema_version",
+    "record_type",
+    "status",
+    "proposal_id",
+    "command_sha256",
+    "branch",
+    "pre_head",
+    "base_main_head",
+    "commit",
+    "remote",
+    "remote_branch_head",
+    "declared_paths",
+    "event_log",
+}
+
+
+def validate_routine_git_lifecycle_receipt(
+    value: object,
+    proposal: Mapping[str, Any],
+    state: Mapping[str, Any],
+    *,
+    receipt_sha256: str,
+) -> dict[str, Any]:
+    """Bind one repository-owned routine-controller receipt to active authority."""
+
+    payload = require_object(value, "routine_git_lifecycle_receipt")
+    if set(payload) != ROUTINE_GIT_RECEIPT_FIELDS:
+        raise ProposalError("routine Git lifecycle receipt fields are invalid")
+    if (
+        payload.get("schema_version") != "1.0"
+        or payload.get("record_type") != "sage-routine-git-lifecycle-receipt"
+        or payload.get("status") != "pass"
+    ):
+        raise ProposalError("routine Git lifecycle receipt version/type/status is invalid")
+    if not isinstance(receipt_sha256, str) or not HEX64.fullmatch(receipt_sha256):
+        raise ProposalError("routine Git lifecycle receipt SHA-256 is invalid")
+    if proposal.get("boundary") != "routine-git-lifecycle":
+        raise ProposalError("routine Git lifecycle receipt requires the routine-git-lifecycle boundary")
+    contract = require_object(proposal.get("operator_contract"), "proposal.operator_contract")
+    proposal_schema = proposal.get("schema_version")
+    if proposal_schema == "1.2":
+        if (
+            contract.get("execution_mode") != "operator-executed"
+            or contract.get("approval_required") is not True
+            or contract.get("pasted_output_required") is not False
+            or contract.get("repository_receipt_required") is not True
+            or contract.get("next_boundary_blocked_until_verified") is not True
+        ):
+            raise ProposalError("routine Git lifecycle repository-receipt operator contract is invalid")
+    elif proposal_schema == "1.0":
+        if (
+            contract.get("execution_mode") != "operator-executed"
+            or contract.get("approval_required") is not True
+            or contract.get("pasted_output_required") is not True
+            or contract.get("repository_receipt_required") not in {None, False}
+            or contract.get("next_boundary_blocked_until_verified") is not True
+        ):
+            raise ProposalError("already-open legacy routine proposal contract is invalid")
+    else:
+        raise ProposalError("routine Git lifecycle requires schema 1.2 or an already-open legacy schema 1.0 proposal")
+    command = require_object(proposal.get("command"), "proposal.command")
+    repository = require_object(proposal.get("repository"), "proposal.repository")
+    if payload.get("proposal_id") != proposal.get("proposal_id"):
+        raise ProposalError("routine Git lifecycle receipt proposal_id mismatch")
+    if payload.get("command_sha256") != command.get("sha256"):
+        raise ProposalError("routine Git lifecycle receipt command digest mismatch")
+    branch = state.get("repository_branch")
+    if payload.get("branch") != branch or repository.get("branch") != branch:
+        raise ProposalError("routine Git lifecycle receipt branch authority mismatch")
+    base_head = state.get("base_head")
+    if payload.get("pre_head") != base_head or repository.get("head") != base_head:
+        raise ProposalError("routine Git lifecycle receipt pre-HEAD authority mismatch")
+    if payload.get("base_main_head") != state.get("base_main_head"):
+        raise ProposalError("routine Git lifecycle receipt frozen-main authority mismatch")
+    plan = require_object(state.get("operator_plan"), "state.operator_plan")
+    if payload.get("remote") != plan.get("push_remote"):
+        raise ProposalError("routine Git lifecycle receipt remote authority mismatch")
+    declared = state.get("declared_paths")
+    if not isinstance(declared, list) or payload.get("declared_paths") != declared:
+        raise ProposalError("routine Git lifecycle receipt declared-path scope mismatch")
+    commit = payload.get("commit")
+    remote_head = payload.get("remote_branch_head")
+    if (
+        not isinstance(commit, str)
+        or re.fullmatch(r"[0-9a-f]{40}", commit) is None
+        or remote_head != commit
+    ):
+        raise ProposalError("routine Git lifecycle receipt commit/remote-head proof is invalid")
+    event_log = payload.get("event_log")
+    if not isinstance(event_log, str) or not event_log:
+        raise ProposalError("routine Git lifecycle receipt event log is invalid")
+    return {
+        "schema_version": "1.0",
+        "source_kind": "routine-controller-receipt",
+        "proposal_id": str(payload["proposal_id"]),
+        "command_sha256": str(payload["command_sha256"]),
+        "result_sha256": receipt_sha256,
+        "result_commit": commit,
+        "event_log": event_log,
+    }
 
 def next_operator_boundary(boundary: str) -> str | None:
     """Return the next deterministic Git boundary after successful verification."""
