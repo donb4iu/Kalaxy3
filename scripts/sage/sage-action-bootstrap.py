@@ -16,7 +16,7 @@ sys.path.insert(0, str(SAGE_DIR))
 from request_execution import ProposalError
 from semantic_understanding import load_engineering_contribution
 from workflow import WorkflowError
-from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap, default_planning_source_path
+from workflows.semantic_bootstrap import _apply_architect_dispositions, begin_bootstrap, continue_bootstrap, default_planning_source_path
 
 
 def self_test() -> int:
@@ -65,6 +65,35 @@ def self_test() -> int:
             pass
         else:
             raise RuntimeError("invalid semantic confirmation digest was accepted for planning-source identity")
+    fixture = {
+        "interpretation": {"implementation_scope": ["a.py"]},
+        "negotiation": {"proposals": [
+            {"proposal_id": "implementation-scope", "target": "implementation_scope", "source": "fixture", "provenance": {}, "value": ["a.py"], "prior_disposition": None},
+            {"proposal_id": "alternative-001", "target": "alternatives", "source": "fixture", "provenance": {}, "value": "legacy", "prior_disposition": None},
+        ]},
+    }
+    decisions = {
+        "schema_version": "1.0",
+        "record_type": "sage-architect-intent-dispositions",
+        "semantic_understanding_sha256": "a" * 64,
+        "actor_role": "architect",
+        "dispositions": [
+            {"proposal_id": "implementation-scope", "disposition": "accept", "rationale": "", "modified_value": None, "new_basis": ""},
+            {"proposal_id": "alternative-001", "disposition": "defer", "rationale": "Not this slice", "modified_value": None, "new_basis": ""},
+        ],
+    }
+    negotiated = _apply_architect_dispositions(fixture, decisions, "a" * 64)
+    if negotiated["interpretation"]["implementation_scope"] != ["a.py"] or negotiated["negotiation"]["non_authoritative_proposals"] != ["alternative-001"]:
+        raise RuntimeError("Architect disposition authority semantics failed")
+    incomplete = json.loads(json.dumps(decisions))
+    incomplete["dispositions"].pop()
+    try:
+        _apply_architect_dispositions(fixture, incomplete, "a" * 64)
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("undispositioned proposal became authoritative")
+    print("PASS Architect accept/reject/modify/defer semantic dispositions")
     print("PASS engineering contribution without caller-authored SAGE hashes")
     print("PASS external sage-source.json authorship fails closed")
     print("PASS semantic-confirmation digest scopes default planning-source identity")
@@ -79,6 +108,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--contribution", type=Path)
     parser.add_argument("--continue-state", type=Path)
     parser.add_argument("--confirm-understanding-sha256")
+    parser.add_argument("--dispositions", type=Path)
     parser.add_argument("--actor")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[2])
@@ -97,7 +127,7 @@ def main() -> int:
     if continuing:
         if not args.confirm_understanding_sha256 or not args.actor:
             raise WorkflowError("--confirm-understanding-sha256 and --actor are required with --continue-state")
-        result = continue_bootstrap(args.repo, args.continue_state, args.confirm_understanding_sha256, args.actor, args.output)
+        result = continue_bootstrap(args.repo, args.continue_state, args.confirm_understanding_sha256, args.actor, args.output, args.dispositions)
         print("Kalaxy3 SAGE semantic bootstrap: PASS")
         print("Architect semantic confirmation: PASS")
         print("Feasibility: sufficient for planning-source generation; runtime outcome remains validation-dependent")
@@ -110,6 +140,7 @@ def main() -> int:
     result = begin_bootstrap(args.repo, args.action_id, args.request, args.contribution)
     print("Kalaxy3 SAGE semantic bootstrap: ARCHITECT CONFIRMATION REQUIRED")
     print(f"Interpretation: {result['semantic_understanding']}")
+    print(f"Architect dispositions: {result['architect_dispositions']}")
     print(f"State: {result['state']}")
     print("Next Architect boundary:")
     print(f"  {result['confirmation_command']['display']}")

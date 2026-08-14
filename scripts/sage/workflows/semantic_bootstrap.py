@@ -27,7 +27,7 @@ from workflow import (
 )
 
 WORKFLOW_ID = "sage.semantic-bootstrap"
-WORKFLOW_VERSION = "0.2.0"
+WORKFLOW_VERSION = "0.3.0"
 PRIMITIVES_USED = (
     "catalog.registry",
     "logging.events",
@@ -72,6 +72,114 @@ def _context_dispositions(inferred: tuple[str, ...], applicable: tuple[str, ...]
     return result
 
 
+NEGOTIATION_DISPOSITIONS = {"accept", "reject", "modify", "defer"}
+
+
+def _negotiation_proposals(contribution: Any) -> list[dict[str, Any]]:
+    proposals = [{
+        "proposal_id": "implementation-scope",
+        "target": "implementation_scope",
+        "source": "engineering-contribution.files",
+        "provenance": {"package_sha256": contribution.package_sha256},
+        "value": list(contribution.paths),
+        "prior_disposition": None,
+    }]
+    for field in ("assumptions", "alternatives"):
+        for index, value in enumerate(contribution.manifest[field]):
+            proposals.append({
+                "proposal_id": f"{field[:-1]}-{index + 1:03d}",
+                "target": field,
+                "source": f"engineering-contribution.{field}[{index}]",
+                "provenance": {"package_sha256": contribution.package_sha256},
+                "value": str(value),
+                "prior_disposition": None,
+            })
+    return proposals
+
+
+def _disposition_template(proposals: list[dict[str, Any]], digest: str) -> dict[str, Any]:
+    return {
+        "schema_version": "1.0",
+        "record_type": "sage-architect-intent-dispositions",
+        "semantic_understanding_sha256": digest,
+        "actor_role": "architect",
+        "dispositions": [
+            {"proposal_id": item["proposal_id"], "disposition": None, "rationale": "", "modified_value": None, "new_basis": ""}
+            for item in proposals
+        ],
+    }
+
+
+def _apply_architect_dispositions(understanding: Mapping[str, Any], decisions: Mapping[str, Any], digest: str) -> dict[str, Any]:
+    if decisions.get("record_type") != "sage-architect-intent-dispositions" or decisions.get("actor_role") != "architect":
+        raise WorkflowError("Architect dispositions version/type/actor is invalid")
+    if decisions.get("schema_version") != "1.0" or decisions.get("semantic_understanding_sha256") != digest:
+        raise WorkflowError("Architect dispositions are not bound to the interpreted intent")
+    proposals_raw = understanding.get("negotiation", {}).get("proposals")
+    if not isinstance(proposals_raw, list) or not proposals_raw:
+        raise WorkflowError("semantic understanding has no material proposals")
+    proposals = {str(item["proposal_id"]): item for item in proposals_raw}
+    raw = decisions.get("dispositions")
+    if not isinstance(raw, list):
+        raise WorkflowError("Architect dispositions must be a list")
+    ids = [str(item.get("proposal_id")) for item in raw if isinstance(item, Mapping)]
+    if len(ids) != len(raw) or len(set(ids)) != len(ids) or set(ids) != set(proposals):
+        raise WorkflowError("every material proposal requires exactly one Architect disposition")
+
+    normalized = []
+    confirmed_scope = None
+    for item in raw:
+        proposal = proposals[str(item["proposal_id"])]
+        disposition = item.get("disposition")
+        if disposition not in NEGOTIATION_DISPOSITIONS:
+            raise WorkflowError(f"{proposal['proposal_id']}: invalid Architect disposition")
+        rationale = item.get("rationale", "")
+        if not isinstance(rationale, str) or (disposition != "accept" and not rationale.strip()):
+            raise WorkflowError(f"{proposal['proposal_id']}: non-accept disposition requires rationale")
+        new_basis = item.get("new_basis", "")
+        if proposal.get("prior_disposition") is not None and (not isinstance(new_basis, str) or not new_basis.strip()):
+            raise WorkflowError(f"{proposal['proposal_id']}: resurfaced proposal requires materially new basis")
+        modified = item.get("modified_value")
+        if disposition != "modify" and modified is not None:
+            raise WorkflowError(f"{proposal['proposal_id']}: modified_value is allowed only for modify")
+        effective = modified if disposition == "modify" else proposal["value"]
+        authoritative = disposition in {"accept", "modify"}
+        if proposal["target"] == "implementation_scope" and authoritative:
+            if not isinstance(effective, list) or not effective or not all(isinstance(path, str) and path for path in effective):
+                raise WorkflowError("confirmed implementation scope must be a non-empty path list")
+            confirmed_scope = list(dict.fromkeys(effective))
+        normalized.append({
+            "proposal_id": proposal["proposal_id"],
+            "target": proposal["target"],
+            "source": proposal["source"],
+            "provenance": proposal["provenance"],
+            "prior_disposition": proposal.get("prior_disposition"),
+            "disposition": disposition,
+            "rationale": rationale.strip(),
+            "new_basis": new_basis.strip() if isinstance(new_basis, str) and new_basis.strip() else None,
+            "authority_effect": "authoritative-in-confirmed-intent" if authoritative else "evidence-only",
+            "effective_value": effective if authoritative else None,
+        })
+    if confirmed_scope is None:
+        raise WorkflowError("semantic confirmation cannot proceed without an authoritative implementation scope")
+    result = json.loads(json.dumps(understanding))
+    result["interpretation"]["implementation_scope"] = confirmed_scope
+    result["negotiation"] = {
+        "status": "architect-dispositioned",
+        "proposals": proposals_raw,
+        "dispositions": normalized,
+        "non_authoritative_proposals": [item["proposal_id"] for item in normalized if item["authority_effect"] == "evidence-only"],
+    }
+    if isinstance(result.get("assertions"), dict):
+        result["assertions"]["meaning"] = "architect-confirmed"
+    return result
+
+
+def _request_commit_subject(request: str) -> str:
+    first = " ".join(request.strip().splitlines()[0].split()) if request.strip() else ""
+    prefix = "Implement the next coherent slice of SAGE-ACTION-20260813-001: "
+    first = first[len(prefix):] if first.startswith(prefix) else first
+    return (first.rstrip(".") or "Implement governed SAGE request")[:120]
 def _runtime(repo: Path, state_dir: Path):
     catalog = PrimitiveCatalog.load(repo / "sage-workflow-primitives.json")
     catalog.require(PRIMITIVES_USED)
@@ -159,6 +267,10 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
                 "context_dispositions": _context_dispositions(preflight.contexts, applicable),
                 "goose_chase_policy": "one-preflight-pass; unrelated inferred contexts are dispositioned rather than recursively expanded",
             },
+            "negotiation": {
+                "status": "architect-disposition-required",
+                "proposals": _negotiation_proposals(contribution),
+            },
             "assertions": {
                 "meaning": "architect-confirmation-required",
                 "feasibility": "not-yet-established",
@@ -168,7 +280,16 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
         understanding_path = _write_json(writer, state_dir / "semantic-understanding.json", understanding)
         state["understanding_path"] = understanding_path
         state["understanding_sha"] = sha256_file(understanding_path)
-        return {"semantic_understanding": str(understanding_path), "sha256": state["understanding_sha"]}
+        state["dispositions_path"] = _write_json(
+            writer,
+            state_dir / "architect-dispositions.json",
+            _disposition_template(understanding["negotiation"]["proposals"], state["understanding_sha"]),
+        )
+        return {
+            "semantic_understanding": str(understanding_path),
+            "sha256": state["understanding_sha"],
+            "architect_dispositions": str(state["dispositions_path"]),
+        }
 
     Workflow(
         workflow_id=WORKFLOW_ID,
@@ -200,6 +321,7 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
         "semantic_understanding": str(understanding_path),
         "semantic_understanding_sha256": understanding_sha,
         "applicable_contexts": list(applicable),
+        "architect_dispositions": str(state["dispositions_path"]),
         "status": "architect-confirmation-required",
     }
     state_path = _write_json(writer, state_dir / "state.json", persisted)
@@ -211,16 +333,16 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
         workflow_id=WORKFLOW_ID,
         status="architect-confirmation-required",
         used_primitives=PRIMITIVES_USED,
-        details={"state": str(state_path), "semantic_understanding": str(understanding_path)},
+        details={"state": str(state_path), "semantic_understanding": str(understanding_path), "architect_dispositions": str(state["dispositions_path"])},
     )
     confirmation_command = render_operator_command(
         (
-            "env",
-            f"SAGE_STATE={state_path}",
-            f"SAGE_CONFIRMATION={understanding_sha}",
-            "SAGE_ACTOR=architect",
-            "make",
-            "sage-action-bootstrap-continue",
+            "python3",
+            "scripts/sage/sage-action-bootstrap.py",
+            "--continue-state", str(state_path),
+            "--confirm-understanding-sha256", understanding_sha,
+            "--actor", "architect",
+            "--dispositions", str(state["dispositions_path"]),
         )
     )
     return {
@@ -228,6 +350,7 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
         "state": str(state_path),
         "semantic_understanding": str(understanding_path),
         "semantic_understanding_sha256": understanding_sha,
+        "architect_dispositions": str(state["dispositions_path"]),
         "confirmation_command": confirmation_command,
     }
 
@@ -246,7 +369,7 @@ def default_planning_source_path(action_id: str, confirmation_sha256: str) -> Pa
         raise WorkflowError("semantic confirmation digest is invalid for planning-source identity")
     return Path("~/Downloads").expanduser() / f"sage-action-{action_id}-semantic-{confirmation_sha256}-source.zip"
 
-def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, actor: str, output: Path | None = None) -> Mapping[str, Any]:
+def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, actor: str, output: Path | None = None, dispositions_path: Path | None = None) -> Mapping[str, Any]:
     if actor != "architect":
         raise WorkflowError("semantic confirmation must be exercised by the Architect role")
     repo = repo.expanduser().resolve()
@@ -269,14 +392,31 @@ def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, a
     if sha256_file(contribution_path) != state.get("contribution_sha256"):
         raise WorkflowError("engineering contribution changed after semantic interpretation")
     contribution = load_engineering_contribution(contribution_path)
-    output = (output or default_planning_source_path(str(state["action_id"]), confirmation_sha256)).expanduser().resolve()
+    confirmed_understanding_path = Path(str(state["semantic_understanding"])).expanduser().resolve()
+    confirmed_understanding_sha256 = confirmation_sha256
+    if state.get("architect_dispositions"):
+        if dispositions_path is None:
+            raise WorkflowError("Architect dispositions are required before semantic confirmation")
+        understanding = json.loads(confirmed_understanding_path.read_text(encoding="utf-8"))
+        decisions_path = dispositions_path.expanduser().resolve()
+        decisions = json.loads(decisions_path.read_text(encoding="utf-8"))
+        confirmed = _apply_architect_dispositions(understanding, decisions, confirmation_sha256)
+        confirmed_understanding_path = _write_json(writer, state_dir / "semantic-understanding-confirmed.json", confirmed)
+        confirmed_understanding_sha256 = sha256_file(confirmed_understanding_path)
+        state["architect_dispositions_evidence"] = str(decisions_path)
+        state["architect_dispositions_sha256"] = sha256_file(decisions_path)
+        state["confirmed_semantic_understanding"] = str(confirmed_understanding_path)
+        state["confirmed_semantic_understanding_sha256"] = confirmed_understanding_sha256
+    output = (output or default_planning_source_path(str(state["action_id"]), confirmed_understanding_sha256)).expanduser().resolve()
     validations = [{"label": f"Run {target}", "argv": ["make", target], "timeout_seconds": 3600} for target in DEFAULT_VALIDATIONS]
     confirmation = {
         "schema_version": "1.0",
         "record_type": "sage-semantic-confirmation",
         "action_id": str(state["action_id"]),
         "actor_role": actor,
-        "semantic_understanding_sha256": confirmation_sha256,
+        "semantic_understanding_sha256": confirmed_understanding_sha256,
+        "interpreted_understanding_sha256": confirmation_sha256,
+        "architect_dispositions_sha256": state.get("architect_dispositions_sha256"),
         "meaning": "architect-confirmed",
         "recorded_at": datetime.now().astimezone().isoformat(timespec="seconds"),
     }
@@ -314,22 +454,28 @@ def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, a
         f"action:{state['action_id']}",
         f"action-record-sha256:{state['action_record_sha256']}",
         f"engineering-contribution-sha256:{state['contribution_sha256']}",
-        f"semantic-understanding-sha256:{state['semantic_understanding_sha256']}",
+        f"semantic-understanding-sha256:{confirmed_understanding_sha256}",
         f"semantic-confirmation-sha256:{sha256_file(confirmation_path)}",
         f"feasibility-sha256:{sha256_file(feasibility_path)}",
         f"authorization-sha256:{sha256_file(authorization_path)}",
         "authority:sage-change-authority.json",
         "bootstrap-exception:one-time-legacy-source-format-generated-by-repository-owned-code",
     ]
+    confirmed = json.loads(confirmed_understanding_path.read_text(encoding="utf-8"))
+    confirmed_scope = tuple(str(item) for item in confirmed["interpretation"]["implementation_scope"])
+    source_by_path = {item.path: item for item in contribution.source_files}
+    if set(confirmed_scope) - set(source_by_path):
+        raise WorkflowError("confirmed implementation scope references files absent from the engineering contribution")
+    confirmed_source_files = tuple(source_by_path[path] for path in confirmed_scope)
     source = write_source_package(
         output,
         str(state["request"]),
         repository={"branch": inspector.branch(), "head": inspector.head()},
-        source_files=contribution.source_files,
+        source_files=confirmed_source_files,
         evidence_references=evidence,
         validation_commands=validations,
-        operator_plan={"commit_message": str(action.get("title", "Implement accepted SAGE action"))[:120], "push_remote": "origin"},
-        semantic_understanding_path=Path(str(state["semantic_understanding"])),
+        operator_plan={"commit_message": _request_commit_subject(str(state["request"])), "push_remote": "origin"},
+        semantic_understanding_path=confirmed_understanding_path,
         semantic_confirmation_path=confirmation_path,
     )
     state["status"] = "planning-source-ready"

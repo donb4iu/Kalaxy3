@@ -52,6 +52,8 @@ def validate() -> list[str]:
         failures.append("semantic bootstrap broadened authority beyond read-only Git/workflow composition")
     if "import shlex" in workflow or "shlex." in workflow:
         failures.append("semantic bootstrap bypasses the repository-owned operator-command renderer")
+    if "_apply_architect_dispositions" not in workflow or "architect-dispositions.json" not in workflow:
+        failures.append("semantic bootstrap Architect disposition contract is missing")
     if "write_source_package" not in planning:
         failures.append("repository-owned planning-source writer is missing")
     for marker in ("resolve_planning_authority", "semantic_authority", "return to semantic confirmation"):
@@ -88,6 +90,7 @@ def main() -> int:
         return 1
     print("PASS accepted-action read-only bootstrap authority")
     print("PASS engineering contribution excludes caller-authored SAGE mechanics")
+    print("PASS Architect accept/reject/modify/defer disposition contract")
     print("PASS Architect semantic-confirmation boundary")
     print("PASS bounded one-pass context disposition")
     print("PASS repository-owned planning-source generation")
