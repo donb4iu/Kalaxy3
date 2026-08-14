@@ -36,8 +36,11 @@ A governed change follows this order:
    controlled mutation boundary.
 10. Diagnose every unexpected failure before another corrective mutation.
 11. Present exactly one Git or GitHub mutation boundary for operator execution.
-12. Require the operator to paste the complete result and verify the resulting
-   state before proposing another boundary.
+12. Require authoritative result evidence appropriate to the boundary and verify the
+    resulting state before proposing another boundary. The canonical post-operator
+    action is `verify-boundary-result`: repository-owned receipts are used when SAGE
+    can deterministically observe the result; complete pasted output remains a
+    legacy/manual evidence source for genuinely external boundaries.
 13. Preserve outcome, reuse, authority, failure, rework, safety, and trend
    measurements without inventing unavailable values.
 14. Publish implementation evidence through the repository-owned SAGE process.
@@ -209,7 +212,7 @@ boundary and exactly one command. It includes:
 - a secret-free command representation and digest;
 - a statement that no helper executed the command.
 
-No next boundary is proposed until the operator pastes the complete output and
+No next boundary is proposed until the active boundary result is bound to authoritative evidence and
 the resulting state is verified read-only.
 
 ## Measurements
@@ -272,8 +275,7 @@ GitHub mutation remain unauthorized.
 
 `scripts/sage/workflows/operating_contract.py` composes the registered
 primitives into two workflows. The pre-mutation workflow ends with exactly one
-operator proposal. The post-operator workflow begins only after complete pasted
-output is available and performs read-only verification, semantic outcome
+operator proposal. The post-operator workflow begins only after authoritative boundary-result evidence is available and performs read-only verification, semantic outcome
 measurement, and evidence closeout.
 
 The root enforcement gate is:
