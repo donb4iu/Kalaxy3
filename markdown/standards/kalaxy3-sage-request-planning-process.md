@@ -95,3 +95,7 @@ The planner self-test must prove:
   `capability.gap` receipt and blocks proposal generation; and
 - a source-only package becomes a proposal accepted by the existing
   request-execution parser.
+
+## Repository-owned source construction
+
+`scripts/sage/request_planning.py` publishes `write_source_package` so trusted repository compositions can derive `sage-source.json`, payload hashes, and archive scope internally. Human, LLM, and external callers are not required to author that SAGE-internal manifest. The accepted-action semantic-bootstrap composition is the first consumer; it preserves the existing `sage-request-plan` proposal interface rather than duplicating component selection or capability-gap semantics.

@@ -45,6 +45,7 @@ help:
 	  '  make sage-candidate-self-test' \
 	  '  make sage-learning-self-test' \
 	  '  make sage-review-self-test' \
+	  '  SAGE_REQUEST="<request>" SAGE_ACTION_ID="<id>" SAGE_CONTRIBUTION="<contribution.zip>" make sage-action-bootstrap' \
 	  '  SAGE_REQUEST="<request>" SAGE_SOURCE="<source.zip>" make sage-request-plan' \
 	  '  SAGE_REQUEST="<request>" SAGE_PROPOSAL="<proposal.zip>" make sage-request-execute' \
 	  '  SAGE_STATE="<state.json>" SAGE_OPERATOR_RESULT="<result.json>" make sage-request-continue' \
@@ -64,7 +65,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test
+sage-self-test: sage-semantic-bootstrap-self-test sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 	python3 scripts/sage/sage-file-delivery-guardrail.py
@@ -117,7 +118,7 @@ sage-operating-contract-guardrail:
 sage-operating-contract-check: sage-operating-contract-self-test sage-operating-contract-guardrail
 	@echo "Kalaxy3 SAGE operating contract: PASS"
 
-sage-guardrails: sage-self-test sage-discovery-guardrail sage-operating-contract-guardrail \
+sage-guardrails: sage-self-test sage-semantic-bootstrap-guardrail sage-discovery-guardrail sage-operating-contract-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
                  sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail sage-checkpoint-promotion-guardrail
 	@echo "Kalaxy3 repository SAGE guardrails: PASS"
@@ -398,6 +399,26 @@ sage-improvement-action-transition-self-test:
 
 sage-improvement-action-transition-guardrail:
 	$(PYTHON) scripts/sage/sage-improvement-action-transition-guardrail.py
+
+.PHONY: sage-action-bootstrap sage-action-bootstrap-continue sage-semantic-bootstrap-self-test sage-semantic-bootstrap-guardrail
+
+sage-action-bootstrap:
+	@test -n "$${SAGE_REQUEST:-}" || { echo 'Usage: SAGE_REQUEST="<request>" SAGE_ACTION_ID="<id>" SAGE_CONTRIBUTION="<contribution.zip>" make sage-action-bootstrap'; exit 2; }
+	@test -n "$${SAGE_ACTION_ID:-}" || { echo 'Usage: SAGE_REQUEST="<request>" SAGE_ACTION_ID="<id>" SAGE_CONTRIBUTION="<contribution.zip>" make sage-action-bootstrap'; exit 2; }
+	@test -n "$${SAGE_CONTRIBUTION:-}" || { echo 'Usage: SAGE_REQUEST="<request>" SAGE_ACTION_ID="<id>" SAGE_CONTRIBUTION="<contribution.zip>" make sage-action-bootstrap'; exit 2; }
+	$(PYTHON) scripts/sage/sage-action-bootstrap.py --request "$$SAGE_REQUEST" --action-id "$$SAGE_ACTION_ID" --contribution "$$SAGE_CONTRIBUTION"
+
+sage-action-bootstrap-continue:
+	@test -n "$${SAGE_STATE:-}" || { echo 'Usage: SAGE_STATE="<state.json>" SAGE_CONFIRMATION="<sha256>" SAGE_ACTOR=architect make sage-action-bootstrap-continue'; exit 2; }
+	@test -n "$${SAGE_CONFIRMATION:-}" || { echo 'Usage: SAGE_STATE="<state.json>" SAGE_CONFIRMATION="<sha256>" SAGE_ACTOR=architect make sage-action-bootstrap-continue'; exit 2; }
+	@test -n "$${SAGE_ACTOR:-}" || { echo 'Usage: SAGE_STATE="<state.json>" SAGE_CONFIRMATION="<sha256>" SAGE_ACTOR=architect make sage-action-bootstrap-continue'; exit 2; }
+	$(PYTHON) scripts/sage/sage-action-bootstrap.py --continue-state "$$SAGE_STATE" --confirm-understanding-sha256 "$$SAGE_CONFIRMATION" --actor "$$SAGE_ACTOR"
+
+sage-semantic-bootstrap-self-test:
+	$(PYTHON) scripts/sage/sage-action-bootstrap.py --self-test
+
+sage-semantic-bootstrap-guardrail:
+	$(PYTHON) scripts/sage/sage-semantic-bootstrap-guardrail.py
 
 .PHONY: sage-request-plan sage-request-plan-self-test sage-request-planning-guardrail sage-request-execute sage-request-continue sage-request-execute-self-test sage-request-execution-guardrail
 

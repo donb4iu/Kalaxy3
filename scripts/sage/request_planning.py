@@ -130,6 +130,59 @@ def _validate_manifest(payload: Mapping[str, Any], request: str) -> dict[str, An
     return payload
 
 
+def write_source_package(
+    path: Path,
+    request: str,
+    *,
+    repository: Mapping[str, Any],
+    source_files: tuple[ProposedFile, ...],
+    generated_paths: tuple[str, ...] = (),
+    reconcile_evidence_index: bool = False,
+    evidence_references: list[str],
+    validation_commands: list[Mapping[str, Any]],
+    operator_plan: Mapping[str, Any],
+) -> PlanningSourceBundle:
+    """Write a canonical planning source without caller-authored sage-source.json."""
+
+    if not source_files:
+        raise ProposalError("repository-owned planning source must contain source files")
+    manifest = _validate_manifest(
+        {
+            "schema_version": "1.0",
+            "request_sha256": request_sha256(request),
+            "repository": dict(repository),
+            "source_files": [
+                {
+                    "path": item.path,
+                    "sha256": item.sha256,
+                    "mode": f"{item.mode:04o}",
+                }
+                for item in source_files
+            ],
+            "generated_paths": list(generated_paths),
+            "reconcile_evidence_index": reconcile_evidence_index,
+            "evidence_references": list(evidence_references),
+            "validation_commands": [dict(item) for item in validation_commands],
+            "operator_plan": dict(operator_plan),
+        },
+        request,
+    )
+    destination = path.expanduser().resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.exists():
+        raise ProposalError(f"planning source package already exists: {destination}")
+    with zipfile.ZipFile(destination, "x", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            SOURCE_MANIFEST_NAME,
+            json.dumps(manifest, indent=2) + "\n",
+        )
+        for item in source_files:
+            info = zipfile.ZipInfo(PAYLOAD_PREFIX + item.path)
+            info.external_attr = (stat.S_IFREG | item.mode) << 16
+            archive.writestr(info, item.payload)
+    return load_source_bundle(destination, request)
+
+
 def load_source_bundle(path: Path, request: str) -> PlanningSourceBundle:
     """Load one source-only package without caller-authored planning semantics."""
 

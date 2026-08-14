@@ -11,11 +11,11 @@ from .gaps import CapabilityGapRecorder
 from .git import GitRepository
 from .git_inspect import GitAuthoritySnapshot, GitInspector
 from .github_inspect import GitHubInspector, GitHubPullRequestSnapshot
-from .lifecycle import ImprovementActionClient
+from .lifecycle import ImprovementActionClient, load_improvement_action
 from .logging import JsonlEventLogger
 from .metrics import OutcomeMetrics
 from .makefile import MakefileDocument
-from .proposal import OperatorGitProposal
+from .proposal import OperatorGitProposal, render_operator_command
 from .selection import ComponentCandidate, ComponentSelector, RequiredCapability
 from .safety import GitSafetyGuardrail, GitSafetyViolation
 from .model import (
@@ -49,6 +49,7 @@ __all__ = [
     "GitSafetyGuardrail",
     "GitSafetyViolation",
     "OperatorGitProposal",
+    "render_operator_command",
     "OutcomeMetrics",
     "CloseoutWriter",
     "CommandResult",
@@ -57,6 +58,7 @@ __all__ = [
     "FRAMEWORK_VERSION",
     "GitRepository",
     "ImprovementActionClient",
+    "load_improvement_action",
     "JsonlEventLogger",
     "MakefileDocument",
     "PreflightResult",

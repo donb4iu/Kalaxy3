@@ -167,6 +167,12 @@ def source_failures() -> list[str]:
         failures.append(
             "request-planning workflow imports or references subprocess"
         )
+    domain = (ROOT / DOMAIN_PATH).read_text(encoding="utf-8")
+    cli = (ROOT / CLI_PATH).read_text(encoding="utf-8")
+    if "def write_source_package(" not in domain:
+        failures.append("repository-owned request-planning source writer missing")
+    if "_fixture_source" in cli:
+        failures.append("request-planning CLI retains external-style fixture source writer")
     paths = tuple(
         ROOT / item
         for item in (

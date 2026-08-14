@@ -40,6 +40,29 @@ _SECRET_NAMES = {
 }
 
 
+
+
+def render_operator_command(argv: Iterable[str]) -> dict[str, object]:
+    """Render one operator command through the canonical proposal serializer."""
+
+    command = tuple(str(argument) for argument in argv)
+    if not command:
+        raise WorkflowError("Operator command must not be empty")
+    digest_input = json.dumps(
+        list(command),
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return {
+        "display": shlex.join(command),
+        "argv": list(command),
+        "sha256": hashlib.sha256(digest_input).hexdigest(),
+        "contains_secret": False,
+        "command_count": 1,
+        "executed_by_helper": False,
+    }
+
+
 class OperatorGitProposal:
     """Build and optionally write one operator boundary without executing it."""
 
@@ -150,19 +173,7 @@ class OperatorGitProposal:
 
     @staticmethod
     def _command_payload(argv: tuple[str, ...]) -> dict[str, object]:
-        digest_input = json.dumps(
-            list(argv),
-            separators=(",", ":"),
-            ensure_ascii=False,
-        ).encode("utf-8")
-        return {
-            "display": shlex.join(argv),
-            "argv": list(argv),
-            "sha256": hashlib.sha256(digest_input).hexdigest(),
-            "contains_secret": False,
-            "command_count": 1,
-            "executed_by_helper": False,
-        }
+        return render_operator_command(argv)
 
     @staticmethod
     def _browser_payload(action: str, url: str) -> dict[str, object]:

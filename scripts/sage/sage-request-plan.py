@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sys
 import tempfile
@@ -14,48 +13,11 @@ from pathlib import Path
 SAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SAGE_DIR))
 
-from request_execution import ProposalError, load_proposal, request_sha256
-from request_planning import load_source_bundle, write_proposal_package
+from request_execution import ProposalError, load_proposal
+from request_planning import load_source_bundle, write_proposal_package, write_source_package
 from workflow import PrimitiveCatalog, WorkflowError
 from workflows.request_planning import derive_component_plan, plan_request
 
-
-def _fixture_source(path: Path, request: str, payload: bytes) -> None:
-    manifest = {
-        "schema_version": "1.0",
-        "request_sha256": request_sha256(request),
-        "repository": {
-            "branch": "feature/fixture",
-            "head": "0" * 40,
-        },
-        "source_files": [
-            {
-                "path": "fixture.txt",
-                "sha256": hashlib.sha256(payload).hexdigest(),
-                "mode": "0644",
-            }
-        ],
-        "generated_paths": [],
-        "reconcile_evidence_index": False,
-        "evidence_references": ["fixture:request-planning"],
-        "validation_commands": [
-            {
-                "label": "Fixture validation",
-                "argv": ["make", "sage-index-check"],
-                "timeout_seconds": 60,
-            }
-        ],
-        "operator_plan": {
-            "commit_message": "Fixture planned request",
-            "push_remote": "origin",
-        },
-    }
-    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr(
-            "sage-source.json",
-            json.dumps(manifest, indent=2) + "\n",
-        )
-        archive.writestr("payload/fixture.txt", payload)
 
 
 def self_test(repo: Path) -> int:
@@ -115,7 +77,17 @@ def self_test(repo: Path) -> int:
     ) as raw:
         temp_root = Path(raw)
         source = temp_root / "source.zip"
-        _fixture_source(source, semantic_request, b"fixture\n")
+        payload = b"fixture\n"
+        from request_execution import ProposedFile, sha256_bytes
+        bundle = write_source_package(
+            source,
+            semantic_request,
+            repository={"branch": "feature/fixture", "head": "0" * 40},
+            source_files=(ProposedFile("fixture.txt", sha256_bytes(payload), 0o644, payload),),
+            evidence_references=["fixture:request-planning"],
+            validation_commands=[{"label": "Fixture validation", "argv": ["make", "sage-index-check"], "timeout_seconds": 60}],
+            operator_plan={"commit_message": "Fixture planned request", "push_remote": "origin"},
+        )
         bundle = load_source_bundle(source, semantic_request)
         if bundle.declared_paths != ("fixture.txt",):
             raise RuntimeError("planning source scope mismatch")
@@ -139,7 +111,7 @@ def self_test(repo: Path) -> int:
         "PASS semantic-vocabulary replay without external candidate semantics"
     )
     print("PASS unsupported capability produces capability.gap receipt")
-    print("PASS source-only package to existing proposal interface")
+    print("PASS repository-owned source package to existing proposal interface")
     print("Kalaxy3 SAGE request planning self-test: PASS")
     return 0
 
