@@ -14,6 +14,7 @@ REQUIRED = (
     "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
     "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
     "markdown/standards/sage-semantic-understanding-schema-v1.0.json",
+    "markdown/standards/sage-request-planning-source-schema-v1.1.json",
 )
 
 
@@ -38,6 +39,8 @@ def validate() -> list[str]:
         "feasibility.json",
         "authorization.json",
         "render_operator_command",
+        "semantic_understanding_path",
+        "semantic_confirmation_path",
     )
     for marker in markers:
         if marker not in workflow:
@@ -48,11 +51,14 @@ def validate() -> list[str]:
         failures.append("semantic bootstrap bypasses the repository-owned operator-command renderer")
     if "write_source_package" not in planning:
         failures.append("repository-owned planning-source writer is missing")
+    for marker in ("resolve_planning_authority", "semantic_authority", "return to semantic confirmation"):
+        if marker not in planning:
+            failures.append(f"semantic planning-authority propagation marker missing: {marker}")
     if "_fixture_source" in cli:
         failures.append("request-planning self-test still relies on caller-style fixture source writer")
     if "sage-source.json" not in domain or "may not author sage control artifact" not in domain.casefold():
         failures.append("engineering contribution does not reject external sage-source authorship")
-    for marker in ("anti-goose-chase", "semantic confirmation is not feasibility", "bootstrap exception"):
+    for marker in ("anti-goose-chase", "semantic confirmation is not feasibility", "bootstrap exception", "confirmed semantic authority"):
         if marker not in process:
             failures.append(f"semantic-bootstrap process marker missing: {marker}")
     for path in ("markdown/standards/sage-engineering-contribution-schema-v1.0.json", "markdown/standards/sage-semantic-understanding-schema-v1.0.json"):
@@ -81,6 +87,7 @@ def main() -> int:
     print("PASS bounded one-pass context disposition")
     print("PASS repository-owned planning-source generation")
     print("PASS existing planner/executor reuse")
+    print("PASS confirmed semantic authority is bound into downstream planning")
     print("Kalaxy3 SAGE semantic bootstrap guardrail: PASS")
     return 0
 

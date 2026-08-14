@@ -22,9 +22,13 @@ GUARDRAIL_PATH = "scripts/sage/sage-request-planning-guardrail.py"
 PROCESS_PATH = (
     "markdown/standards/kalaxy3-sage-request-planning-process.md"
 )
-SCHEMA_PATH = (
+SCHEMA_PATH_V1_0 = (
     "markdown/standards/"
     "sage-request-planning-source-schema-v1.0.json"
+)
+SCHEMA_PATH_V1_1 = (
+    "markdown/standards/"
+    "sage-request-planning-source-schema-v1.1.json"
 )
 EXECUTION_PROCESS_PATH = (
     "markdown/standards/kalaxy3-sage-request-execution-process.md"
@@ -35,7 +39,8 @@ REQUIRED_PATHS = {
     CLI_PATH,
     GUARDRAIL_PATH,
     PROCESS_PATH,
-    SCHEMA_PATH,
+    SCHEMA_PATH_V1_0,
+    SCHEMA_PATH_V1_1,
 }
 REQUIRED_TERMS = {
     "request planning",
@@ -55,6 +60,9 @@ PROCESS_MARKERS = (
     "no Git mutation",
     "no GitHub mutation",
     "no deployment mutation",
+    "architect-confirmed semantic authority",
+    "raw discovery remains audit evidence",
+    "return to semantic confirmation",
 )
 WORKFLOW_MARKERS = (
     "EXECUTION_PRIMITIVES",
@@ -66,6 +74,9 @@ WORKFLOW_MARKERS = (
     "write_proposal_package",
     "CloseoutWriter",
     "external_candidate_semantics",
+    "resolve_planning_authority",
+    "raw_inferred_contexts",
+    "semantic_authority",
 )
 
 
@@ -171,6 +182,9 @@ def source_failures() -> list[str]:
     cli = (ROOT / CLI_PATH).read_text(encoding="utf-8")
     if "def write_source_package(" not in domain:
         failures.append("repository-owned request-planning source writer missing")
+    for marker in ("def resolve_planning_authority(", "semantic_understanding_path", "return to semantic confirmation"):
+        if marker not in domain:
+            failures.append(f"request-planning semantic authority marker missing: {marker}")
     if "_fixture_source" in cli:
         failures.append("request-planning CLI retains external-style fixture source writer")
     paths = tuple(
@@ -190,8 +204,9 @@ def source_failures() -> list[str]:
 
 
 def schema_failures() -> list[str]:
-    schema = load_object(ROOT / SCHEMA_PATH)
-    required = {
+    legacy = load_object(ROOT / SCHEMA_PATH_V1_0)
+    semantic = load_object(ROOT / SCHEMA_PATH_V1_1)
+    base_required = {
         "schema_version",
         "request_sha256",
         "repository",
@@ -203,14 +218,20 @@ def schema_failures() -> list[str]:
         "operator_plan",
     }
     failures = []
-    if schema.get("$id") != SCHEMA_PATH:
-        failures.append(
-            "request-planning source schema identifier mismatch"
-        )
-    if set(schema.get("required", [])) != required:
-        failures.append(
-            "request-planning source schema required fields mismatch"
-        )
+    if legacy.get("$id") != SCHEMA_PATH_V1_0 or set(legacy.get("required", [])) != base_required:
+        failures.append("legacy request-planning source schema contract changed")
+    if semantic.get("$id") != SCHEMA_PATH_V1_1:
+        failures.append("semantic request-planning source schema identifier mismatch")
+    if set(semantic.get("required", [])) != base_required | {"semantic_authority"}:
+        failures.append("semantic request-planning source schema required fields mismatch")
+    semantic_property = semantic.get("properties", {}).get("semantic_authority", {})
+    if set(semantic_property.get("required", [])) != {
+        "semantic_understanding_sha256",
+        "semantic_confirmation_sha256",
+        "applicable_contexts",
+        "context_dispositions",
+    }:
+        failures.append("semantic request-planning authority contract is incomplete")
     return failures
 
 
@@ -294,6 +315,8 @@ def main() -> int:
     print("PASS component.select and capability.gap ownership")
     print("PASS existing request-execution proposal interface")
     print("PASS no external candidate-selection semantics")
+    print("PASS Architect-confirmed semantic authority survives into planning")
+    print("PASS literal discovery cannot silently re-expand confirmed authority")
     print("Kalaxy3 SAGE request planning guardrail: PASS")
     return 0
 

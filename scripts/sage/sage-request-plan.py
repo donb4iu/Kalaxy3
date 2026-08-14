@@ -14,7 +14,7 @@ SAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SAGE_DIR))
 
 from request_execution import ProposalError, load_proposal
-from request_planning import load_source_bundle, write_proposal_package, write_source_package
+from request_planning import derive_applicable_contexts, load_source_bundle, resolve_planning_authority, write_proposal_package, write_source_package
 from workflow import PrimitiveCatalog, WorkflowError
 from workflows.request_planning import derive_component_plan, plan_request
 
@@ -105,6 +105,76 @@ def self_test(repo: Path) -> int:
         )
         load_proposal(planned.package_path, semantic_request)
 
+        semantic_payload = b"semantic-fixture\n"
+        semantic_relative = "scripts/sage/request_planning.py"
+        applicable = derive_applicable_contexts(repo, (semantic_relative,))
+        extras = tuple(item for item in ("helm-platform", "observability") if item not in applicable)
+        dispositions = [
+            {"context_id": item, "disposition": "applicable"}
+            for item in applicable
+        ] + [
+            {"context_id": item, "disposition": "not-applicable-to-proposed-repository-scope"}
+            for item in extras
+        ]
+        understanding = {
+            "schema_version": "1.0",
+            "record_type": "sage-semantic-understanding",
+            "action": {"action_id": "SAGE-ACTION-FIXTURE", "status": "accepted"},
+            "literal_request": semantic_request,
+            "contribution": {"proposed_paths": [semantic_relative]},
+            "interpretation": {
+                "implementation_scope": [semantic_relative],
+                "inferred_contexts": list(dict.fromkeys((*applicable, *extras))),
+                "applicable_contexts": list(applicable),
+                "context_dispositions": dispositions,
+            },
+            "assertions": {"meaning": "architect-confirmation-required"},
+        }
+        understanding_path = temp_root / "semantic-understanding.json"
+        understanding_path.write_text(json.dumps(understanding, indent=4) + "\n", encoding="utf-8")
+        confirmation = {
+            "schema_version": "1.0",
+            "record_type": "sage-semantic-confirmation",
+            "action_id": "SAGE-ACTION-FIXTURE",
+            "actor_role": "architect",
+            "semantic_understanding_sha256": sha256_bytes(understanding_path.read_bytes()),
+            "meaning": "architect-confirmed",
+        }
+        confirmation_path = temp_root / "semantic-confirmation.json"
+        confirmation_path.write_text(json.dumps(confirmation, indent=4) + "\n", encoding="utf-8")
+        semantic_source = temp_root / "semantic-source.zip"
+        semantic_bundle = write_source_package(
+            semantic_source,
+            semantic_request,
+            repository={"branch": "feature/fixture", "head": "0" * 40},
+            source_files=(ProposedFile(semantic_relative, sha256_bytes(semantic_payload), 0o644, semantic_payload),),
+            evidence_references=["fixture:semantic-authority"],
+            validation_commands=[{"label": "Fixture validation", "argv": ["make", "sage-index-check"], "timeout_seconds": 60}],
+            operator_plan={"commit_message": "Fixture semantic planned request", "push_remote": "origin"},
+            semantic_understanding_path=understanding_path,
+            semantic_confirmation_path=confirmation_path,
+        )
+        if semantic_bundle.manifest.get("schema_version") != "1.1" or semantic_bundle.semantic_authority is None:
+            raise RuntimeError("semantic planning source did not preserve confirmed authority")
+        class DiscoveryFixture:
+            contexts = tuple(dict.fromkeys((*applicable, *extras)))
+            authorities = ("infrastructure/k3s-homelab/helm-chart-lock.json",)
+        resolved = resolve_planning_authority(repo, semantic_bundle, DiscoveryFixture())
+        if tuple(resolved["contexts"]) != applicable:
+            raise RuntimeError("semantic planning authority re-expanded raw discovery contexts")
+        if any(str(path).startswith("infrastructure/k3s-homelab/") for path in resolved["authoritative_files"]):
+            raise RuntimeError("semantic planning authority leaked infrastructure authorities")
+        class ChangedDiscoveryFixture:
+            contexts = tuple(dict.fromkeys((*DiscoveryFixture.contexts, "storage")))
+            authorities = DiscoveryFixture.authorities
+        try:
+            resolve_planning_authority(repo, semantic_bundle, ChangedDiscoveryFixture())
+        except ProposalError as error:
+            if "return to semantic confirmation" not in str(error):
+                raise RuntimeError(f"unexpected semantic re-entry failure: {error}") from error
+        else:
+            raise RuntimeError("new post-confirmation context did not fail closed")
+
     print("PASS repository-derived required capabilities")
     print("PASS repository-derived candidates and selection factors")
     print(
@@ -112,6 +182,8 @@ def self_test(repo: Path) -> int:
     )
     print("PASS unsupported capability produces capability.gap receipt")
     print("PASS repository-owned source package to existing proposal interface")
+    print("PASS Architect-confirmed contexts remain authoritative over raw discovery")
+    print("PASS new post-confirmation contexts return to semantic confirmation")
     print("Kalaxy3 SAGE request planning self-test: PASS")
     return 0
 

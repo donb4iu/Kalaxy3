@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
-from request_planning import write_source_package
+from request_planning import derive_applicable_contexts, write_source_package
 from semantic_understanding import action_record_sha256, load_engineering_contribution, sha256_file
 from workflow import (
     AtomicFileWriter,
@@ -45,37 +45,6 @@ DEFAULT_VALIDATIONS = ("sage-guardrails", "sage-index-check", "sage-operating-co
 def _write_json(writer: AtomicFileWriter, path: Path, value: Mapping[str, Any]) -> Path:
     writer.write_text(path, json.dumps(value, indent=4, sort_keys=False) + "\n", new_mode=0o600)
     return path
-
-
-def _context_map(repo: Path) -> tuple[dict[str, Any], tuple[str, ...]]:
-    payload = json.loads((repo / "sage-change-authority.json").read_text(encoding="utf-8"))
-    contexts = {str(item["id"]): item for item in payload.get("contexts", []) if isinstance(item, dict) and item.get("id")}
-    return contexts, tuple(str(item) for item in payload.get("always_contexts", []))
-
-
-def _path_matches(prefix: str, path: str) -> bool:
-    return path == prefix or path.startswith(prefix)
-
-
-def derive_applicable_contexts(repo: Path, proposed_paths: tuple[str, ...]) -> tuple[str, ...]:
-    contexts, always = _context_map(repo)
-    selected = set(always)
-    for context_id, context in contexts.items():
-        prefixes = tuple(str(item) for item in context.get("path_prefixes", []))
-        if any(_path_matches(prefix, path) for prefix in prefixes for path in proposed_paths):
-            selected.add(context_id)
-    changed = True
-    while changed:
-        changed = False
-        for context_id in tuple(selected):
-            context = contexts.get(context_id, {})
-            for required in context.get("requires", []):
-                if required not in selected:
-                    selected.add(str(required))
-                    changed = True
-    ordered = [item for item in always if item in selected]
-    ordered.extend(sorted(selected - set(ordered)))
-    return tuple(ordered)
 
 
 def _preflight_once(repo: Path, runner: CommandRunner, request: str):
@@ -346,6 +315,8 @@ def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, a
         evidence_references=evidence,
         validation_commands=validations,
         operator_plan={"commit_message": str(action.get("title", "Implement accepted SAGE action"))[:120], "push_remote": "origin"},
+        semantic_understanding_path=Path(str(state["semantic_understanding"])),
+        semantic_confirmation_path=confirmation_path,
     )
     state["status"] = "planning-source-ready"
     state["semantic_confirmation"] = str(confirmation_path)

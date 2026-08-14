@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
-from request_planning import load_source_bundle, write_proposal_package
+from request_planning import load_source_bundle, resolve_planning_authority, write_proposal_package
 from workflow import (
     AtomicFileWriter,
     CapabilityGapRecorder,
@@ -351,27 +351,30 @@ def plan_request(
             ),
             step_id="planning-evidence-retrieval",
         )
+        resolved = resolve_planning_authority(repo, source, discovery)
         authority_reference = _write_json(
             writer,
             state_dir / "resolved-repository-authority.json",
             {
                 "schema_version": "1.0",
                 "request": request,
-                "contexts": list(discovery.contexts),
-                "authoritative_files": list(discovery.authorities),
-                "discovery_sha256": hashlib.sha256(
-                    discovery.stdout.encode("utf-8")
-                ).hexdigest(),
+                "authority_mode": resolved["authority_mode"],
+                "raw_inferred_contexts": list(resolved["raw_inferred_contexts"]),
+                "contexts": list(resolved["contexts"]),
+                "authoritative_files": list(resolved["authoritative_files"]),
+                "semantic_authority": resolved["semantic_authority"],
+                "discovery_sha256": hashlib.sha256(discovery.stdout.encode("utf-8")).hexdigest(),
                 "retrieval_sha256": retrieval.output_sha256,
             },
         )
         state["authority_reference"] = authority_reference
         return {
             "request": request,
-            "contexts": list(discovery.contexts),
+            "authority_mode": resolved["authority_mode"],
+            "raw_inferred_contexts": list(resolved["raw_inferred_contexts"]),
+            "contexts": list(resolved["contexts"]),
             "authority_reference": str(authority_reference),
         }
-
     def git_action() -> Mapping[str, Any]:
         inspector.require_clean()
         inspector.require_branch(

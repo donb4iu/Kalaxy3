@@ -19,16 +19,23 @@ selection, or capability-gap decisions when this planner applies.
 The planning composition uses:
 
 1. the exact literal request;
-2. resolved **repository authority** from current SAGE discovery;
+2. resolved **repository authority** from Architect-confirmed semantic authority when present, otherwise current SAGE discovery for legacy sources;
 3. `sage-workflow-primitives.json`;
 4. the mandatory request-execution primitive set published by
    `scripts/sage/workflows/request_execution.py`; and
 5. the checksum-bound source-only package.
 
 The source-only package is governed by
-`sage-request-planning-source-schema-v1.0.json`. Its manifest deliberately has
+`sage-request-planning-source-schema-v1.0.json` for legacy callers and semantic-bound v1.1 for Architect-confirmed sources. Their manifests deliberately have
 no `capabilities`, `candidates`, `selection_factors`, or
 `new_primitive_required` fields.
+
+## Semantic authority propagation
+When a planning source is generated after Architect semantic confirmation, the source package embeds the exact semantic-understanding and semantic-confirmation artifacts and records their SHA-256 digests, Architect-confirmed applicable contexts, and complete context dispositions. That **Architect-confirmed semantic authority** is authoritative for downstream repository-authority resolution.
+
+The planner still performs literal SAGE discovery and evidence retrieval, but raw discovery remains audit evidence rather than a second semantic-authority decision. Contexts already dispositioned as not applicable cannot silently re-enter implementation authority. The planner deterministically resolves authority files only from the confirmed applicable-context set and its existing dependency contract. If literal discovery produces a context that was not part of the confirmed dispositions, or if path/dependency-derived applicability no longer matches the confirmed context set, planning fails closed and requires a **return to semantic confirmation** rather than broadening scope.
+
+Legacy v1.0 planning sources retain the existing literal-discovery authority behavior so already-open/manual workflows remain compatible.
 
 ## Planning behavior
 
@@ -94,7 +101,9 @@ The planner self-test must prove:
 - a deliberately unsupported required capability creates an explicit
   `capability.gap` receipt and blocks proposal generation; and
 - a source-only package becomes a proposal accepted by the existing
-  request-execution parser.
+  request-execution parser;
+- Architect-confirmed not-applicable contexts remain excluded even when literal discovery infers them again; and
+- a genuinely new post-confirmation context fails closed and returns to semantic confirmation instead of silently expanding authority.
 
 ## Repository-owned source construction
 

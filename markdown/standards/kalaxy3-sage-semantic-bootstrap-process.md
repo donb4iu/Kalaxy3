@@ -20,9 +20,9 @@ Semantic confirmation is not feasibility confirmation and is not mutation author
 6. Emit an immutable semantic-understanding record and stop at an exact repository-owned Architect confirmation command.
 7. On exact-digest Architect confirmation, re-verify action, contribution, branch, HEAD, upstream equality, and clean repository state.
 8. Preserve separate semantic-confirmation, feasibility, and authorization records. Record feasibility as sufficient only for planning-source generation; runtime and outcome feasibility remain subject to downstream deterministic validation and evidence.
-9. Generate the canonical planning source through repository-owned `write_source_package`.
+9. Generate the canonical planning source through repository-owned `write_source_package`, embedding the exact semantic-understanding and Architect semantic-confirmation artifacts plus their confirmed context dispositions.
 10. Render Architect and planning handoff commands through the existing repository-owned operator-command serializer in `scripts/sage/workflow/proposal.py`; semantic-bootstrap workflow code does not own shell quoting.
-11. Hand the source to the existing `sage-request-plan` and `sage-request-execute` paths.
+11. Hand the source to the existing `sage-request-plan` and `sage-request-execute` paths. The planner treats that **confirmed semantic authority** as authoritative for context/applicability scope; literal discovery remains audit/retrieval evidence and may not silently re-expand contexts the Architect dispositioned as not applicable. A newly observed, undispositioned context fails closed and returns to semantic confirmation.
 
 ## Anti-goose-chase rule
 
