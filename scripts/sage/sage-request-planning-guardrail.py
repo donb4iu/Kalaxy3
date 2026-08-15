@@ -30,6 +30,10 @@ SCHEMA_PATH_V1_1 = (
     "markdown/standards/"
     "sage-request-planning-source-schema-v1.1.json"
 )
+SCHEMA_PATH_V1_2 = (
+    "markdown/standards/"
+    "sage-request-planning-source-schema-v1.2.json"
+)
 EXECUTION_PROCESS_PATH = (
     "markdown/standards/kalaxy3-sage-request-execution-process.md"
 )
@@ -41,6 +45,7 @@ REQUIRED_PATHS = {
     PROCESS_PATH,
     SCHEMA_PATH_V1_0,
     SCHEMA_PATH_V1_1,
+    SCHEMA_PATH_V1_2,
 }
 REQUIRED_TERMS = {
     "request planning",
@@ -63,6 +68,9 @@ PROCESS_MARKERS = (
     "architect-confirmed semantic authority",
     "raw discovery remains audit evidence",
     "return to semantic confirmation",
+    "implementation contexts",
+    "historical v1.1",
+    "v1.2",
 )
 WORKFLOW_MARKERS = (
     "EXECUTION_PRIMITIVES",
@@ -77,6 +85,7 @@ WORKFLOW_MARKERS = (
     "resolve_planning_authority",
     "raw_inferred_contexts",
     "semantic_authority",
+    "applicable_contexts",
 )
 
 
@@ -182,7 +191,13 @@ def source_failures() -> list[str]:
     cli = (ROOT / CLI_PATH).read_text(encoding="utf-8")
     if "def write_source_package(" not in domain:
         failures.append("repository-owned request-planning source writer missing")
-    for marker in ("def resolve_planning_authority(", "semantic_understanding_path", "return to semantic confirmation"):
+    for marker in (
+        "def resolve_planning_authority(",
+        "semantic_understanding_path",
+        "return to semantic confirmation",
+        "SOURCE_FIELDS_V1_2",
+        "implementation_contexts",
+    ):
         if marker not in domain:
             failures.append(f"request-planning semantic authority marker missing: {marker}")
     if "_fixture_source" in cli:
@@ -205,7 +220,8 @@ def source_failures() -> list[str]:
 
 def schema_failures() -> list[str]:
     legacy = load_object(ROOT / SCHEMA_PATH_V1_0)
-    semantic = load_object(ROOT / SCHEMA_PATH_V1_1)
+    historical_semantic = load_object(ROOT / SCHEMA_PATH_V1_1)
+    split_semantic = load_object(ROOT / SCHEMA_PATH_V1_2)
     base_required = {
         "schema_version",
         "request_sha256",
@@ -220,18 +236,60 @@ def schema_failures() -> list[str]:
     failures = []
     if legacy.get("$id") != SCHEMA_PATH_V1_0 or set(legacy.get("required", [])) != base_required:
         failures.append("legacy request-planning source schema contract changed")
-    if semantic.get("$id") != SCHEMA_PATH_V1_1:
-        failures.append("semantic request-planning source schema identifier mismatch")
-    if set(semantic.get("required", [])) != base_required | {"semantic_authority"}:
-        failures.append("semantic request-planning source schema required fields mismatch")
-    semantic_property = semantic.get("properties", {}).get("semantic_authority", {})
-    if set(semantic_property.get("required", [])) != {
+    if historical_semantic.get("$id") != SCHEMA_PATH_V1_1:
+        failures.append("historical semantic request-planning source schema identifier mismatch")
+    if set(historical_semantic.get("required", [])) != base_required | {"semantic_authority"}:
+        failures.append("historical semantic request-planning source schema required fields mismatch")
+    historical_property = historical_semantic.get("properties", {}).get("semantic_authority", {})
+    if set(historical_property.get("required", [])) != {
         "semantic_understanding_sha256",
         "semantic_confirmation_sha256",
         "applicable_contexts",
         "context_dispositions",
     }:
-        failures.append("semantic request-planning authority contract is incomplete")
+        failures.append("historical v1.1 semantic authority contract changed")
+    historical_enum = (
+        historical_property.get("properties", {})
+        .get("context_dispositions", {})
+        .get("items", {})
+        .get("properties", {})
+        .get("disposition", {})
+        .get("enum", [])
+    )
+    if set(historical_enum) != {
+        "applicable",
+        "applicable-by-proposed-path-or-dependency",
+        "not-applicable-to-proposed-repository-scope",
+    }:
+        failures.append("historical v1.1 context disposition contract changed")
+    if split_semantic.get("$id") != SCHEMA_PATH_V1_2:
+        failures.append("split semantic request-planning source schema identifier mismatch")
+    if set(split_semantic.get("required", [])) != base_required | {"semantic_authority"}:
+        failures.append("split semantic request-planning source schema required fields mismatch")
+    split_property = split_semantic.get("properties", {}).get("semantic_authority", {})
+    if set(split_property.get("required", [])) != {
+        "semantic_understanding_sha256",
+        "semantic_confirmation_sha256",
+        "applicable_contexts",
+        "implementation_contexts",
+        "context_dispositions",
+    }:
+        failures.append("v1.2 semantic request-planning authority contract is incomplete")
+    split_enum = (
+        split_property.get("properties", {})
+        .get("context_dispositions", {})
+        .get("items", {})
+        .get("properties", {})
+        .get("disposition", {})
+        .get("enum", [])
+    )
+    if set(split_enum) != {
+        "applicable",
+        "applicable-now",
+        "applicable-now-no-proposed-source-mutation",
+        "applicable-by-proposed-path-or-dependency",
+    }:
+        failures.append("v1.2 semantic request-planning context disposition contract is incomplete")
     return failures
 
 
@@ -316,6 +374,8 @@ def main() -> int:
     print("PASS existing request-execution proposal interface")
     print("PASS no external candidate-selection semantics")
     print("PASS Architect-confirmed semantic authority survives into planning")
+    print("PASS historical v1.1 semantic sources remain immutable and readable")
+    print("PASS v1.2 separates semantic applicability from implementation authority")
     print("PASS literal discovery cannot silently re-expand confirmed authority")
     print("Kalaxy3 SAGE request planning guardrail: PASS")
     return 0

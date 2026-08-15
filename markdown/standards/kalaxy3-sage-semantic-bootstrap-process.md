@@ -16,7 +16,7 @@ Semantic confirmation is not feasibility confirmation and is not mutation author
 2. Read exactly one accepted action through the read-only action contract interface.
 3. Load an engineering contribution whose manifest contains engineering semantics only; hashes are derived by SAGE.
 4. Run exactly one literal preflight pass.
-5. Reconcile inferred contexts with the proposed repository paths and dependency rules from `sage-change-authority.json`. Inferred contexts outside the proposed repository scope are explicitly dispositioned rather than recursively explored.
+5. Reconcile request-inferred contexts with proposed repository paths and dependency rules from `sage-change-authority.json` without equating semantic applicability with source mutation. Preserve all request-relevant inferred contexts as applicable evidence/governance context; separately derive the narrower implementation-context set that owns the proposed paths and their dependencies. A context is not demonstrably non-applicable merely because no file in that context changes.
 6. Emit an immutable semantic-understanding record plus a repository-owned Architect disposition template for its material scope, assumption, and alternative proposals.
 7. At the existing Architect continuation boundary, require every material proposal to be dispositioned as `accept`, `reject`, `modify`, or `defer` and bind those decisions to the exact interpreted-understanding digest. Non-accept decisions require rationale; resurfacing a prior disposition requires materially new basis.
 8. Deterministically derive the confirmed semantic-understanding record. Accepted/modified effects become **confirmed semantic authority**; rejected/deferred proposals remain decision evidence only. The existing semantic-confirmation record binds the derived result, so no parallel negotiation engine, schema fork, or planner authority model is introduced.
@@ -24,7 +24,11 @@ Semantic confirmation is not feasibility confirmation and is not mutation author
 10. Generate the canonical planning source through existing `write_source_package`; a modified implementation scope may only select paths already present in the contribution. The default immutable planning-source filename remains scoped by both action ID and the exact **semantic-confirmation digest**, so **multiple confirmed slices** under one accepted action cannot collide.
 11. Derive the routine Git commit subject from the active literal request and hand the source to the existing planning/execution path.
 
-## Anti-goose-chase rule
+## Context applicability and anti-goose-chase rule
+
+Semantic applicability and source-mutation authority are separate facts. `applicable_contexts` preserves contexts materially implicated by the literal request plus path/dependency contexts. `implementation_contexts` is the narrower set used to govern the proposed repository mutation. Request-relevant contexts with no proposed source mutation remain explicitly visible as `applicable-now-no-proposed-source-mutation`; they are not silently discarded as noise. Demonstrably non-applicable claims require evidence rather than absence of a matching changed path.
+
+New confirmations that carry the split are published through additive request-planning source schema v1.2. Historical v1.1 semantic planning sources keep their original combined-context meaning and remain readable without rewrite; v1.0 sources retain literal-discovery behavior.
 
 For unchanged request, contribution, action contract, and repository authority, semantic bootstrap performs one interpretation/preflight pass. A missing mandatory fact stops progression with an explicit fail-closed reason; registered downstream capability deficiencies continue to use the canonical `capability.gap` mechanism. The composition must not add magic vocabulary, recursively broaden contexts, or repeatedly retrieve unrelated material merely to obtain a passing classification.
 

@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
-from request_planning import derive_applicable_contexts, write_source_package
+from request_planning import reconcile_semantic_contexts, write_source_package
 from semantic_understanding import action_record_sha256, load_engineering_contribution, sha256_file
 from workflow import (
     AtomicFileWriter,
@@ -57,19 +57,6 @@ def _preflight_once(repo: Path, runner: CommandRunner, request: str):
     ))
     return SageDiscovery.parse(request, result.stdout)
 
-
-def _context_dispositions(inferred: tuple[str, ...], applicable: tuple[str, ...]) -> list[dict[str, str]]:
-    result = []
-    all_ids = tuple(dict.fromkeys((*inferred, *applicable)))
-    for context_id in all_ids:
-        if context_id in applicable and context_id in inferred:
-            disposition = "applicable"
-        elif context_id in applicable:
-            disposition = "applicable-by-proposed-path-or-dependency"
-        else:
-            disposition = "not-applicable-to-proposed-repository-scope"
-        result.append({"context_id": context_id, "disposition": disposition})
-    return result
 
 
 NEGOTIATION_DISPOSITIONS = {"accept", "reject", "modify", "defer"}
@@ -226,20 +213,21 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
     def discovery_action() -> Mapping[str, Any]:
         preflight = _preflight_once(repo, runner, request)
         contribution = state["contribution"]
-        applicable = derive_applicable_contexts(repo, contribution.paths)
+        reconciliation = reconcile_semantic_contexts(repo, preflight.contexts, contribution.paths)
         state["preflight"] = preflight
-        state["applicable"] = applicable
+        state["context_reconciliation"] = reconciliation
         return {
             "inferred_contexts": list(preflight.contexts),
-            "applicable_contexts": list(applicable),
-            "context_dispositions": _context_dispositions(preflight.contexts, applicable),
+            "applicable_contexts": list(reconciliation["applicable_contexts"]),
+            "implementation_contexts": list(reconciliation["implementation_contexts"]),
+            "context_dispositions": list(reconciliation["context_dispositions"]),
         }
 
     def interpretation_action() -> Mapping[str, Any]:
         action = state["action"]
         contribution = state["contribution"]
         preflight = state["preflight"]
-        applicable = state["applicable"]
+        reconciliation = state["context_reconciliation"]
         understanding = {
             "schema_version": "1.0",
             "record_type": "sage-semantic-understanding",
@@ -263,8 +251,9 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
             "interpretation": {
                 "implementation_scope": list(contribution.paths),
                 "inferred_contexts": list(preflight.contexts),
-                "applicable_contexts": list(applicable),
-                "context_dispositions": _context_dispositions(preflight.contexts, applicable),
+                "applicable_contexts": list(reconciliation["applicable_contexts"]),
+                "implementation_contexts": list(reconciliation["implementation_contexts"]),
+                "context_dispositions": list(reconciliation["context_dispositions"]),
                 "goose_chase_policy": "one-preflight-pass; unrelated inferred contexts are dispositioned rather than recursively expanded",
             },
             "negotiation": {
@@ -306,7 +295,7 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
 
     action = state["action"]
     contribution = state["contribution"]
-    applicable = state["applicable"]
+    reconciliation = state["context_reconciliation"]
     understanding_path = state["understanding_path"]
     understanding_sha = state["understanding_sha"]
     persisted = {
@@ -320,7 +309,8 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
         "contribution_sha256": contribution.package_sha256,
         "semantic_understanding": str(understanding_path),
         "semantic_understanding_sha256": understanding_sha,
-        "applicable_contexts": list(applicable),
+        "applicable_contexts": list(reconciliation["applicable_contexts"]),
+        "implementation_contexts": list(reconciliation["implementation_contexts"]),
         "architect_dispositions": str(state["dispositions_path"]),
         "status": "architect-confirmation-required",
     }
@@ -401,6 +391,12 @@ def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, a
         decisions_path = dispositions_path.expanduser().resolve()
         decisions = json.loads(decisions_path.read_text(encoding="utf-8"))
         confirmed = _apply_architect_dispositions(understanding, decisions, confirmation_sha256)
+        confirmed_scope = tuple(str(item) for item in confirmed["interpretation"]["implementation_scope"])
+        inferred = tuple(str(item) for item in confirmed["interpretation"].get("inferred_contexts", []))
+        reconciliation = reconcile_semantic_contexts(repo, inferred, confirmed_scope)
+        confirmed["interpretation"]["applicable_contexts"] = list(reconciliation["applicable_contexts"])
+        confirmed["interpretation"]["implementation_contexts"] = list(reconciliation["implementation_contexts"])
+        confirmed["interpretation"]["context_dispositions"] = list(reconciliation["context_dispositions"])
         confirmed_understanding_path = _write_json(writer, state_dir / "semantic-understanding-confirmed.json", confirmed)
         confirmed_understanding_sha256 = sha256_file(confirmed_understanding_path)
         state["architect_dispositions_evidence"] = str(decisions_path)

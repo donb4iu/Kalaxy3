@@ -1,1127 +1,1129 @@
 {
-    "schema_version": "1.0",
-    "always_contexts": [
+  "schema_version": "1.0",
+  "always_contexts": [
+    "repository-governance",
+    "evidence"
+  ],
+  "contexts": [
+    {
+      "id": "repository-governance",
+      "priority": 10,
+      "match_terms": [
+        "sage",
+        "guardrail",
+        "governance",
+        "authority",
+        "repository",
+        "workflow",
+        "process",
+        "preflight",
+        "discovery",
+        "generated helper runtime validation",
+        "helper delivery receipt",
+        "companion artifact validation",
+        "checkpoint persistence",
+        "checkpoint promotion",
+        "promotion eligibility"
+      ],
+      "path_prefixes": [
+        "AGENTS.md",
+        "SAGE.md",
+        "sage-change-authority.json",
+        "scripts/sage/",
+        "markdown/standards/",
+        "markdown/templates/"
+      ],
+      "requires": [],
+      "working_directory": ".",
+      "authoritative_files": [
+        "AGENTS.md",
+        "SAGE.md",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-authority-reconcile.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-capability-gap.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-component-select.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-failure-diagnose.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-decision-primitives.json",
+        "markdown/standards/kalaxy3-sage-actionable-failure-contract.md",
+        "markdown/standards/kalaxy3-sage-change-discovery-process.md",
+        "markdown/standards/kalaxy3-sage-operating-contract.md",
+        "markdown/standards/sage-authority-reconciliation-schema-v1.0.json",
+        "markdown/standards/sage-failure-diagnosis-schema-v1.0.json",
+        "markdown/standards/sage-operator-git-proposal-schema-v1.0.json",
+        "markdown/standards/sage-operator-git-proposal-schema-v1.1.json",
+        "markdown/standards/sage-operator-git-proposal-schema-v1.2.json",
+        "sage-actionable-failure-registry.json",
+        "sage-actionable-failures.json",
+        "sage-change-authority.json",
+        "sage-operating-contract-policy.json",
+        "scripts/sage/sage-actionable-failure-audit.py",
+        "scripts/sage/sage-actionable-failure-guardrail.py",
+        "scripts/sage/sage-actionable-failure-self-test.py",
+        "scripts/sage/sage-decision-primitives-guardrail.py",
+        "scripts/sage/sage-file-delivery-guardrail.py",
+        "scripts/sage/sage-git-safety-guardrail.py",
+        "scripts/sage/sage-validator-runner.py",
+        "scripts/sage/sage-yaml-metadata-self-test.py",
+        "scripts/sage/sage-yaml-metadata-source-self-test.py",
+        "scripts/sage/sage_actionable_failure.py",
+        "scripts/sage/sage_yaml_metadata.py",
+        "scripts/sage/workflow/authority.py",
+        "scripts/sage/workflow/diagnosis.py",
+        "scripts/sage/workflow/gaps.py",
+        "scripts/sage/workflow/safety.py",
+        "scripts/sage/workflow/selection.py",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-outcome-metrics.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-outcome-metrics.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json",
+        "scripts/sage/sage-outcome-metrics-guardrail.py",
+        "scripts/sage/workflow/metrics.py",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-root-enforcement.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/root-enforcement-readiness.json",
+        "scripts/sage/sage-operating-contract-guardrail.py",
+        "scripts/sage/sage-operating-contract-self-test.py",
+        "scripts/sage/workflows/operating_contract.py",
+        "scripts/sage/workflow/markdown.py",
+        "scripts/sage/workflow/evidence_records.py",
+        "scripts/sage/workflows/evidence_navigation.py",
+        "scripts/sage/sage-evidence-navigation-architecture-guardrail.py",
+        "scripts/sage/workflows/generated_helper_delivery.py",
+        "scripts/sage/sage-generated-helper-runtime-self-test.py",
+        "markdown/standards/kalaxy3-sage-generated-helper-runtime-validation-process.md",
+        "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json",
+        "scripts/sage/request_execution.py",
+        "scripts/sage/workflows/request_execution.py",
+        "scripts/sage/sage-request-execute.py",
+        "scripts/sage/sage-request-execution-guardrail.py",
+        "markdown/standards/kalaxy3-sage-request-execution-process.md",
+        "markdown/standards/sage-request-execution-proposal-schema-v1.0.json",
+        "scripts/sage/request_planning.py",
+        "scripts/sage/workflows/request_planning.py",
+        "scripts/sage/sage-request-plan.py",
+        "scripts/sage/sage-request-planning-guardrail.py",
+        "markdown/standards/kalaxy3-sage-request-planning-process.md",
+        "markdown/standards/sage-request-planning-source-schema-v1.0.json",
+        "markdown/standards/sage-request-planning-source-schema-v1.1.json",
+        "markdown/standards/sage-request-planning-source-schema-v1.2.json",
+        "scripts/sage/workflows/improvement_action_transition.py",
+        "scripts/sage/sage-improvement-action-transition.py",
+        "scripts/sage/sage-improvement-action-amendment.py",
+        "scripts/sage/sage-improvement-action-transition-guardrail.py",
+        "scripts/sage/workflows/routine_git_lifecycle.py",
+        "scripts/sage/sage-routine-git-lifecycle.py",
+        "scripts/sage/semantic_understanding.py",
+        "scripts/sage/workflows/semantic_bootstrap.py",
+        "scripts/sage/sage-action-bootstrap.py",
+        "scripts/sage/sage-semantic-bootstrap-guardrail.py",
+        "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
+        "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
+        "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
+      ],
+      "baseline_checks": [
+        "make sage-discovery-guardrail"
+      ],
+      "required_validation": [
+        "make sage-self-test",
+        "make sage-discovery-guardrail",
+        "make sage-index-check",
+        "make sage-operating-contract-check",
+        "python3 scripts/sage/sage-evidence-navigation-architecture-guardrail.py"
+      ],
+      "evidence_process": [
+        "Record inferred contexts and authoritative files.",
+        "Preserve terminal output from required guardrails."
+      ],
+      "required_validation_after_editing": [
+        "make sage-actionable-failure-self-test",
+        "make sage-actionable-failure-guardrail",
+        "make sage-actionable-failure-audit",
+        "make sage-validator-runtime-self-test",
+        "make sage-yaml-metadata-self-test",
+        "make sage-yaml-metadata-source-self-test"
+      ]
+    },
+    {
+      "id": "evidence",
+      "priority": 20,
+      "match_terms": [
+        "evidence",
+        "record",
+        "benchmark",
+        "audit",
+        "validation",
+        "chronicle"
+      ],
+      "path_prefixes": [
+        "markdown/evidence/",
+        "markdown/benchmarks/",
+        "markdown/installation/",
+        "markdown/operations/",
+        "scripts/sage/"
+      ],
+      "requires": [],
+      "working_directory": ".",
+      "authoritative_files": [
+        "markdown/standards/kalaxy3-sage-evidence-record-standard.md",
+        "markdown/standards/kalaxy3-sage-evidence-publication-process.md",
+        "markdown/standards/sage-evidence-metadata-contract-v1.2.json",
+        "markdown/templates/sage-evidence-record-template.md",
+        "scripts/sage/sage-index.py",
+        "scripts/sage/sage-publish.py",
+        "sage-evidence-policy.json",
+        "scripts/sage/sage-evidence-orchestrator.py",
+        "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md",
+        "sage-evidence-template-policy.json",
+        "scripts/sage/workflow/markdown.py",
+        "scripts/sage/workflow/evidence_records.py",
+        "scripts/sage/sage-evidence-template-guardrail.py",
+        "scripts/sage/sage-evidence-navigation-architecture-guardrail.py",
+        "scripts/sage/workflows/evidence_navigation.py"
+      ],
+      "baseline_checks": [
+        "make sage-index-check",
+        "make sage-evidence-guardrail"
+      ],
+      "required_validation": [
+        "make sage-index-check",
+        "make sage-evidence-self-test",
+        "make sage-evidence-guardrail",
+        "python3 scripts/sage/sage-evidence-template-guardrail.py",
+        "python3 scripts/sage/sage-evidence-navigation-architecture-guardrail.py"
+      ],
+      "evidence_process": [
+        "Apply the canonical evidence-generation request automatically; the requester need not enumerate SAGE mechanics.",
+        "Use the repository-owned SAGE standard and template.",
+        "Publish through scripts/sage/sage-publish.py.",
+        "Reconcile indexes through scripts/sage/sage-index.py."
+      ]
+    },
+    {
+      "id": "evidence-orchestration",
+      "priority": 22,
+      "match_terms": [
+        "evidence orchestration",
+        "evidence orchestrator",
+        "evidence generation",
+        "evidence package",
+        "canonical evidence request",
+        "sage evidence prepare",
+        "sage evidence brief",
+        "secret reference"
+      ],
+      "path_prefixes": [
+        "sage-evidence-policy.json",
+        "scripts/sage/sage-evidence-orchestrator.py",
+        "scripts/sage/sage-evidence-orchestration-guardrail.py",
+        "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md"
+      ],
+      "requires": [
         "repository-governance",
         "evidence"
-    ],
-    "contexts": [
-        {
-            "id": "repository-governance",
-            "priority": 10,
-            "match_terms": [
-                "sage",
-                "guardrail",
-                "governance",
-                "authority",
-                "repository",
-                "workflow",
-                "process",
-                "preflight",
-                "discovery",
-                "generated helper runtime validation",
-                "helper delivery receipt",
-                "companion artifact validation",
-                "checkpoint persistence",
-                "checkpoint promotion",
-                "promotion eligibility"
-            ],
-            "path_prefixes": [
-                "AGENTS.md",
-                "SAGE.md",
-                "sage-change-authority.json",
-                "scripts/sage/",
-                "markdown/standards/",
-                "markdown/templates/"
-            ],
-            "requires": [],
-            "working_directory": ".",
-            "authoritative_files": [
-                "AGENTS.md",
-                "SAGE.md",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-authority-reconcile.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-capability-gap.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-component-select.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-failure-diagnose.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-decision-primitives.json",
-                "markdown/standards/kalaxy3-sage-actionable-failure-contract.md",
-                "markdown/standards/kalaxy3-sage-change-discovery-process.md",
-                "markdown/standards/kalaxy3-sage-operating-contract.md",
-                "markdown/standards/sage-authority-reconciliation-schema-v1.0.json",
-                "markdown/standards/sage-failure-diagnosis-schema-v1.0.json",
-                "markdown/standards/sage-operator-git-proposal-schema-v1.0.json",
-                "markdown/standards/sage-operator-git-proposal-schema-v1.1.json",
-                "markdown/standards/sage-operator-git-proposal-schema-v1.2.json",
-                "sage-actionable-failure-registry.json",
-                "sage-actionable-failures.json",
-                "sage-change-authority.json",
-                "sage-operating-contract-policy.json",
-                "scripts/sage/sage-actionable-failure-audit.py",
-                "scripts/sage/sage-actionable-failure-guardrail.py",
-                "scripts/sage/sage-actionable-failure-self-test.py",
-                "scripts/sage/sage-decision-primitives-guardrail.py",
-                "scripts/sage/sage-file-delivery-guardrail.py",
-                "scripts/sage/sage-git-safety-guardrail.py",
-                "scripts/sage/sage-validator-runner.py",
-                "scripts/sage/sage-yaml-metadata-self-test.py",
-                "scripts/sage/sage-yaml-metadata-source-self-test.py",
-                "scripts/sage/sage_actionable_failure.py",
-                "scripts/sage/sage_yaml_metadata.py",
-                "scripts/sage/workflow/authority.py",
-                "scripts/sage/workflow/diagnosis.py",
-                "scripts/sage/workflow/gaps.py",
-                "scripts/sage/workflow/safety.py",
-                "scripts/sage/workflow/selection.py",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-outcome-metrics.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-outcome-metrics.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json",
-                "scripts/sage/sage-outcome-metrics-guardrail.py",
-                "scripts/sage/workflow/metrics.py",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-root-enforcement.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/root-enforcement-readiness.json",
-                "scripts/sage/sage-operating-contract-guardrail.py",
-                "scripts/sage/sage-operating-contract-self-test.py",
-                "scripts/sage/workflows/operating_contract.py",
-                "scripts/sage/workflow/markdown.py",
-                "scripts/sage/workflow/evidence_records.py",
-                "scripts/sage/workflows/evidence_navigation.py",
-                "scripts/sage/sage-evidence-navigation-architecture-guardrail.py",
-                "scripts/sage/workflows/generated_helper_delivery.py",
-                "scripts/sage/sage-generated-helper-runtime-self-test.py",
-                "markdown/standards/kalaxy3-sage-generated-helper-runtime-validation-process.md",
-                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json",
-                "scripts/sage/request_execution.py",
-                "scripts/sage/workflows/request_execution.py",
-                "scripts/sage/sage-request-execute.py",
-                "scripts/sage/sage-request-execution-guardrail.py",
-                "markdown/standards/kalaxy3-sage-request-execution-process.md",
-                "markdown/standards/sage-request-execution-proposal-schema-v1.0.json",
-                "scripts/sage/request_planning.py",
-                "scripts/sage/workflows/request_planning.py",
-                "scripts/sage/sage-request-plan.py",
-                "scripts/sage/sage-request-planning-guardrail.py",
-                "markdown/standards/kalaxy3-sage-request-planning-process.md",
-                "markdown/standards/sage-request-planning-source-schema-v1.0.json",
-                "markdown/standards/sage-request-planning-source-schema-v1.1.json",
-                "scripts/sage/workflows/improvement_action_transition.py",
-                "scripts/sage/sage-improvement-action-transition.py",
-                "scripts/sage/sage-improvement-action-amendment.py",
-                "scripts/sage/sage-improvement-action-transition-guardrail.py",
-                "scripts/sage/workflows/routine_git_lifecycle.py",
-                "scripts/sage/sage-routine-git-lifecycle.py",
-                "scripts/sage/semantic_understanding.py",
-                "scripts/sage/workflows/semantic_bootstrap.py",
-                "scripts/sage/sage-action-bootstrap.py",
-                "scripts/sage/sage-semantic-bootstrap-guardrail.py",
-                "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
-                "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
-                "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
-            ],
-            "baseline_checks": [
-                "make sage-discovery-guardrail"
-            ],
-            "required_validation": [
-                "make sage-self-test",
-                "make sage-discovery-guardrail",
-                "make sage-index-check",
-                "make sage-operating-contract-check",
-                "python3 scripts/sage/sage-evidence-navigation-architecture-guardrail.py"
-            ],
-            "evidence_process": [
-                "Record inferred contexts and authoritative files.",
-                "Preserve terminal output from required guardrails."
-            ],
-            "required_validation_after_editing": [
-                "make sage-actionable-failure-self-test",
-                "make sage-actionable-failure-guardrail",
-                "make sage-actionable-failure-audit",
-                "make sage-validator-runtime-self-test",
-                "make sage-yaml-metadata-self-test",
-                "make sage-yaml-metadata-source-self-test"
-            ]
-        },
-        {
-            "id": "evidence",
-            "priority": 20,
-            "match_terms": [
-                "evidence",
-                "record",
-                "benchmark",
-                "audit",
-                "validation",
-                "chronicle"
-            ],
-            "path_prefixes": [
-                "markdown/evidence/",
-                "markdown/benchmarks/",
-                "markdown/installation/",
-                "markdown/operations/",
-                "scripts/sage/"
-            ],
-            "requires": [],
-            "working_directory": ".",
-            "authoritative_files": [
-                "markdown/standards/kalaxy3-sage-evidence-record-standard.md",
-                "markdown/standards/kalaxy3-sage-evidence-publication-process.md",
-                "markdown/standards/sage-evidence-metadata-contract-v1.2.json",
-                "markdown/templates/sage-evidence-record-template.md",
-                "scripts/sage/sage-index.py",
-                "scripts/sage/sage-publish.py",
-                "sage-evidence-policy.json",
-                "scripts/sage/sage-evidence-orchestrator.py",
-                "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md",
-                "sage-evidence-template-policy.json",
-                "scripts/sage/workflow/markdown.py",
-                "scripts/sage/workflow/evidence_records.py",
-                "scripts/sage/sage-evidence-template-guardrail.py",
-                "scripts/sage/sage-evidence-navigation-architecture-guardrail.py",
-                "scripts/sage/workflows/evidence_navigation.py"
-            ],
-            "baseline_checks": [
-                "make sage-index-check",
-                "make sage-evidence-guardrail"
-            ],
-            "required_validation": [
-                "make sage-index-check",
-                "make sage-evidence-self-test",
-                "make sage-evidence-guardrail",
-                "python3 scripts/sage/sage-evidence-template-guardrail.py",
-                "python3 scripts/sage/sage-evidence-navigation-architecture-guardrail.py"
-            ],
-            "evidence_process": [
-                "Apply the canonical evidence-generation request automatically; the requester need not enumerate SAGE mechanics.",
-                "Use the repository-owned SAGE standard and template.",
-                "Publish through scripts/sage/sage-publish.py.",
-                "Reconcile indexes through scripts/sage/sage-index.py."
-            ]
-        },
-        {
-            "id": "evidence-orchestration",
-            "priority": 22,
-            "match_terms": [
-                "evidence orchestration",
-                "evidence orchestrator",
-                "evidence generation",
-                "evidence package",
-                "canonical evidence request",
-                "sage evidence prepare",
-                "sage evidence brief",
-                "secret reference"
-            ],
-            "path_prefixes": [
-                "sage-evidence-policy.json",
-                "scripts/sage/sage-evidence-orchestrator.py",
-                "scripts/sage/sage-evidence-orchestration-guardrail.py",
-                "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md"
-            ],
-            "requires": [
-                "repository-governance",
-                "evidence"
-            ],
-            "working_directory": ".",
-            "authoritative_files": [
-                "sage-evidence-policy.json",
-                "scripts/sage/sage-evidence-orchestrator.py",
-                "scripts/sage/sage-evidence-orchestration-guardrail.py",
-                "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md",
-                "markdown/standards/kalaxy3-sage-evidence-record-standard.md",
-                "markdown/standards/sage-evidence-metadata-contract-v1.2.json"
-            ],
-            "baseline_checks": [
-                "make sage-index-check",
-                "make sage-evidence-guardrail"
-            ],
-            "required_validation": [
-                "make sage-index-check",
-                "make sage-evidence-self-test",
-                "make sage-evidence-guardrail"
-            ],
-            "evidence_process": [
-                "Preserve original requester language and the canonical generation request.",
-                "Capture authority files and supplied terminal evidence without exposing credentials.",
-                "Produce the repository-owned generation-input bundle before package publication.",
-                "Publish only through scripts/sage/sage-publish.py."
-            ]
-        },
-        {
-            "id": "evidence-retrieval",
-            "priority": 24,
-            "match_terms": [
-                "evidence retrieval",
-                "retrieve evidence",
-                "retrieval result",
-                "evidence use",
-                "applied evidence",
-                "rejected evidence",
-                "reviewed-not-applicable",
-                "engineering experience"
-            ],
-            "path_prefixes": [
-                "sage-evidence-retrieval-",
-                "scripts/sage/sage-evidence-retrieval",
-                "scripts/sage/sage_evidence_retrieval",
-                "markdown/standards/kalaxy3-sage-evidence-retrieval",
-                "markdown/standards/sage-evidence-retrieval-"
-            ],
-            "requires": [
-                "repository-governance",
-                "evidence",
-                "continuous-improvement"
-            ],
-            "working_directory": ".",
-            "authoritative_files": [
-                "sage-evidence-retrieval-policy.json",
-                "markdown/standards/kalaxy3-sage-evidence-retrieval-process.md",
-                "markdown/standards/sage-evidence-retrieval-result-schema-v1.0.json",
-                "scripts/sage/sage_evidence_retrieval.py",
-                "scripts/sage/sage-evidence-retrieval.py",
-                "scripts/sage/sage-evidence-retrieval-self-test.py",
-                "markdown/evidence/catalog.json",
-                "sage-lessons.json",
-                "sage-actionable-failures.json",
-                "sage-improvement-actions.json",
-                "sage-post-session-review-registry.json",
-                "scripts/sage/sage-failure-retrieval-gate.py",
-                "scripts/sage/sage-validator-runner.py"
-            ],
-            "baseline_checks": [
-                "make sage-failure-retrieval-self-test",
-                "make sage-evidence-retrieval-self-test",
-                "make sage-index-check"
-            ],
-            "required_validation": [
-                "make sage-failure-retrieval-self-test",
-                "make sage-evidence-retrieval-self-test",
-                "make sage-self-test",
-                "make sage-discovery-guardrail",
-                "make sage-index-check"
-            ],
-            "evidence_process": [
-                "Preserve the literal retrieval request.",
-                "Preserve ranked candidates and deterministic score reasons.",
-                "Finalize every candidate disposition with rationale.",
-                "Record recurrence, rework, and time to validated implementation at session closeout.",
-                "After the first unexpected failure, retrieve repository evidence, lessons, actionable failures, and canonical recovery before another corrective mutation."
-            ]
-        },
-        {
-            "id": "continuous-improvement",
-            "priority": 25,
-            "match_terms": [
-                "continuous improvement",
-                "lessons learned",
-                "experience-aware",
-                "prediction accuracy",
-                "forecast accuracy",
-                "t-shirt sizing",
-                "tshirt sizing",
-                "confidence calibration",
-                "candidate registry",
-                "process scorecard",
-                "avoidable rework",
-                "before and after cost",
-                "cost baseline",
-                "observability feedback",
-                "frequent push",
-                "frequent pushes",
-                "feature branch",
-                "staged implementation",
-                "metrics pilot",
-                "session metrics",
-                "raw session metrics",
-                "live session metrics",
-                "metric capture",
-                "active session",
-                "improvement action",
-                "action lifecycle",
-                "file-based execution delivery",
-                "clean-tree-gated",
-                "improvement statistics",
-                "outcome metrics",
-                "reuse metrics",
-                "authority metrics",
-                "failure metrics",
-                "rework metrics",
-                "safety statistics",
-                "first-pass completion",
-                "manual corrections",
-                "known-failure recurrence",
-                "trend reporting",
-                "generated helper runtime validation",
-                "helper delivery receipt",
-                "companion artifact validation",
-                "checkpoint persistence",
-                "checkpoint promotion",
-                "promotion eligibility"
-            ],
-            "path_prefixes": [
-                "sage-continuous-improvement-",
-                "sage-change-candidate-",
-                "sage-lessons",
-                "sage-improvement-actions",
-                "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
-                "markdown/standards/sage-change-candidate-schema-",
-                "markdown/standards/sage-session-improvement-schema-",
-                "scripts/sage/sage-lessons",
-                "scripts/sage/sage-session",
-                "scripts/sage/sage-improvement",
-                "scripts/sage/sage-candidate",
-                "sage-session-improvement-",
-                "sage-feedback-",
-                "markdown/standards/sage-feedback-",
-                "scripts/sage/sage-feedback-",
-                "sage-change-candidate-lifecycle-",
-                "markdown/standards/sage-change-candidate-lifecycle-",
-                "scripts/sage/sage-candidate-lifecycle",
-                "sage-continuous-improvement-baseline-",
-                "markdown/standards/sage-improvement-action-",
-                "markdown/standards/sage-continuous-improvement-baseline-",
-                "scripts/sage/sage-improvement-actions",
-                "scripts/sage/sage-baseline-extract",
-                "scripts/sage/sage-learning",
-                "sage-post-session-review-",
-                "markdown/standards/sage-post-session-review-",
-                "scripts/sage/sage-post-session-review",
-                "sage-active-session-",
-                "markdown/standards/sage-active-session-",
-                "scripts/sage/sage-active-session"
-            ],
-            "requires": [
-                "repository-governance",
-                "evidence"
-            ],
-            "working_directory": ".",
-            "authoritative_files": [
-                "AGENTS.md",
-                "SAGE.md",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-authority-reconcile.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-capability-gap.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-component-select.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-failure-diagnose.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-decision-primitives.json",
-                "markdown/standards/kalaxy3-sage-change-discovery-process.md",
-                "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
-                "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md",
-                "markdown/standards/kalaxy3-sage-operating-contract.md",
-                "markdown/standards/sage-active-session-schema-v1.0.json",
-                "markdown/standards/sage-change-candidate-lifecycle-schema-v1.0.json",
-                "markdown/standards/sage-change-candidate-schema-v1.0.json",
-                "markdown/standards/sage-continuous-improvement-baseline-schema-v1.0.json",
-                "markdown/standards/sage-failure-diagnosis-schema-v1.0.json",
-                "markdown/standards/sage-feedback-comparison-schema-v1.0.json",
-                "markdown/standards/sage-improvement-action-schema-v1.0.json",
-                "markdown/standards/sage-improvement-action-schema-v1.1.json",
-                "markdown/standards/sage-outcome-metrics-schema-v1.0.json",
-                "markdown/standards/sage-post-session-review-schema-v1.0.json",
-                "markdown/standards/sage-session-improvement-schema-v1.0.json",
-                "markdown/standards/sage-session-scorecard-schema-v1.0.json",
-                "sage-active-session-registry.json",
-                "sage-change-authority.json",
-                "sage-change-candidate-lifecycle-registry.json",
-                "sage-change-candidate-registry.json",
-                "sage-continuous-improvement-baseline-registry.json",
-                "sage-continuous-improvement-policy.json",
-                "sage-feedback-baseline-registry.json",
-                "sage-improvement-actions.json",
-                "sage-lessons.json",
-                "sage-operating-contract-policy.json",
-                "sage-post-session-review-registry.json",
-                "sage-session-improvement-registry.json",
-                "scripts/sage/sage-active-session-guardrail.py",
-                "scripts/sage/sage-active-session.py",
-                "scripts/sage/sage-baseline-extract.py",
-                "scripts/sage/sage-candidate-lifecycle-guardrail.py",
-                "scripts/sage/sage-candidate-lifecycle.py",
-                "scripts/sage/sage-continuous-improvement-guardrail.py",
-                "scripts/sage/sage-decision-primitives-guardrail.py",
-                "scripts/sage/sage-feedback-compare.py",
-                "scripts/sage/sage-feedback-guardrail.py",
-                "scripts/sage/sage-improvement-actions.py",
-                "scripts/sage/sage-learning-guardrail.py",
-                "scripts/sage/sage-lessons.py",
-                "scripts/sage/sage-post-session-review-guardrail.py",
-                "scripts/sage/sage-post-session-review.py",
-                "scripts/sage/sage-session-score.py",
-                "scripts/sage/workflow/authority.py",
-                "scripts/sage/workflow/diagnosis.py",
-                "scripts/sage/workflow/gaps.py",
-                "scripts/sage/workflow/selection.py",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-outcome-metrics.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-outcome-metrics.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json",
-                "scripts/sage/sage-outcome-metrics-guardrail.py",
-                "scripts/sage/workflow/metrics.py",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-root-enforcement.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/root-enforcement-readiness.json",
-                "scripts/sage/sage-operating-contract-guardrail.py",
-                "scripts/sage/sage-operating-contract-self-test.py",
-                "scripts/sage/workflows/operating_contract.py",
-                "scripts/sage/workflows/generated_helper_delivery.py",
-                "scripts/sage/sage-generated-helper-runtime-self-test.py",
-                "markdown/standards/kalaxy3-sage-generated-helper-runtime-validation-process.md",
-                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json",
-                "scripts/sage/workflows/improvement_action_transition.py",
-                "scripts/sage/sage-improvement-action-transition.py",
-                "scripts/sage/sage-improvement-action-amendment.py",
-                "scripts/sage/sage-improvement-action-transition-guardrail.py",
-                "sage-checkpoint-promotion-policy.json",
-                "scripts/sage/checkpoint_promotion.py",
-                "scripts/sage/workflows/checkpoint_promotion.py",
-                "scripts/sage/sage-checkpoint-promote.py",
-                "scripts/sage/sage-checkpoint-promotion-guardrail.py",
-                "markdown/standards/kalaxy3-sage-checkpoint-promotion-process.md",
-                "scripts/sage/semantic_understanding.py",
-                "scripts/sage/workflows/semantic_bootstrap.py",
-                "scripts/sage/sage-action-bootstrap.py",
-                "scripts/sage/sage-semantic-bootstrap-guardrail.py",
-                "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
-                "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
-                "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
-            ],
-            "baseline_checks": [
-                "make sage-active-session-self-test",
-                "make sage-review-self-test",
-                "make sage-learning-self-test",
-                "make sage-candidate-self-test",
-                "make sage-feedback-self-test",
-                "make sage-session-self-test",
-                "make sage-improvement-policy-check",
-                "make sage-discovery-guardrail",
-                "make sage-index-check"
-            ],
-            "required_validation": [
-                "make sage-active-session-self-test",
-                "make sage-review-self-test",
-                "make sage-learning-self-test",
-                "make sage-candidate-self-test",
-                "make sage-feedback-self-test",
-                "make sage-session-self-test",
-                "make sage-improvement-policy-check",
-                "make sage-guardrails",
-                "make sage-operating-contract-check"
-            ],
-            "evidence_process": [
-                "Preserve versioned predictions before outcomes are known.",
-                "Capture delivery, operations, economics, and learning baselines.",
-                "Compare predicted and actual outcomes and evaluate confidence calibration.",
-                "Extract lessons and improvement actions from published evidence.",
-                "Push every cohesive validated commit to the active feature branch."
-            ]
-        },
-        {
-            "id": "helm-platform",
-            "priority": 30,
-            "match_terms": [
-                "helm",
-                "chart",
-                "release",
-                "helm repository",
-                "repository url",
-                "chart version"
-            ],
-            "path_prefixes": [
-                "infrastructure/k3s-homelab/helm-",
-                "infrastructure/k3s-homelab/playbooks/platform.yml",
-                "infrastructure/k3s-homelab/playbooks/tasks/",
-                "infrastructure/k3s-homelab/scripts/sage-deployment-guardrail.py",
-                "infrastructure/k3s-homelab/scripts/sage-source-guardrails.py"
-            ],
-            "requires": [
-                "repository-governance",
-                "evidence"
-            ],
-            "working_directory": "infrastructure/k3s-homelab",
-            "authoritative_files": [
-                "infrastructure/k3s-homelab/helm-repositories.json",
-                "infrastructure/k3s-homelab/helm-chart-lock.json",
-                "infrastructure/k3s-homelab/playbooks/platform.yml",
-                "infrastructure/k3s-homelab/scripts/sage-source-guardrails.py",
-                "infrastructure/k3s-homelab/scripts/sage-deployment-guardrail.py"
-            ],
-            "baseline_checks": [
-                "make helm-repository-guardrail",
-                "make source-guardrails",
-                "make deployment-guardrail"
-            ],
-            "required_validation": [
-                "make source-guardrails",
-                "make deployment-guardrail",
-                "make cluster-guardrails"
-            ],
-            "evidence_process": [
-                "Capture repository, chart-lock, render, and deployment evidence."
-            ]
-        },
-        {
-            "id": "observability",
-            "priority": 40,
-            "match_terms": [
-                "observability",
-                "prometheus",
-                "grafana",
-                "kubecost",
-                "metrics",
-                "monitoring",
-                "telemetry"
-            ],
-            "path_prefixes": [
-                "infrastructure/k3s-homelab/playbooks/tasks/observability.yml",
-                "infrastructure/k3s-homelab/playbooks/templates/",
-                "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml"
-            ],
-            "requires": [
-                "helm-platform",
-                "evidence"
-            ],
-            "working_directory": "infrastructure/k3s-homelab",
-            "authoritative_files": [
-                "infrastructure/k3s-homelab/playbooks/tasks/observability.yml",
-                "infrastructure/k3s-homelab/inventory/group_vars/all/main.yml",
-                "infrastructure/k3s-homelab/helm-chart-lock.json"
-            ],
-            "baseline_checks": [
-                "make source-guardrails",
-                "make deployment-guardrail"
-            ],
-            "required_validation": [
-                "make cluster-guardrails"
-            ],
-            "evidence_process": [
-                "Capture placement, health, requests, and Kubecost impact."
-            ]
-        },
-        {
-            "id": "centralized-logging",
-            "priority": 50,
-            "match_terms": [
-                "centralized logging",
-                "logging",
-                "loki",
-                "fluent bit",
-                "fluent-bit",
-                "log collection",
-                "log aggregation",
-                "opentelemetry",
-                "otel"
-            ],
-            "path_prefixes": [
-                "infrastructure/k3s-homelab/playbooks/templates/loki-",
-                "infrastructure/k3s-homelab/playbooks/templates/fluent-bit-",
-                "infrastructure/k3s-homelab/playbooks/templates/grafana-loki-",
-                "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml"
-            ],
-            "requires": [
-                "observability",
-                "helm-platform",
-                "storage",
-                "evidence"
-            ],
-            "working_directory": "infrastructure/k3s-homelab",
-            "authoritative_files": [
-                "infrastructure/k3s-homelab/playbooks/tasks/observability.yml",
-                "infrastructure/k3s-homelab/playbooks/templates/loki-values.yml.j2",
-                "infrastructure/k3s-homelab/playbooks/templates/fluent-bit-collector-values.yml.j2",
-                "infrastructure/k3s-homelab/playbooks/templates/grafana-loki-datasource.yml.j2",
-                "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml",
-                "infrastructure/k3s-homelab/scripts/validate-centralized-logging-yaml.py",
-                "infrastructure/k3s-homelab/scripts/validate-centralized-logging-runtime.py",
-                "infrastructure/k3s-homelab/scripts/validate-centralized-logging-runtime-self-test.py",
-                "infrastructure/k3s-homelab/scripts/validate-centralized-logging-runtime-source-self-test.py"
-            ],
-            "baseline_checks": [
-                "make helm-repository-guardrail",
-                "make source-guardrails",
-                "make deployment-guardrail",
-                "make centralized-logging-render"
-            ],
-            "required_validation": [
-                "make centralized-logging-render",
-                "make cluster-guardrails"
-            ],
-            "evidence_process": [
-                "Preserve pre-deployment render evidence.",
-                "Capture collector rollout and Loki placement.",
-                "Compare post-deployment Kubecost results with the baseline."
-            ],
-            "required_validation_after_editing": [
-                "make centralized-logging-runtime-self-test",
-                "make centralized-logging-runtime-validate",
-                "make centralized-logging-runtime-source-self-test"
-            ]
-        },
-        {
-            "id": "storage",
-            "priority": 60,
-            "match_terms": [
-                "storage",
-                "longhorn",
-                "persistent volume",
-                "pvc",
-                "nfs",
-                "retention",
-                "volume"
-            ],
-            "path_prefixes": [
-                "infrastructure/k3s-homelab/playbooks/tasks/longhorn.yml",
-                "infrastructure/k3s-homelab/playbooks/tasks/network-storage.yml"
-            ],
-            "requires": [
-                "evidence"
-            ],
-            "working_directory": "infrastructure/k3s-homelab",
-            "authoritative_files": [
-                "infrastructure/k3s-homelab/playbooks/tasks/longhorn.yml",
-                "infrastructure/k3s-homelab/playbooks/tasks/network-storage.yml",
-                "infrastructure/k3s-homelab/inventory/group_vars/all/main.yml"
-            ],
-            "baseline_checks": [
-                "make cluster-guardrails"
-            ],
-            "required_validation": [
-                "make cluster-guardrails"
-            ],
-            "evidence_process": [
-                "Capture StorageClass, PVC, placement, retention, and recovery evidence."
-            ]
-        },
-        {
-            "id": "k3s-cluster",
-            "priority": 70,
-            "match_terms": [
-                "k3s",
-                "kubernetes",
-                "control plane",
-                "worker node",
-                "agent node",
-                "etcd",
-                "cluster node"
-            ],
-            "path_prefixes": [
-                "infrastructure/k3s-homelab/inventory/",
-                "infrastructure/k3s-homelab/playbooks/k3s.yml",
-                "infrastructure/k3s-homelab/playbooks/tasks/install-k3s.yml"
-            ],
-            "requires": [
-                "repository-governance",
-                "evidence"
-            ],
-            "working_directory": "infrastructure/k3s-homelab",
-            "authoritative_files": [
-                "infrastructure/k3s-homelab/k3s-platforms.json",
-                "infrastructure/k3s-homelab/playbooks/k3s.yml",
-                "infrastructure/k3s-homelab/playbooks/tasks/install-k3s.yml",
-                "infrastructure/k3s-homelab/scripts/sage-k3s-guardrail.py"
-            ],
-            "baseline_checks": [
-                "make k3s-guardrails"
-            ],
-            "required_validation": [
-                "make k3s-guardrails"
-            ],
-            "evidence_process": [
-                "Capture node identity, architecture, readiness, etcd, and recovery evidence."
-            ]
-        },
-        {
-            "id": "documentation",
-            "priority": 80,
-            "match_terms": [
-                "documentation",
-                "docs",
-                "daux",
-                "mkdocs",
-                "markdown",
-                "github pages",
-                "landing page"
-            ],
-            "path_prefixes": [
-                "README.md",
-                "docs/",
-                "markdown/",
-                "mkdocs.yml",
-                "requirements-docs.txt",
-                "requirements-docs.lock.txt",
-                "scripts/docs/",
-                ".github/workflows/kalaxy3_build_publish.yml"
-            ],
-            "requires": [
-                "repository-governance",
-                "evidence"
-            ],
-            "working_directory": ".",
-            "authoritative_files": [
-                "README.md",
-                ".github/workflows/kalaxy3_build_publish.yml",
-                "mkdocs.yml",
-                "requirements-docs.txt",
-                "requirements-docs.lock.txt",
-                "Makefile",
-                "scripts/docs/prepare-mkdocs-source.py",
-                "scripts/docs/validate-mkdocs-build.py",
-                "scripts/docs/promote-mkdocs-site.py",
-                "scripts/docs/validate-mkdocs-publication.py",
-                "scripts/docs/validate-mkdocs-navigation.py",
-                "markdown/standards/kalaxy3-sage-evidence-publication-process.md",
-                "mkdocs-navigation-policy.json",
-                "scripts/docs/navigation_support.py",
-                "scripts/docs/generate-mkdocs-navigation.py",
-                "markdown/standards/kalaxy3-mkdocs-evidence-navigation-process.md",
-                "scripts/sage/workflow/markdown.py",
-                "scripts/sage/workflow/evidence_records.py"
-            ],
-            "baseline_checks": [
-                "python3 scripts/sage/sage-index.py check"
-            ],
-            "required_validation": [
-                "python3 scripts/sage/sage-index.py check",
-                "python3 scripts/docs/generate-mkdocs-navigation.py --self-test",
-                "python3 scripts/docs/validate-mkdocs-navigation.py --self-test",
-                "make docs-mkdocs-publication-test",
-                "python3 scripts/sage/sage-evidence-navigation-architecture-guardrail.py"
-            ],
-            "evidence_process": [
-                "Capture generated-document validation and publication lineage."
-            ]
-        },
-        {
-            "id": "capability-intelligence",
-            "priority": 90,
-            "match_terms": [
-                "capability intelligence",
-                "capability-intelligence",
-                "capability target",
-                "preferred target",
-                "current capability state",
-                "federated authority",
-                "decision branch",
-                "alternative branch",
-                "WAR",
-                "well-architected",
-                "CAF",
-                "rebuild-forward",
-                "mission drift",
-                "thin slice",
-                "end-to-end sage",
-                "sage introduction",
-                "sage value",
-                "decision trace",
-                "human expertise",
-                "wider participation",
-                "public-facing sage",
-                "strategic objective",
-                "task recommendation objective"
-            ],
-            "path_prefixes": [
-                "sage-capability-intelligence.json",
-                "scripts/sage/sage-capability-intelligence",
-                "markdown/standards/kalaxy3-sage-capability-intelligence",
-                "markdown/standards/sage-capability-intelligence",
-                "markdown/architecture/kalaxy3-sage-capability-intelligence",
-                "sage-thin-slice.json",
-                "scripts/sage/sage-thin-slice",
-                "markdown/standards/kalaxy3-sage-thin-slice",
-                "markdown/standards/sage-thin-slice",
-                "markdown/architecture/kalaxy3-sage-thin-slice"
-            ],
-            "requires": [
-                "continuous-improvement",
-                "evidence",
-                "evidence-retrieval",
-                "repository-governance"
-            ],
-            "working_directory": ".",
-            "authoritative_files": [
-                "sage-capability-intelligence.json",
-                "markdown/standards/sage-capability-intelligence-schema-v1.0.json",
-                "markdown/standards/kalaxy3-sage-capability-intelligence-process.md",
-                "scripts/sage/sage-capability-intelligence.py",
-                "scripts/sage/sage-capability-intelligence-guardrail.py",
-                "sage-thin-slice.json",
-                "markdown/standards/sage-thin-slice-schema-v1.0.json",
-                "markdown/standards/kalaxy3-sage-thin-slice-process.md",
-                "scripts/sage/sage-thin-slice.py",
-                "scripts/sage/sage-thin-slice-guardrail.py"
-            ],
-            "baseline_checks": [
-                "make sage-capability-intelligence-self-test",
-                "make sage-capability-intelligence-check",
-                "make sage-index-check",
-                "make sage-thin-slice-self-test",
-                "make sage-thin-slice-check"
-            ],
-            "required_validation": [
-                "make sage-capability-intelligence-self-test",
-                "make sage-capability-intelligence-guardrail",
-                "make sage-self-test",
-                "make sage-discovery-guardrail",
-                "make sage-index-check",
-                "make sage-thin-slice-guardrail",
-                "make sage-thin-slice-self-test"
-            ],
-            "evidence_process": [
-                "Preserve the versioned mission, target, and current capability picture.",
-                "Preserve consulted authority assertions and visible conflicts.",
-                "Preserve immutable branch predictions before outcomes.",
-                "Record the selected authority decision, actual outcome, and calibration.",
-                "Do not claim autonomy beyond the delegated domain and level.",
-                "Preserve a coherent public case that separates source statements, SAGE contribution, and human authority.",
-                "Measure participant completion and evidence-use outcomes before claiming broader learning or maturity."
-            ]
-        },
-        {
-            "id": "workflow-primitives",
-            "priority": 100,
-            "match_terms": [
-                "workflow primitives",
-                "reusable workflow",
-                "workflow composition",
-                "composition guardrail",
-                "primitive registry",
-                "structured logging",
-                "workflow support",
-                "canonical workflow support",
-                "workflow-support primitives",
-                "action id allocator",
-                "improvement-action id allocation",
-                "undefined global",
-                "runtime-name validation",
-                "operating contract",
-                "repository-owned components",
-                "component selection",
-                "component reuse",
-                "composition manifest",
-                "capability-gap receipt",
-                "authority reconciliation",
-                "failure diagnosis",
-                "what should have been done",
-                "operator-executed",
-                "git mutation gate",
-                "git safety",
-                "capability gap",
-                "generated helper runtime validation",
-                "helper delivery receipt",
-                "companion artifact validation",
-                "request execution",
-                "request executor",
-                "request-to-operator proposal",
-                "proposal package",
-                "sage request execute",
-                "request planning",
-                "request planner",
-                "planning composition",
-                "sage request plan",
-                "checkpoint promotion",
-                "github inspection",
-                "github.inspect",
-                "pull request inspection",
-                "checkpoint persistence",
-                "promotion eligibility",
-                "routine git lifecycle",
-                "one-approval git lifecycle",
-                "routine-git-lifecycle"
-            ],
-            "path_prefixes": [
-                "sage-workflow-primitives.json",
-                "scripts/sage/workflow/",
-                "scripts/sage/workflows/",
-                "scripts/sage/sage-workflow-primitives",
-                "markdown/standards/sage-workflow-primitives",
-                "markdown/standards/kalaxy3-sage-workflow-primitives",
-                "scripts/sage/sage-operating-contract",
-                "scripts/sage/workflows/operating_contract.py",
-                "scripts/sage/sage-change-preflight.py",
-                "scripts/sage/sage-change-discovery-guardrail.py",
-                "scripts/sage/sage-routine-git-lifecycle.py"
-            ],
-            "requires": [
-                "repository-governance",
-                "evidence",
-                "continuous-improvement"
-            ],
-            "working_directory": ".",
-            "authoritative_files": [
-                "AGENTS.md",
-                "SAGE.md",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-authority-reconcile.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-capability-gap.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-component-select.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-failure-diagnose.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-decision-primitives.json",
-                "markdown/standards/kalaxy3-sage-change-discovery-process.md",
-                "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
-                "markdown/standards/kalaxy3-sage-operating-contract.md",
-                "markdown/standards/kalaxy3-sage-workflow-primitives-process.md",
-                "markdown/standards/kalaxy3-sage-workflow-support-process.md",
-                "markdown/standards/sage-authority-reconciliation-schema-v1.0.json",
-                "markdown/standards/sage-capability-gap-receipt-schema-v1.0.json",
-                "markdown/standards/sage-component-selection-manifest-schema-v1.0.json",
-                "markdown/standards/sage-failure-diagnosis-schema-v1.0.json",
-                "markdown/standards/sage-operator-git-proposal-schema-v1.0.json",
-                "markdown/standards/sage-operator-git-proposal-schema-v1.1.json",
-                "markdown/standards/sage-operator-git-proposal-schema-v1.2.json",
-                "markdown/standards/sage-outcome-metrics-schema-v1.0.json",
-                "markdown/standards/sage-workflow-primitives-schema-v1.0.json",
-                "sage-change-authority.json",
-                "sage-operating-contract-policy.json",
-                "sage-workflow-primitives.json",
-                "scripts/sage/sage-action-id.py",
-                "scripts/sage/sage-decision-primitives-guardrail.py",
-                "scripts/sage/sage-git-safety-guardrail.py",
-                "scripts/sage/sage-python-static-guardrail.py",
-                "scripts/sage/sage-workflow-primitives-guardrail.py",
-                "scripts/sage/sage-workflow-primitives-self-test.py",
-                "scripts/sage/sage-workflow-support-guardrail.py",
-                "scripts/sage/sage-workflow-usage.py",
-                "scripts/sage/sage_identifiers.py",
-                "scripts/sage/workflow/",
-                "scripts/sage/workflow/authority.py",
-                "scripts/sage/workflow/diagnosis.py",
-                "scripts/sage/workflow/files.py",
-                "scripts/sage/workflow/gaps.py",
-                "scripts/sage/workflow/git_inspect.py",
-                "scripts/sage/workflow/proposal.py",
-                "scripts/sage/workflow/safety.py",
-                "scripts/sage/workflow/selection.py",
-                "scripts/sage/workflows/",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-outcome-metrics.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-outcome-metrics.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json",
-                "scripts/sage/sage-outcome-metrics-guardrail.py",
-                "scripts/sage/workflow/metrics.py",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-root-enforcement.json",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/root-enforcement-readiness.json",
-                "scripts/sage/sage-operating-contract-guardrail.py",
-                "scripts/sage/sage-operating-contract-self-test.py",
-                "scripts/sage/workflows/operating_contract.py",
-                "scripts/sage/workflows/generated_helper_delivery.py",
-                "scripts/sage/sage-generated-helper-runtime-self-test.py",
-                "markdown/standards/kalaxy3-sage-generated-helper-runtime-validation-process.md",
-                "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json",
-                "scripts/sage/request_execution.py",
-                "scripts/sage/workflows/request_execution.py",
-                "scripts/sage/sage-request-execute.py",
-                "scripts/sage/sage-request-execution-guardrail.py",
-                "markdown/standards/kalaxy3-sage-request-execution-process.md",
-                "markdown/standards/sage-request-execution-proposal-schema-v1.0.json",
-                "scripts/sage/request_planning.py",
-                "scripts/sage/workflows/request_planning.py",
-                "scripts/sage/sage-request-plan.py",
-                "scripts/sage/sage-request-planning-guardrail.py",
-                "markdown/standards/kalaxy3-sage-request-planning-process.md",
-                "markdown/standards/sage-request-planning-source-schema-v1.0.json",
-                "markdown/standards/sage-request-planning-source-schema-v1.1.json",
-                "scripts/sage/workflows/improvement_action_transition.py",
-                "scripts/sage/sage-improvement-action-transition.py",
-                "scripts/sage/sage-improvement-action-amendment.py",
-                "scripts/sage/sage-improvement-action-transition-guardrail.py",
-                "scripts/sage/workflow/github_inspect.py",
-                "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-github-inspect.json",
-                "sage-checkpoint-promotion-policy.json",
-                "scripts/sage/checkpoint_promotion.py",
-                "scripts/sage/workflows/checkpoint_promotion.py",
-                "scripts/sage/sage-checkpoint-promote.py",
-                "scripts/sage/sage-checkpoint-promotion-guardrail.py",
-                "markdown/standards/kalaxy3-sage-checkpoint-promotion-process.md",
-                "scripts/sage/workflows/routine_git_lifecycle.py",
-                "scripts/sage/sage-routine-git-lifecycle.py",
-                "scripts/sage/semantic_understanding.py",
-                "scripts/sage/workflows/semantic_bootstrap.py",
-                "scripts/sage/sage-action-bootstrap.py",
-                "scripts/sage/sage-semantic-bootstrap-guardrail.py",
-                "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
-                "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
-                "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
-            ],
-            "baseline_checks": [
-                "make sage-discovery-guardrail",
-                "make sage-learning-self-test",
-                "make sage-index-check",
-                "make sage-workflow-support-self-test",
-                "make sage-workflow-support-guardrail",
-                "make sage-workflow-self-test",
-                "make sage-workflow-guardrail",
-                "make sage-operating-contract-check"
-            ],
-            "required_validation": [
-                "make sage-workflow-self-test",
-                "make sage-workflow-guardrail",
-                "make sage-self-test",
-                "make sage-guardrails",
-                "make sage-index-check",
-                "make sage-workflow-support-self-test",
-                "make sage-workflow-support-guardrail",
-                "make sage-workflow-usage",
-                "make sage-operating-contract-check"
-            ],
-            "evidence_process": [
-                "Record primitive versions used by each workflow.",
-                "Preserve structured event-log and closeout digests.",
-                "Measure reuse, recurrence, and avoidable rework."
-            ]
-        },
-        {
-            "id": "semantic-understanding",
-            "priority": 105,
-            "match_terms": [
-                "semantic understanding",
-                "intent interpretation",
-                "architect confirmation",
-                "semantic confirmation",
-                "implementation bootstrap",
-                "accepted action implementation",
-                "meaning feasibility authorization"
-            ],
-            "path_prefixes": [
-                "scripts/sage/semantic_understanding.py",
-                "scripts/sage/workflows/semantic_bootstrap.py",
-                "scripts/sage/sage-action-bootstrap.py",
-                "scripts/sage/sage-semantic-bootstrap-guardrail.py",
-                "markdown/standards/kalaxy3-sage-semantic-bootstrap",
-                "markdown/standards/sage-engineering-contribution",
-                "markdown/standards/sage-semantic-understanding"
-            ],
-            "requires": [
-                "repository-governance",
-                "evidence",
-                "continuous-improvement",
-                "workflow-primitives"
-            ],
-            "working_directory": ".",
-            "authoritative_files": [
-                "sage-improvement-actions.json",
-                "sage-change-authority.json",
-                "sage-workflow-primitives.json",
-                "scripts/sage/request_planning.py",
-                "scripts/sage/workflows/request_planning.py",
-                "scripts/sage/workflow/lifecycle.py",
-                "scripts/sage/semantic_understanding.py",
-                "scripts/sage/workflows/semantic_bootstrap.py",
-                "scripts/sage/sage-action-bootstrap.py",
-                "scripts/sage/sage-semantic-bootstrap-guardrail.py",
-                "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
-                "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
-                "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
-            ],
-            "baseline_checks": [
-                "make sage-discovery-guardrail",
-                "make sage-request-plan-self-test",
-                "make sage-operating-contract-check"
-            ],
-            "required_validation": [
-                "make sage-semantic-bootstrap-self-test",
-                "make sage-semantic-bootstrap-guardrail",
-                "make sage-request-planning-guardrail",
-                "make sage-guardrails",
-                "make sage-index-check",
-                "make sage-operating-contract-check"
-            ],
-            "evidence_process": [
-                "Record interpretation provenance and context dispositions.",
-                "Preserve Architect semantic-confirmation digest separately from feasibility and authorization.",
-                "Measure clarification, scope churn, capability gaps, and avoidable rework."
-            ]
-        }
-    ]
+      ],
+      "working_directory": ".",
+      "authoritative_files": [
+        "sage-evidence-policy.json",
+        "scripts/sage/sage-evidence-orchestrator.py",
+        "scripts/sage/sage-evidence-orchestration-guardrail.py",
+        "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md",
+        "markdown/standards/kalaxy3-sage-evidence-record-standard.md",
+        "markdown/standards/sage-evidence-metadata-contract-v1.2.json"
+      ],
+      "baseline_checks": [
+        "make sage-index-check",
+        "make sage-evidence-guardrail"
+      ],
+      "required_validation": [
+        "make sage-index-check",
+        "make sage-evidence-self-test",
+        "make sage-evidence-guardrail"
+      ],
+      "evidence_process": [
+        "Preserve original requester language and the canonical generation request.",
+        "Capture authority files and supplied terminal evidence without exposing credentials.",
+        "Produce the repository-owned generation-input bundle before package publication.",
+        "Publish only through scripts/sage/sage-publish.py."
+      ]
+    },
+    {
+      "id": "evidence-retrieval",
+      "priority": 24,
+      "match_terms": [
+        "evidence retrieval",
+        "retrieve evidence",
+        "retrieval result",
+        "evidence use",
+        "applied evidence",
+        "rejected evidence",
+        "reviewed-not-applicable",
+        "engineering experience"
+      ],
+      "path_prefixes": [
+        "sage-evidence-retrieval-",
+        "scripts/sage/sage-evidence-retrieval",
+        "scripts/sage/sage_evidence_retrieval",
+        "markdown/standards/kalaxy3-sage-evidence-retrieval",
+        "markdown/standards/sage-evidence-retrieval-"
+      ],
+      "requires": [
+        "repository-governance",
+        "evidence",
+        "continuous-improvement"
+      ],
+      "working_directory": ".",
+      "authoritative_files": [
+        "sage-evidence-retrieval-policy.json",
+        "markdown/standards/kalaxy3-sage-evidence-retrieval-process.md",
+        "markdown/standards/sage-evidence-retrieval-result-schema-v1.0.json",
+        "scripts/sage/sage_evidence_retrieval.py",
+        "scripts/sage/sage-evidence-retrieval.py",
+        "scripts/sage/sage-evidence-retrieval-self-test.py",
+        "markdown/evidence/catalog.json",
+        "sage-lessons.json",
+        "sage-actionable-failures.json",
+        "sage-improvement-actions.json",
+        "sage-post-session-review-registry.json",
+        "scripts/sage/sage-failure-retrieval-gate.py",
+        "scripts/sage/sage-validator-runner.py"
+      ],
+      "baseline_checks": [
+        "make sage-failure-retrieval-self-test",
+        "make sage-evidence-retrieval-self-test",
+        "make sage-index-check"
+      ],
+      "required_validation": [
+        "make sage-failure-retrieval-self-test",
+        "make sage-evidence-retrieval-self-test",
+        "make sage-self-test",
+        "make sage-discovery-guardrail",
+        "make sage-index-check"
+      ],
+      "evidence_process": [
+        "Preserve the literal retrieval request.",
+        "Preserve ranked candidates and deterministic score reasons.",
+        "Finalize every candidate disposition with rationale.",
+        "Record recurrence, rework, and time to validated implementation at session closeout.",
+        "After the first unexpected failure, retrieve repository evidence, lessons, actionable failures, and canonical recovery before another corrective mutation."
+      ]
+    },
+    {
+      "id": "continuous-improvement",
+      "priority": 25,
+      "match_terms": [
+        "continuous improvement",
+        "lessons learned",
+        "experience-aware",
+        "prediction accuracy",
+        "forecast accuracy",
+        "t-shirt sizing",
+        "tshirt sizing",
+        "confidence calibration",
+        "candidate registry",
+        "process scorecard",
+        "avoidable rework",
+        "before and after cost",
+        "cost baseline",
+        "observability feedback",
+        "frequent push",
+        "frequent pushes",
+        "feature branch",
+        "staged implementation",
+        "metrics pilot",
+        "session metrics",
+        "raw session metrics",
+        "live session metrics",
+        "metric capture",
+        "active session",
+        "improvement action",
+        "action lifecycle",
+        "file-based execution delivery",
+        "clean-tree-gated",
+        "improvement statistics",
+        "outcome metrics",
+        "reuse metrics",
+        "authority metrics",
+        "failure metrics",
+        "rework metrics",
+        "safety statistics",
+        "first-pass completion",
+        "manual corrections",
+        "known-failure recurrence",
+        "trend reporting",
+        "generated helper runtime validation",
+        "helper delivery receipt",
+        "companion artifact validation",
+        "checkpoint persistence",
+        "checkpoint promotion",
+        "promotion eligibility"
+      ],
+      "path_prefixes": [
+        "sage-continuous-improvement-",
+        "sage-change-candidate-",
+        "sage-lessons",
+        "sage-improvement-actions",
+        "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
+        "markdown/standards/sage-change-candidate-schema-",
+        "markdown/standards/sage-session-improvement-schema-",
+        "scripts/sage/sage-lessons",
+        "scripts/sage/sage-session",
+        "scripts/sage/sage-improvement",
+        "scripts/sage/sage-candidate",
+        "sage-session-improvement-",
+        "sage-feedback-",
+        "markdown/standards/sage-feedback-",
+        "scripts/sage/sage-feedback-",
+        "sage-change-candidate-lifecycle-",
+        "markdown/standards/sage-change-candidate-lifecycle-",
+        "scripts/sage/sage-candidate-lifecycle",
+        "sage-continuous-improvement-baseline-",
+        "markdown/standards/sage-improvement-action-",
+        "markdown/standards/sage-continuous-improvement-baseline-",
+        "scripts/sage/sage-improvement-actions",
+        "scripts/sage/sage-baseline-extract",
+        "scripts/sage/sage-learning",
+        "sage-post-session-review-",
+        "markdown/standards/sage-post-session-review-",
+        "scripts/sage/sage-post-session-review",
+        "sage-active-session-",
+        "markdown/standards/sage-active-session-",
+        "scripts/sage/sage-active-session"
+      ],
+      "requires": [
+        "repository-governance",
+        "evidence"
+      ],
+      "working_directory": ".",
+      "authoritative_files": [
+        "AGENTS.md",
+        "SAGE.md",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-authority-reconcile.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-capability-gap.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-component-select.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-failure-diagnose.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-decision-primitives.json",
+        "markdown/standards/kalaxy3-sage-change-discovery-process.md",
+        "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
+        "markdown/standards/kalaxy3-sage-evidence-orchestration-process.md",
+        "markdown/standards/kalaxy3-sage-operating-contract.md",
+        "markdown/standards/sage-active-session-schema-v1.0.json",
+        "markdown/standards/sage-change-candidate-lifecycle-schema-v1.0.json",
+        "markdown/standards/sage-change-candidate-schema-v1.0.json",
+        "markdown/standards/sage-continuous-improvement-baseline-schema-v1.0.json",
+        "markdown/standards/sage-failure-diagnosis-schema-v1.0.json",
+        "markdown/standards/sage-feedback-comparison-schema-v1.0.json",
+        "markdown/standards/sage-improvement-action-schema-v1.0.json",
+        "markdown/standards/sage-improvement-action-schema-v1.1.json",
+        "markdown/standards/sage-outcome-metrics-schema-v1.0.json",
+        "markdown/standards/sage-post-session-review-schema-v1.0.json",
+        "markdown/standards/sage-session-improvement-schema-v1.0.json",
+        "markdown/standards/sage-session-scorecard-schema-v1.0.json",
+        "sage-active-session-registry.json",
+        "sage-change-authority.json",
+        "sage-change-candidate-lifecycle-registry.json",
+        "sage-change-candidate-registry.json",
+        "sage-continuous-improvement-baseline-registry.json",
+        "sage-continuous-improvement-policy.json",
+        "sage-feedback-baseline-registry.json",
+        "sage-improvement-actions.json",
+        "sage-lessons.json",
+        "sage-operating-contract-policy.json",
+        "sage-post-session-review-registry.json",
+        "sage-session-improvement-registry.json",
+        "scripts/sage/sage-active-session-guardrail.py",
+        "scripts/sage/sage-active-session.py",
+        "scripts/sage/sage-baseline-extract.py",
+        "scripts/sage/sage-candidate-lifecycle-guardrail.py",
+        "scripts/sage/sage-candidate-lifecycle.py",
+        "scripts/sage/sage-continuous-improvement-guardrail.py",
+        "scripts/sage/sage-decision-primitives-guardrail.py",
+        "scripts/sage/sage-feedback-compare.py",
+        "scripts/sage/sage-feedback-guardrail.py",
+        "scripts/sage/sage-improvement-actions.py",
+        "scripts/sage/sage-learning-guardrail.py",
+        "scripts/sage/sage-lessons.py",
+        "scripts/sage/sage-post-session-review-guardrail.py",
+        "scripts/sage/sage-post-session-review.py",
+        "scripts/sage/sage-session-score.py",
+        "scripts/sage/workflow/authority.py",
+        "scripts/sage/workflow/diagnosis.py",
+        "scripts/sage/workflow/gaps.py",
+        "scripts/sage/workflow/selection.py",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-outcome-metrics.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-outcome-metrics.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json",
+        "scripts/sage/sage-outcome-metrics-guardrail.py",
+        "scripts/sage/workflow/metrics.py",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-root-enforcement.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/root-enforcement-readiness.json",
+        "scripts/sage/sage-operating-contract-guardrail.py",
+        "scripts/sage/sage-operating-contract-self-test.py",
+        "scripts/sage/workflows/operating_contract.py",
+        "scripts/sage/workflows/generated_helper_delivery.py",
+        "scripts/sage/sage-generated-helper-runtime-self-test.py",
+        "markdown/standards/kalaxy3-sage-generated-helper-runtime-validation-process.md",
+        "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json",
+        "scripts/sage/workflows/improvement_action_transition.py",
+        "scripts/sage/sage-improvement-action-transition.py",
+        "scripts/sage/sage-improvement-action-amendment.py",
+        "scripts/sage/sage-improvement-action-transition-guardrail.py",
+        "sage-checkpoint-promotion-policy.json",
+        "scripts/sage/checkpoint_promotion.py",
+        "scripts/sage/workflows/checkpoint_promotion.py",
+        "scripts/sage/sage-checkpoint-promote.py",
+        "scripts/sage/sage-checkpoint-promotion-guardrail.py",
+        "markdown/standards/kalaxy3-sage-checkpoint-promotion-process.md",
+        "scripts/sage/semantic_understanding.py",
+        "scripts/sage/workflows/semantic_bootstrap.py",
+        "scripts/sage/sage-action-bootstrap.py",
+        "scripts/sage/sage-semantic-bootstrap-guardrail.py",
+        "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
+        "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
+        "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
+      ],
+      "baseline_checks": [
+        "make sage-active-session-self-test",
+        "make sage-review-self-test",
+        "make sage-learning-self-test",
+        "make sage-candidate-self-test",
+        "make sage-feedback-self-test",
+        "make sage-session-self-test",
+        "make sage-improvement-policy-check",
+        "make sage-discovery-guardrail",
+        "make sage-index-check"
+      ],
+      "required_validation": [
+        "make sage-active-session-self-test",
+        "make sage-review-self-test",
+        "make sage-learning-self-test",
+        "make sage-candidate-self-test",
+        "make sage-feedback-self-test",
+        "make sage-session-self-test",
+        "make sage-improvement-policy-check",
+        "make sage-guardrails",
+        "make sage-operating-contract-check"
+      ],
+      "evidence_process": [
+        "Preserve versioned predictions before outcomes are known.",
+        "Capture delivery, operations, economics, and learning baselines.",
+        "Compare predicted and actual outcomes and evaluate confidence calibration.",
+        "Extract lessons and improvement actions from published evidence.",
+        "Push every cohesive validated commit to the active feature branch."
+      ]
+    },
+    {
+      "id": "helm-platform",
+      "priority": 30,
+      "match_terms": [
+        "helm",
+        "chart",
+        "release",
+        "helm repository",
+        "repository url",
+        "chart version"
+      ],
+      "path_prefixes": [
+        "infrastructure/k3s-homelab/helm-",
+        "infrastructure/k3s-homelab/playbooks/platform.yml",
+        "infrastructure/k3s-homelab/playbooks/tasks/",
+        "infrastructure/k3s-homelab/scripts/sage-deployment-guardrail.py",
+        "infrastructure/k3s-homelab/scripts/sage-source-guardrails.py"
+      ],
+      "requires": [
+        "repository-governance",
+        "evidence"
+      ],
+      "working_directory": "infrastructure/k3s-homelab",
+      "authoritative_files": [
+        "infrastructure/k3s-homelab/helm-repositories.json",
+        "infrastructure/k3s-homelab/helm-chart-lock.json",
+        "infrastructure/k3s-homelab/playbooks/platform.yml",
+        "infrastructure/k3s-homelab/scripts/sage-source-guardrails.py",
+        "infrastructure/k3s-homelab/scripts/sage-deployment-guardrail.py"
+      ],
+      "baseline_checks": [
+        "make helm-repository-guardrail",
+        "make source-guardrails",
+        "make deployment-guardrail"
+      ],
+      "required_validation": [
+        "make source-guardrails",
+        "make deployment-guardrail",
+        "make cluster-guardrails"
+      ],
+      "evidence_process": [
+        "Capture repository, chart-lock, render, and deployment evidence."
+      ]
+    },
+    {
+      "id": "observability",
+      "priority": 40,
+      "match_terms": [
+        "observability",
+        "prometheus",
+        "grafana",
+        "kubecost",
+        "metrics",
+        "monitoring",
+        "telemetry"
+      ],
+      "path_prefixes": [
+        "infrastructure/k3s-homelab/playbooks/tasks/observability.yml",
+        "infrastructure/k3s-homelab/playbooks/templates/",
+        "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml"
+      ],
+      "requires": [
+        "helm-platform",
+        "evidence"
+      ],
+      "working_directory": "infrastructure/k3s-homelab",
+      "authoritative_files": [
+        "infrastructure/k3s-homelab/playbooks/tasks/observability.yml",
+        "infrastructure/k3s-homelab/inventory/group_vars/all/main.yml",
+        "infrastructure/k3s-homelab/helm-chart-lock.json"
+      ],
+      "baseline_checks": [
+        "make source-guardrails",
+        "make deployment-guardrail"
+      ],
+      "required_validation": [
+        "make cluster-guardrails"
+      ],
+      "evidence_process": [
+        "Capture placement, health, requests, and Kubecost impact."
+      ]
+    },
+    {
+      "id": "centralized-logging",
+      "priority": 50,
+      "match_terms": [
+        "centralized logging",
+        "logging",
+        "loki",
+        "fluent bit",
+        "fluent-bit",
+        "log collection",
+        "log aggregation",
+        "opentelemetry",
+        "otel"
+      ],
+      "path_prefixes": [
+        "infrastructure/k3s-homelab/playbooks/templates/loki-",
+        "infrastructure/k3s-homelab/playbooks/templates/fluent-bit-",
+        "infrastructure/k3s-homelab/playbooks/templates/grafana-loki-",
+        "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml"
+      ],
+      "requires": [
+        "observability",
+        "helm-platform",
+        "storage",
+        "evidence"
+      ],
+      "working_directory": "infrastructure/k3s-homelab",
+      "authoritative_files": [
+        "infrastructure/k3s-homelab/playbooks/tasks/observability.yml",
+        "infrastructure/k3s-homelab/playbooks/templates/loki-values.yml.j2",
+        "infrastructure/k3s-homelab/playbooks/templates/fluent-bit-collector-values.yml.j2",
+        "infrastructure/k3s-homelab/playbooks/templates/grafana-loki-datasource.yml.j2",
+        "infrastructure/k3s-homelab/playbooks/validate-centralized-logging.yml",
+        "infrastructure/k3s-homelab/scripts/validate-centralized-logging-yaml.py",
+        "infrastructure/k3s-homelab/scripts/validate-centralized-logging-runtime.py",
+        "infrastructure/k3s-homelab/scripts/validate-centralized-logging-runtime-self-test.py",
+        "infrastructure/k3s-homelab/scripts/validate-centralized-logging-runtime-source-self-test.py"
+      ],
+      "baseline_checks": [
+        "make helm-repository-guardrail",
+        "make source-guardrails",
+        "make deployment-guardrail",
+        "make centralized-logging-render"
+      ],
+      "required_validation": [
+        "make centralized-logging-render",
+        "make cluster-guardrails"
+      ],
+      "evidence_process": [
+        "Preserve pre-deployment render evidence.",
+        "Capture collector rollout and Loki placement.",
+        "Compare post-deployment Kubecost results with the baseline."
+      ],
+      "required_validation_after_editing": [
+        "make centralized-logging-runtime-self-test",
+        "make centralized-logging-runtime-validate",
+        "make centralized-logging-runtime-source-self-test"
+      ]
+    },
+    {
+      "id": "storage",
+      "priority": 60,
+      "match_terms": [
+        "storage",
+        "longhorn",
+        "persistent volume",
+        "pvc",
+        "nfs",
+        "retention",
+        "volume"
+      ],
+      "path_prefixes": [
+        "infrastructure/k3s-homelab/playbooks/tasks/longhorn.yml",
+        "infrastructure/k3s-homelab/playbooks/tasks/network-storage.yml"
+      ],
+      "requires": [
+        "evidence"
+      ],
+      "working_directory": "infrastructure/k3s-homelab",
+      "authoritative_files": [
+        "infrastructure/k3s-homelab/playbooks/tasks/longhorn.yml",
+        "infrastructure/k3s-homelab/playbooks/tasks/network-storage.yml",
+        "infrastructure/k3s-homelab/inventory/group_vars/all/main.yml"
+      ],
+      "baseline_checks": [
+        "make cluster-guardrails"
+      ],
+      "required_validation": [
+        "make cluster-guardrails"
+      ],
+      "evidence_process": [
+        "Capture StorageClass, PVC, placement, retention, and recovery evidence."
+      ]
+    },
+    {
+      "id": "k3s-cluster",
+      "priority": 70,
+      "match_terms": [
+        "k3s",
+        "kubernetes",
+        "control plane",
+        "worker node",
+        "agent node",
+        "etcd",
+        "cluster node"
+      ],
+      "path_prefixes": [
+        "infrastructure/k3s-homelab/inventory/",
+        "infrastructure/k3s-homelab/playbooks/k3s.yml",
+        "infrastructure/k3s-homelab/playbooks/tasks/install-k3s.yml"
+      ],
+      "requires": [
+        "repository-governance",
+        "evidence"
+      ],
+      "working_directory": "infrastructure/k3s-homelab",
+      "authoritative_files": [
+        "infrastructure/k3s-homelab/k3s-platforms.json",
+        "infrastructure/k3s-homelab/playbooks/k3s.yml",
+        "infrastructure/k3s-homelab/playbooks/tasks/install-k3s.yml",
+        "infrastructure/k3s-homelab/scripts/sage-k3s-guardrail.py"
+      ],
+      "baseline_checks": [
+        "make k3s-guardrails"
+      ],
+      "required_validation": [
+        "make k3s-guardrails"
+      ],
+      "evidence_process": [
+        "Capture node identity, architecture, readiness, etcd, and recovery evidence."
+      ]
+    },
+    {
+      "id": "documentation",
+      "priority": 80,
+      "match_terms": [
+        "documentation",
+        "docs",
+        "daux",
+        "mkdocs",
+        "markdown",
+        "github pages",
+        "landing page"
+      ],
+      "path_prefixes": [
+        "README.md",
+        "docs/",
+        "markdown/",
+        "mkdocs.yml",
+        "requirements-docs.txt",
+        "requirements-docs.lock.txt",
+        "scripts/docs/",
+        ".github/workflows/kalaxy3_build_publish.yml"
+      ],
+      "requires": [
+        "repository-governance",
+        "evidence"
+      ],
+      "working_directory": ".",
+      "authoritative_files": [
+        "README.md",
+        ".github/workflows/kalaxy3_build_publish.yml",
+        "mkdocs.yml",
+        "requirements-docs.txt",
+        "requirements-docs.lock.txt",
+        "Makefile",
+        "scripts/docs/prepare-mkdocs-source.py",
+        "scripts/docs/validate-mkdocs-build.py",
+        "scripts/docs/promote-mkdocs-site.py",
+        "scripts/docs/validate-mkdocs-publication.py",
+        "scripts/docs/validate-mkdocs-navigation.py",
+        "markdown/standards/kalaxy3-sage-evidence-publication-process.md",
+        "mkdocs-navigation-policy.json",
+        "scripts/docs/navigation_support.py",
+        "scripts/docs/generate-mkdocs-navigation.py",
+        "markdown/standards/kalaxy3-mkdocs-evidence-navigation-process.md",
+        "scripts/sage/workflow/markdown.py",
+        "scripts/sage/workflow/evidence_records.py"
+      ],
+      "baseline_checks": [
+        "python3 scripts/sage/sage-index.py check"
+      ],
+      "required_validation": [
+        "python3 scripts/sage/sage-index.py check",
+        "python3 scripts/docs/generate-mkdocs-navigation.py --self-test",
+        "python3 scripts/docs/validate-mkdocs-navigation.py --self-test",
+        "make docs-mkdocs-publication-test",
+        "python3 scripts/sage/sage-evidence-navigation-architecture-guardrail.py"
+      ],
+      "evidence_process": [
+        "Capture generated-document validation and publication lineage."
+      ]
+    },
+    {
+      "id": "capability-intelligence",
+      "priority": 90,
+      "match_terms": [
+        "capability intelligence",
+        "capability-intelligence",
+        "capability target",
+        "preferred target",
+        "current capability state",
+        "federated authority",
+        "decision branch",
+        "alternative branch",
+        "WAR",
+        "well-architected",
+        "CAF",
+        "rebuild-forward",
+        "mission drift",
+        "thin slice",
+        "end-to-end sage",
+        "sage introduction",
+        "sage value",
+        "decision trace",
+        "human expertise",
+        "wider participation",
+        "public-facing sage",
+        "strategic objective",
+        "task recommendation objective"
+      ],
+      "path_prefixes": [
+        "sage-capability-intelligence.json",
+        "scripts/sage/sage-capability-intelligence",
+        "markdown/standards/kalaxy3-sage-capability-intelligence",
+        "markdown/standards/sage-capability-intelligence",
+        "markdown/architecture/kalaxy3-sage-capability-intelligence",
+        "sage-thin-slice.json",
+        "scripts/sage/sage-thin-slice",
+        "markdown/standards/kalaxy3-sage-thin-slice",
+        "markdown/standards/sage-thin-slice",
+        "markdown/architecture/kalaxy3-sage-thin-slice"
+      ],
+      "requires": [
+        "continuous-improvement",
+        "evidence",
+        "evidence-retrieval",
+        "repository-governance"
+      ],
+      "working_directory": ".",
+      "authoritative_files": [
+        "sage-capability-intelligence.json",
+        "markdown/standards/sage-capability-intelligence-schema-v1.0.json",
+        "markdown/standards/kalaxy3-sage-capability-intelligence-process.md",
+        "scripts/sage/sage-capability-intelligence.py",
+        "scripts/sage/sage-capability-intelligence-guardrail.py",
+        "sage-thin-slice.json",
+        "markdown/standards/sage-thin-slice-schema-v1.0.json",
+        "markdown/standards/kalaxy3-sage-thin-slice-process.md",
+        "scripts/sage/sage-thin-slice.py",
+        "scripts/sage/sage-thin-slice-guardrail.py"
+      ],
+      "baseline_checks": [
+        "make sage-capability-intelligence-self-test",
+        "make sage-capability-intelligence-check",
+        "make sage-index-check",
+        "make sage-thin-slice-self-test",
+        "make sage-thin-slice-check"
+      ],
+      "required_validation": [
+        "make sage-capability-intelligence-self-test",
+        "make sage-capability-intelligence-guardrail",
+        "make sage-self-test",
+        "make sage-discovery-guardrail",
+        "make sage-index-check",
+        "make sage-thin-slice-guardrail",
+        "make sage-thin-slice-self-test"
+      ],
+      "evidence_process": [
+        "Preserve the versioned mission, target, and current capability picture.",
+        "Preserve consulted authority assertions and visible conflicts.",
+        "Preserve immutable branch predictions before outcomes.",
+        "Record the selected authority decision, actual outcome, and calibration.",
+        "Do not claim autonomy beyond the delegated domain and level.",
+        "Preserve a coherent public case that separates source statements, SAGE contribution, and human authority.",
+        "Measure participant completion and evidence-use outcomes before claiming broader learning or maturity."
+      ]
+    },
+    {
+      "id": "workflow-primitives",
+      "priority": 100,
+      "match_terms": [
+        "workflow primitives",
+        "reusable workflow",
+        "workflow composition",
+        "composition guardrail",
+        "primitive registry",
+        "structured logging",
+        "workflow support",
+        "canonical workflow support",
+        "workflow-support primitives",
+        "action id allocator",
+        "improvement-action id allocation",
+        "undefined global",
+        "runtime-name validation",
+        "operating contract",
+        "repository-owned components",
+        "component selection",
+        "component reuse",
+        "composition manifest",
+        "capability-gap receipt",
+        "authority reconciliation",
+        "failure diagnosis",
+        "what should have been done",
+        "operator-executed",
+        "git mutation gate",
+        "git safety",
+        "capability gap",
+        "generated helper runtime validation",
+        "helper delivery receipt",
+        "companion artifact validation",
+        "request execution",
+        "request executor",
+        "request-to-operator proposal",
+        "proposal package",
+        "sage request execute",
+        "request planning",
+        "request planner",
+        "planning composition",
+        "sage request plan",
+        "checkpoint promotion",
+        "github inspection",
+        "github.inspect",
+        "pull request inspection",
+        "checkpoint persistence",
+        "promotion eligibility",
+        "routine git lifecycle",
+        "one-approval git lifecycle",
+        "routine-git-lifecycle"
+      ],
+      "path_prefixes": [
+        "sage-workflow-primitives.json",
+        "scripts/sage/workflow/",
+        "scripts/sage/workflows/",
+        "scripts/sage/sage-workflow-primitives",
+        "markdown/standards/sage-workflow-primitives",
+        "markdown/standards/kalaxy3-sage-workflow-primitives",
+        "scripts/sage/sage-operating-contract",
+        "scripts/sage/workflows/operating_contract.py",
+        "scripts/sage/sage-change-preflight.py",
+        "scripts/sage/sage-change-discovery-guardrail.py",
+        "scripts/sage/sage-routine-git-lifecycle.py"
+      ],
+      "requires": [
+        "repository-governance",
+        "evidence",
+        "continuous-improvement"
+      ],
+      "working_directory": ".",
+      "authoritative_files": [
+        "AGENTS.md",
+        "SAGE.md",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-authority-reconcile.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-capability-gap.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-component-select.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-failure-diagnose.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-decision-primitives.json",
+        "markdown/standards/kalaxy3-sage-change-discovery-process.md",
+        "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
+        "markdown/standards/kalaxy3-sage-operating-contract.md",
+        "markdown/standards/kalaxy3-sage-workflow-primitives-process.md",
+        "markdown/standards/kalaxy3-sage-workflow-support-process.md",
+        "markdown/standards/sage-authority-reconciliation-schema-v1.0.json",
+        "markdown/standards/sage-capability-gap-receipt-schema-v1.0.json",
+        "markdown/standards/sage-component-selection-manifest-schema-v1.0.json",
+        "markdown/standards/sage-failure-diagnosis-schema-v1.0.json",
+        "markdown/standards/sage-operator-git-proposal-schema-v1.0.json",
+        "markdown/standards/sage-operator-git-proposal-schema-v1.1.json",
+        "markdown/standards/sage-operator-git-proposal-schema-v1.2.json",
+        "markdown/standards/sage-outcome-metrics-schema-v1.0.json",
+        "markdown/standards/sage-workflow-primitives-schema-v1.0.json",
+        "sage-change-authority.json",
+        "sage-operating-contract-policy.json",
+        "sage-workflow-primitives.json",
+        "scripts/sage/sage-action-id.py",
+        "scripts/sage/sage-decision-primitives-guardrail.py",
+        "scripts/sage/sage-git-safety-guardrail.py",
+        "scripts/sage/sage-python-static-guardrail.py",
+        "scripts/sage/sage-workflow-primitives-guardrail.py",
+        "scripts/sage/sage-workflow-primitives-self-test.py",
+        "scripts/sage/sage-workflow-support-guardrail.py",
+        "scripts/sage/sage-workflow-usage.py",
+        "scripts/sage/sage_identifiers.py",
+        "scripts/sage/workflow/",
+        "scripts/sage/workflow/authority.py",
+        "scripts/sage/workflow/diagnosis.py",
+        "scripts/sage/workflow/files.py",
+        "scripts/sage/workflow/gaps.py",
+        "scripts/sage/workflow/git_inspect.py",
+        "scripts/sage/workflow/proposal.py",
+        "scripts/sage/workflow/safety.py",
+        "scripts/sage/workflow/selection.py",
+        "scripts/sage/workflows/",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-outcome-metrics.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-outcome-metrics.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/outcome-metrics-baseline.json",
+        "scripts/sage/sage-outcome-metrics-guardrail.py",
+        "scripts/sage/workflow/metrics.py",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/component-selection-root-enforcement.json",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/root-enforcement-readiness.json",
+        "scripts/sage/sage-operating-contract-guardrail.py",
+        "scripts/sage/sage-operating-contract-self-test.py",
+        "scripts/sage/workflows/operating_contract.py",
+        "scripts/sage/workflows/generated_helper_delivery.py",
+        "scripts/sage/sage-generated-helper-runtime-self-test.py",
+        "markdown/standards/kalaxy3-sage-generated-helper-runtime-validation-process.md",
+        "markdown/standards/sage-generated-helper-delivery-manifest-schema-v1.0.json",
+        "scripts/sage/request_execution.py",
+        "scripts/sage/workflows/request_execution.py",
+        "scripts/sage/sage-request-execute.py",
+        "scripts/sage/sage-request-execution-guardrail.py",
+        "markdown/standards/kalaxy3-sage-request-execution-process.md",
+        "markdown/standards/sage-request-execution-proposal-schema-v1.0.json",
+        "scripts/sage/request_planning.py",
+        "scripts/sage/workflows/request_planning.py",
+        "scripts/sage/sage-request-plan.py",
+        "scripts/sage/sage-request-planning-guardrail.py",
+        "markdown/standards/kalaxy3-sage-request-planning-process.md",
+        "markdown/standards/sage-request-planning-source-schema-v1.0.json",
+        "markdown/standards/sage-request-planning-source-schema-v1.1.json",
+        "markdown/standards/sage-request-planning-source-schema-v1.2.json",
+        "scripts/sage/workflows/improvement_action_transition.py",
+        "scripts/sage/sage-improvement-action-transition.py",
+        "scripts/sage/sage-improvement-action-amendment.py",
+        "scripts/sage/sage-improvement-action-transition-guardrail.py",
+        "scripts/sage/workflow/github_inspect.py",
+        "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-github-inspect.json",
+        "sage-checkpoint-promotion-policy.json",
+        "scripts/sage/checkpoint_promotion.py",
+        "scripts/sage/workflows/checkpoint_promotion.py",
+        "scripts/sage/sage-checkpoint-promote.py",
+        "scripts/sage/sage-checkpoint-promotion-guardrail.py",
+        "markdown/standards/kalaxy3-sage-checkpoint-promotion-process.md",
+        "scripts/sage/workflows/routine_git_lifecycle.py",
+        "scripts/sage/sage-routine-git-lifecycle.py",
+        "scripts/sage/semantic_understanding.py",
+        "scripts/sage/workflows/semantic_bootstrap.py",
+        "scripts/sage/sage-action-bootstrap.py",
+        "scripts/sage/sage-semantic-bootstrap-guardrail.py",
+        "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
+        "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
+        "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
+      ],
+      "baseline_checks": [
+        "make sage-discovery-guardrail",
+        "make sage-learning-self-test",
+        "make sage-index-check",
+        "make sage-workflow-support-self-test",
+        "make sage-workflow-support-guardrail",
+        "make sage-workflow-self-test",
+        "make sage-workflow-guardrail",
+        "make sage-operating-contract-check"
+      ],
+      "required_validation": [
+        "make sage-workflow-self-test",
+        "make sage-workflow-guardrail",
+        "make sage-self-test",
+        "make sage-guardrails",
+        "make sage-index-check",
+        "make sage-workflow-support-self-test",
+        "make sage-workflow-support-guardrail",
+        "make sage-workflow-usage",
+        "make sage-operating-contract-check"
+      ],
+      "evidence_process": [
+        "Record primitive versions used by each workflow.",
+        "Preserve structured event-log and closeout digests.",
+        "Measure reuse, recurrence, and avoidable rework."
+      ]
+    },
+    {
+      "id": "semantic-understanding",
+      "priority": 105,
+      "match_terms": [
+        "semantic understanding",
+        "intent interpretation",
+        "architect confirmation",
+        "semantic confirmation",
+        "implementation bootstrap",
+        "accepted action implementation",
+        "meaning feasibility authorization"
+      ],
+      "path_prefixes": [
+        "scripts/sage/semantic_understanding.py",
+        "scripts/sage/workflows/semantic_bootstrap.py",
+        "scripts/sage/sage-action-bootstrap.py",
+        "scripts/sage/sage-semantic-bootstrap-guardrail.py",
+        "markdown/standards/kalaxy3-sage-semantic-bootstrap",
+        "markdown/standards/sage-engineering-contribution",
+        "markdown/standards/sage-semantic-understanding"
+      ],
+      "requires": [
+        "repository-governance",
+        "evidence",
+        "continuous-improvement",
+        "workflow-primitives"
+      ],
+      "working_directory": ".",
+      "authoritative_files": [
+        "sage-improvement-actions.json",
+        "sage-change-authority.json",
+        "sage-workflow-primitives.json",
+        "scripts/sage/request_planning.py",
+        "scripts/sage/workflows/request_planning.py",
+        "scripts/sage/workflow/lifecycle.py",
+        "scripts/sage/semantic_understanding.py",
+        "scripts/sage/workflows/semantic_bootstrap.py",
+        "scripts/sage/sage-action-bootstrap.py",
+        "scripts/sage/sage-semantic-bootstrap-guardrail.py",
+        "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
+        "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
+        "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
+      ],
+      "baseline_checks": [
+        "make sage-discovery-guardrail",
+        "make sage-request-plan-self-test",
+        "make sage-operating-contract-check"
+      ],
+      "required_validation": [
+        "make sage-semantic-bootstrap-self-test",
+        "make sage-semantic-bootstrap-guardrail",
+        "make sage-request-planning-guardrail",
+        "make sage-guardrails",
+        "make sage-index-check",
+        "make sage-operating-contract-check"
+      ],
+      "evidence_process": [
+        "Record interpretation provenance and context dispositions.",
+        "Preserve Architect semantic-confirmation digest separately from feasibility and authorization.",
+        "Measure clarification, scope churn, capability gaps, and avoidable rework."
+      ]
+    }
+  ]
 }
