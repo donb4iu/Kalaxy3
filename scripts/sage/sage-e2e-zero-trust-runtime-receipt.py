@@ -16,25 +16,35 @@ from typing import Any, Mapping
 VALUE_VIGNETTE = {
     "architect_observation": (
         "The Architect explicitly stated that installing Cloudflare into Kubernetes "
-        "should be SAGE's engineering burden rather than operator knowledge."
+        "should be SAGE's engineering burden rather than operator knowledge, then "
+        "clarified that cloudflared is a platform service: node-level HA outranks "
+        "ordinary placement preference, amd64-01 AI capacity should be preserved "
+        "when alternatives exist, and the five ARM64 nodes must remain part of the "
+        "available platform topology."
     ),
     "sage_finding": (
-        "The cluster deployment path already existed and the tunnel credential had "
-        "been moved into a controller-local whole-file Ansible Vault, but the root "
-        "zero-trust deployment entry point did not request Vault decryption."
+        "SAGE first found that the controller-local tunnel credential had been moved "
+        "into Ansible Vault without a decryption option at the root deployment entry "
+        "point. After that correction, the first real deployment failed before any "
+        "cluster mutation because inventory ansible_become=true overrode the delegated "
+        "localhost task's become=false keyword. SAGE also found that two cloudflared "
+        "replicas had no scheduling contract guaranteeing different physical nodes."
     ),
     "prevented_action": (
-        "SAGE stopped before the new Cloudflare tunnel credential was introduced "
-        "into deployment inputs or the Kalaxy3 cluster was mutated."
+        "SAGE stopped both times before the Cloudflare credential was projected into "
+        "Kubernetes or the Kalaxy3 cluster was mutated, and did not hide the controller "
+        "failure by weakening no_log or force a topology that ignored ARM64 capacity."
     ),
     "bounded_correction": (
-        "Reuse the repository's established interactive Ansible Vault decryption "
-        "convention at the existing zero-trust deployment boundary."
+        "Use task/play scoped ansible_become=false variables at controller-local "
+        "boundaries, preserve the existing encrypted Vault design, and encode hard "
+        "hostname anti-affinity with soft platform-service placement preferences."
     ),
     "value_demonstrated": (
-        "The Architect supplies intent and operational context while SAGE bears the "
-        "implementation burden, detects cross-component integration gaps, and "
-        "prevents unsafe or incomplete mutation before execution."
+        "The Architect supplies intent, workload-class distinctions, and requirement "
+        "priority while SAGE bears implementation detail, detects cross-component "
+        "precedence and scheduling gaps, and converts conversational constraints into "
+        "fail-closed runtime evidence."
     ),
 }
 
@@ -59,11 +69,20 @@ def require_automated(value: Mapping[str, Any], hostname: str) -> dict[str, bool
         "workload_ready",
         "origin_through_traefik_ready",
         "tunnel_ready",
+        "connector_node_ha",
         "metrics_monitor_configured",
         "unauthenticated_access_denied",
     )
     if any(checks.get(name) is not True for name in required):
         raise ValueError("automated runtime receipt lacks a required passing check")
+    connector_nodes = value.get("connector_nodes")
+    if (
+        not isinstance(connector_nodes, list)
+        or len(connector_nodes) != 2
+        or len(set(connector_nodes)) != 2
+        or any(not isinstance(name, str) or not name for name in connector_nodes)
+    ):
+        raise ValueError("automated runtime receipt lacks two distinct connector nodes")
     return {name: True for name in required}
 
 
@@ -86,6 +105,7 @@ def finalize(
     automated = automated.expanduser().resolve()
     value = json.loads(automated.read_text(encoding="utf-8"))
     checks = require_automated(value, hostname)
+    connector_nodes = list(value["connector_nodes"])
     checks["authorized_mfa_access_verified"] = True
     checks["privileged_surfaces_not_published"] = True
 
@@ -109,6 +129,7 @@ def finalize(
         "evidence": {
             "automated_receipt": str(automated),
             "automated_receipt_sha256": sha256_file(automated),
+            "connector_nodes": connector_nodes,
             "authorized_mfa_verification": "explicit Architect browser confirmation",
             "privileged_route_review": "explicit Architect Cloudflare route/application review",
         },
@@ -132,10 +153,12 @@ def self_test() -> int:
                     "record_type": "sage-e2e-zero-trust-runtime-automated",
                     "status": "pass",
                     "hostname": "sage.example.test",
+                    "connector_nodes": ["amd64-02", "arm64-04"],
                     "checks": {
                         "workload_ready": True,
                         "origin_through_traefik_ready": True,
                         "tunnel_ready": True,
+                        "connector_node_ha": True,
                         "metrics_monitor_configured": True,
                         "unauthenticated_access_denied": True,
                         "authorized_mfa_access_verified": False,
@@ -168,6 +191,23 @@ def self_test() -> int:
         }
         if not isinstance(vignette, dict) or set(vignette) != required_vignette:
             raise RuntimeError("runtime receipt did not preserve the complete SAGE value vignette")
+        duplicate_nodes = json.loads(automated.read_text(encoding="utf-8"))
+        duplicate_nodes["connector_nodes"] = ["amd64-02", "amd64-02"]
+        duplicate_path = root / "duplicate-nodes.json"
+        duplicate_path.write_text(json.dumps(duplicate_nodes) + "\n", encoding="utf-8")
+        try:
+            finalize(
+                duplicate_path,
+                "sage.example.test",
+                authorized_mfa_verified=True,
+                privileged_routes_reviewed=True,
+                actor="architect",
+                output=root / "duplicate-final.json",
+            )
+        except ValueError:
+            pass
+        else:
+            raise RuntimeError("duplicate connector nodes were accepted as node-level HA")
         try:
             finalize(
                 automated,
@@ -181,6 +221,7 @@ def self_test() -> int:
             pass
         else:
             raise RuntimeError("missing MFA verification was accepted")
+    print("PASS automated evidence requires two distinct connector nodes")
     print("PASS automated evidence cannot fabricate authorized MFA success")
     print("PASS privileged-route review and Architect role are required")
     print("PASS SAGE value vignette is preserved in final runtime evidence")

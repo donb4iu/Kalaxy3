@@ -43,6 +43,7 @@
         "workload_ready",
         "origin_through_traefik_ready",
         "tunnel_ready",
+        "connector_node_ha",
         "metrics_monitor_configured",
         "unauthenticated_access_denied",
         "authorized_mfa_access_verified",
@@ -69,11 +70,29 @@
         },
         "privileged_surfaces_not_published": {
           "const": true
+        },
+        "connector_node_ha": {
+          "const": true
         }
       }
     },
     "evidence": {
-      "type": "object"
+      "type": "object",
+      "required": [
+        "connector_nodes"
+      ],
+      "properties": {
+        "connector_nodes": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
     },
     "value_vignette": {
       "type": "object",

@@ -39,6 +39,7 @@ def self_test() -> int:
             "workload_ready": True,
             "origin_through_traefik_ready": True,
             "tunnel_ready": True,
+            "connector_node_ha": True,
             "metrics_monitor_configured": True,
             "unauthenticated_access_denied": True,
             "authorized_mfa_access_verified": True,
@@ -69,7 +70,15 @@ def self_test() -> int:
         pass
     else:
         raise RuntimeError("runtime receipt without the SAGE value vignette was accepted")
-    print("PASS runtime acceptance requires MFA and negative-access proof")
+    bad_node_ha = json.loads(json.dumps(good))
+    bad_node_ha["checks"]["connector_node_ha"] = False
+    try:
+        validate_runtime_receipt(bad_node_ha)
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("runtime receipt without connector node-level HA was accepted")
+    print("PASS runtime acceptance requires MFA, negative-access proof, and connector node-level HA")
     print("PASS runtime acceptance requires the SAGE value vignette")
 
     with tempfile.TemporaryDirectory(prefix="sage-intent-completed-child-") as temp_name:

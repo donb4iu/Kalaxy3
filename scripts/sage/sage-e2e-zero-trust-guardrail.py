@@ -80,6 +80,29 @@ def main() -> int:
                     f"zero-trust secret policy {key} must equal {expected!r}"
                 )
 
+    connector_placement = policy.get("connector_placement")
+    required_connector_placement = {
+        "workload_class": "platform-service",
+        "replicas": 2,
+        "node_level_ha_required": True,
+        "hard_hostname_anti_affinity": True,
+        "preferred_workload_pool": "platform-services",
+        "worker_nodes_preferred": True,
+        "arm64_nodes_are_eligible": True,
+        "ai_pool_fallback_allowed_for_ha": True,
+        "control_plane_fallback_allowed_for_ha": True,
+        "application_workloads_do_not_inherit_platform_exceptions": True,
+        "future_ai_application_taint": "separate-governed-change",
+    }
+    if not isinstance(connector_placement, dict):
+        failures.append("zero-trust connector placement policy is missing")
+    else:
+        for key, expected in required_connector_placement.items():
+            if connector_placement.get(key) != expected:
+                failures.append(
+                    f"zero-trust connector placement {key} must equal {expected!r}"
+                )
+
     runtime_source = "\n".join(
         path.read_text(encoding="utf-8")
         for path in (NAMESPACES, EXPERIENCE, TUNNEL, DEPLOY, VALIDATE)
@@ -111,6 +134,16 @@ def main() -> int:
         "kalaxy3_runtime_secrets.cloudflare_tunnel_token",
         "Apply tunnel token secret from protected in-memory definition",
         "stdin: |",
+        "requiredDuringSchedulingIgnoredDuringExecution",
+        "topologyKey: kubernetes.io/hostname",
+        "preferredDuringSchedulingIgnoredDuringExecution",
+        "kalaxy3.io/workload-pool",
+        "platform-services",
+        "kalaxy3.io/node-role",
+        "kubernetes.io/arch",
+        "arm64",
+        "connector_node_ha",
+        "sage_e2e_connector_nodes",
     ):
         if marker not in runtime_source:
             failures.append(f"zero-trust source missing: {marker}")
@@ -122,6 +155,9 @@ def main() -> int:
         "cloudflare_tunnel_token_file",
         "lookup('file'",
         "cloudflared-secret.yaml",
+        "nodeSelector:\n        kubernetes.io/arch: amd64",
+        "kubernetes.io/hostname: amd64-01",
+        "kubernetes.io/hostname: amd64-02",
     ):
         if forbidden in runtime_source:
             failures.append(f"zero-trust source retains prohibited pattern: {forbidden}")
@@ -153,6 +189,12 @@ def main() -> int:
             "zero-trust deploy target does not request decryption for its required Ansible Vault source"
         )
 
+    deploy_source = DEPLOY.read_text(encoding="utf-8")
+    if deploy_source.count("ansible_become: false") < 2:
+        failures.append(
+            "controller-local secret inspection does not override inherited ansible_become"
+        )
+
     experience = EXPERIENCE.read_text(encoding="utf-8")
     if (
         "donb4iu/mynginx_docs:566d215fc0a077cb9330a69b08716a53903e6fe0"
@@ -168,9 +210,10 @@ def main() -> int:
     for marker in (
         "What SAGE prevented",
         "engineering burden rather than operator knowledge",
-        "cross-component integration gap before deployment",
-        "no Vault decryption option",
-        "stopped before the new credential was introduced",
+        "first real deployment stopped again before cluster mutation",
+        "inherited Ansible privilege-escalation state",
+        "node-level HA outranks ordinary placement preference",
+        "ARM64 capacity must not be ignored",
     ):
         if marker not in experience:
             failures.append(f"SAGE value experience missing vignette marker: {marker}")
@@ -210,6 +253,10 @@ def main() -> int:
     validation = VALIDATE.read_text(encoding="utf-8")
     for marker in (
         "origin_through_traefik_ready",
+        "connector_node_ha",
+        "sage_e2e_connector_nodes",
+        "unique | length == 2",
+        "ansible_become: false",
         "unauthenticated_access_denied",
         "authorized_mfa_access_verified",
         "privileged_surfaces_not_published",
@@ -237,6 +284,14 @@ def main() -> int:
         "through the repository's interactive decryption convention"
     )
     print("PASS cloudflared is pinned, replicated, observable, and secret-file bound")
+    print(
+        "PASS cloudflared node-level HA is hard while platform-service, worker, "
+        "and ARM64 placement remain ordered preferences with AI/control-plane fallback"
+    )
+    print(
+        "PASS controller-local secret and validation boundaries override inherited "
+        "Ansible privilege escalation without weakening secret redaction"
+    )
     print(
         "PASS SAGE experience reuses the existing documentation image behind Traefik"
     )

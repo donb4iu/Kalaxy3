@@ -35,7 +35,8 @@ data:
         </section>
         <section>
           <h2>What SAGE prevented</h2>
-          <p>The Architect explicitly stated that installing Cloudflare into Kubernetes should be SAGE's engineering burden rather than operator knowledge. SAGE had already selected and implemented the cluster deployment path, then found a cross-component integration gap before deployment: the tunnel credential had been moved into Ansible Vault, but the root deployment entry point had no Vault decryption option. SAGE stopped before the new credential was introduced or the cluster was changed, narrowed the correction to the missing secret-consumption link, and preserved the Kubernetes design.</p>
+          <p>The Architect explicitly stated that installing Cloudflare into Kubernetes should be SAGE's engineering burden rather than operator knowledge. SAGE first found that the encrypted Vault source could not be decrypted from the root deployment entry point. After that correction, the first real deployment stopped again before cluster mutation because inherited Ansible privilege-escalation state overrode the intended controller-local boundary. SAGE preserved secret redaction, corrected the precedence boundary, and did not ask the Architect to bypass the governed path.</p>
+          <p>The Architect then clarified the workload semantics: cloudflared is a platform service, node-level HA outranks ordinary placement preference, amd64-01 capacity should be preserved for AI when alternatives exist, and ARM64 capacity must not be ignored. SAGE converts that into hard cross-node separation plus soft placement preferences instead of a brittle node-name rule.</p>
         </section>
         <section>
           <h2>Health and evidence</h2>

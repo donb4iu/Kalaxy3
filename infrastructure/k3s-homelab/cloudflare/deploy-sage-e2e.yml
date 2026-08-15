@@ -38,6 +38,8 @@
         path: "{{ kalaxy3_secrets_file }}"
       delegate_to: localhost
       become: false
+      vars:
+        ansible_become: false
       register: kalaxy3_secrets_stat
       no_log: true
 
@@ -46,6 +48,8 @@
         src: "{{ kalaxy3_secrets_file }}"
       delegate_to: localhost
       become: false
+      vars:
+        ansible_become: false
       register: kalaxy3_secrets_ciphertext
       no_log: true
 

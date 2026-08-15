@@ -29,5 +29,18 @@
     "plaintext_render_to_disk": false,
     "secret_bearing_task_logs": false,
     "secret_in_command_arguments": false
+  },
+  "connector_placement": {
+    "workload_class": "platform-service",
+    "replicas": 2,
+    "node_level_ha_required": true,
+    "hard_hostname_anti_affinity": true,
+    "preferred_workload_pool": "platform-services",
+    "worker_nodes_preferred": true,
+    "arm64_nodes_are_eligible": true,
+    "ai_pool_fallback_allowed_for_ha": true,
+    "control_plane_fallback_allowed_for_ha": true,
+    "application_workloads_do_not_inherit_platform_exceptions": true,
+    "future_ai_application_taint": "separate-governed-change"
   }
 }

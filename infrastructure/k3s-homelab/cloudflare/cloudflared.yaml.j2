@@ -17,6 +17,36 @@ spec:
         app.kubernetes.io/name: cloudflared
     spec:
       automountServiceAccountToken: false
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: cloudflared
+              topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kalaxy3.io/workload-pool
+                    operator: In
+                    values:
+                      - platform-services
+            - weight: 80
+              preference:
+                matchExpressions:
+                  - key: kalaxy3.io/node-role
+                    operator: In
+                    values:
+                      - worker
+            - weight: 40
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - arm64
       containers:
         - name: cloudflared
           image: cloudflare/cloudflared:2026.8.2

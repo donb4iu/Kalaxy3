@@ -686,6 +686,7 @@ def validate_runtime_receipt(value: Mapping[str, Any]) -> None:
         "workload_ready",
         "origin_through_traefik_ready",
         "tunnel_ready",
+        "connector_node_ha",
         "metrics_monitor_configured",
         "unauthenticated_access_denied",
         "authorized_mfa_access_verified",
