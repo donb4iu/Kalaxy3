@@ -14,7 +14,9 @@ sys.path.insert(0, str(SAGE_DIR))
 
 from workflow import WorkflowError  # noqa: E402
 from workflows.intent_to_outcome import (  # noqa: E402
+    adopt_iteration,
     adopt_request_execution,
+    begin_candidate_iteration,
     begin_intent,
     begin_intent_promotion,
     confirm_intent,
@@ -75,6 +77,25 @@ def parse_args() -> argparse.Namespace:
     adopt.add_argument("--request", required=True)
     adopt.add_argument("--request-state", type=Path, required=True)
 
+    adopt_iteration_parser = sub.add_parser("adopt-iteration")
+    adopt_iteration_parser.add_argument("--request", required=True)
+    adopt_iteration_parser.add_argument("--request-state", type=Path, required=True)
+    adopt_iteration_parser.add_argument("--action-id")
+    adopt_iteration_parser.add_argument("--candidate-head")
+    adopt_iteration_parser.add_argument("--unresolved-finding", action="append", default=[])
+
+    iterate = sub.add_parser("iterate")
+    iterate.add_argument("--state", type=Path, required=True)
+    iterate.add_argument("--contribution", type=Path, required=True)
+    iterate.add_argument("--trigger", required=True)
+    iterate.add_argument(
+        "--reentry-boundary",
+        choices=("implementation-local", "planning", "semantic-confirmation", "authority"),
+        required=True,
+    )
+    iterate.add_argument("--parent-checkpoint", required=True)
+    iterate.add_argument("--affected-obligation", action="append", default=[])
+
     continuation = sub.add_parser("continue-request")
     continuation.add_argument("--state", type=Path, required=True)
     continuation.add_argument("--operator-result", type=Path)
@@ -108,6 +129,25 @@ def main() -> int:
         )
     elif args.command == "adopt-request":
         result = adopt_request_execution(args.repo, args.request, args.request_state)
+    elif args.command == "adopt-iteration":
+        result = adopt_iteration(
+            args.repo,
+            args.request,
+            args.request_state,
+            action_id=args.action_id,
+            candidate_head=args.candidate_head,
+            unresolved_findings=args.unresolved_finding,
+        )
+    elif args.command == "iterate":
+        result = begin_candidate_iteration(
+            args.repo,
+            args.state,
+            args.contribution,
+            trigger=args.trigger,
+            reentry_boundary=args.reentry_boundary,
+            parent_checkpoint=args.parent_checkpoint,
+            affected_obligations=args.affected_obligation,
+        )
     elif args.command == "continue-request":
         result = continue_intent_request(
             args.repo,

@@ -44,6 +44,7 @@ SOURCE_FIELDS_V1_0 = {
 }
 SOURCE_FIELDS_V1_1 = SOURCE_FIELDS_V1_0 | {"semantic_authority"}
 SOURCE_FIELDS_V1_2 = SOURCE_FIELDS_V1_1
+SOURCE_FIELDS_V1_3 = SOURCE_FIELDS_V1_2
 SEMANTIC_UNDERSTANDING_NAME = "semantic/semantic-understanding.json"
 SEMANTIC_CONFIRMATION_NAME = "semantic/semantic-confirmation.json"
 
@@ -185,6 +186,44 @@ def _semantic_artifact_payload(value: bytes, label: str) -> dict[str, Any]:
     return dict(require_object(parsed, label))
 
 
+def _validate_planning_obligations(values: object) -> list[dict[str, Any]]:
+    obligations = require_list(values, "semantic planning_obligations")
+    normalized: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for index, raw in enumerate(obligations):
+        item = require_object(raw, f"semantic planning_obligations[{index}]")
+        expected = {"obligation_id", "kind", "description", "required", "capability_id", "source"}
+        if set(item) != expected:
+            raise ProposalError("semantic planning obligation fields are invalid")
+        obligation_id = item.get("obligation_id")
+        kind = item.get("kind")
+        description = item.get("description")
+        source = item.get("source")
+        required = item.get("required")
+        capability_id = item.get("capability_id")
+        if not all(isinstance(value, str) and value for value in (obligation_id, kind, description, source)):
+            raise ProposalError("semantic planning obligation string values are invalid")
+        if obligation_id in seen:
+            raise ProposalError("semantic planning obligation identifiers must be unique")
+        seen.add(str(obligation_id))
+        if not isinstance(required, bool):
+            raise ProposalError("semantic planning obligation required must be boolean")
+        if kind == "capability":
+            if not isinstance(capability_id, str) or not capability_id:
+                raise ProposalError("semantic capability obligation requires capability_id")
+        elif capability_id is not None:
+            raise ProposalError("semantic non-capability obligation may not set capability_id")
+        normalized.append({
+            "obligation_id": str(obligation_id),
+            "kind": str(kind),
+            "description": str(description),
+            "required": required,
+            "capability_id": capability_id,
+            "source": str(source),
+        })
+    return normalized
+
+
 def _validate_semantic_artifacts(
     understanding_bytes: bytes,
     confirmation_bytes: bytes,
@@ -242,6 +281,11 @@ def _validate_semantic_artifacts(
         raise ProposalError("semantic confirmation action mismatch")
     if confirmation.get("semantic_understanding_sha256") != understanding_sha:
         raise ProposalError("semantic confirmation does not bind the embedded understanding")
+    planning_obligations = None
+    if "planning_obligations" in interpretation:
+        planning_obligations = _validate_planning_obligations(
+            interpretation.get("planning_obligations")
+        )
     authority = {
         "semantic_understanding_sha256": understanding_sha,
         "semantic_confirmation_sha256": confirmation_sha,
@@ -250,6 +294,8 @@ def _validate_semantic_artifacts(
     }
     if has_implementation_contexts:
         authority["implementation_contexts"] = list(implementation)
+    if planning_obligations is not None:
+        authority["planning_obligations"] = planning_obligations
     return authority
 
 
@@ -331,7 +377,7 @@ def _validate_scope(
     manifest: Mapping[str, Any],
 ) -> None:
     expected = {SOURCE_MANIFEST_NAME, *(PAYLOAD_PREFIX + item.path for item in source_files)}
-    if manifest.get("schema_version") in {"1.1", "1.2"}:
+    if manifest.get("schema_version") in {"1.1", "1.2", "1.3"}:
         expected.update({SEMANTIC_UNDERSTANDING_NAME, SEMANTIC_CONFIRMATION_NAME})
     observed = set()
     for info in archive.infolist():
@@ -353,8 +399,10 @@ def _validate_manifest(payload: Mapping[str, Any], request: str) -> dict[str, An
         expected_fields = SOURCE_FIELDS_V1_1
     elif version == "1.2":
         expected_fields = SOURCE_FIELDS_V1_2
+    elif version == "1.3":
+        expected_fields = SOURCE_FIELDS_V1_3
     else:
-        raise ProposalError("planning source schema_version must be 1.0, 1.1, or 1.2")
+        raise ProposalError("planning source schema_version must be 1.0, 1.1, 1.2, or 1.3")
     if set(payload) != expected_fields:
         raise ProposalError(
             f"planning source fields mismatch: missing={sorted(expected_fields - set(payload))}, "
@@ -378,7 +426,7 @@ def _validate_manifest(payload: Mapping[str, Any], request: str) -> dict[str, An
         raise ProposalError("evidence_references must contain non-empty strings")
     payload["validation_commands"] = commands
     payload["evidence_references"] = list(dict.fromkeys(evidence))
-    if version in {"1.1", "1.2"}:
+    if version in {"1.1", "1.2", "1.3"}:
         semantic = require_object(payload.get("semantic_authority"), "semantic_authority")
         expected_semantic = {
             "semantic_understanding_sha256",
@@ -386,8 +434,10 @@ def _validate_manifest(payload: Mapping[str, Any], request: str) -> dict[str, An
             "applicable_contexts",
             "context_dispositions",
         }
-        if version == "1.2":
+        if version in {"1.2", "1.3"}:
             expected_semantic.add("implementation_contexts")
+        if version == "1.3":
+            expected_semantic.add("planning_obligations")
         if set(semantic) != expected_semantic:
             raise ProposalError("semantic_authority fields are invalid")
         for field in ("semantic_understanding_sha256", "semantic_confirmation_sha256"):
@@ -397,7 +447,7 @@ def _validate_manifest(payload: Mapping[str, Any], request: str) -> dict[str, An
         applicable = require_list(semantic.get("applicable_contexts"), "semantic_authority.applicable_contexts")
         if not applicable or not all(isinstance(item, str) and item for item in applicable) or len(set(applicable)) != len(applicable):
             raise ProposalError("semantic_authority applicable_contexts are invalid")
-        if version == "1.2":
+        if version in {"1.2", "1.3"}:
             implementation = require_list(semantic.get("implementation_contexts"), "semantic_authority.implementation_contexts")
             if not implementation or not all(isinstance(item, str) and item for item in implementation) or len(set(implementation)) != len(implementation):
                 raise ProposalError("semantic_authority implementation_contexts are invalid")
@@ -412,8 +462,12 @@ def _validate_manifest(payload: Mapping[str, Any], request: str) -> dict[str, An
             "applicable_contexts": list(applicable),
             "context_dispositions": [dict(require_object(item, "semantic context disposition")) for item in dispositions],
         }
-        if version == "1.2":
+        if version in {"1.2", "1.3"}:
             normalized_semantic["implementation_contexts"] = list(implementation)
+        if version == "1.3":
+            normalized_semantic["planning_obligations"] = _validate_planning_obligations(
+                semantic.get("planning_obligations")
+            )
         payload["semantic_authority"] = normalized_semantic
     return payload
 
@@ -456,7 +510,10 @@ def write_source_package(
             request,
             declared_paths,
         )
-        schema_version = "1.2" if "implementation_contexts" in semantic_authority else "1.1"
+        if "planning_obligations" in semantic_authority:
+            schema_version = "1.3"
+        else:
+            schema_version = "1.2" if "implementation_contexts" in semantic_authority else "1.1"
     manifest_input: dict[str, Any] = {
         "schema_version": schema_version,
         "request_sha256": request_sha256(request),
@@ -509,7 +566,7 @@ def load_source_bundle(path: Path, request: str) -> PlanningSourceBundle:
         if generated and manifest["reconcile_evidence_index"] is not True:
             raise ProposalError("generated_paths require reconcile_evidence_index=true")
         _validate_scope(archive, source_files, manifest)
-        if manifest.get("schema_version") in {"1.1", "1.2"}:
+        if manifest.get("schema_version") in {"1.1", "1.2", "1.3"}:
             try:
                 understanding_bytes = archive.read(SEMANTIC_UNDERSTANDING_NAME)
                 confirmation_bytes = archive.read(SEMANTIC_CONFIRMATION_NAME)
@@ -581,3 +638,59 @@ def write_proposal_package(
             info.external_attr = (stat.S_IFREG | item.mode) << 16
             archive.writestr(info, item.payload)
     return load_proposal(destination, request)
+
+
+def reuse_confirmed_source_package(
+    path: Path,
+    prior_source_path: Path,
+    request: str,
+    *,
+    repository: Mapping[str, Any],
+    source_files: tuple[ProposedFile, ...],
+    evidence_reference: str,
+) -> PlanningSourceBundle:
+    """Rebind changed bytes to unchanged confirmed semantics without rediscovery."""
+
+    prior = load_source_bundle(prior_source_path, request)
+    if prior.semantic_authority is None:
+        raise ProposalError("implementation-local iteration requires confirmed semantic authority")
+    expected_paths = tuple(item.path for item in prior.source_files)
+    observed_paths = tuple(item.path for item in source_files)
+    if observed_paths != expected_paths:
+        raise ProposalError(
+            "implementation-local iteration changed governed file scope; return to semantic confirmation"
+        )
+    with zipfile.ZipFile(prior.package_path) as archive:
+        understanding_bytes = archive.read(SEMANTIC_UNDERSTANDING_NAME)
+        confirmation_bytes = archive.read(SEMANTIC_CONFIRMATION_NAME)
+    observed_authority = _validate_semantic_artifacts(
+        understanding_bytes,
+        confirmation_bytes,
+        request,
+        observed_paths + tuple(prior.generated_paths),
+    )
+    if observed_authority != prior.semantic_authority:
+        raise ProposalError("prior confirmed semantic authority no longer validates")
+    manifest_input = dict(prior.manifest)
+    manifest_input["repository"] = dict(repository)
+    manifest_input["source_files"] = [
+        {"path": item.path, "sha256": item.sha256, "mode": f"{item.mode:04o}"}
+        for item in source_files
+    ]
+    manifest_input["evidence_references"] = list(
+        dict.fromkeys([*prior.manifest["evidence_references"], evidence_reference])
+    )
+    manifest = _validate_manifest(manifest_input, request)
+    destination = path.expanduser().resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.exists():
+        raise ProposalError(f"planning source package already exists: {destination}")
+    with zipfile.ZipFile(destination, "x", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(SOURCE_MANIFEST_NAME, json.dumps(manifest, indent=2) + "\n")
+        archive.writestr(SEMANTIC_UNDERSTANDING_NAME, understanding_bytes)
+        archive.writestr(SEMANTIC_CONFIRMATION_NAME, confirmation_bytes)
+        for item in source_files:
+            info = zipfile.ZipInfo(PAYLOAD_PREFIX + item.path)
+            info.external_attr = (stat.S_IFREG | item.mode) << 16
+            archive.writestr(info, item.payload)
+    return load_source_bundle(destination, request)

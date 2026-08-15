@@ -40,9 +40,20 @@ def main() -> int:
         "start_promotion",
         "continue_promotion",
         "validate_runtime_receipt",
+        "begin_candidate_iteration",
+        "reuse_confirmed_intent",
+        "reuse_component_plan",
+        "checkpoint-non-promotable",
+        "invalidated_downstream_state",
+        "_semantic_planning_source",
     ):
         if marker not in wrapper:
             failures.append(f"front door missing existing-component marker: {marker}")
+
+    if 'semantic["planning_source"]' in wrapper:
+        failures.append("front door directly assumes one semantic-bootstrap result key")
+    if 'result.get("planning_source") or result.get("source")' not in wrapper:
+        failures.append("front door lacks semantic-bootstrap planning-source compatibility resolution")
 
     imports = {
         alias.name.split(".")[0]
@@ -69,6 +80,8 @@ def main() -> int:
         "sage-intent-to-outcome:",
         "sage-intent-to-outcome-confirm:",
         "sage-intent-to-outcome-adopt-request:",
+        "sage-intent-to-outcome-adopt-iteration:",
+        "sage-intent-to-outcome-iterate:",
         "sage-intent-to-outcome-continue-routine:",
         "sage-intent-to-outcome-record-runtime:",
         "sage-intent-to-outcome-promote:",
@@ -86,6 +99,10 @@ def main() -> int:
         "does not create a parallel orchestration system",
         "runtime evidence",
         "checkpoint promotion",
+        "candidate iteration",
+        "non-promotable",
+        "implementation-local",
+        "earliest affected boundary",
     ):
         if marker not in standard:
             failures.append(f"intent-to-outcome standard missing: {marker}")
@@ -98,6 +115,7 @@ def main() -> int:
     print("PASS existing semantic, planning, execution, Git, and promotion compositions are reused")
     print("PASS front door contains no direct Git, GitHub, deployment, or credential mutation path")
     print("PASS one-time bootstrap adoption path is explicit")
+    print("PASS candidate iteration preserves non-promotable checkpoints and earliest-boundary re-entry")
     print("Kalaxy3 SAGE intent-to-outcome guardrail: PASS")
     return 0
 

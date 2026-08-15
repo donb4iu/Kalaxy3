@@ -14,6 +14,7 @@ SAGE_DIR = ROOT / "scripts/sage"
 sys.path.insert(0, str(SAGE_DIR))
 
 from workflow import GitSafetyGuardrail
+from workflows.request_planning import _domain_capabilities
 
 WORKFLOW_PATH = "scripts/sage/workflows/request_planning.py"
 DOMAIN_PATH = "scripts/sage/request_planning.py"
@@ -33,6 +34,10 @@ SCHEMA_PATH_V1_1 = (
 SCHEMA_PATH_V1_2 = (
     "markdown/standards/"
     "sage-request-planning-source-schema-v1.2.json"
+)
+SCHEMA_PATH_V1_3 = (
+    "markdown/standards/"
+    "sage-request-planning-source-schema-v1.3.json"
 )
 EXECUTION_PROCESS_PATH = (
     "markdown/standards/kalaxy3-sage-request-execution-process.md"
@@ -71,6 +76,9 @@ PROCESS_MARKERS = (
     "implementation contexts",
     "historical v1.1",
     "v1.2",
+    "v1.3",
+    "planning obligations",
+    "domain capability gap",
 )
 WORKFLOW_MARKERS = (
     "EXECUTION_PRIMITIVES",
@@ -86,6 +94,9 @@ WORKFLOW_MARKERS = (
     "raw_inferred_contexts",
     "semantic_authority",
     "applicable_contexts",
+    "planning_obligations",
+    "_domain_capabilities",
+    "create_domain",
 )
 
 
@@ -222,6 +233,7 @@ def schema_failures() -> list[str]:
     legacy = load_object(ROOT / SCHEMA_PATH_V1_0)
     historical_semantic = load_object(ROOT / SCHEMA_PATH_V1_1)
     split_semantic = load_object(ROOT / SCHEMA_PATH_V1_2)
+    planning_semantic = load_object(ROOT / SCHEMA_PATH_V1_3)
     base_required = {
         "schema_version",
         "request_sha256",
@@ -290,6 +302,17 @@ def schema_failures() -> list[str]:
         "applicable-by-proposed-path-or-dependency",
     }:
         failures.append("v1.2 semantic request-planning context disposition contract is incomplete")
+    if planning_semantic.get("$id") != SCHEMA_PATH_V1_3:
+        failures.append("planning-obligation request-planning source schema identifier mismatch")
+    planning_property = planning_semantic.get("properties", {}).get("semantic_authority", {})
+    if "planning_obligations" not in set(planning_property.get("required", [])):
+        failures.append("v1.3 semantic authority does not require planning obligations")
+    obligation = planning_property.get("properties", {}).get("planning_obligations", {}).get("items", {})
+    required_obligation_fields = {
+        "obligation_id", "kind", "description", "required", "capability_id", "source"
+    }
+    if set(obligation.get("required", [])) != required_obligation_fields:
+        failures.append("v1.3 planning obligation contract is incomplete")
     return failures
 
 
@@ -342,6 +365,38 @@ def runtime_self_test() -> list[str]:
     )
 
 
+
+def planning_obligation_failures() -> list[str]:
+    description = (
+        "Provide reusable secrets management with credentials outside Git and observable "
+        "command or evidence surfaces; Ansible remains the deployment/control mechanism; "
+        "supported Helm packaging may be used; Terraform is not introduced; a controller-local "
+        "token file plus rendered Kubernetes Secret is not sufficient by itself."
+    )
+    obligations = ({
+        "obligation_id": "PO-SECRET-MANAGEMENT",
+        "kind": "capability",
+        "description": description,
+        "required": True,
+        "capability_id": "DOMAIN-SECRET-MANAGEMENT",
+        "source": "architect-planning-directive[0]",
+    },)
+    capabilities = _domain_capabilities(obligations)
+    failures: list[str] = []
+    if len(capabilities) != 1:
+        failures.append("secrets planning obligation did not become exactly one domain capability")
+    else:
+        capability = capabilities[0]
+        if capability.capability_id != "DOMAIN-SECRET-MANAGEMENT":
+            failures.append("secrets planning obligation capability id was lost")
+        if capability.description != description:
+            failures.append("secrets planning obligation description was rewritten")
+    for marker in ("Ansible", "Helm", "Terraform", "controller-local"):
+        if marker not in description:
+            failures.append(f"secrets regression marker missing: {marker}")
+    return failures
+
+
 def validate() -> list[str]:
     failures = [
         f"request-planning authority file missing: {item}"
@@ -355,6 +410,7 @@ def validate() -> list[str]:
     failures.extend(source_failures())
     failures.extend(schema_failures())
     failures.extend(process_failures())
+    failures.extend(planning_obligation_failures())
     failures.extend(runtime_self_test())
     return failures
 
@@ -376,6 +432,8 @@ def main() -> int:
     print("PASS Architect-confirmed semantic authority survives into planning")
     print("PASS historical v1.1 semantic sources remain immutable and readable")
     print("PASS v1.2 separates semantic applicability from implementation authority")
+    print("PASS v1.3 preserves Architect-confirmed planning obligations and domain capability gaps")
+    print("PASS reusable-secrets planning obligation survives as a domain capability without Terraform fallback")
     print("PASS literal discovery cannot silently re-expand confirmed authority")
     print("Kalaxy3 SAGE request planning guardrail: PASS")
     return 0

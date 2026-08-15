@@ -26,7 +26,7 @@ The planning composition uses:
 5. the checksum-bound source-only package.
 
 The source-only package is governed by
-`sage-request-planning-source-schema-v1.0.json` for legacy callers, historical semantic-bound v1.1 sources, and additive v1.2 for newly confirmed sources that separate semantic applicability from implementation authority. Their manifests deliberately have
+`sage-request-planning-source-schema-v1.0.json` for legacy callers, historical semantic-bound v1.1 sources, additive v1.2 for sources that separate semantic applicability from implementation authority, and additive v1.3 for newly confirmed sources that also preserve Architect-confirmed planning obligations. Their manifests deliberately have
 no `capabilities`, `candidates`, `selection_factors`, or
 `new_primitive_required` fields.
 
@@ -35,7 +35,15 @@ When a planning source is generated after Architect semantic confirmation, the s
 
 The planner still performs literal SAGE discovery and evidence retrieval, but raw discovery remains audit evidence rather than a second semantic-authority decision. Request-relevant contexts may remain applicable even when they own no proposed source mutation; they do not thereby gain mutation authority. For v1.2, the planner resolves authority files only from `implementation_contexts` while preserving `applicable_contexts` for evidence, governance, and semantic re-entry checks. If literal discovery produces a context that was not part of the confirmed dispositions, or if path/dependency-derived implementation authority no longer matches the confirmed implementation-context set, planning fails closed and requires a **return to semantic confirmation** rather than broadening scope.
 
-Legacy v1.0 planning sources retain literal-discovery authority behavior. Historical v1.1 semantic sources remain readable under their original combined-context semantics and are never rewritten merely to acquire the v1.2 field.
+Legacy v1.0 planning sources retain literal-discovery authority behavior. Historical v1.1 and v1.2 semantic sources remain readable under their original contracts and are never rewritten merely to acquire newer fields.
+
+### Planning obligations
+
+v1.3 carries structured **planning obligations** from the confirmed semantic record. The obligation set preserves the accepted action outcome, Definition of Done / acceptance criteria, measurement obligations, authoritative semantic modifications and constraints, feasibility obligations, and explicit Architect planning directives. Each obligation records its provenance rather than flattening those sources into an opaque summary.
+
+Only obligations explicitly classified as `capability` become `RequiredCapability` inputs to `component.select`. Constraint, requirement, validation, measurement, feasibility, outcome, and lifecycle obligations remain first-class planning authority but do not masquerade as deployable components.
+
+A required domain capability with no repository-proven candidate produces a **domain capability gap** through the existing `capability.gap` owner. That gap has `new_primitive_required=false`: it stops planning for governed capability evaluation instead of silently falling back to an engineering-contribution mechanism or pretending that a new SAGE primitive is required.
 
 ## Planning behavior
 
@@ -56,10 +64,12 @@ Candidate factors are repository-derived:
 `component.select` remains the selection authority. The planner does not use an
 opaque composite score.
 
-If a mandatory capability cannot be supplied by the registry,
-`capability.gap` records the insufficiency and the planner fails closed before
-proposal generation. A separately governed and approved capability gap is
+If a mandatory workflow capability cannot be supplied by the registry,
+`capability.gap` records the primitive insufficiency and the planner fails closed before
+proposal generation. A separately governed and approved primitive gap is
 required before a new low-level primitive can be implemented.
+
+If an Architect-confirmed domain capability cannot be proven by an existing registered candidate, the same `capability.gap` ownership records a domain capability gap and fails closed without authorizing a new primitive. This distinction is required for capabilities such as reusable secrets management: the planner must surface the unresolved domain decision instead of accepting a controller-local token file merely because it appeared in the original contribution.
 
 ## Published interface
 
@@ -105,7 +115,9 @@ The planner self-test must prove:
 - request-relevant contexts with no proposed source mutation remain visible in the semantic applicability envelope without leaking unrelated mutation authority;
 - implementation contexts remain a subset of the full semantic applicability envelope;
 - historical v1.1 semantic planning sources remain readable without rewrite; and
-- a genuinely new post-confirmation context fails closed and returns to semantic confirmation instead of silently expanding authority.
+- a genuinely new post-confirmation context fails closed and returns to semantic confirmation instead of silently expanding authority;
+- Architect-confirmed planning obligations survive into v1.3 planning authority; and
+- the reusable-secrets regression creates a domain capability gap with `new_primitive_required=false`, preserving Ansible as the established deployment/control model and preventing a controller-local token plus rendered Kubernetes Secret from satisfying the obligation by default.
 
 ## Repository-owned source construction
 

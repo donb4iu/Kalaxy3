@@ -39,3 +39,12 @@ The implementation of this composition may itself be introduced through one expl
 ## First-slice limitations
 
 The first slice uses the conservative canonical validation set `sage-guardrails`, `sage-index-check`, and `sage-operating-contract-check`. Fit-for-purpose validation minimization, richer feasibility scoring, observability-gap derivation, and external-framework review remain acceptance obligations of the parent action and are not claimed complete by this slice.
+
+
+## Architect-confirmed planning obligations
+
+Semantic confirmation must preserve more than context and file scope. The confirmed understanding derives a provenance-preserving planning-obligation set from the accepted action outcome, acceptance criteria / Definition of Done, measurement plan, authoritative assumption modifications, deterministic feasibility obligations, and explicit Architect planning directives.
+
+Planning obligations are typed. `capability` obligations identify a domain capability that downstream `component.select` must evaluate; `constraint`, `requirement`, `validation`, `measurement`, `feasibility`, `outcome`, and `lifecycle` obligations remain authoritative planning inputs without being misrepresented as components.
+
+The Architect disposition record may add explicit structured planning directives. A capability directive requires a stable `capability_id`; non-capability directives may not invent one. The confirmed semantic artifact, not the original LLM contribution, is the downstream authority.

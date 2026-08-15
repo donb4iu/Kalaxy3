@@ -516,7 +516,8 @@ sage-legacy-evidence-projection-guardrail:
 SAGE_E2E_INFRA_DIR := infrastructure/k3s-homelab
 
 .PHONY: sage-intent-to-outcome sage-intent-to-outcome-confirm \
-        sage-intent-to-outcome-adopt-request sage-intent-to-outcome-continue \
+        sage-intent-to-outcome-adopt-request sage-intent-to-outcome-adopt-iteration \
+        sage-intent-to-outcome-iterate sage-intent-to-outcome-continue \
         sage-intent-to-outcome-continue-routine sage-intent-to-outcome-record-runtime \
         sage-intent-to-outcome-promote sage-intent-to-outcome-continue-promotion \
         sage-intent-to-outcome-self-test sage-intent-to-outcome-guardrail \
@@ -540,6 +541,22 @@ sage-intent-to-outcome-adopt-request:
 	@test -n "$${SAGE_REQUEST:-}" || { echo 'SAGE_REQUEST is required'; exit 2; }
 	@test -n "$${SAGE_REQUEST_STATE:-}" || { echo 'SAGE_REQUEST_STATE is required'; exit 2; }
 	$(PYTHON) scripts/sage/sage-intent-to-outcome.py adopt-request --request "$$SAGE_REQUEST" --request-state "$$SAGE_REQUEST_STATE"
+
+sage-intent-to-outcome-adopt-iteration:
+	@test -n "$${SAGE_REQUEST:-}" || { echo 'SAGE_REQUEST is required'; exit 2; }
+	@test -n "$${SAGE_REQUEST_STATE:-}" || { echo 'SAGE_REQUEST_STATE is required'; exit 2; }
+	@test -n "$${SAGE_ACTION_ID:-}" || { echo 'SAGE_ACTION_ID is required'; exit 2; }
+	@test -n "$${SAGE_CANDIDATE_HEAD:-}" || { echo 'SAGE_CANDIDATE_HEAD is required'; exit 2; }
+	@test -n "$${SAGE_UNRESOLVED_FINDING:-}" || { echo 'SAGE_UNRESOLVED_FINDING is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py adopt-iteration --request "$$SAGE_REQUEST" --request-state "$$SAGE_REQUEST_STATE" --action-id "$$SAGE_ACTION_ID" --candidate-head "$$SAGE_CANDIDATE_HEAD" --unresolved-finding "$$SAGE_UNRESOLVED_FINDING"
+
+sage-intent-to-outcome-iterate:
+	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }
+	@test -n "$${SAGE_CONTRIBUTION:-}" || { echo 'SAGE_CONTRIBUTION is required'; exit 2; }
+	@test -n "$${SAGE_ITERATION_TRIGGER:-}" || { echo 'SAGE_ITERATION_TRIGGER is required'; exit 2; }
+	@test -n "$${SAGE_REENTRY_BOUNDARY:-}" || { echo 'SAGE_REENTRY_BOUNDARY is required'; exit 2; }
+	@test -n "$${SAGE_PARENT_CHECKPOINT:-}" || { echo 'SAGE_PARENT_CHECKPOINT is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py iterate --state "$$SAGE_INTENT_STATE" --contribution "$$SAGE_CONTRIBUTION" --trigger "$$SAGE_ITERATION_TRIGGER" --reentry-boundary "$$SAGE_REENTRY_BOUNDARY" --parent-checkpoint "$$SAGE_PARENT_CHECKPOINT"
 
 sage-intent-to-outcome-continue:
 	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }

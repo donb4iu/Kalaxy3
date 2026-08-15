@@ -16,11 +16,11 @@ from workflows.request_execution import (
     continue_request_from_routine_receipt,
     execute_request,
 )
-from workflows.request_planning import plan_request
-from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap
+from workflows.request_planning import plan_request, reuse_component_plan
+from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap, reuse_confirmed_intent
 
 WORKFLOW_ID = "sage.intent-to-outcome"
-WORKFLOW_VERSION = "0.1.0"
+WORKFLOW_VERSION = "0.2.1"
 PRIMITIVES_USED = (
     "catalog.registry",
     "file.atomic-preserve-mode",
@@ -35,6 +35,77 @@ def _stable_json(value: Mapping[str, Any]) -> str:
 
 def _request_digest(request: str) -> str:
     return hashlib.sha256(request.encode("utf-8")).hexdigest()
+
+
+def _semantic_planning_source(result: Mapping[str, Any]) -> str:
+    """Resolve the semantic-bootstrap planning-source interface across compatible versions."""
+
+    value = result.get("planning_source") or result.get("source")
+    if not isinstance(value, str) or not value:
+        raise WorkflowError("semantic bootstrap did not return a planning source")
+    return value
+
+
+REENTRY_BOUNDARIES = {
+    "implementation-local",
+    "planning",
+    "semantic-confirmation",
+    "authority",
+}
+
+
+def _iteration_record(
+    number: int,
+    *,
+    parent_checkpoint: str | None,
+    candidate_head: str | None,
+    trigger: str,
+    affected_obligations: list[str],
+    status: str,
+    unresolved_findings: list[str] | None = None,
+    next_boundary: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "iteration": number,
+        "parent_checkpoint": parent_checkpoint,
+        "candidate_head": candidate_head,
+        "trigger": trigger,
+        "affected_obligations": list(dict.fromkeys(affected_obligations)),
+        "validation_state": "pending",
+        "status": status,
+        "unresolved_findings": list(dict.fromkeys(unresolved_findings or [])),
+        "learning": [],
+        "invalidated_downstream_state": [],
+        "next_boundary": next_boundary,
+        "promotion_eligible": False,
+    }
+
+
+def _ensure_iteration_contract(state: dict[str, Any]) -> dict[str, Any]:
+    if "iterations" not in state:
+        state["objective_id"] = state.get("action_id") or state.get("request_sha256")
+        state["current_iteration"] = 1
+        state["iterations"] = [
+            _iteration_record(
+                1,
+                parent_checkpoint=None,
+                candidate_head=None,
+                trigger="legacy intent-to-outcome state adopted into iterative contract",
+                affected_obligations=[],
+                status="legacy-adopted",
+                next_boundary=None,
+            )
+        ]
+        state["promotion_eligible"] = False
+    return state
+
+
+def _current_iteration(state: Mapping[str, Any]) -> dict[str, Any]:
+    number = int(state.get("current_iteration", 0))
+    for item in state.get("iterations", []):
+        if isinstance(item, dict) and item.get("iteration") == number:
+            return item
+    raise WorkflowError("intent state current iteration is missing")
 
 
 def _new_state_directory() -> Path:
@@ -59,7 +130,7 @@ def _load_parent(path: Path) -> dict[str, Any]:
     request = str(value.get("request", ""))
     if not request or value.get("request_sha256") != _request_digest(request):
         raise WorkflowError("intent-to-outcome request binding is invalid")
-    return value
+    return _ensure_iteration_contract(value)
 
 
 def begin_intent(
@@ -88,12 +159,26 @@ def begin_intent(
         "request": request,
         "request_sha256": _request_digest(request),
         "action_id": action_id,
+        "objective_id": action_id,
         "contribution": str(contribution.expanduser().resolve()),
         "status": "architect-confirmation-required",
         "semantic_state": str(semantic["state"]),
         "request_execution_state": None,
         "runtime_receipt": None,
         "promotion_state": None,
+        "current_iteration": 1,
+        "iterations": [
+            _iteration_record(
+                1,
+                parent_checkpoint=None,
+                candidate_head=None,
+                trigger="initial governed objective candidate",
+                affected_obligations=[],
+                status="semantic-confirmation",
+                next_boundary="semantic-confirmation",
+            )
+        ],
+        "promotion_eligible": False,
         "history": [],
     }
     _persist(state_path, state)
@@ -130,10 +215,11 @@ def confirm_intent(
         Path("~/Downloads").expanduser()
         / ("sage-request-proposal-" + datetime.now().strftime("%Y%m%d-%H%M%S") + ".zip")
     )
+    semantic_source = _semantic_planning_source(semantic)
     planned = plan_request(
         resolved,
         str(state["request"]),
-        Path(str(semantic["planning_source"])),
+        Path(semantic_source),
         proposal_path,
     )
     execution = execute_request(
@@ -142,13 +228,17 @@ def confirm_intent(
         Path(str(planned["proposal"])),
     )
     state["status"] = "request-operator-review-required"
-    state["planning_source"] = str(semantic["planning_source"])
+    state["planning_source"] = semantic_source
     state["planning_proposal"] = str(planned["proposal"])
     state["request_execution_state"] = str(execution["state"])
+    iteration = _current_iteration(state)
+    iteration["status"] = "request-execution"
+    iteration["next_boundary"] = "operator-review"
     state["history"].append(
         {
             "stage": "semantic-plan-execute",
-            "planning_source": str(semantic["planning_source"]),
+            "iteration": state["current_iteration"],
+            "planning_source": semantic_source,
             "planning_proposal": str(planned["proposal"]),
             "request_execution_state": str(execution["state"]),
         }
@@ -161,11 +251,17 @@ def confirm_intent(
     }
 
 
-def adopt_request_execution(
+def adopt_iteration(
     repo: Path,
     request: str,
     request_state: Path,
+    *,
+    action_id: str | None = None,
+    candidate_head: str | None = None,
+    unresolved_findings: list[str] | None = None,
 ) -> Mapping[str, Any]:
+    """Adopt an existing request execution as iteration 1 without claiming promotion."""
+
     resolved = repo.expanduser().resolve()
     PrimitiveCatalog.load(resolved / "sage-workflow-primitives.json").require(
         PRIMITIVES_USED
@@ -178,33 +274,221 @@ def adopt_request_execution(
         raise WorkflowError("adopted request state does not match literal request")
     directory = _new_state_directory()
     state_path = directory / "intent-to-outcome-state.json"
+    complete = child.get("current_boundary") == "complete"
+    findings = list(dict.fromkeys(unresolved_findings or []))
     state = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "record_type": "sage-intent-to-outcome-state",
         "workflow_id": WORKFLOW_ID,
         "workflow_version": WORKFLOW_VERSION,
         "request": request,
         "request_sha256": _request_digest(request),
-        "action_id": None,
+        "action_id": action_id,
+        "objective_id": action_id or _request_digest(request),
         "contribution": None,
-        "status": (
-            "source-git-complete"
-            if child.get("current_boundary") == "complete"
-            else "request-operator-review-required"
-        ),
+        "status": "source-git-complete" if complete else "request-operator-review-required",
         "semantic_state": None,
+        "planning_source": None,
+        "planning_proposal": None,
         "request_execution_state": str(request_state),
         "runtime_receipt": None,
         "promotion_state": None,
+        "current_iteration": 1,
+        "iterations": [
+            _iteration_record(
+                1,
+                parent_checkpoint=None,
+                candidate_head=candidate_head,
+                trigger="one-time bootstrap adoption of pre-front-door candidate",
+                affected_obligations=[],
+                status="checkpoint-non-promotable" if complete else "request-execution",
+                unresolved_findings=findings,
+                next_boundary="candidate-iteration" if complete else "operator-review",
+            )
+        ],
+        "promotion_eligible": False,
         "history": [
             {
                 "stage": "one-time-bootstrap-adoption",
+                "iteration": 1,
                 "request_execution_state": str(request_state),
+                "candidate_head": candidate_head,
+                "unresolved_findings": findings,
             }
         ],
     }
     _persist(state_path, state)
     return {"status": state["status"], "state": str(state_path)}
+
+
+def adopt_request_execution(
+    repo: Path,
+    request: str,
+    request_state: Path,
+) -> Mapping[str, Any]:
+    """Compatibility wrapper for the original one-time bootstrap seam."""
+
+    return adopt_iteration(repo, request, request_state)
+
+
+def begin_candidate_iteration(
+    repo: Path,
+    state_path: Path,
+    contribution: Path,
+    *,
+    trigger: str,
+    reentry_boundary: str,
+    parent_checkpoint: str,
+    affected_obligations: list[str] | None = None,
+) -> Mapping[str, Any]:
+    """Begin the next candidate under the same objective at the earliest affected boundary."""
+
+    if reentry_boundary not in REENTRY_BOUNDARIES:
+        raise WorkflowError(f"unsupported iteration re-entry boundary: {reentry_boundary}")
+    if not trigger.strip() or not parent_checkpoint.strip():
+        raise WorkflowError("candidate iteration requires trigger and parent checkpoint")
+    state = _load_parent(state_path)
+    if state.get("status") not in {"source-git-complete", "runtime-verified"}:
+        raise WorkflowError("candidate iteration requires a durable prior candidate checkpoint")
+    prior = _current_iteration(state)
+    prior["status"] = "checkpoint-non-promotable"
+    prior["promotion_eligible"] = False
+    if not prior.get("unresolved_findings"):
+        prior["unresolved_findings"] = [trigger.strip()]
+    number = int(state["current_iteration"]) + 1
+    iteration = _iteration_record(
+        number,
+        parent_checkpoint=parent_checkpoint.strip(),
+        candidate_head=None,
+        trigger=trigger.strip(),
+        affected_obligations=affected_obligations or [],
+        status="starting",
+        next_boundary=reentry_boundary,
+    )
+    state["iterations"].append(iteration)
+    state["current_iteration"] = number
+    state["promotion_eligible"] = False
+    state["runtime_receipt"] = None
+    state["promotion_state"] = None
+    state["contribution"] = str(contribution.expanduser().resolve())
+
+    resolved = repo.expanduser().resolve()
+    if reentry_boundary == "authority":
+        iteration["status"] = "authority-review-required"
+        iteration["invalidated_downstream_state"] = [
+            "semantic-confirmation",
+            "planning",
+            "request-execution",
+            "runtime",
+            "promotion",
+        ]
+        state["status"] = "authority-review-required"
+        state["history"].append({
+            "stage": "candidate-iteration-start",
+            "iteration": number,
+            "reentry_boundary": reentry_boundary,
+            "trigger": trigger.strip(),
+        })
+        _persist(state_path.expanduser().resolve(), state)
+        return {"status": state["status"], "state": str(state_path.expanduser().resolve())}
+
+    if reentry_boundary == "semantic-confirmation":
+        if not state.get("action_id"):
+            raise WorkflowError("semantic re-entry requires an objective action_id")
+        iteration["invalidated_downstream_state"] = [
+            "semantic-confirmation",
+            "planning",
+            "request-execution",
+            "runtime",
+            "promotion",
+        ]
+        semantic = begin_bootstrap(
+            resolved,
+            str(state["action_id"]),
+            str(state["request"]),
+            contribution.expanduser().resolve(),
+        )
+        state["semantic_state"] = str(semantic["state"])
+        state["status"] = "architect-confirmation-required"
+        iteration["status"] = "semantic-confirmation"
+        iteration["next_boundary"] = "semantic-confirmation"
+        state["history"].append({
+            "stage": "candidate-iteration-start",
+            "iteration": number,
+            "reentry_boundary": reentry_boundary,
+            "trigger": trigger.strip(),
+        })
+        _persist(state_path.expanduser().resolve(), state)
+        return {
+            "status": state["status"],
+            "state": str(state_path.expanduser().resolve()),
+            "semantic_understanding": semantic["semantic_understanding"],
+            "semantic_understanding_sha256": semantic["semantic_understanding_sha256"],
+            "architect_dispositions": semantic["architect_dispositions"],
+            "confirmation_command": semantic["confirmation_command"],
+        }
+
+    if not state.get("planning_source"):
+        raise WorkflowError(
+            f"{reentry_boundary} re-entry requires a prior confirmed planning source"
+        )
+    reused = reuse_confirmed_intent(
+        resolved,
+        str(state["request"]),
+        Path(str(state["planning_source"])),
+        contribution.expanduser().resolve(),
+    )
+    new_source = Path(str(reused["planning_source"]))
+    proposal_path = (
+        Path("~/Downloads").expanduser()
+        / ("sage-request-proposal-" + datetime.now().strftime("%Y%m%d-%H%M%S") + ".zip")
+    )
+    if reentry_boundary == "implementation-local":
+        if not state.get("planning_proposal"):
+            raise WorkflowError("implementation-local re-entry requires a prior planning proposal")
+        iteration["invalidated_downstream_state"] = ["request-execution", "runtime", "promotion"]
+        planned = reuse_component_plan(
+            resolved,
+            str(state["request"]),
+            new_source,
+            Path(str(state["planning_proposal"])),
+            proposal_path,
+        )
+    else:
+        iteration["invalidated_downstream_state"] = ["planning", "request-execution", "runtime", "promotion"]
+        planned = plan_request(
+            resolved,
+            str(state["request"]),
+            new_source,
+            proposal_path,
+        )
+    execution = execute_request(
+        resolved,
+        str(state["request"]),
+        Path(str(planned["proposal"])),
+    )
+    state["planning_source"] = str(new_source)
+    state["planning_proposal"] = str(planned["proposal"])
+    state["request_execution_state"] = str(execution["state"])
+    state["status"] = "request-operator-review-required"
+    iteration["status"] = "request-execution"
+    iteration["next_boundary"] = "operator-review"
+    state["history"].append({
+        "stage": "candidate-iteration-start",
+        "iteration": number,
+        "reentry_boundary": reentry_boundary,
+        "trigger": trigger.strip(),
+        "planning_source": str(new_source),
+        "planning_proposal": str(planned["proposal"]),
+        "request_execution_state": str(execution["state"]),
+    })
+    _persist(state_path.expanduser().resolve(), state)
+    return {
+        "status": state["status"],
+        "state": str(state_path.expanduser().resolve()),
+        "iteration": number,
+        "request_execution": execution,
+    }
 
 
 def continue_intent_request(
@@ -237,9 +521,16 @@ def continue_intent_request(
         if result["status"] == "complete"
         else "request-operator-review-required"
     )
+    iteration = _current_iteration(state)
+    if result["status"] == "complete":
+        iteration["status"] = "checkpoint-non-promotable"
+        iteration["validation_state"] = "source-validations-passed"
+        iteration["next_boundary"] = "runtime-validation"
+        iteration["promotion_eligible"] = False
     state["history"].append(
         {
             "stage": "request-continuation",
+            "iteration": state["current_iteration"],
             "verified_boundary": result.get("verified_boundary"),
             "status": result["status"],
         }
@@ -291,9 +582,16 @@ def record_runtime(
         receipt_path.read_bytes()
     ).hexdigest()
     state["status"] = "runtime-verified"
+    iteration = _current_iteration(state)
+    iteration["validation_state"] = "runtime-verified"
+    iteration["status"] = "validated-candidate"
+    iteration["next_boundary"] = "promotion"
+    iteration["promotion_eligible"] = not bool(iteration.get("unresolved_findings"))
+    state["promotion_eligible"] = iteration["promotion_eligible"]
     state["history"].append(
         {
             "stage": "runtime-acceptance",
+            "iteration": state["current_iteration"],
             "receipt": str(receipt_path),
             "sha256": state["runtime_receipt_sha256"],
         }
@@ -312,6 +610,9 @@ def begin_intent_promotion(
     state = _load_parent(state_path)
     if state.get("status") != "runtime-verified":
         raise WorkflowError("runtime outcome must be verified before promotion")
+    iteration = _current_iteration(state)
+    if state.get("promotion_eligible") is not True or iteration.get("unresolved_findings"):
+        raise WorkflowError("current candidate remains non-promotable while unresolved findings exist")
     result = start_promotion(
         repo=repo.expanduser().resolve(),
         request=str(state["request"]),

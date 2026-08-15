@@ -61,6 +61,35 @@ def runtime_tests() -> list[str]:
 
     gap = CapabilityGapRecorder.create(gap_id="SAGE-GAP-20260801-999", request="test", authority_receipt="fixture", component_manifest="fixture", required_capability="test", candidates_considered=({"component_id":"old","version":"1.0.0","source_path":"old.py","insufficiency":"missing contract","composition_can_close_gap":False},), missing_interface_or_behavior="new contract", why_configuration_is_insufficient="configuration cannot add interface", why_composition_is_insufficient="composition cannot add interface", proposed_primitive={"primitive_id":"new.primitive","responsibility":"test","side_effects":"none","idempotency":"deterministic","logging":"caller","failure_mode":"fail closed","runtime_tests":["positive","negative"],"initial_maturity":"pilot"}, approval={"status":"approved","reviewed_by":"operator","reviewed_at":"2026-08-01T22:00:00-05:00","rationale":"fixture"}, evidence_references=("fixture",), created_at="2026-08-01T22:00:00-05:00")
     CapabilityGapRecorder.assert_implementation_allowed(gap)
+    domain_gap = CapabilityGapRecorder.create_domain(
+        gap_id="SAGE-GAP-20260815-DOMAIN",
+        request="test",
+        authority_receipt="fixture",
+        component_manifest="fixture",
+        required_capability="DOMAIN-SECRET-MANAGEMENT",
+        candidates_considered=({
+            "component_id":"workflow.fixture",
+            "version":"1.0.0",
+            "source_path":"fixture.py",
+            "insufficiency":"workflow primitive does not provide reusable secrets management",
+            "composition_can_close_gap":False,
+        },),
+        missing_interface_or_behavior="Reusable secrets management with credentials outside Git and observable command/evidence surfaces.",
+        why_configuration_is_insufficient="A controller-local token file plus rendered Kubernetes Secret does not establish the reusable capability.",
+        why_composition_is_insufficient="Existing workflow primitives can govern selection but do not supply the domain capability.",
+        approval={"status":"review-required","reviewed_by":None,"reviewed_at":None,"rationale":"domain selection required"},
+        evidence_references=("fixture:architect-planning-obligation",),
+        created_at="2026-08-15T01:00:00-05:00",
+    )
+    CapabilityGapRecorder.assert_domain_selection_required(domain_gap)
+    if domain_gap["gap"]["new_primitive_required"] is not False or domain_gap["proposed_primitive"] is not None:
+        failures.append("domain capability gap incorrectly authorized a new primitive")
+    try:
+        CapabilityGapRecorder.assert_implementation_allowed(domain_gap)
+    except ValueError:
+        pass
+    else:
+        failures.append("domain capability gap was accepted as primitive implementation authority")
     try:
         CapabilityGapRecorder.assert_implementation_allowed({**gap, "approval": {"status":"review-required"}})
     except PermissionError:

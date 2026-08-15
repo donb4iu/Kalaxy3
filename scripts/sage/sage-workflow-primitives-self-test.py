@@ -1052,6 +1052,29 @@ def test_decision_and_diagnosis_primitives() -> None:
 
     gap = CapabilityGapRecorder.create(gap_id="SAGE-GAP-20260801-997", request="fixture", authority_receipt="fixture", component_manifest="fixture", required_capability="fixture", candidates_considered=({"component_id":"old","version":"1.0.0","source_path":"old.py","insufficiency":"missing","composition_can_close_gap":False},), missing_interface_or_behavior="missing", why_configuration_is_insufficient="cannot configure", why_composition_is_insufficient="cannot compose", proposed_primitive={"primitive_id":"new.fixture","responsibility":"fixture","side_effects":"none","idempotency":"deterministic","logging":"caller","failure_mode":"closed","runtime_tests":["positive","negative"],"initial_maturity":"pilot"}, approval={"status":"approved","reviewed_by":"operator","reviewed_at":"2026-08-01T22:00:00-05:00","rationale":"fixture"}, evidence_references=("fixture",), created_at="2026-08-01T22:00:00-05:00")
     CapabilityGapRecorder.assert_implementation_allowed(gap)
+    domain_gap = CapabilityGapRecorder.create_domain(
+        gap_id="SAGE-GAP-20260815-DOMAIN",
+        request="fixture",
+        authority_receipt="fixture",
+        component_manifest="fixture",
+        required_capability="DOMAIN-SECRET-MANAGEMENT",
+        candidates_considered=({
+            "component_id":"old",
+            "version":"1.0.0",
+            "source_path":"old.py",
+            "insufficiency":"does not provide reusable secrets management",
+            "composition_can_close_gap":False,
+        },),
+        missing_interface_or_behavior="Reusable secrets management",
+        why_configuration_is_insufficient="local token handling is insufficient",
+        why_composition_is_insufficient="workflow composition does not supply the domain capability",
+        approval={"status":"review-required","reviewed_by":None,"reviewed_at":None,"rationale":"fixture"},
+        evidence_references=("fixture",),
+        created_at="2026-08-15T01:00:00-05:00",
+    )
+    CapabilityGapRecorder.assert_domain_selection_required(domain_gap)
+    if domain_gap["gap"]["new_primitive_required"] is not False:
+        raise RuntimeError("domain capability gap incorrectly requires a primitive")
 
     diagnosis = FailureDiagnoser.diagnose(diagnosis_id="SAGE-DIAG-20260801-997", failure_id="FAIL-997", attempted_action="fixture", what_failed="fixture", direct_evidence=({"source":"fixture","captured_at":"2026-08-01T22:00:00-05:00","observation":"failed","artifact":"fixture","sha256":None},), actual_path={"component_id":"bad","component_version":"1.0.0","source_path":"bad.py","description":"bad"}, expected_path={"component_id":"good","component_version":"1.0.0","source_path":"good.py","description":"good"}, why_actual_path_differed="selection bypass", ownership="composition", mutation_effect={"mutation_opportunity":True,"mutation_performed":False,"detected_pre_mutation":True,"mutation_scope":"none"}, lesson_use={"retrieval_performed":True,"applicable_lesson_ids":[],"surfaced_lesson_ids":[],"used_lesson_ids":[],"nonuse_reason":None}, previous_failure_references=(), avoidable_rework_minutes=None, correction={"disposition":"update-composition","reusable_correction":"use selected component","target_control_type":"guardrail","primitive_version_bump_required":False,"regression_test_required":True,"action_reference":None,"no_action_rationale":None}, evidence_references=("fixture",), recorded_at="2026-08-01T22:00:00-05:00")
     if diagnosis["divergence"]["selection_failure"] is not True:
