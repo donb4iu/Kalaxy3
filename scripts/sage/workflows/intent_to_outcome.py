@@ -24,7 +24,7 @@ from workflows.request_planning import (
 from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap, reuse_confirmed_intent
 
 WORKFLOW_ID = "sage.intent-to-outcome"
-WORKFLOW_VERSION = "0.2.2"
+WORKFLOW_VERSION = "0.2.3"
 PRIMITIVES_USED = (
     "catalog.registry",
     "file.atomic-preserve-mode",
@@ -522,6 +522,90 @@ def begin_candidate_iteration(
     }
 
 
+
+def _load_json_object(path: Path, label: str) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise WorkflowError(f"{label} is not readable JSON: {path}: {error}") from error
+    if not isinstance(value, dict):
+        raise WorkflowError(f"{label} must be a JSON object: {path}")
+    return value
+
+
+def reconcile_completed_request_child(
+    parent: Mapping[str, Any],
+    child_state_path: Path,
+    *,
+    routine_receipt: Path | None = None,
+) -> Mapping[str, Any]:
+    """Validate and reconcile a child request execution that already self-closed.
+
+    The routine Git controller may consume its own receipt and move request execution
+    to ``complete`` before the parent intent-to-outcome workflow is resumed.  Parent
+    continuation must treat that completed child state as evidence, not replay the
+    already-consumed mutation boundary.
+    """
+
+    child_state_path = child_state_path.expanduser().resolve()
+    child = _load_json_object(child_state_path, "completed request child state")
+    if child.get("record_type") != "sage-request-execution-state":
+        raise WorkflowError("completed request child state type is invalid")
+    if child.get("request_sha256") != parent.get("request_sha256"):
+        raise WorkflowError("completed request child does not match parent literal request")
+    if child.get("current_boundary") != "complete":
+        raise WorkflowError("request child is not already complete")
+    if child.get("current_proposal") is not None:
+        raise WorkflowError("completed request child still carries an active proposal")
+
+    history = child.get("history")
+    if not isinstance(history, list) or not history:
+        raise WorkflowError("completed request child has no boundary history")
+    completed = [
+        item
+        for item in history
+        if isinstance(item, dict)
+        and item.get("boundary") == "routine-git-lifecycle"
+        and isinstance(item.get("boundary_result_sha256"), str)
+        and item.get("boundary_result_sha256")
+    ]
+    if not completed:
+        raise WorkflowError("completed request child lacks routine Git lifecycle evidence")
+    event = completed[-1]
+
+    canonical_receipt = (child_state_path.parent / "routine-git-lifecycle-receipt.json").resolve()
+    supplied_receipt = routine_receipt.expanduser().resolve() if routine_receipt is not None else canonical_receipt
+    if supplied_receipt != canonical_receipt:
+        raise WorkflowError("routine receipt does not match the completed child canonical receipt")
+    if not canonical_receipt.is_file():
+        raise WorkflowError(f"completed child routine receipt is missing: {canonical_receipt}")
+    receipt_sha256 = hashlib.sha256(canonical_receipt.read_bytes()).hexdigest()
+    if event.get("boundary_result_sha256") != receipt_sha256:
+        raise WorkflowError("completed child routine receipt digest does not match child history")
+    _load_json_object(canonical_receipt, "completed child routine receipt")
+
+    evidence: dict[str, str] = {}
+    for field, label in (
+        ("verification", "post-operator verification"),
+        ("metrics", "outcome metrics"),
+        ("evidence_closeout", "evidence closeout"),
+    ):
+        raw = event.get(field)
+        if not isinstance(raw, str) or not raw:
+            raise WorkflowError(f"completed request child lacks {field} evidence")
+        evidence_path = Path(raw).expanduser().resolve()
+        _load_json_object(evidence_path, label)
+        evidence[field] = str(evidence_path)
+
+    return {
+        "status": "complete",
+        "verified_boundary": "routine-git-lifecycle",
+        "reconciled_from_completed_child": True,
+        "routine_receipt": str(canonical_receipt),
+        "routine_receipt_sha256": receipt_sha256,
+        **evidence,
+    }
+
 def continue_intent_request(
     repo: Path,
     state_path: Path,
@@ -535,7 +619,18 @@ def continue_intent_request(
     if state.get("status") != "request-operator-review-required":
         raise WorkflowError("intent state is not awaiting request continuation")
     child_state = Path(str(state["request_execution_state"]))
-    if routine_receipt is not None:
+    child_snapshot = _load_json_object(child_state.expanduser().resolve(), "request child state")
+    if child_snapshot.get("current_boundary") == "complete":
+        if routine_receipt is None:
+            raise WorkflowError(
+                "completed self-closing request child requires its canonical routine receipt for parent reconciliation"
+            )
+        result = reconcile_completed_request_child(
+            state,
+            child_state,
+            routine_receipt=routine_receipt,
+        )
+    elif routine_receipt is not None:
         result = continue_request_from_routine_receipt(
             repo.expanduser().resolve(),
             child_state,
@@ -564,6 +659,9 @@ def continue_intent_request(
             "iteration": state["current_iteration"],
             "verified_boundary": result.get("verified_boundary"),
             "status": result["status"],
+            "reconciled_from_completed_child": bool(
+                result.get("reconciled_from_completed_child", False)
+            ),
         }
     )
     _persist(state_path.expanduser().resolve(), state)

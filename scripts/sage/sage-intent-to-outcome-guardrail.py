@@ -49,6 +49,9 @@ def main() -> int:
         "validate_reusable_plan_lineage",
         "proposal_package",
         "iterative objective adoption requires --planning-source",
+        "reconcile_completed_request_child",
+        "reconciled_from_completed_child",
+        "completed request child",
     ):
         if marker not in wrapper:
             failures.append(f"front door missing existing-component marker: {marker}")
@@ -114,6 +117,8 @@ def main() -> int:
         "earliest affected boundary",
         "preserve the prior confirmed planning source",
         "different subset of already-authorized paths",
+        "already self-closed",
+        "must not replay",
     ):
         if marker not in standard:
             failures.append(f"intent-to-outcome standard missing: {marker}")
@@ -127,6 +132,7 @@ def main() -> int:
     print("PASS front door contains no direct Git, GitHub, deployment, or credential mutation path")
     print("PASS one-time bootstrap adoption path is explicit")
     print("PASS adopted iterative objectives preserve and validate planning source/proposal lineage")
+    print("PASS already-completed self-closing request children reconcile without replaying Git")
     print("PASS candidate iteration preserves non-promotable checkpoints and earliest-boundary re-entry")
     print("Kalaxy3 SAGE intent-to-outcome guardrail: PASS")
     return 0

@@ -7,6 +7,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tempfile
+import hashlib
 from pathlib import Path
 
 SAGE_DIR = Path(__file__).resolve().parent
@@ -23,6 +25,7 @@ from workflows.intent_to_outcome import (  # noqa: E402
     continue_intent_promotion,
     continue_intent_request,
     record_runtime,
+    reconcile_completed_request_child,
     validate_runtime_receipt,
 )
 
@@ -52,6 +55,57 @@ def self_test() -> int:
     else:
         raise RuntimeError("missing MFA runtime proof was accepted")
     print("PASS runtime acceptance requires MFA and negative-access proof")
+
+    with tempfile.TemporaryDirectory(prefix="sage-intent-completed-child-") as temp_name:
+        temp = Path(temp_name)
+        request = "fixture completed child request"
+        request_sha = hashlib.sha256(request.encode("utf-8")).hexdigest()
+        receipt = temp / "routine-git-lifecycle-receipt.json"
+        receipt.write_text(json.dumps({"schema_version": "fixture", "status": "pass"}) + "\n", encoding="utf-8")
+        receipt_sha = hashlib.sha256(receipt.read_bytes()).hexdigest()
+        verification = temp / "post-operator-verification.json"
+        metrics = temp / "outcome-metrics.json"
+        closeout = temp / "closeout.json"
+        for path in (verification, metrics, closeout):
+            path.write_text(json.dumps({"status": "pass"}) + "\n", encoding="utf-8")
+        child = temp / "request-execution-state.json"
+        child.write_text(
+            json.dumps(
+                {
+                    "record_type": "sage-request-execution-state",
+                    "request_sha256": request_sha,
+                    "current_boundary": "complete",
+                    "current_proposal": None,
+                    "history": [
+                        {
+                            "boundary": "routine-git-lifecycle",
+                            "boundary_result_sha256": receipt_sha,
+                            "verification": str(verification),
+                            "metrics": str(metrics),
+                            "evidence_closeout": str(closeout),
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        reconciled = reconcile_completed_request_child(
+            {"request_sha256": request_sha}, child, routine_receipt=receipt
+        )
+        if reconciled.get("status") != "complete" or reconciled.get("reconciled_from_completed_child") is not True:
+            raise RuntimeError("completed child reconciliation did not return complete evidence")
+        bad_receipt = temp / "other-receipt.json"
+        bad_receipt.write_text("{}\n", encoding="utf-8")
+        try:
+            reconcile_completed_request_child(
+                {"request_sha256": request_sha}, child, routine_receipt=bad_receipt
+            )
+        except WorkflowError:
+            pass
+        else:
+            raise RuntimeError("non-canonical completed-child routine receipt was accepted")
+    print("PASS already-completed self-closing request child reconciles without replay")
     print("PASS intent-to-outcome front door self-test")
     return 0
 
