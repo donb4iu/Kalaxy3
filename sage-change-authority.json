@@ -150,14 +150,25 @@
         "benchmark",
         "audit",
         "validation",
-        "chronicle"
+        "chronicle",
+        "legacy evidence",
+        "historical evidence",
+        "legacy evidence projection",
+        "version-aware evidence projection",
+        "kalaxy2 evidence"
       ],
       "path_prefixes": [
         "markdown/evidence/",
         "markdown/benchmarks/",
         "markdown/installation/",
         "markdown/operations/",
-        "scripts/sage/"
+        "scripts/sage/",
+        "sage-legacy-evidence-sources.json",
+        "scripts/sage/legacy_evidence_projection.py",
+        "scripts/sage/sage-legacy-evidence-project.py",
+        "scripts/sage/sage-legacy-evidence-projection-guardrail.py",
+        "markdown/standards/sage-legacy-evidence-projection-schema-v1.0.json",
+        "markdown/standards/kalaxy3-sage-legacy-evidence-projection-process.md"
       ],
       "requires": [],
       "working_directory": ".",
@@ -176,7 +187,13 @@
         "scripts/sage/workflow/evidence_records.py",
         "scripts/sage/sage-evidence-template-guardrail.py",
         "scripts/sage/sage-evidence-navigation-architecture-guardrail.py",
-        "scripts/sage/workflows/evidence_navigation.py"
+        "scripts/sage/workflows/evidence_navigation.py",
+        "sage-legacy-evidence-sources.json",
+        "scripts/sage/legacy_evidence_projection.py",
+        "scripts/sage/sage-legacy-evidence-project.py",
+        "scripts/sage/sage-legacy-evidence-projection-guardrail.py",
+        "markdown/standards/sage-legacy-evidence-projection-schema-v1.0.json",
+        "markdown/standards/kalaxy3-sage-legacy-evidence-projection-process.md"
       ],
       "baseline_checks": [
         "make sage-index-check",
@@ -1123,6 +1140,142 @@
         "Record interpretation provenance and context dispositions.",
         "Preserve Architect semantic-confirmation digest separately from feasibility and authorization.",
         "Measure clarification, scope churn, capability gaps, and avoidable rework."
+      ]
+    },
+    {
+      "id": "security",
+      "priority": 115,
+      "match_terms": [
+        "security",
+        "trust boundary",
+        "trust boundaries",
+        "rbac",
+        "secret handling",
+        "secrets",
+        "tls",
+        "mfa",
+        "identity aware proxy",
+        "identity-aware proxy",
+        "access policy",
+        "privileged management",
+        "privileged surface",
+        "phase 7"
+      ],
+      "path_prefixes": [
+        "infrastructure/k3s-homelab/access/",
+        "infrastructure/k3s-homelab/playbooks/access-baseline.yml",
+        "infrastructure/k3s-homelab/playbooks/tasks/security",
+        "infrastructure/k3s-homelab/playbooks/templates/security",
+        "infrastructure/k3s-homelab/inventory/group_vars/all/security",
+        "infrastructure/k3s-homelab/README.md",
+        "markdown/Infrastructure/K3s_Homelab/01_Architecture.md",
+        "markdown/Infrastructure/K3s_Homelab/03_Deployment_Order.md",
+        "markdown/Infrastructure/K3s_Homelab/04_Phased_Deployment.md",
+        "markdown/Infrastructure/K3s_Homelab/Phase_Notes.md"
+      ],
+      "requires": [
+        "repository-governance",
+        "evidence"
+      ],
+      "working_directory": "infrastructure/k3s-homelab",
+      "authoritative_files": [
+        "infrastructure/k3s-homelab/inventory/group_vars/all/main.yml",
+        "infrastructure/k3s-homelab/scripts/sage-source-guardrails.py",
+        "infrastructure/k3s-homelab/scripts/sage-deployment-guardrail.py",
+        "infrastructure/k3s-homelab/README.md",
+        "markdown/Infrastructure/K3s_Homelab/01_Architecture.md",
+        "markdown/Infrastructure/K3s_Homelab/03_Deployment_Order.md",
+        "markdown/Infrastructure/K3s_Homelab/04_Phased_Deployment.md",
+        "markdown/Infrastructure/K3s_Homelab/Phase_Notes.md"
+      ],
+      "baseline_checks": [
+        "make source-guardrails",
+        "make deployment-guardrail"
+      ],
+      "required_validation": [
+        "make source-guardrails",
+        "make deployment-guardrail",
+        "make cluster-guardrails"
+      ],
+      "evidence_process": [
+        "Capture trust classes, secret boundaries, RBAC implications, TLS/MFA requirements, and privileged-surface exposure.",
+        "Fail closed when a public or authenticated path would silently widen privileged cluster authority.",
+        "Preserve explicit Architect disposition for material security-boundary changes."
+      ]
+    },
+    {
+      "id": "external-access",
+      "priority": 125,
+      "match_terms": [
+        "external access",
+        "external publication",
+        "externally viewable",
+        "public exposure",
+        "public hostname",
+        "cloudflare",
+        "cloudflare tunnel",
+        "cloudflare access",
+        "cloudflared",
+        "ingress",
+        "dns",
+        "traefik",
+        "metallb",
+        "router port",
+        "port forwarding",
+        "external networking",
+        "network exposure",
+        "public service",
+        "phase 7"
+      ],
+      "path_prefixes": [
+        "infrastructure/k3s-homelab/cloudflare/",
+        "infrastructure/k3s-homelab/playbooks/tasks/cloudflare",
+        "infrastructure/k3s-homelab/playbooks/templates/cloudflared",
+        "infrastructure/k3s-homelab/playbooks/tasks/external-access",
+        "infrastructure/k3s-homelab/playbooks/templates/external-access",
+        "infrastructure/k3s-homelab/inventory/group_vars/all/cloudflare",
+        "infrastructure/k3s-homelab/inventory/group_vars/all/external-access",
+        "infrastructure/k3s-homelab/README.md",
+        "markdown/Infrastructure/K3s_Homelab/01_Architecture.md",
+        "markdown/Infrastructure/K3s_Homelab/03_Deployment_Order.md",
+        "markdown/Infrastructure/K3s_Homelab/04_Phased_Deployment.md",
+        "markdown/Infrastructure/K3s_Homelab/Phase_Notes.md"
+      ],
+      "requires": [
+        "security",
+        "repository-governance",
+        "evidence",
+        "helm-platform",
+        "k3s-cluster",
+        "observability"
+      ],
+      "working_directory": "infrastructure/k3s-homelab",
+      "authoritative_files": [
+        "infrastructure/k3s-homelab/inventory/group_vars/all/main.yml",
+        "infrastructure/k3s-homelab/helm-chart-lock.json",
+        "infrastructure/k3s-homelab/playbooks/platform.yml",
+        "infrastructure/k3s-homelab/scripts/sage-source-guardrails.py",
+        "infrastructure/k3s-homelab/scripts/sage-deployment-guardrail.py",
+        "infrastructure/k3s-homelab/README.md",
+        "markdown/Infrastructure/K3s_Homelab/01_Architecture.md",
+        "markdown/Infrastructure/K3s_Homelab/03_Deployment_Order.md",
+        "markdown/Infrastructure/K3s_Homelab/04_Phased_Deployment.md",
+        "markdown/Infrastructure/K3s_Homelab/Phase_Notes.md"
+      ],
+      "baseline_checks": [
+        "make helm-repository-guardrail",
+        "make source-guardrails",
+        "make deployment-guardrail"
+      ],
+      "required_validation": [
+        "make source-guardrails",
+        "make deployment-guardrail",
+        "make cluster-guardrails"
+      ],
+      "evidence_process": [
+        "Capture intended exposure class, hostname/routing topology, external reachability, tunnel or ingress health, and failure/recovery evidence.",
+        "Distinguish public presentation, authenticated operational access, and privileged management surfaces.",
+        "Preserve evidence that unmanaged inbound router exposure is not introduced."
       ]
     }
   ]
