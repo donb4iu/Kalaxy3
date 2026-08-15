@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "record_type": "kalaxy3-sage-zero-trust-access-requirements",
+  "reviewed_cloudflared_release": "2026.8.2",
+  "anonymous_access": false,
+  "human_access_requires_mfa": true,
+  "mfa_enforcement": "cloudflare-access-independent-mfa",
+  "explicit_allow_identity_required": true,
+  "grant_revoke_supported": true,
+  "access_configured_before_route": true,
+  "privileged_surfaces_remain_private": true,
+  "unmanaged_router_forwarding_forbidden": true,
+  "published_origin": "http://traefik.kube-system.svc.cluster.local:80",
+  "allowed_application": "sage-experience",
+  "forbidden_application_classes": [
+    "kubernetes-api",
+    "headlamp",
+    "grafana",
+    "minio-admin",
+    "traefik-dashboard"
+  ],
+  "identity_selection": {
+    "status": "requires-current-account-evidence",
+    "rule": "Select a currently supported Cloudflare identity method only after inspecting the active account; independent Access MFA remains mandatory regardless of primary login method."
+  }
+}

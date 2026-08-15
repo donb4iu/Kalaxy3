@@ -1,0 +1,182 @@
+---
+- name: Validate cluster-side SAGE zero-trust E2E runtime
+  hosts: k3s_servers[0]
+  gather_facts: false
+  become: true
+
+  tasks:
+    - name: Read SAGE experience deployment
+      ansible.builtin.command:
+        argv:
+          - k3s
+          - kubectl
+          - -n
+          - documentation
+          - get
+          - deployment
+          - sage-experience
+          - -o
+          - json
+      register: sage_experience_deployment
+      changed_when: false
+
+    - name: Read cloudflared deployment
+      ansible.builtin.command:
+        argv:
+          - k3s
+          - kubectl
+          - -n
+          - external-access
+          - get
+          - deployment
+          - cloudflared
+          - -o
+          - json
+      register: cloudflared_deployment
+      changed_when: false
+
+    - name: Read SAGE experience Ingress
+      ansible.builtin.command:
+        argv:
+          - k3s
+          - kubectl
+          - -n
+          - documentation
+          - get
+          - ingress
+          - sage-experience
+          - -o
+          - json
+      register: sage_experience_ingress
+      changed_when: false
+
+    - name: Read cloudflared ServiceMonitor
+      ansible.builtin.command:
+        argv:
+          - k3s
+          - kubectl
+          - -n
+          - observability
+          - get
+          - servicemonitor
+          - cloudflared
+          - -o
+          - json
+      register: cloudflared_monitor
+      changed_when: false
+
+    - name: Parse measured cluster state
+      ansible.builtin.set_fact:
+        sage_experience_object: "{{ sage_experience_deployment.stdout | from_json }}"
+        cloudflared_object: "{{ cloudflared_deployment.stdout | from_json }}"
+        sage_ingress_object: "{{ sage_experience_ingress.stdout | from_json }}"
+        cloudflared_monitor_object: "{{ cloudflared_monitor.stdout | from_json }}"
+
+    - name: Require two ready SAGE experience replicas
+      ansible.builtin.assert:
+        that:
+          - sage_experience_object.status.availableReplicas | default(0) | int == 2
+          - sage_experience_object.status.readyReplicas | default(0) | int == 2
+
+    - name: Require two ready tunnel replicas
+      ansible.builtin.assert:
+        that:
+          - cloudflared_object.status.availableReplicas | default(0) | int == 2
+          - cloudflared_object.status.readyReplicas | default(0) | int == 2
+
+    - name: Require exact SAGE Ingress hostname
+      ansible.builtin.assert:
+        that:
+          - sage_ingress_object.spec.rules | length == 1
+          - sage_ingress_object.spec.rules[0].host == sage_external_hostname
+
+    - name: Require Prometheus selection label
+      ansible.builtin.assert:
+        that:
+          - >-
+            cloudflared_monitor_object.metadata.labels.release
+            == 'kube-prometheus-stack'
+
+    - name: Verify origin through existing Traefik LAN endpoint
+      ansible.builtin.uri:
+        url: "http://{{ traefik_load_balancer_ip }}/healthz"
+        method: GET
+        headers:
+          Host: "{{ sage_external_hostname }}"
+        status_code: 200
+        return_content: true
+      register: traefik_origin
+      changed_when: false
+
+    - name: Require deterministic origin health body
+      ansible.builtin.assert:
+        that:
+          - traefik_origin.content | trim == 'ok'
+
+    - name: Preserve automated cluster facts for localhost closeout
+      ansible.builtin.set_fact:
+        sage_e2e_cluster_checks:
+          workload_ready: true
+          origin_through_traefik_ready: true
+          tunnel_ready: true
+          metrics_monitor_configured: true
+
+- name: Validate unauthenticated Access boundary and write automated receipt
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+
+  tasks:
+    - name: Verify unauthenticated request is intercepted by Access
+      ansible.builtin.uri:
+        url: "https://{{ sage_external_hostname }}/"
+        method: GET
+        follow_redirects: none
+        status_code:
+          - 302
+          - 401
+          - 403
+        return_content: false
+      register: unauthenticated_boundary
+      changed_when: false
+
+    - name: Require Access redirect semantics when status is 302
+      ansible.builtin.assert:
+        that:
+          - >-
+            unauthenticated_boundary.status != 302
+            or '/cdn-cgi/access/' in
+            (unauthenticated_boundary.location | default(''))
+        fail_msg: "A redirect occurred, but it was not a Cloudflare Access redirect."
+
+    - name: Create local runtime evidence directory
+      ansible.builtin.file:
+        path: "{{ lookup('env', 'HOME') }}/.local/state/kalaxy3/sage-e2e-zero-trust"
+        state: directory
+        mode: "0700"
+
+    - name: Write automated runtime receipt
+      ansible.builtin.copy:
+        dest: "{{ lookup('env', 'HOME') }}/.local/state/kalaxy3/sage-e2e-zero-trust/runtime-automated.json"
+        mode: "0600"
+        content: |
+          {
+            "schema_version": "1.0",
+            "record_type": "sage-e2e-zero-trust-runtime-automated",
+            "status": "pass",
+            "hostname": {{ sage_external_hostname | to_json }},
+            "checks": {
+              "workload_ready": {{ hostvars[groups['k3s_servers'][0]].sage_e2e_cluster_checks.workload_ready | to_json }},
+              "origin_through_traefik_ready": {{ hostvars[groups['k3s_servers'][0]].sage_e2e_cluster_checks.origin_through_traefik_ready | to_json }},
+              "tunnel_ready": {{ hostvars[groups['k3s_servers'][0]].sage_e2e_cluster_checks.tunnel_ready | to_json }},
+              "metrics_monitor_configured": {{ hostvars[groups['k3s_servers'][0]].sage_e2e_cluster_checks.metrics_monitor_configured | to_json }},
+              "unauthenticated_access_denied": true,
+              "authorized_mfa_access_verified": false,
+              "privileged_surfaces_not_published": false
+            },
+            "limitations": [
+              "Authorized MFA access is a human browser trust-boundary verification and is intentionally not fabricated by this automated playbook.",
+              "Cloudflare route/application review is account-side evidence and is intentionally not inferred from Kubernetes Ingress objects."
+            ]
+          }
