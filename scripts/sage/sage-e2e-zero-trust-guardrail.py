@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """Guard the SAGE zero-trust external-experience source contract."""
 
@@ -9,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE = ROOT / "infrastructure/k3s-homelab/cloudflare"
+ROOT_MAKEFILE = ROOT / "Makefile"
 POLICY = BASE / "access-policy-requirements.json"
 NAMESPACES = BASE / "namespaces.yaml.j2"
 EXPERIENCE = BASE / "sage-experience.yaml.j2"
@@ -20,10 +20,21 @@ VALIDATE = BASE / "validate-sage-e2e.yml"
 
 def main() -> int:
     failures: list[str] = []
-    paths = (POLICY, NAMESPACES, EXPERIENCE, TUNNEL, SECRET, DEPLOY, VALIDATE)
+    paths = (
+        ROOT_MAKEFILE,
+        POLICY,
+        NAMESPACES,
+        EXPERIENCE,
+        TUNNEL,
+        SECRET,
+        DEPLOY,
+        VALIDATE,
+    )
     for path in paths:
         if not path.is_file():
-            failures.append(f"missing zero-trust artifact: {path.relative_to(ROOT)}")
+            failures.append(
+                f"missing zero-trust artifact: {path.relative_to(ROOT)}"
+            )
     if failures:
         print("Kalaxy3 SAGE zero-trust E2E guardrail: FAIL CLOSED")
         for item in failures:
@@ -46,9 +57,26 @@ def main() -> int:
     if policy.get("mfa_enforcement") != "cloudflare-access-independent-mfa":
         failures.append("independent Cloudflare Access MFA is not required")
 
+    secret_policy = policy.get("secret_handling")
+    if not isinstance(secret_policy, dict):
+        failures.append("zero-trust secret-handling policy is missing")
+    else:
+        required_secret_policy = {
+            "controller_source": "ansible-vault-encrypted-file-outside-git",
+            "runtime_projection": "kubernetes-secret",
+            "plaintext_render_to_disk": False,
+            "secret_bearing_task_logs": False,
+            "secret_in_command_arguments": False,
+        }
+        for key, expected in required_secret_policy.items():
+            if secret_policy.get(key) != expected:
+                failures.append(
+                    f"zero-trust secret policy {key} must equal {expected!r}"
+                )
+
     runtime_source = "\n".join(
         path.read_text(encoding="utf-8")
-        for path in (NAMESPACES, EXPERIENCE, TUNNEL, SECRET, DEPLOY, VALIDATE)
+        for path in (NAMESPACES, EXPERIENCE, TUNNEL, DEPLOY, VALIDATE)
     )
     if "eyJ" in runtime_source:
         failures.append("source contains a token-like Cloudflare credential")
@@ -68,7 +96,15 @@ def main() -> int:
         "sage-experience",
         "traefik.ingress.kubernetes.io/router.entrypoints",
         "no_log: true",
-        "cloudflare_tunnel_token_file",
+        "kalaxy3_secrets_file",
+        "ansible.builtin.stat",
+        "ansible.builtin.slurp",
+        "$ANSIBLE_VAULT;",
+        "kalaxy3_secrets_stat.stat.mode in ['0400', '0600']",
+        "ansible.builtin.include_vars",
+        "kalaxy3_runtime_secrets.cloudflare_tunnel_token",
+        "Apply tunnel token secret from protected in-memory definition",
+        "stdin: |",
     ):
         if marker not in runtime_source:
             failures.append(f"zero-trust source missing: {marker}")
@@ -77,15 +113,48 @@ def main() -> int:
         "type: NodePort",
         "hostNetwork: true",
         "hostPort:",
+        "cloudflare_tunnel_token_file",
+        "lookup('file'",
+        "cloudflared-secret.yaml",
     ):
         if forbidden in runtime_source:
-            failures.append(f"zero-trust source widens exposure: {forbidden}")
+            failures.append(f"zero-trust source retains prohibited pattern: {forbidden}")
+
+    secret_stub = SECRET.read_text(encoding="utf-8")
+    for forbidden in ("kind: Secret", "stringData:", "cloudflare_tunnel_token"):
+        if forbidden in secret_stub:
+            failures.append(
+                f"deprecated secret template retains credential rendering: {forbidden}"
+            )
+
+    root_makefile = ROOT_MAKEFILE.read_text(encoding="utf-8")
+    deploy_block = root_makefile.split("sage-e2e-zero-trust-deploy:", 1)[1]
+    deploy_block = deploy_block.split("\n\nsage-e2e-zero-trust-runtime-validate:", 1)[0]
+    for marker in (
+        "KALAXY3_ANSIBLE_SECRETS_FILE",
+        "kalaxy3_secrets_file=$$KALAXY3_ANSIBLE_SECRETS_FILE",
+    ):
+        if marker not in deploy_block:
+            failures.append(
+                f"zero-trust deploy target lacks protected secret-source marker: {marker}"
+            )
+    if "CLOUDFLARE_TUNNEL_TOKEN_FILE" in deploy_block:
+        failures.append(
+            "zero-trust deploy target still accepts a plaintext token-file contract"
+        )
 
     experience = EXPERIENCE.read_text(encoding="utf-8")
-    if "donb4iu/mynginx_docs:566d215fc0a077cb9330a69b08716a53903e6fe0" not in experience:
-        failures.append("SAGE experience does not reuse the proven documentation image")
+    if (
+        "donb4iu/mynginx_docs:566d215fc0a077cb9330a69b08716a53903e6fe0"
+        not in experience
+    ):
+        failures.append(
+            "SAGE experience does not reuse the proven documentation image"
+        )
     if "{{ sage_external_hostname }}" not in experience:
-        failures.append("external hostname must remain runtime-selected and explicit")
+        failures.append(
+            "external hostname must remain runtime-selected and explicit"
+        )
 
     validation = VALIDATE.read_text(encoding="utf-8")
     for marker in (
@@ -104,9 +173,21 @@ def main() -> int:
             print(f"  - {item}")
         return 1
     print("PASS anonymous access and unmanaged inbound exposure fail closed")
+    print(
+        "PASS Cloudflare tunnel token comes from controller-local Ansible Vault "
+        "source outside Git without plaintext render files"
+    )
+    print(
+        "PASS runtime Kubernetes Secret projection uses protected stdin and "
+        "secret-bearing tasks suppress logs"
+    )
     print("PASS cloudflared is pinned, replicated, observable, and secret-file bound")
-    print("PASS SAGE experience reuses the existing documentation image behind Traefik")
-    print("PASS automated evidence does not claim human MFA or Cloudflare route review")
+    print(
+        "PASS SAGE experience reuses the existing documentation image behind Traefik"
+    )
+    print(
+        "PASS automated evidence does not claim human MFA or Cloudflare route review"
+    )
     print("Kalaxy3 SAGE zero-trust E2E guardrail: PASS")
     return 0
 

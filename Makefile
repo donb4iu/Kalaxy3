@@ -601,8 +601,8 @@ sage-e2e-zero-trust-guardrail:
 
 sage-e2e-zero-trust-deploy:
 	@test -n "$${SAGE_EXTERNAL_HOSTNAME:-}" || { echo 'SAGE_EXTERNAL_HOSTNAME is required'; exit 2; }
-	@test -n "$${CLOUDFLARE_TUNNEL_TOKEN_FILE:-}" || { echo 'CLOUDFLARE_TUNNEL_TOKEN_FILE is required'; exit 2; }
-	cd $(SAGE_E2E_INFRA_DIR) && .venv/bin/ansible-playbook cloudflare/deploy-sage-e2e.yml --extra-vars "sage_external_hostname=$$SAGE_EXTERNAL_HOSTNAME cloudflare_tunnel_token_file=$$CLOUDFLARE_TUNNEL_TOKEN_FILE"
+	@test -n "$${KALAXY3_ANSIBLE_SECRETS_FILE:-}" || { echo 'KALAXY3_ANSIBLE_SECRETS_FILE is required'; exit 2; }
+	cd $(SAGE_E2E_INFRA_DIR) && .venv/bin/ansible-playbook cloudflare/deploy-sage-e2e.yml --extra-vars "sage_external_hostname=$$SAGE_EXTERNAL_HOSTNAME kalaxy3_secrets_file=$$KALAXY3_ANSIBLE_SECRETS_FILE"
 
 sage-e2e-zero-trust-runtime-validate:
 	@test -n "$${SAGE_EXTERNAL_HOSTNAME:-}" || { echo 'SAGE_EXTERNAL_HOSTNAME is required'; exit 2; }

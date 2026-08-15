@@ -22,5 +22,12 @@
   "identity_selection": {
     "status": "requires-current-account-evidence",
     "rule": "Select a currently supported Cloudflare identity method only after inspecting the active account; independent Access MFA remains mandatory regardless of primary login method."
+  },
+  "secret_handling": {
+    "controller_source": "ansible-vault-encrypted-file-outside-git",
+    "runtime_projection": "kubernetes-secret",
+    "plaintext_render_to_disk": false,
+    "secret_bearing_task_logs": false,
+    "secret_in_command_arguments": false
   }
 }

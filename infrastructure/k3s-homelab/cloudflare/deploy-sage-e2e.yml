@@ -6,24 +6,77 @@
 
   vars:
     sage_e2e_render_dir: /tmp/kalaxy3-sage-e2e
-    cloudflare_tunnel_token: >-
+    kalaxy3_repository_root: >-
       {{
-        lookup('file', cloudflare_tunnel_token_file)
-        | trim
+        playbook_dir
+        | dirname
+        | dirname
+        | dirname
       }}
 
   pre_tasks:
-    - name: Require explicit runtime inputs
+    - name: Require explicit non-secret runtime inputs
       ansible.builtin.assert:
         that:
           - sage_external_hostname is defined
           - sage_external_hostname | length > 3
           - "'.' in sage_external_hostname"
           - "'://' not in sage_external_hostname"
-          - cloudflare_tunnel_token_file is defined
-          - cloudflare_tunnel_token | length > 40
+          - kalaxy3_secrets_file is defined
+          - kalaxy3_secrets_file | length > 3
+          - kalaxy3_secrets_file is match('^/')
+          - >-
+            not kalaxy3_secrets_file.startswith(
+              kalaxy3_repository_root + '/'
+            )
         fail_msg: >-
-          Provide a DNS hostname and a controller-local private tunnel-token file.
+          Provide a DNS hostname and an absolute controller-local Ansible
+          Vault secrets file outside the Kalaxy3 repository.
+
+    - name: Inspect controller-local encrypted runtime secrets
+      ansible.builtin.stat:
+        path: "{{ kalaxy3_secrets_file }}"
+      delegate_to: localhost
+      become: false
+      register: kalaxy3_secrets_stat
+      no_log: true
+
+    - name: Read encrypted source envelope without decrypting it
+      ansible.builtin.slurp:
+        src: "{{ kalaxy3_secrets_file }}"
+      delegate_to: localhost
+      become: false
+      register: kalaxy3_secrets_ciphertext
+      no_log: true
+
+    - name: Require an Ansible Vault encrypted source with private permissions
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_secrets_stat.stat.exists
+          - kalaxy3_secrets_stat.stat.isreg
+          - not kalaxy3_secrets_stat.stat.islnk
+          - kalaxy3_secrets_stat.stat.mode in ['0400', '0600']
+          - >-
+            (kalaxy3_secrets_ciphertext.content | b64decode)
+            .startswith('$ANSIBLE_VAULT;')
+        fail_msg: >-
+          The controller-local secrets source must be a whole-file Ansible
+          Vault payload with mode 0400 or 0600.
+      no_log: true
+
+    - name: Read controller-local encrypted runtime secrets
+      ansible.builtin.include_vars:
+        file: "{{ kalaxy3_secrets_file }}"
+        name: kalaxy3_runtime_secrets
+      no_log: true
+
+    - name: Require Cloudflare tunnel token from encrypted secrets source
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_runtime_secrets.cloudflare_tunnel_token is defined
+          - kalaxy3_runtime_secrets.cloudflare_tunnel_token | length > 40
+        fail_msg: >-
+          The encrypted secrets source must define cloudflare_tunnel_token.
       no_log: true
 
   tasks:
@@ -58,13 +111,6 @@
             dest: "{{ sage_e2e_render_dir }}/cloudflared.yaml"
             mode: "0600"
 
-        - name: Render ephemeral tunnel secret
-          ansible.builtin.template:
-            src: cloudflared-secret.yaml.j2
-            dest: "{{ sage_e2e_render_dir }}/cloudflared-secret.yaml"
-            mode: "0600"
-          no_log: true
-
         - name: Apply bounded namespaces
           ansible.builtin.command:
             argv:
@@ -78,14 +124,23 @@
             'configured' in namespace_apply.stdout
             or 'created' in namespace_apply.stdout
 
-        - name: Apply tunnel token secret
+        - name: Apply tunnel token secret from protected in-memory definition
           ansible.builtin.command:
             argv:
               - k3s
               - kubectl
               - apply
               - -f
-              - "{{ sage_e2e_render_dir }}/cloudflared-secret.yaml"
+              - "-"
+            stdin: |
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: cloudflared-tunnel-token
+                namespace: external-access
+              type: Opaque
+              stringData:
+                token: {{ kalaxy3_runtime_secrets.cloudflare_tunnel_token | to_json }}
           no_log: true
           changed_when: true
 
@@ -141,8 +196,7 @@
               - --timeout=180s
           changed_when: false
       always:
-        - name: Remove all rendered runtime material
+        - name: Remove all rendered non-secret runtime material
           ansible.builtin.file:
             path: "{{ sage_e2e_render_dir }}"
             state: absent
-          no_log: true
