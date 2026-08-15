@@ -601,6 +601,44 @@ def plan_request(
     }
 
 
+def validate_reusable_plan_lineage(
+    request: str,
+    source_path: Path,
+    proposal_path: Path,
+) -> dict[str, str]:
+    """Validate that an adopted proposal descends from the supplied confirmed planning source."""
+
+    source = load_source_bundle(source_path.expanduser().resolve(), request)
+    if source.semantic_authority is None:
+        raise WorkflowError("adopted iterative lineage requires Architect-confirmed semantic authority")
+    proposal = load_proposal(proposal_path.expanduser().resolve(), request)
+    expected_sources = [
+        {"path": item.path, "sha256": item.sha256, "mode": f"{item.mode:04o}"}
+        for item in source.source_files
+    ]
+    checks = (
+        ("repository", dict(source.manifest["repository"])),
+        ("source_files", expected_sources),
+        ("generated_paths", list(source.generated_paths)),
+        ("reconcile_evidence_index", bool(source.manifest["reconcile_evidence_index"])),
+        ("validation_commands", list(source.manifest["validation_commands"])),
+        ("operator_plan", dict(source.manifest["operator_plan"])),
+    )
+    mismatches = [
+        name for name, expected in checks
+        if proposal.manifest.get(name) != expected
+    ]
+    if mismatches:
+        raise WorkflowError(
+            "adopted planning proposal does not descend from supplied planning source: "
+            + ", ".join(mismatches)
+        )
+    return {
+        "planning_source": str(source.package_path),
+        "planning_proposal": str(proposal.package_path),
+    }
+
+
 def reuse_component_plan(
     repo: Path,
     request: str,

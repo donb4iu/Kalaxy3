@@ -16,11 +16,15 @@ from workflows.request_execution import (
     continue_request_from_routine_receipt,
     execute_request,
 )
-from workflows.request_planning import plan_request, reuse_component_plan
+from workflows.request_planning import (
+    plan_request,
+    reuse_component_plan,
+    validate_reusable_plan_lineage,
+)
 from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap, reuse_confirmed_intent
 
 WORKFLOW_ID = "sage.intent-to-outcome"
-WORKFLOW_VERSION = "0.2.1"
+WORKFLOW_VERSION = "0.2.2"
 PRIMITIVES_USED = (
     "catalog.registry",
     "file.atomic-preserve-mode",
@@ -258,6 +262,7 @@ def adopt_iteration(
     *,
     action_id: str | None = None,
     candidate_head: str | None = None,
+    planning_source: Path | None = None,
     unresolved_findings: list[str] | None = None,
 ) -> Mapping[str, Any]:
     """Adopt an existing request execution as iteration 1 without claiming promotion."""
@@ -272,6 +277,30 @@ def adopt_iteration(
         raise WorkflowError("adopted request state type is invalid")
     if child.get("request_sha256") != _request_digest(request):
         raise WorkflowError("adopted request state does not match literal request")
+    inherited_source: str | None = None
+    inherited_proposal: str | None = None
+    proposal_value = child.get("proposal_package")
+    if planning_source is not None:
+        if not isinstance(proposal_value, str) or not proposal_value:
+            raise WorkflowError("adopted request state has no planning proposal lineage")
+        proposal_path = Path(proposal_value).expanduser().resolve()
+        if not proposal_path.is_file():
+            raise WorkflowError(f"adopted planning proposal is missing: {proposal_path}")
+        expected_proposal_sha = child.get("proposal_package_sha256")
+        observed_proposal_sha = hashlib.sha256(proposal_path.read_bytes()).hexdigest()
+        if expected_proposal_sha != observed_proposal_sha:
+            raise WorkflowError("adopted planning proposal digest no longer matches request state")
+        lineage = validate_reusable_plan_lineage(
+            request,
+            planning_source.expanduser().resolve(),
+            proposal_path,
+        )
+        inherited_source = lineage["planning_source"]
+        inherited_proposal = lineage["planning_proposal"]
+    elif action_id is not None:
+        raise WorkflowError(
+            "iterative objective adoption requires --planning-source so confirmed planning lineage is preserved"
+        )
     directory = _new_state_directory()
     state_path = directory / "intent-to-outcome-state.json"
     complete = child.get("current_boundary") == "complete"
@@ -288,8 +317,8 @@ def adopt_iteration(
         "contribution": None,
         "status": "source-git-complete" if complete else "request-operator-review-required",
         "semantic_state": None,
-        "planning_source": None,
-        "planning_proposal": None,
+        "planning_source": inherited_source,
+        "planning_proposal": inherited_proposal,
         "request_execution_state": str(request_state),
         "runtime_receipt": None,
         "promotion_state": None,
@@ -312,6 +341,8 @@ def adopt_iteration(
                 "stage": "one-time-bootstrap-adoption",
                 "iteration": 1,
                 "request_execution_state": str(request_state),
+                "planning_source": inherited_source,
+                "planning_proposal": inherited_proposal,
                 "candidate_head": candidate_head,
                 "unresolved_findings": findings,
             }

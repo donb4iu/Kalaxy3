@@ -241,8 +241,16 @@ def _validate_semantic_artifacts(
         raise ProposalError("semantic understanding action is not accepted")
     interpretation = require_object(understanding.get("interpretation"), "semantic understanding interpretation")
     scope = require_list(interpretation.get("implementation_scope"), "semantic implementation_scope")
-    if tuple(scope) != declared_paths:
-        raise ProposalError("semantic implementation scope does not equal planning source scope")
+    if (
+        not scope
+        or not all(isinstance(item, str) and item for item in scope)
+        or len(set(scope)) != len(scope)
+    ):
+        raise ProposalError("semantic implementation_scope must be non-empty unique strings")
+    if not set(declared_paths).issubset(set(scope)):
+        raise ProposalError(
+            "planning source scope expands beyond Architect-confirmed implementation scope"
+        )
     applicable = require_list(interpretation.get("applicable_contexts"), "semantic applicable_contexts")
     if not applicable or not all(isinstance(item, str) and item for item in applicable) or len(set(applicable)) != len(applicable):
         raise ProposalError("semantic applicable_contexts must be non-empty unique strings")
@@ -325,9 +333,9 @@ def resolve_planning_authority(repo: Path, source: PlanningSourceBundle, discove
             f"return to semantic confirmation: {unexpected}"
         )
     derived = derive_applicable_contexts(repo, source.declared_paths)
-    if derived != confirmed_implementation:
+    if not set(derived).issubset(set(confirmed_implementation)):
         raise ProposalError(
-            "Architect-confirmed implementation contexts no longer match current path/dependency authority; "
+            "current path/dependency authority expands beyond Architect-confirmed implementation contexts; "
             "return to semantic confirmation"
         )
     authorities = resolve_context_authorities(repo, confirmed_implementation)
@@ -654,15 +662,27 @@ def reuse_confirmed_source_package(
     prior = load_source_bundle(prior_source_path, request)
     if prior.semantic_authority is None:
         raise ProposalError("implementation-local iteration requires confirmed semantic authority")
-    expected_paths = tuple(item.path for item in prior.source_files)
     observed_paths = tuple(item.path for item in source_files)
-    if observed_paths != expected_paths:
-        raise ProposalError(
-            "implementation-local iteration changed governed file scope; return to semantic confirmation"
-        )
     with zipfile.ZipFile(prior.package_path) as archive:
         understanding_bytes = archive.read(SEMANTIC_UNDERSTANDING_NAME)
         confirmation_bytes = archive.read(SEMANTIC_CONFIRMATION_NAME)
+    understanding = _semantic_artifact_payload(
+        understanding_bytes,
+        "semantic understanding",
+    )
+    interpretation = require_object(
+        understanding.get("interpretation"),
+        "semantic understanding interpretation",
+    )
+    confirmed_scope = require_list(
+        interpretation.get("implementation_scope"),
+        "semantic implementation_scope",
+    )
+    if not set(observed_paths).issubset(set(str(item) for item in confirmed_scope)):
+        raise ProposalError(
+            "implementation-local iteration expands beyond Architect-confirmed implementation scope; "
+            "return to semantic confirmation"
+        )
     observed_authority = _validate_semantic_artifacts(
         understanding_bytes,
         confirmation_bytes,

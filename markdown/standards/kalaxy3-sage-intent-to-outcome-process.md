@@ -41,13 +41,13 @@ The active objective is distinct from its mutable **candidate iteration**. Each 
 
 A commit or push is persistence only. A candidate with unresolved findings is a durable **non-promotable** checkpoint; it is not objective failure, validation success, or promotion eligibility.
 
-The one-time bootstrap seam may adopt a pre-front-door request execution as iteration 1 with an explicit historical candidate head and unresolved findings. This preserves the zero-trust iteration-1 lineage rather than rewriting or discarding it.
+The one-time bootstrap seam may adopt a pre-front-door request execution as iteration 1 with an explicit historical candidate head and unresolved findings. For an iterative objective, adoption must also preserve the prior confirmed planning source and inherit the checksum-bound planning proposal from the adopted request-execution state; the source/proposal pair is validated before it becomes reusable lineage. This preserves the zero-trust iteration-1 lineage rather than rewriting or discarding it.
 
 ## Earliest affected boundary
 
 SAGE re-enters only the **earliest affected boundary**:
 
-- `implementation-local`: governing meaning, authority, scope, and capability selection are unchanged. SAGE reuses the confirmed semantic source and the prior complete component plan, so semantic discovery, evidence retrieval, and component reselection are not repeated.
+- `implementation-local`: governing meaning, authority, capability requirements, safety/trust boundaries, and Architect-confirmed implementation scope are unchanged. The active mutation set may narrow to any subset of that confirmed implementation scope; merely touching a different subset of already-authorized paths does not require semantic restart. Expansion outside the confirmed scope does. SAGE reuses the confirmed semantic source and the prior complete component plan, so semantic discovery, evidence retrieval, and component reselection are not repeated.
 - `planning`: confirmed semantic meaning and file scope remain valid, but planning/capability evaluation must be recomputed. SAGE reuses confirmed semantics and re-enters request planning.
 - `semantic-confirmation`: meaning, scope, trust boundary, or another semantic condition changed. SAGE re-enters the existing semantic-bootstrap workflow.
 - `authority`: the governing action or authority changed. SAGE records the invalidation and stops for the appropriate authority boundary rather than freelancing continuation.

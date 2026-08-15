@@ -79,6 +79,8 @@ PROCESS_MARKERS = (
     "v1.3",
     "planning obligations",
     "domain capability gap",
+    "subset of the architect-confirmed",
+    "authority ceiling",
 )
 WORKFLOW_MARKERS = (
     "EXECUTION_PRIMITIVES",
@@ -97,6 +99,7 @@ WORKFLOW_MARKERS = (
     "planning_obligations",
     "_domain_capabilities",
     "create_domain",
+    "validate_reusable_plan_lineage",
 )
 
 
@@ -208,6 +211,9 @@ def source_failures() -> list[str]:
         "return to semantic confirmation",
         "SOURCE_FIELDS_V1_2",
         "implementation_contexts",
+        "planning source scope expands beyond Architect-confirmed implementation scope",
+        "current path/dependency authority expands beyond Architect-confirmed implementation contexts",
+        "implementation-local iteration expands beyond Architect-confirmed implementation scope",
     ):
         if marker not in domain:
             failures.append(f"request-planning semantic authority marker missing: {marker}")
@@ -435,6 +441,7 @@ def main() -> int:
     print("PASS v1.3 preserves Architect-confirmed planning obligations and domain capability gaps")
     print("PASS reusable-secrets planning obligation survives as a domain capability without Terraform fallback")
     print("PASS literal discovery cannot silently re-expand confirmed authority")
+    print("PASS implementation-local mutation scope may narrow but cannot expand beyond Architect-confirmed authority")
     print("Kalaxy3 SAGE request planning guardrail: PASS")
     return 0
 

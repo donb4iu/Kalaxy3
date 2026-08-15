@@ -82,6 +82,7 @@ def parse_args() -> argparse.Namespace:
     adopt_iteration_parser.add_argument("--request-state", type=Path, required=True)
     adopt_iteration_parser.add_argument("--action-id")
     adopt_iteration_parser.add_argument("--candidate-head")
+    adopt_iteration_parser.add_argument("--planning-source", type=Path)
     adopt_iteration_parser.add_argument("--unresolved-finding", action="append", default=[])
 
     iterate = sub.add_parser("iterate")
@@ -136,6 +137,7 @@ def main() -> int:
             args.request_state,
             action_id=args.action_id,
             candidate_head=args.candidate_head,
+            planning_source=args.planning_source,
             unresolved_findings=args.unresolved_finding,
         )
     elif args.command == "iterate":
