@@ -13,6 +13,32 @@ from pathlib import Path
 from typing import Any, Mapping
 
 
+VALUE_VIGNETTE = {
+    "architect_observation": (
+        "The Architect explicitly stated that installing Cloudflare into Kubernetes "
+        "should be SAGE's engineering burden rather than operator knowledge."
+    ),
+    "sage_finding": (
+        "The cluster deployment path already existed and the tunnel credential had "
+        "been moved into a controller-local whole-file Ansible Vault, but the root "
+        "zero-trust deployment entry point did not request Vault decryption."
+    ),
+    "prevented_action": (
+        "SAGE stopped before the new Cloudflare tunnel credential was introduced "
+        "into deployment inputs or the Kalaxy3 cluster was mutated."
+    ),
+    "bounded_correction": (
+        "Reuse the repository's established interactive Ansible Vault decryption "
+        "convention at the existing zero-trust deployment boundary."
+    ),
+    "value_demonstrated": (
+        "The Architect supplies intent and operational context while SAGE bears the "
+        "implementation burden, detects cross-component integration gaps, and "
+        "prevents unsafe or incomplete mutation before execution."
+    ),
+}
+
+
 def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -79,6 +105,7 @@ def finalize(
         "captured_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "actor_role": actor,
         "checks": checks,
+        "value_vignette": VALUE_VIGNETTE,
         "evidence": {
             "automated_receipt": str(automated),
             "automated_receipt_sha256": sha256_file(automated),
@@ -131,6 +158,16 @@ def self_test() -> int:
         parsed = json.loads(final.read_text(encoding="utf-8"))
         if not all(parsed["checks"].values()):
             raise RuntimeError("positive runtime receipt did not finalize all checks")
+        vignette = parsed.get("value_vignette")
+        required_vignette = {
+            "architect_observation",
+            "sage_finding",
+            "prevented_action",
+            "bounded_correction",
+            "value_demonstrated",
+        }
+        if not isinstance(vignette, dict) or set(vignette) != required_vignette:
+            raise RuntimeError("runtime receipt did not preserve the complete SAGE value vignette")
         try:
             finalize(
                 automated,
@@ -146,6 +183,7 @@ def self_test() -> int:
             raise RuntimeError("missing MFA verification was accepted")
     print("PASS automated evidence cannot fabricate authorized MFA success")
     print("PASS privileged-route review and Architect role are required")
+    print("PASS SAGE value vignette is preserved in final runtime evidence")
     print("Kalaxy3 SAGE zero-trust runtime receipt self-test: PASS")
     return 0
 

@@ -694,6 +694,22 @@ def validate_runtime_receipt(value: Mapping[str, Any]) -> None:
     failed = [name for name in required if checks.get(name) is not True]
     if failed:
         raise WorkflowError("runtime receipt is incomplete: " + ", ".join(failed))
+    vignette = value.get("value_vignette")
+    if not isinstance(vignette, Mapping):
+        raise WorkflowError("runtime receipt SAGE value vignette is missing")
+    required_vignette = (
+        "architect_observation",
+        "sage_finding",
+        "prevented_action",
+        "bounded_correction",
+        "value_demonstrated",
+    )
+    for name in required_vignette:
+        item = vignette.get(name)
+        if not isinstance(item, str) or not item.strip():
+            raise WorkflowError(
+                f"runtime receipt SAGE value vignette is missing {name}"
+            )
 
 
 def record_runtime(

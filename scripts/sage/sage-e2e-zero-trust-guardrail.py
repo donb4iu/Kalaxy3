@@ -16,6 +16,9 @@ TUNNEL = BASE / "cloudflared.yaml.j2"
 SECRET = BASE / "cloudflared-secret.yaml.j2"
 DEPLOY = BASE / "deploy-sage-e2e.yml"
 VALIDATE = BASE / "validate-sage-e2e.yml"
+RUNTIME_RECEIPT = ROOT / "scripts/sage/sage-e2e-zero-trust-runtime-receipt.py"
+RUNTIME_SCHEMA = ROOT / "markdown/standards/sage-e2e-zero-trust-runtime-receipt-schema-v1.0.json"
+INTENT_WORKFLOW = ROOT / "scripts/sage/workflows/intent_to_outcome.py"
 
 
 def main() -> int:
@@ -29,6 +32,9 @@ def main() -> int:
         SECRET,
         DEPLOY,
         VALIDATE,
+        RUNTIME_RECEIPT,
+        RUNTIME_SCHEMA,
+        INTENT_WORKFLOW,
     )
     for path in paths:
         if not path.is_file():
@@ -142,6 +148,10 @@ def main() -> int:
         failures.append(
             "zero-trust deploy target still accepts a plaintext token-file contract"
         )
+    if "--ask-vault-pass" not in deploy_block:
+        failures.append(
+            "zero-trust deploy target does not request decryption for its required Ansible Vault source"
+        )
 
     experience = EXPERIENCE.read_text(encoding="utf-8")
     if (
@@ -155,6 +165,47 @@ def main() -> int:
         failures.append(
             "external hostname must remain runtime-selected and explicit"
         )
+    for marker in (
+        "What SAGE prevented",
+        "engineering burden rather than operator knowledge",
+        "cross-component integration gap before deployment",
+        "no Vault decryption option",
+        "stopped before the new credential was introduced",
+    ):
+        if marker not in experience:
+            failures.append(f"SAGE value experience missing vignette marker: {marker}")
+
+    runtime_receipt = RUNTIME_RECEIPT.read_text(encoding="utf-8")
+    runtime_schema = json.loads(RUNTIME_SCHEMA.read_text(encoding="utf-8"))
+    intent_workflow = INTENT_WORKFLOW.read_text(encoding="utf-8")
+    for marker in (
+        "VALUE_VIGNETTE",
+        "architect_observation",
+        "sage_finding",
+        "prevented_action",
+        "bounded_correction",
+        "value_demonstrated",
+    ):
+        if marker not in runtime_receipt:
+            failures.append(f"runtime receipt missing SAGE value-evidence marker: {marker}")
+    if "value_vignette" not in runtime_schema.get("required", []):
+        failures.append("runtime receipt schema does not require value_vignette")
+    required_vignette = {
+        "architect_observation",
+        "sage_finding",
+        "prevented_action",
+        "bounded_correction",
+        "value_demonstrated",
+    }
+    vignette_schema = runtime_schema.get("properties", {}).get("value_vignette", {})
+    if set(vignette_schema.get("required", [])) != required_vignette:
+        failures.append("runtime receipt schema value_vignette contract is incomplete")
+    for marker in (
+        'value.get("value_vignette")',
+        "runtime receipt SAGE value vignette is missing",
+    ):
+        if marker not in intent_workflow:
+            failures.append(f"intent runtime gate missing value-evidence marker: {marker}")
 
     validation = VALIDATE.read_text(encoding="utf-8")
     for marker in (
@@ -181,12 +232,19 @@ def main() -> int:
         "PASS runtime Kubernetes Secret projection uses protected stdin and "
         "secret-bearing tasks suppress logs"
     )
+    print(
+        "PASS zero-trust deploy front door consumes the required Ansible Vault "
+        "through the repository's interactive decryption convention"
+    )
     print("PASS cloudflared is pinned, replicated, observable, and secret-file bound")
     print(
         "PASS SAGE experience reuses the existing documentation image behind Traefik"
     )
     print(
         "PASS automated evidence does not claim human MFA or Cloudflare route review"
+    )
+    print(
+        "PASS SAGE value vignette is preserved in public UX, runtime evidence, and parent acceptance"
     )
     print("Kalaxy3 SAGE zero-trust E2E guardrail: PASS")
     return 0

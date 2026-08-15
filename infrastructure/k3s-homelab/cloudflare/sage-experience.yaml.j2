@@ -34,6 +34,10 @@ data:
           <p>The experience reuses the existing Kalaxy3 documentation image and Traefik ingress. Cloudflare Tunnel is the outbound external transport; Access supplies the external identity boundary.</p>
         </section>
         <section>
+          <h2>What SAGE prevented</h2>
+          <p>The Architect explicitly stated that installing Cloudflare into Kubernetes should be SAGE's engineering burden rather than operator knowledge. SAGE had already selected and implemented the cluster deployment path, then found a cross-component integration gap before deployment: the tunnel credential had been moved into Ansible Vault, but the root deployment entry point had no Vault decryption option. SAGE stopped before the new credential was introduced or the cluster was changed, narrowed the correction to the missing secret-consumption link, and preserved the Kubernetes design.</p>
+        </section>
+        <section>
           <h2>Health and evidence</h2>
           <p>If this page is visible after Access authentication, the protected external request reached the live cluster-hosted origin. Deterministic workload, tunnel, routing, and negative-access evidence is recorded separately by SAGE.</p>
           <p><a href="/evidence/">Browse evidence</a> · <a href="/standards/kalaxy3-sage-operating-contract/">SAGE operating contract</a></p>

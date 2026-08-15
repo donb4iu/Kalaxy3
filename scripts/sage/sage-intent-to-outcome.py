@@ -44,6 +44,13 @@ def self_test() -> int:
             "authorized_mfa_access_verified": True,
             "privileged_surfaces_not_published": True,
         },
+        "value_vignette": {
+            "architect_observation": "Architect delegated Kubernetes Cloudflare installation knowledge to SAGE.",
+            "sage_finding": "SAGE found the deployment entry point could not decrypt its required Ansible Vault.",
+            "prevented_action": "SAGE blocked credential introduction and cluster mutation before deployment.",
+            "bounded_correction": "The existing interactive Ansible Vault decryption convention was reused.",
+            "value_demonstrated": "SAGE carried implementation burden and detected a cross-component integration gap.",
+        },
     }
     validate_runtime_receipt(good)
     bad = json.loads(json.dumps(good))
@@ -54,7 +61,16 @@ def self_test() -> int:
         pass
     else:
         raise RuntimeError("missing MFA runtime proof was accepted")
+    missing_vignette = json.loads(json.dumps(good))
+    missing_vignette.pop("value_vignette")
+    try:
+        validate_runtime_receipt(missing_vignette)
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("runtime receipt without the SAGE value vignette was accepted")
     print("PASS runtime acceptance requires MFA and negative-access proof")
+    print("PASS runtime acceptance requires the SAGE value vignette")
 
     with tempfile.TemporaryDirectory(prefix="sage-intent-completed-child-") as temp_name:
         temp = Path(temp_name)

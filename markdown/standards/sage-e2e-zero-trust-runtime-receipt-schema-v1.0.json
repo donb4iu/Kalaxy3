@@ -12,6 +12,7 @@
     "captured_at",
     "actor_role",
     "checks",
+    "value_vignette",
     "evidence"
   ],
   "properties": {
@@ -73,6 +74,39 @@
     },
     "evidence": {
       "type": "object"
+    },
+    "value_vignette": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "architect_observation",
+        "sage_finding",
+        "prevented_action",
+        "bounded_correction",
+        "value_demonstrated"
+      ],
+      "properties": {
+        "architect_observation": {
+          "type": "string",
+          "minLength": 20
+        },
+        "sage_finding": {
+          "type": "string",
+          "minLength": 20
+        },
+        "prevented_action": {
+          "type": "string",
+          "minLength": 20
+        },
+        "bounded_correction": {
+          "type": "string",
+          "minLength": 20
+        },
+        "value_demonstrated": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
     }
   }
 }
