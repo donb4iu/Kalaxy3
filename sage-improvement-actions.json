@@ -1264,7 +1264,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "automation",
@@ -1306,6 +1306,18 @@
                         "commit:4db88558aff3c7f973b129e63b5a5c6cde55a4a7",
                         "path:scripts/sage/request_planning.py",
                         "path:scripts/sage/workflows/intent_to_outcome.py"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-15T01:27:54-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Accept governed candidate iteration as the required correction after iteration 1 exposed the semantic-to-domain-planning propagation gap while preserving the candidate as useful non-promotable engineering state.",
+                    "evidence_references": [
+                        "commit:6d98f4b"
                     ]
                 }
             ]
