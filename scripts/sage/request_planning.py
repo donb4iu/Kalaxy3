@@ -43,6 +43,7 @@ SOURCE_FIELDS_V1_0 = {
     "operator_plan",
 }
 SOURCE_FIELDS_V1_1 = SOURCE_FIELDS_V1_0 | {"semantic_authority"}
+SOURCE_FIELDS_V1_2 = SOURCE_FIELDS_V1_1
 SEMANTIC_UNDERSTANDING_NAME = "semantic/semantic-understanding.json"
 SEMANTIC_CONFIRMATION_NAME = "semantic/semantic-confirmation.json"
 
@@ -106,6 +107,40 @@ def derive_applicable_contexts(repo: Path, proposed_paths: tuple[str, ...]) -> t
     ordered = [item for item in always if item in selected]
     ordered.extend(sorted(selected - set(ordered)))
     return tuple(ordered)
+
+
+SEMANTIC_APPLICABLE_DISPOSITIONS = {
+    "applicable",  # v1.0 compatibility
+    "applicable-now",
+    "applicable-now-no-proposed-source-mutation",
+    "applicable-by-proposed-path-or-dependency",
+}
+
+
+def reconcile_semantic_contexts(
+    repo: Path,
+    inferred_contexts: tuple[str, ...],
+    proposed_paths: tuple[str, ...],
+) -> dict[str, Any]:
+    """Preserve semantic applicability without conflating it with mutation scope."""
+
+    inferred = tuple(dict.fromkeys(str(item) for item in inferred_contexts))
+    implementation = derive_applicable_contexts(repo, proposed_paths)
+    applicable = tuple(dict.fromkeys((*inferred, *implementation)))
+    dispositions: list[dict[str, str]] = []
+    for context_id in applicable:
+        if context_id in inferred and context_id in implementation:
+            disposition = "applicable-now"
+        elif context_id in inferred:
+            disposition = "applicable-now-no-proposed-source-mutation"
+        else:
+            disposition = "applicable-by-proposed-path-or-dependency"
+        dispositions.append({"context_id": context_id, "disposition": disposition})
+    return {
+        "applicable_contexts": applicable,
+        "implementation_contexts": implementation,
+        "context_dispositions": tuple(dispositions),
+    }
 
 
 def resolve_context_authorities(repo: Path, context_ids: tuple[str, ...]) -> tuple[str, ...]:
@@ -172,6 +207,13 @@ def _validate_semantic_artifacts(
     applicable = require_list(interpretation.get("applicable_contexts"), "semantic applicable_contexts")
     if not applicable or not all(isinstance(item, str) and item for item in applicable) or len(set(applicable)) != len(applicable):
         raise ProposalError("semantic applicable_contexts must be non-empty unique strings")
+    has_implementation_contexts = "implementation_contexts" in interpretation
+    implementation_raw = interpretation.get("implementation_contexts", applicable)
+    implementation = require_list(implementation_raw, "semantic implementation_contexts")
+    if not implementation or not all(isinstance(item, str) and item for item in implementation) or len(set(implementation)) != len(implementation):
+        raise ProposalError("semantic implementation_contexts must be non-empty unique strings")
+    if not set(implementation).issubset(set(applicable)):
+        raise ProposalError("semantic implementation_contexts must be a subset of applicable_contexts")
     dispositions_raw = require_list(interpretation.get("context_dispositions"), "semantic context_dispositions")
     dispositions: list[dict[str, str]] = []
     for index, raw in enumerate(dispositions_raw):
@@ -185,13 +227,11 @@ def _validate_semantic_artifacts(
         dispositions.append({"context_id": context_id, "disposition": disposition})
     if len({item["context_id"] for item in dispositions}) != len(dispositions):
         raise ProposalError("semantic context dispositions contain duplicate context ids")
-    authoritative = {
-        item["context_id"]
-        for item in dispositions
-        if item["disposition"] in {"applicable", "applicable-by-proposed-path-or-dependency"}
-    }
-    if authoritative != set(applicable):
-        raise ProposalError("semantic context dispositions do not match applicable contexts")
+    disposition_map = {item["context_id"]: item["disposition"] for item in dispositions}
+    if not set(applicable).issubset(set(disposition_map)):
+        raise ProposalError("semantic context dispositions must cover every applicable context")
+    if any(disposition_map[item] not in SEMANTIC_APPLICABLE_DISPOSITIONS for item in applicable):
+        raise ProposalError("semantic applicable context has a non-applicable disposition")
     understanding_sha = sha256_bytes(understanding_bytes)
     confirmation_sha = sha256_bytes(confirmation_bytes)
     if confirmation.get("schema_version") != "1.0" or confirmation.get("record_type") != "sage-semantic-confirmation":
@@ -202,12 +242,15 @@ def _validate_semantic_artifacts(
         raise ProposalError("semantic confirmation action mismatch")
     if confirmation.get("semantic_understanding_sha256") != understanding_sha:
         raise ProposalError("semantic confirmation does not bind the embedded understanding")
-    return {
+    authority = {
         "semantic_understanding_sha256": understanding_sha,
         "semantic_confirmation_sha256": confirmation_sha,
         "applicable_contexts": list(applicable),
         "context_dispositions": dispositions,
     }
+    if has_implementation_contexts:
+        authority["implementation_contexts"] = list(implementation)
+    return authority
 
 
 def resolve_planning_authority(repo: Path, source: PlanningSourceBundle, discovery: Any) -> dict[str, Any]:
@@ -223,7 +266,10 @@ def resolve_planning_authority(repo: Path, source: PlanningSourceBundle, discove
             "authoritative_files": list(discovery.authorities),
             "semantic_authority": None,
         }
-    confirmed = tuple(str(item) for item in semantic["applicable_contexts"])
+    confirmed_applicable = tuple(str(item) for item in semantic["applicable_contexts"])
+    confirmed_implementation = tuple(
+        str(item) for item in semantic.get("implementation_contexts", confirmed_applicable)
+    )
     dispositions = tuple(semantic["context_dispositions"])
     disposition_ids = {str(item["context_id"]) for item in dispositions}
     unexpected = sorted(set(raw_contexts) - disposition_ids)
@@ -233,16 +279,17 @@ def resolve_planning_authority(repo: Path, source: PlanningSourceBundle, discove
             f"return to semantic confirmation: {unexpected}"
         )
     derived = derive_applicable_contexts(repo, source.declared_paths)
-    if derived != confirmed:
+    if derived != confirmed_implementation:
         raise ProposalError(
-            "Architect-confirmed semantic contexts no longer match current path/dependency authority; "
+            "Architect-confirmed implementation contexts no longer match current path/dependency authority; "
             "return to semantic confirmation"
         )
-    authorities = resolve_context_authorities(repo, confirmed)
+    authorities = resolve_context_authorities(repo, confirmed_implementation)
     return {
         "authority_mode": "architect-confirmed-semantic",
         "raw_inferred_contexts": list(raw_contexts),
-        "contexts": list(confirmed),
+        "contexts": list(confirmed_implementation),
+        "applicable_contexts": list(confirmed_applicable),
         "authoritative_files": list(authorities),
         "semantic_authority": dict(semantic),
     }
@@ -284,7 +331,7 @@ def _validate_scope(
     manifest: Mapping[str, Any],
 ) -> None:
     expected = {SOURCE_MANIFEST_NAME, *(PAYLOAD_PREFIX + item.path for item in source_files)}
-    if manifest.get("schema_version") == "1.1":
+    if manifest.get("schema_version") in {"1.1", "1.2"}:
         expected.update({SEMANTIC_UNDERSTANDING_NAME, SEMANTIC_CONFIRMATION_NAME})
     observed = set()
     for info in archive.infolist():
@@ -304,8 +351,10 @@ def _validate_manifest(payload: Mapping[str, Any], request: str) -> dict[str, An
         expected_fields = SOURCE_FIELDS_V1_0
     elif version == "1.1":
         expected_fields = SOURCE_FIELDS_V1_1
+    elif version == "1.2":
+        expected_fields = SOURCE_FIELDS_V1_2
     else:
-        raise ProposalError("planning source schema_version must be 1.0 or 1.1")
+        raise ProposalError("planning source schema_version must be 1.0, 1.1, or 1.2")
     if set(payload) != expected_fields:
         raise ProposalError(
             f"planning source fields mismatch: missing={sorted(expected_fields - set(payload))}, "
@@ -329,7 +378,7 @@ def _validate_manifest(payload: Mapping[str, Any], request: str) -> dict[str, An
         raise ProposalError("evidence_references must contain non-empty strings")
     payload["validation_commands"] = commands
     payload["evidence_references"] = list(dict.fromkeys(evidence))
-    if version == "1.1":
+    if version in {"1.1", "1.2"}:
         semantic = require_object(payload.get("semantic_authority"), "semantic_authority")
         expected_semantic = {
             "semantic_understanding_sha256",
@@ -337,6 +386,8 @@ def _validate_manifest(payload: Mapping[str, Any], request: str) -> dict[str, An
             "applicable_contexts",
             "context_dispositions",
         }
+        if version == "1.2":
+            expected_semantic.add("implementation_contexts")
         if set(semantic) != expected_semantic:
             raise ProposalError("semantic_authority fields are invalid")
         for field in ("semantic_understanding_sha256", "semantic_confirmation_sha256"):
@@ -346,15 +397,24 @@ def _validate_manifest(payload: Mapping[str, Any], request: str) -> dict[str, An
         applicable = require_list(semantic.get("applicable_contexts"), "semantic_authority.applicable_contexts")
         if not applicable or not all(isinstance(item, str) and item for item in applicable) or len(set(applicable)) != len(applicable):
             raise ProposalError("semantic_authority applicable_contexts are invalid")
+        if version == "1.2":
+            implementation = require_list(semantic.get("implementation_contexts"), "semantic_authority.implementation_contexts")
+            if not implementation or not all(isinstance(item, str) and item for item in implementation) or len(set(implementation)) != len(implementation):
+                raise ProposalError("semantic_authority implementation_contexts are invalid")
+            if not set(implementation).issubset(set(applicable)):
+                raise ProposalError("semantic_authority implementation_contexts must be a subset of applicable_contexts")
         dispositions = require_list(semantic.get("context_dispositions"), "semantic_authority.context_dispositions")
         if not dispositions:
             raise ProposalError("semantic_authority context_dispositions are required")
-        payload["semantic_authority"] = {
+        normalized_semantic = {
             "semantic_understanding_sha256": str(semantic["semantic_understanding_sha256"]),
             "semantic_confirmation_sha256": str(semantic["semantic_confirmation_sha256"]),
             "applicable_contexts": list(applicable),
             "context_dispositions": [dict(require_object(item, "semantic context disposition")) for item in dispositions],
         }
+        if version == "1.2":
+            normalized_semantic["implementation_contexts"] = list(implementation)
+        payload["semantic_authority"] = normalized_semantic
     return payload
 
 
@@ -396,7 +456,7 @@ def write_source_package(
             request,
             declared_paths,
         )
-        schema_version = "1.1"
+        schema_version = "1.2" if "implementation_contexts" in semantic_authority else "1.1"
     manifest_input: dict[str, Any] = {
         "schema_version": schema_version,
         "request_sha256": request_sha256(request),
@@ -449,7 +509,7 @@ def load_source_bundle(path: Path, request: str) -> PlanningSourceBundle:
         if generated and manifest["reconcile_evidence_index"] is not True:
             raise ProposalError("generated_paths require reconcile_evidence_index=true")
         _validate_scope(archive, source_files, manifest)
-        if manifest.get("schema_version") == "1.1":
+        if manifest.get("schema_version") in {"1.1", "1.2"}:
             try:
                 understanding_bytes = archive.read(SEMANTIC_UNDERSTANDING_NAME)
                 confirmation_bytes = archive.read(SEMANTIC_CONFIRMATION_NAME)

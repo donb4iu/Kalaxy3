@@ -15,6 +15,7 @@ REQUIRED = (
     "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
     "markdown/standards/sage-semantic-understanding-schema-v1.0.json",
     "markdown/standards/sage-request-planning-source-schema-v1.1.json",
+    "markdown/standards/sage-request-planning-source-schema-v1.2.json",
 )
 
 
@@ -32,8 +33,8 @@ def validate() -> list[str]:
         "load_improvement_action",
         'action.get("current_status") != "accepted"',
         "architect-confirmation-required",
-        "derive_applicable_contexts",
-        "not-applicable-to-proposed-repository-scope",
+        "reconcile_semantic_contexts",
+        "implementation_contexts",
         "write_source_package",
         "planning-source-generation-authorized",
         "semantic-confirmation.json",
@@ -54,6 +55,14 @@ def validate() -> list[str]:
         failures.append("semantic bootstrap bypasses the repository-owned operator-command renderer")
     if "_apply_architect_dispositions" not in workflow or "architect-dispositions.json" not in workflow:
         failures.append("semantic bootstrap Architect disposition contract is missing")
+    if "not-applicable-to-proposed-repository-scope" in workflow:
+        failures.append("semantic bootstrap still equates absent mutation paths with non-applicability")
+    if "implementation_contexts" not in planning or "SEMANTIC_APPLICABLE_DISPOSITIONS" not in planning:
+        failures.append("request planning does not preserve semantic applicability separately from mutation authority")
+    if "SOURCE_FIELDS_V1_2" not in planning or '"1.2"' not in planning:
+        failures.append("request planning lacks additive v1.2 split semantic-authority support")
+    if "applicable-now-no-proposed-source-mutation" not in planning:
+        failures.append("request-relevant non-mutation context disposition is missing")
     if "write_source_package" not in planning:
         failures.append("repository-owned planning-source writer is missing")
     for marker in ("resolve_planning_authority", "semantic_authority", "return to semantic confirmation"):
@@ -92,7 +101,9 @@ def main() -> int:
     print("PASS engineering contribution excludes caller-authored SAGE mechanics")
     print("PASS Architect accept/reject/modify/defer disposition contract")
     print("PASS Architect semantic-confirmation boundary")
-    print("PASS bounded one-pass context disposition")
+    print("PASS bounded one-pass context disposition without path/applicability conflation")
+    print("PASS semantic applicability is preserved separately from mutation authority")
+    print("PASS split semantic authority is additive through planning-source v1.2")
     print("PASS repository-owned planning-source generation")
     print("PASS existing planner/executor reuse")
     print("PASS confirmed semantic authority is bound into downstream planning")

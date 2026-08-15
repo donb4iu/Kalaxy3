@@ -14,7 +14,7 @@ SAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SAGE_DIR))
 
 from request_execution import ProposalError, load_proposal
-from request_planning import derive_applicable_contexts, load_source_bundle, resolve_planning_authority, write_proposal_package, write_source_package
+from request_planning import derive_applicable_contexts, load_source_bundle, reconcile_semantic_contexts, resolve_planning_authority, write_proposal_package, write_source_package
 from workflow import PrimitiveCatalog, WorkflowError
 from workflows.request_planning import derive_component_plan, plan_request
 
@@ -107,15 +107,11 @@ def self_test(repo: Path) -> int:
 
         semantic_payload = b"semantic-fixture\n"
         semantic_relative = "scripts/sage/request_planning.py"
-        applicable = derive_applicable_contexts(repo, (semantic_relative,))
-        extras = tuple(item for item in ("helm-platform", "observability") if item not in applicable)
-        dispositions = [
-            {"context_id": item, "disposition": "applicable"}
-            for item in applicable
-        ] + [
-            {"context_id": item, "disposition": "not-applicable-to-proposed-repository-scope"}
-            for item in extras
-        ]
+        implementation = derive_applicable_contexts(repo, (semantic_relative,))
+        extras = tuple(item for item in ("helm-platform", "observability") if item not in implementation)
+        reconciled = reconcile_semantic_contexts(repo, tuple((*implementation, *extras)), (semantic_relative,))
+        applicable = tuple(reconciled["applicable_contexts"])
+        dispositions = list(reconciled["context_dispositions"])
         understanding = {
             "schema_version": "1.0",
             "record_type": "sage-semantic-understanding",
@@ -126,6 +122,7 @@ def self_test(repo: Path) -> int:
                 "implementation_scope": [semantic_relative],
                 "inferred_contexts": list(dict.fromkeys((*applicable, *extras))),
                 "applicable_contexts": list(applicable),
+                "implementation_contexts": list(implementation),
                 "context_dispositions": dispositions,
             },
             "assertions": {"meaning": "architect-confirmation-required"},
@@ -154,16 +151,61 @@ def self_test(repo: Path) -> int:
             semantic_understanding_path=understanding_path,
             semantic_confirmation_path=confirmation_path,
         )
-        if semantic_bundle.manifest.get("schema_version") != "1.1" or semantic_bundle.semantic_authority is None:
-            raise RuntimeError("semantic planning source did not preserve confirmed authority")
+        if semantic_bundle.manifest.get("schema_version") != "1.2" or semantic_bundle.semantic_authority is None:
+            raise RuntimeError("split semantic planning source did not preserve confirmed authority")
         class DiscoveryFixture:
             contexts = tuple(dict.fromkeys((*applicable, *extras)))
             authorities = ("infrastructure/k3s-homelab/helm-chart-lock.json",)
         resolved = resolve_planning_authority(repo, semantic_bundle, DiscoveryFixture())
-        if tuple(resolved["contexts"]) != applicable:
-            raise RuntimeError("semantic planning authority re-expanded raw discovery contexts")
+        if tuple(resolved["contexts"]) != implementation:
+            raise RuntimeError("semantic planning mutation authority re-expanded raw discovery contexts")
+        if tuple(resolved["applicable_contexts"]) != applicable:
+            raise RuntimeError("semantic applicability was collapsed back to mutation scope")
+        if not all(item in applicable for item in extras):
+            raise RuntimeError("request-relevant contexts were silently discarded because no source path changed")
         if any(str(path).startswith("infrastructure/k3s-homelab/") for path in resolved["authoritative_files"]):
-            raise RuntimeError("semantic planning authority leaked infrastructure authorities")
+            raise RuntimeError("semantic planning mutation authority leaked infrastructure authorities")
+
+        historical_understanding = json.loads(json.dumps(understanding))
+        historical_understanding["interpretation"].pop("implementation_contexts", None)
+        historical_understanding["interpretation"]["applicable_contexts"] = list(implementation)
+        historical_understanding["interpretation"]["context_dispositions"] = [
+            {"context_id": item, "disposition": "applicable"}
+            for item in implementation
+        ]
+        historical_understanding_path = temp_root / "semantic-understanding-v1.1.json"
+        historical_understanding_path.write_text(json.dumps(historical_understanding, indent=4) + "\n", encoding="utf-8")
+        historical_confirmation = dict(confirmation)
+        historical_confirmation["semantic_understanding_sha256"] = sha256_bytes(historical_understanding_path.read_bytes())
+        historical_confirmation_path = temp_root / "semantic-confirmation-v1.1.json"
+        historical_confirmation_path.write_text(json.dumps(historical_confirmation, indent=4) + "\n", encoding="utf-8")
+        historical_source = temp_root / "semantic-source-v1.1.zip"
+        historical_bundle = write_source_package(
+            historical_source,
+            semantic_request,
+            repository={"branch": "feature/fixture", "head": "0" * 40},
+            source_files=(ProposedFile(semantic_relative, sha256_bytes(semantic_payload), 0o644, semantic_payload),),
+            evidence_references=["fixture:historical-semantic-authority"],
+            validation_commands=[{"label": "Fixture validation", "argv": ["make", "sage-index-check"], "timeout_seconds": 60}],
+            operator_plan={"commit_message": "Fixture historical semantic request", "push_remote": "origin"},
+            semantic_understanding_path=historical_understanding_path,
+            semantic_confirmation_path=historical_confirmation_path,
+        )
+        if historical_bundle.manifest.get("schema_version") != "1.1":
+            raise RuntimeError("historical semantic source did not retain v1.1 contract")
+        class HistoricalDiscoveryFixture:
+            contexts = implementation
+            authorities = ()
+        historical_resolved = resolve_planning_authority(repo, historical_bundle, HistoricalDiscoveryFixture())
+        if tuple(historical_resolved["contexts"]) != implementation:
+            raise RuntimeError("historical v1.1 semantic source changed combined-context authority")
+        try:
+            resolve_planning_authority(repo, historical_bundle, DiscoveryFixture())
+        except ProposalError as error:
+            if "return to semantic confirmation" not in str(error):
+                raise RuntimeError(f"unexpected historical semantic re-entry failure: {error}") from error
+        else:
+            raise RuntimeError("historical v1.1 source silently accepted contexts absent from its confirmation")
         class ChangedDiscoveryFixture:
             contexts = tuple(dict.fromkeys((*DiscoveryFixture.contexts, "storage")))
             authorities = DiscoveryFixture.authorities
@@ -182,7 +224,10 @@ def self_test(repo: Path) -> int:
     )
     print("PASS unsupported capability produces capability.gap receipt")
     print("PASS repository-owned source package to existing proposal interface")
-    print("PASS Architect-confirmed contexts remain authoritative over raw discovery")
+    print("PASS semantic applicability remains distinct from source-mutation authority")
+    print("PASS request-relevant contexts are preserved without leaking unrelated mutation authority")
+    print("PASS historical v1.1 semantic planning sources remain readable without rewrite")
+    print("PASS historical v1.1 sources still fail closed on newly discovered contexts")
     print("PASS new post-confirmation contexts return to semantic confirmation")
     print("Kalaxy3 SAGE request planning self-test: PASS")
     return 0

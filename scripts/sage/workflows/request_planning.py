@@ -361,6 +361,7 @@ def plan_request(
                 "authority_mode": resolved["authority_mode"],
                 "raw_inferred_contexts": list(resolved["raw_inferred_contexts"]),
                 "contexts": list(resolved["contexts"]),
+                "applicable_contexts": list(resolved.get("applicable_contexts", resolved["contexts"])),
                 "authoritative_files": list(resolved["authoritative_files"]),
                 "semantic_authority": resolved["semantic_authority"],
                 "discovery_sha256": hashlib.sha256(discovery.stdout.encode("utf-8")).hexdigest(),
@@ -373,6 +374,7 @@ def plan_request(
             "authority_mode": resolved["authority_mode"],
             "raw_inferred_contexts": list(resolved["raw_inferred_contexts"]),
             "contexts": list(resolved["contexts"]),
+            "applicable_contexts": list(resolved.get("applicable_contexts", resolved["contexts"])),
             "authority_reference": str(authority_reference),
         }
     def git_action() -> Mapping[str, Any]:
