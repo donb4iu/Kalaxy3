@@ -121,7 +121,7 @@ sage-operating-contract-check: sage-operating-contract-self-test sage-operating-
 
 sage-guardrails: sage-self-test sage-semantic-bootstrap-guardrail sage-discovery-guardrail sage-operating-contract-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
-                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail sage-checkpoint-promotion-guardrail
+                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail sage-checkpoint-promotion-guardrail sage-security-external-access-discovery-guardrail sage-legacy-evidence-projection-guardrail
 	@echo "Kalaxy3 repository SAGE guardrails: PASS"
 
 .PHONY: sage-evidence-brief sage-evidence-prepare \
@@ -501,3 +501,13 @@ sage-checkpoint-promotion-continue:
 	@test -n "$$SAGE_STATE" || (echo 'SAGE_STATE is required' >&2; exit 2)
 	@test -n "$$SAGE_OPERATOR_RESULT" || (echo 'SAGE_OPERATOR_RESULT is required' >&2; exit 2)
 	$(PYTHON) scripts/sage/sage-checkpoint-promote.py --continue-state "$$SAGE_STATE" --operator-result "$$SAGE_OPERATOR_RESULT" --repo "$(CURDIR)"
+
+# SAGE security/external-access and legacy-evidence bootstrap guardrails
+.PHONY: sage-security-external-access-discovery-guardrail \
+        sage-legacy-evidence-projection-guardrail
+
+sage-security-external-access-discovery-guardrail:
+	$(PYTHON) scripts/sage/sage-security-external-access-discovery-guardrail.py
+
+sage-legacy-evidence-projection-guardrail:
+	$(PYTHON) scripts/sage/sage-legacy-evidence-projection-guardrail.py
