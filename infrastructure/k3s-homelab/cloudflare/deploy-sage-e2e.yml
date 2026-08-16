@@ -1,0 +1,206 @@
+---
+- name: Deploy SAGE zero-trust E2E origin and Cloudflare connector
+  hosts: k3s_servers[0]
+  gather_facts: false
+  become: true
+
+  vars:
+    sage_e2e_render_dir: /tmp/kalaxy3-sage-e2e
+    kalaxy3_repository_root: >-
+      {{
+        playbook_dir
+        | dirname
+        | dirname
+        | dirname
+      }}
+
+  pre_tasks:
+    - name: Require explicit non-secret runtime inputs
+      ansible.builtin.assert:
+        that:
+          - sage_external_hostname is defined
+          - sage_external_hostname | length > 3
+          - "'.' in sage_external_hostname"
+          - "'://' not in sage_external_hostname"
+          - kalaxy3_secrets_file is defined
+          - kalaxy3_secrets_file | length > 3
+          - kalaxy3_secrets_file is match('^/')
+          - >-
+            not kalaxy3_secrets_file.startswith(
+              kalaxy3_repository_root + '/'
+            )
+        fail_msg: >-
+          Provide a DNS hostname and an absolute controller-local Ansible
+          Vault secrets file outside the Kalaxy3 repository.
+
+    - name: Inspect controller-local encrypted runtime secrets
+      ansible.builtin.stat:
+        path: "{{ kalaxy3_secrets_file }}"
+      delegate_to: localhost
+      become: false
+      vars:
+        ansible_become: false
+      register: kalaxy3_secrets_stat
+      no_log: true
+
+    - name: Read encrypted source envelope without decrypting it
+      ansible.builtin.slurp:
+        src: "{{ kalaxy3_secrets_file }}"
+      delegate_to: localhost
+      become: false
+      vars:
+        ansible_become: false
+      register: kalaxy3_secrets_ciphertext
+      no_log: true
+
+    - name: Require an Ansible Vault encrypted source with private permissions
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_secrets_stat.stat.exists
+          - kalaxy3_secrets_stat.stat.isreg
+          - not kalaxy3_secrets_stat.stat.islnk
+          - kalaxy3_secrets_stat.stat.mode in ['0400', '0600']
+          - >-
+            (kalaxy3_secrets_ciphertext.content | b64decode)
+            .startswith('$ANSIBLE_VAULT;')
+        fail_msg: >-
+          The controller-local secrets source must be a whole-file Ansible
+          Vault payload with mode 0400 or 0600.
+      no_log: true
+
+    - name: Read controller-local encrypted runtime secrets
+      ansible.builtin.include_vars:
+        file: "{{ kalaxy3_secrets_file }}"
+        name: kalaxy3_runtime_secrets
+      no_log: true
+
+    - name: Require Cloudflare tunnel token from encrypted secrets source
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_runtime_secrets.cloudflare_tunnel_token is defined
+          - kalaxy3_runtime_secrets.cloudflare_tunnel_token | length > 40
+        fail_msg: >-
+          The encrypted secrets source must define cloudflare_tunnel_token.
+      no_log: true
+
+  tasks:
+    - name: Deploy bounded SAGE E2E runtime
+      block:
+        - name: Recreate bounded render directory
+          ansible.builtin.file:
+            path: "{{ sage_e2e_render_dir }}"
+            state: absent
+
+        - name: Create bounded render directory
+          ansible.builtin.file:
+            path: "{{ sage_e2e_render_dir }}"
+            state: directory
+            mode: "0700"
+
+        - name: Render namespaces
+          ansible.builtin.template:
+            src: namespaces.yaml.j2
+            dest: "{{ sage_e2e_render_dir }}/namespaces.yaml"
+            mode: "0600"
+
+        - name: Render SAGE experience
+          ansible.builtin.template:
+            src: sage-experience.yaml.j2
+            dest: "{{ sage_e2e_render_dir }}/sage-experience.yaml"
+            mode: "0600"
+
+        - name: Render cloudflared connector
+          ansible.builtin.template:
+            src: cloudflared.yaml.j2
+            dest: "{{ sage_e2e_render_dir }}/cloudflared.yaml"
+            mode: "0600"
+
+        - name: Apply bounded namespaces
+          ansible.builtin.command:
+            argv:
+              - k3s
+              - kubectl
+              - apply
+              - -f
+              - "{{ sage_e2e_render_dir }}/namespaces.yaml"
+          register: namespace_apply
+          changed_when: >-
+            'configured' in namespace_apply.stdout
+            or 'created' in namespace_apply.stdout
+
+        - name: Apply tunnel token secret from protected in-memory definition
+          ansible.builtin.command:
+            argv:
+              - k3s
+              - kubectl
+              - apply
+              - -f
+              - "-"
+            stdin: |
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: cloudflared-tunnel-token
+                namespace: external-access
+              type: Opaque
+              stringData:
+                token: {{ kalaxy3_runtime_secrets.cloudflare_tunnel_token | to_json }}
+          no_log: true
+          changed_when: true
+
+        - name: Apply cloudflared connector
+          ansible.builtin.command:
+            argv:
+              - k3s
+              - kubectl
+              - apply
+              - -f
+              - "{{ sage_e2e_render_dir }}/cloudflared.yaml"
+          register: cloudflared_apply
+          changed_when: >-
+            'configured' in cloudflared_apply.stdout
+            or 'created' in cloudflared_apply.stdout
+
+        - name: Apply SAGE experience
+          ansible.builtin.command:
+            argv:
+              - k3s
+              - kubectl
+              - apply
+              - -f
+              - "{{ sage_e2e_render_dir }}/sage-experience.yaml"
+          register: experience_apply
+          changed_when: >-
+            'configured' in experience_apply.stdout
+            or 'created' in experience_apply.stdout
+
+        - name: Wait for SAGE experience rollout
+          ansible.builtin.command:
+            argv:
+              - k3s
+              - kubectl
+              - -n
+              - documentation
+              - rollout
+              - status
+              - deployment/sage-experience
+              - --timeout=180s
+          changed_when: false
+
+        - name: Wait for cloudflared rollout
+          ansible.builtin.command:
+            argv:
+              - k3s
+              - kubectl
+              - -n
+              - external-access
+              - rollout
+              - status
+              - deployment/cloudflared
+              - --timeout=180s
+          changed_when: false
+      always:
+        - name: Remove all rendered non-secret runtime material
+          ansible.builtin.file:
+            path: "{{ sage_e2e_render_dir }}"
+            state: absent

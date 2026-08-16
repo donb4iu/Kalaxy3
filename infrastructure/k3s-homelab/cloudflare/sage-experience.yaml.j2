@@ -1,0 +1,134 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sage-experience-page
+  namespace: documentation
+data:
+  index.html: |
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Kalaxy3 / SAGE — Governed outcome</title>
+        <style>
+          body { font-family: system-ui, sans-serif; max-width: 900px; margin: 3rem auto; padding: 0 1.25rem; line-height: 1.55; }
+          .ok { font-weight: 700; }
+          section { margin: 2rem 0; }
+        </style>
+      </head>
+      <body>
+        <h1>Kalaxy3 / SAGE governed outcome</h1>
+        <p class="ok">Authenticated origin path: serving from the Kalaxy3 Kubernetes cluster.</p>
+        <section>
+          <h2>What was requested</h2>
+          <p>Prove an Architect-intent-to-runtime-outcome lifecycle with governed LLM contribution, a real cluster capability, zero-trust external access, measurable verification, evidence, and promotion back to main.</p>
+        </section>
+        <section>
+          <h2>What SAGE challenged</h2>
+          <p>Anonymous publication was rejected by the Architect. Human external access requires Cloudflare Access MFA; privileged management surfaces remain private.</p>
+        </section>
+        <section>
+          <h2>What changed</h2>
+          <p>The experience reuses the existing Kalaxy3 documentation image and Traefik ingress. Cloudflare Tunnel is the outbound external transport; Access supplies the external identity boundary.</p>
+        </section>
+        <section>
+          <h2>What SAGE prevented</h2>
+          <p>The Architect explicitly stated that installing Cloudflare into Kubernetes should be SAGE's engineering burden rather than operator knowledge. SAGE first found that the encrypted Vault source could not be decrypted from the root deployment entry point. After that correction, the first real deployment stopped again before cluster mutation because inherited Ansible privilege-escalation state overrode the intended controller-local boundary. SAGE preserved secret redaction, corrected the precedence boundary, and did not ask the Architect to bypass the governed path.</p>
+          <p>The Architect then clarified the workload semantics: cloudflared is a platform service, node-level HA outranks ordinary placement preference, amd64-01 capacity should be preserved for AI when alternatives exist, and ARM64 capacity must not be ignored. SAGE converts that into hard cross-node separation plus soft placement preferences instead of a brittle node-name rule.</p>
+        </section>
+        <section>
+          <h2>Health and evidence</h2>
+          <p>If this page is visible after Access authentication, the protected external request reached the live cluster-hosted origin. Deterministic workload, tunnel, routing, and negative-access evidence is recorded separately by SAGE.</p>
+          <p><a href="/evidence/">Browse evidence</a> · <a href="/standards/kalaxy3-sage-operating-contract/">SAGE operating contract</a></p>
+        </section>
+      </body>
+    </html>
+  healthz: |
+    ok
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sage-experience
+  namespace: documentation
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sage-experience
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sage-experience
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: nginx
+          image: donb4iu/mynginx_docs:566d215fc0a077cb9330a69b08716a53903e6fe0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          volumeMounts:
+            - name: landing
+              mountPath: /usr/share/nginx/html/index.html
+              subPath: index.html
+              readOnly: true
+            - name: landing
+              mountPath: /usr/share/nginx/html/healthz
+              subPath: healthz
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+      volumes:
+        - name: landing
+          configMap:
+            name: sage-experience-page
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sage-experience
+  namespace: documentation
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: sage-experience
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sage-experience
+  namespace: documentation
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+    - host: {{ sage_external_hostname }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sage-experience
+                port:
+                  name: http

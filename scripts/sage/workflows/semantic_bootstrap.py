@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
-from request_planning import reconcile_semantic_contexts, write_source_package
+from request_planning import reconcile_semantic_contexts, reuse_confirmed_source_package, write_source_package
 from semantic_understanding import action_record_sha256, load_engineering_contribution, sha256_file
 from workflow import (
     AtomicFileWriter,
@@ -27,7 +27,7 @@ from workflow import (
 )
 
 WORKFLOW_ID = "sage.semantic-bootstrap"
-WORKFLOW_VERSION = "0.3.0"
+WORKFLOW_VERSION = "0.4.1"
 PRIMITIVES_USED = (
     "catalog.registry",
     "logging.events",
@@ -60,6 +60,111 @@ def _preflight_once(repo: Path, runner: CommandRunner, request: str):
 
 
 NEGOTIATION_DISPOSITIONS = {"accept", "reject", "modify", "defer"}
+PLANNING_OBLIGATION_KINDS = {
+    "capability",
+    "constraint",
+    "requirement",
+    "validation",
+    "measurement",
+    "feasibility",
+    "outcome",
+    "lifecycle",
+}
+FEASIBILITY_PLANNING_OBLIGATIONS = (
+    "Runtime behavior remains unproven until planned source is applied and deterministic validations pass.",
+    "Outcome feasibility and external-framework review remain downstream acceptance obligations.",
+)
+
+
+def _planning_obligation(
+    obligation_id: str,
+    kind: str,
+    description: str,
+    source: str,
+    *,
+    required: bool = True,
+    capability_id: str | None = None,
+) -> dict[str, Any]:
+    if kind not in PLANNING_OBLIGATION_KINDS:
+        raise WorkflowError(f"{obligation_id}: invalid planning obligation kind")
+    if not obligation_id or not description.strip() or not source.strip():
+        raise WorkflowError("planning obligation id, description, and source are required")
+    if kind == "capability":
+        if not isinstance(capability_id, str) or not capability_id.strip():
+            raise WorkflowError(f"{obligation_id}: capability obligation requires capability_id")
+        normalized_capability = capability_id.strip()
+    elif capability_id is not None:
+        raise WorkflowError(f"{obligation_id}: capability_id is allowed only for capability obligations")
+    else:
+        normalized_capability = None
+    return {
+        "obligation_id": obligation_id,
+        "kind": kind,
+        "description": description.strip(),
+        "required": bool(required),
+        "capability_id": normalized_capability,
+        "source": source.strip(),
+    }
+
+
+def _derive_planning_obligations(
+    understanding: Mapping[str, Any],
+    dispositions: list[dict[str, Any]],
+    decisions: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    action = understanding.get("action", {})
+    obligations: list[dict[str, Any]] = []
+    desired = action.get("desired_outcome")
+    if isinstance(desired, str) and desired.strip():
+        obligations.append(_planning_obligation(
+            "PO-OUTCOME-001", "outcome", desired, "accepted-action.desired_outcome"
+        ))
+    for index, value in enumerate(action.get("acceptance_criteria", []), 1):
+        obligations.append(_planning_obligation(
+            f"PO-AC-{index:03d}", "requirement", str(value),
+            f"accepted-action.acceptance_criteria[{index - 1}]"
+        ))
+    for index, value in enumerate(action.get("measurement_plan", []), 1):
+        obligations.append(_planning_obligation(
+            f"PO-MEASURE-{index:03d}", "measurement", str(value),
+            f"accepted-action.measurement_plan[{index - 1}]"
+        ))
+    for item in dispositions:
+        if item.get("authority_effect") != "authoritative-in-confirmed-intent":
+            continue
+        if item.get("target") == "assumptions" and isinstance(item.get("effective_value"), str):
+            safe_id = "".join(ch if ch.isalnum() else "-" for ch in str(item["proposal_id"])).upper()
+            obligations.append(_planning_obligation(
+                f"PO-{safe_id}", "constraint", str(item["effective_value"]),
+                f"architect-disposition:{item['proposal_id']}"
+            ))
+    for index, value in enumerate(FEASIBILITY_PLANNING_OBLIGATIONS, 1):
+        obligations.append(_planning_obligation(
+            f"PO-FEAS-{index:03d}", "feasibility", value,
+            f"semantic-feasibility[{index - 1}]"
+        ))
+    explicit = decisions.get("planning_obligations", [])
+    if not isinstance(explicit, list):
+        raise WorkflowError("Architect planning_obligations must be a list")
+    for index, raw in enumerate(explicit):
+        if not isinstance(raw, Mapping):
+            raise WorkflowError(f"planning_obligations[{index}] must be an object")
+        required_fields = {"obligation_id", "kind", "description", "required", "capability_id"}
+        if set(raw) != required_fields:
+            raise WorkflowError(f"planning_obligations[{index}] fields are invalid")
+        obligations.append(_planning_obligation(
+            str(raw["obligation_id"]),
+            str(raw["kind"]),
+            str(raw["description"]),
+            f"architect-planning-directive[{index}]",
+            required=bool(raw["required"]),
+            capability_id=raw["capability_id"],
+        ))
+    ids = [item["obligation_id"] for item in obligations]
+    if len(ids) != len(set(ids)):
+        raise WorkflowError("planning obligation identifiers must be unique")
+    return obligations
+
 
 
 def _negotiation_proposals(contribution: Any) -> list[dict[str, Any]]:
@@ -157,6 +262,9 @@ def _apply_architect_dispositions(understanding: Mapping[str, Any], decisions: M
         "dispositions": normalized,
         "non_authoritative_proposals": [item["proposal_id"] for item in normalized if item["authority_effect"] == "evidence-only"],
     }
+    result["interpretation"]["planning_obligations"] = _derive_planning_obligations(
+        result, normalized, decisions
+    )
     if isinstance(result.get("assertions"), dict):
         result["assertions"]["meaning"] = "architect-confirmed"
     return result
@@ -236,6 +344,8 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
                 "status": "accepted",
                 "record_sha256": action_record_sha256(action),
                 "desired_outcome": action.get("desired_outcome"),
+                "acceptance_criteria": list(action.get("acceptance_criteria", [])),
+                "measurement_plan": list(action.get("measurement_plan", [])),
             },
             "literal_request": request,
             "contribution": {
@@ -509,6 +619,48 @@ def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, a
     return {
         "status": state["status"],
         "source": str(source.package_path),
+        "planning_source": str(source.package_path),
         "state": str(state_path),
         "next_command": next_command,
+    }
+
+
+def reuse_confirmed_intent(
+    repo: Path,
+    request: str,
+    prior_source_path: Path,
+    contribution_path: Path,
+) -> Mapping[str, Any]:
+    """Create an implementation-local planning source without semantic rediscovery."""
+
+    repo = repo.expanduser().resolve()
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    state_dir = Path("~/.local/state/kalaxy3/sage-semantic-bootstrap").expanduser() / stamp
+    state_dir.mkdir(parents=True, exist_ok=False)
+    _, _, _, _, inspector = _runtime(repo, state_dir)
+    inspector.require_clean()
+    head = inspector.require_upstream_equal()
+    branch = inspector.branch()
+    if branch == "main":
+        raise WorkflowError("implementation-local iteration requires a synchronized non-main feature branch")
+    contribution = load_engineering_contribution(contribution_path)
+    output = (
+        Path("~/Downloads").expanduser()
+        / ("sage-implementation-local-source-" + datetime.now().strftime("%Y%m%d-%H%M%S") + ".zip")
+    )
+    source = reuse_confirmed_source_package(
+        output,
+        prior_source_path.expanduser().resolve(),
+        request,
+        repository={"branch": branch, "head": head},
+        source_files=contribution.source_files,
+        evidence_reference=f"implementation-local-contribution-sha256:{contribution.package_sha256}",
+    )
+    return {
+        "status": "planning-source-ready",
+        "planning_source": str(source.package_path),
+        "branch": branch,
+        "head": head,
+        "semantic_reused": True,
+        "evidence_retrieval_reused": True,
     }

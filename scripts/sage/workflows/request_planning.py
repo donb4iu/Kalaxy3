@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from request_planning import load_source_bundle, resolve_planning_authority, write_proposal_package
+from request_execution import load_proposal
 from workflow import (
     AtomicFileWriter,
     CapabilityGapRecorder,
@@ -31,7 +32,7 @@ from workflow import (
 from workflows.request_execution import PRIMITIVES_USED as EXECUTION_PRIMITIVES
 
 WORKFLOW_ID = "sage.request-planning"
-WORKFLOW_VERSION = "1.0.0"
+WORKFLOW_VERSION = "1.1.0"
 SECRET_ENVIRONMENT_NAMES = (
     "GH_TOKEN",
     "GITHUB_TOKEN",
@@ -184,6 +185,99 @@ def _gap_receipt(
     )
 
 
+
+def _domain_capabilities(planning_obligations: tuple[Mapping[str, Any], ...]) -> tuple[RequiredCapability, ...]:
+    result: list[RequiredCapability] = []
+    seen: set[str] = set()
+    for item in planning_obligations:
+        if item.get("kind") != "capability":
+            continue
+        capability_id = str(item.get("capability_id", ""))
+        description = str(item.get("description", ""))
+        if not capability_id or not description:
+            raise WorkflowError("domain capability planning obligation is incomplete")
+        if capability_id in seen:
+            raise WorkflowError(f"duplicate domain planning capability: {capability_id}")
+        seen.add(capability_id)
+        result.append(
+            RequiredCapability(
+                capability_id,
+                description,
+                bool(item.get("required", True)),
+            )
+        )
+    return tuple(result)
+
+
+def _domain_gap_receipt(
+    *,
+    catalog: PrimitiveCatalog,
+    request: str,
+    authority_reference: str,
+    manifest_reference: str,
+    missing_capability: str,
+    planning_obligations: tuple[Mapping[str, Any], ...],
+) -> dict[str, Any]:
+    obligation = next(
+        (
+            item for item in planning_obligations
+            if item.get("kind") == "capability"
+            and item.get("capability_id") == missing_capability
+        ),
+        None,
+    )
+    if obligation is None:
+        raise WorkflowError(
+            f"missing domain planning obligation for capability {missing_capability}"
+        )
+    considered = [
+        {
+            "component_id": primitive_id,
+            "version": str(entry["version"]),
+            "source_path": _source_path(entry),
+            "insufficiency": (
+                "Registered SAGE workflow primitive does not establish the "
+                f"domain capability {missing_capability}."
+            ),
+            "composition_can_close_gap": False,
+        }
+        for primitive_id, entry in sorted(catalog.primitives.items())
+    ]
+    receipt = CapabilityGapRecorder.create_domain(
+        gap_id=f"SAGE-GAP-{datetime.now().strftime('%Y%m%d')}-DOMAIN",
+        request=request,
+        authority_receipt=authority_reference,
+        component_manifest=manifest_reference,
+        required_capability=missing_capability,
+        candidates_considered=considered,
+        missing_interface_or_behavior=str(obligation["description"]),
+        why_configuration_is_insufficient=(
+            "No repository-registered candidate currently proves this "
+            "Architect-confirmed domain capability."
+        ),
+        why_composition_is_insufficient=(
+            "The selected SAGE workflow primitives can govern the decision but "
+            "cannot themselves satisfy the domain capability."
+        ),
+        approval={
+            "status": "review-required",
+            "reviewed_by": None,
+            "reviewed_at": None,
+            "rationale": (
+                "Planner stops for governed domain capability selection; this "
+                "receipt does not authorize a new SAGE primitive."
+            ),
+        },
+        evidence_references=(
+            "sage-workflow-primitives.json",
+            f"planning-obligation:{obligation['obligation_id']}",
+            str(obligation["source"]),
+        ),
+    )
+    CapabilityGapRecorder.assert_domain_selection_required(receipt)
+    return receipt
+
+
 def derive_component_plan(
     *,
     repo: Path,
@@ -191,11 +285,12 @@ def derive_component_plan(
     request: str,
     authority_reference: str,
     required_primitives: tuple[str, ...] = EXECUTION_PRIMITIVES,
+    planning_obligations: tuple[Mapping[str, Any], ...] = (),
 ) -> DerivedPlan:
     """Derive capabilities and candidates only from repository-owned contracts."""
 
     primitive_ids = tuple(dict.fromkeys(required_primitives))
-    capabilities = tuple(
+    execution_capabilities = tuple(
         RequiredCapability(
             _capability_id(primitive_id),
             (
@@ -206,6 +301,8 @@ def derive_component_plan(
         )
         for primitive_id in primitive_ids
     )
+    domain_capabilities = _domain_capabilities(planning_obligations)
+    capabilities = execution_capabilities + domain_capabilities
     candidates: list[ComponentCandidate] = []
     for index, primitive_id in enumerate(primitive_ids, 1):
         entry = catalog.primitives.get(primitive_id)
@@ -263,17 +360,27 @@ def derive_component_plan(
             _capability_id(primitive_id): primitive_id
             for primitive_id in primitive_ids
         }
-        missing_primitive = primitive_by_capability[missing_capability]
-        gap_receipt = _gap_receipt(
-            repo=repo,
-            catalog=catalog,
-            request=request,
-            authority_reference=authority_reference,
-            manifest_reference=(
-                "request-planning-component-selection.json"
-            ),
-            missing_primitive=missing_primitive,
-        )
+        if missing_capability in primitive_by_capability:
+            missing_primitive = primitive_by_capability[missing_capability]
+            gap_receipt = _gap_receipt(
+                repo=repo,
+                catalog=catalog,
+                request=request,
+                authority_reference=authority_reference,
+                manifest_reference=(
+                    "request-planning-component-selection.json"
+                ),
+                missing_primitive=missing_primitive,
+            )
+        else:
+            gap_receipt = _domain_gap_receipt(
+                catalog=catalog,
+                request=request,
+                authority_reference=authority_reference,
+                manifest_reference="request-planning-component-selection.json",
+                missing_capability=missing_capability,
+                planning_obligations=planning_obligations,
+            )
     else:
         ComponentSelector.require_complete(manifest)
 
@@ -389,11 +496,17 @@ def plan_request(
 
     def selection_action() -> Mapping[str, Any]:
         authority_reference = Path(str(state["authority_reference"]))
+        semantic = source.semantic_authority or {}
+        obligations = tuple(
+            item for item in semantic.get("planning_obligations", [])
+            if isinstance(item, Mapping)
+        )
         plan = derive_component_plan(
             repo=repo,
             catalog=catalog,
             request=request,
             authority_reference=str(authority_reference),
+            planning_obligations=obligations,
         )
         component_path = _write_json(
             writer,
@@ -412,8 +525,9 @@ def plan_request(
                 state_dir / "request-planning-capability-gap.json",
                 plan.gap_receipt,
             )
+            kind = plan.gap_receipt.get("gap_kind", "workflow-primitive")
             raise WorkflowError(
-                "request planning found an unresolved capability gap: "
+                f"request planning found an unresolved {kind} capability gap: "
                 f"{gap_path}"
             )
         return {
@@ -484,4 +598,81 @@ def plan_request(
         "authority": authority_reference,
         "component_manifest": component_path,
         "closeout": closeout,
+    }
+
+
+def validate_reusable_plan_lineage(
+    request: str,
+    source_path: Path,
+    proposal_path: Path,
+) -> dict[str, str]:
+    """Validate that an adopted proposal descends from the supplied confirmed planning source."""
+
+    source = load_source_bundle(source_path.expanduser().resolve(), request)
+    if source.semantic_authority is None:
+        raise WorkflowError("adopted iterative lineage requires Architect-confirmed semantic authority")
+    proposal = load_proposal(proposal_path.expanduser().resolve(), request)
+    expected_sources = [
+        {"path": item.path, "sha256": item.sha256, "mode": f"{item.mode:04o}"}
+        for item in source.source_files
+    ]
+    checks = (
+        ("repository", dict(source.manifest["repository"])),
+        ("source_files", expected_sources),
+        ("generated_paths", list(source.generated_paths)),
+        ("reconcile_evidence_index", bool(source.manifest["reconcile_evidence_index"])),
+        ("validation_commands", list(source.manifest["validation_commands"])),
+        ("operator_plan", dict(source.manifest["operator_plan"])),
+    )
+    mismatches = [
+        name for name, expected in checks
+        if proposal.manifest.get(name) != expected
+    ]
+    if mismatches:
+        raise WorkflowError(
+            "adopted planning proposal does not descend from supplied planning source: "
+            + ", ".join(mismatches)
+        )
+    return {
+        "planning_source": str(source.package_path),
+        "planning_proposal": str(proposal.package_path),
+    }
+
+
+def reuse_component_plan(
+    repo: Path,
+    request: str,
+    source_path: Path,
+    prior_proposal_path: Path,
+    output: Path,
+) -> dict[str, Any]:
+    """Reuse a previously selected complete plan for implementation-local refinement."""
+
+    source = load_source_bundle(source_path, request)
+    prior = load_proposal(prior_proposal_path.expanduser().resolve(), request)
+    manifest = prior.manifest
+    if manifest.get("new_primitive_required") is not False:
+        raise WorkflowError("implementation-local iteration cannot reuse a primitive-gap proposal")
+    capabilities = manifest.get("capabilities")
+    candidates = manifest.get("candidates")
+    if not isinstance(capabilities, list) or not capabilities:
+        raise WorkflowError("prior proposal has no reusable capabilities")
+    if not isinstance(candidates, list) or not candidates:
+        raise WorkflowError("prior proposal has no reusable candidates")
+    evidence = list(manifest.get("evidence_references", []))
+    evidence.append(f"implementation-local-plan-reuse:{prior.package_path}")
+    bundle = write_proposal_package(
+        output,
+        source,
+        capabilities=[dict(item) for item in capabilities],
+        candidates=[dict(item) for item in candidates],
+        evidence_references=list(dict.fromkeys(str(item) for item in evidence)),
+        request=request,
+    )
+    return {
+        "proposal": bundle.package_path,
+        "source": source.package_path,
+        "plan_reused": True,
+        "evidence_retrieval_performed": False,
+        "component_selection_performed": False,
     }

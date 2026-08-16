@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "record_type": "kalaxy3-sage-zero-trust-access-requirements",
+  "reviewed_cloudflared_release": "2026.8.2",
+  "anonymous_access": false,
+  "human_access_requires_mfa": true,
+  "mfa_enforcement": "cloudflare-access-independent-mfa",
+  "explicit_allow_identity_required": true,
+  "grant_revoke_supported": true,
+  "access_configured_before_route": true,
+  "privileged_surfaces_remain_private": true,
+  "unmanaged_router_forwarding_forbidden": true,
+  "published_origin": "http://traefik.kube-system.svc.cluster.local:80",
+  "allowed_application": "sage-experience",
+  "forbidden_application_classes": [
+    "kubernetes-api",
+    "headlamp",
+    "grafana",
+    "minio-admin",
+    "traefik-dashboard"
+  ],
+  "identity_selection": {
+    "status": "requires-current-account-evidence",
+    "rule": "Select a currently supported Cloudflare identity method only after inspecting the active account; independent Access MFA remains mandatory regardless of primary login method."
+  },
+  "secret_handling": {
+    "controller_source": "ansible-vault-encrypted-file-outside-git",
+    "runtime_projection": "kubernetes-secret",
+    "plaintext_render_to_disk": false,
+    "secret_bearing_task_logs": false,
+    "secret_in_command_arguments": false
+  },
+  "connector_placement": {
+    "workload_class": "platform-service",
+    "replicas": 2,
+    "node_level_ha_required": true,
+    "hard_hostname_anti_affinity": true,
+    "preferred_workload_pool": "platform-services",
+    "worker_nodes_preferred": true,
+    "arm64_nodes_are_eligible": true,
+    "ai_pool_fallback_allowed_for_ha": true,
+    "control_plane_fallback_allowed_for_ha": true,
+    "application_workloads_do_not_inherit_platform_exceptions": true,
+    "future_ai_application_taint": "separate-governed-change"
+  }
+}

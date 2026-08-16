@@ -1256,6 +1256,71 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260815-001",
+            "title": "Make governed candidate iteration first-class",
+            "source_lessons": [
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "current_status": "accepted",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "automation",
+            "desired_outcome": "SAGE treats engineering delivery as one governed objective with an evolving candidate implementation and durable non-promotable checkpoints rather than as repeated objective-fail/restart cycles. Intent-to-outcome owns candidate iteration and re-entry semantics, request planning converts Architect-confirmed semantic effects into domain-level planning obligations, existing Kalaxy3 capabilities are reused before new components are proposed, and unresolved domain requirements produce explicit capability-gap evidence. The current zero-trust iteration at commit 4db88558aff3c7f973b129e63b5a5c6cde55a4a7 is the deterministic starting case: the negotiated secrets-management requirement must survive into planning, Ansible remains the established deployment/control model, Terraform is not introduced, and intermediate checkpoints remain non-promotable until the complete applicable outcome gate passes.",
+            "acceptance_criteria": [
+                "The active objective and Architect-confirmed intent remain distinct from mutable candidate implementations, durable non-promotable checkpoints, and promotion.",
+                "The current candidate at commit 4db88558aff3c7f973b129e63b5a5c6cde55a4a7 is preserved as iteration 1 without claiming that the objective is complete or promotable.",
+                "The repository-owned intent-to-outcome lifecycle records candidate iteration identity, parent checkpoint, triggering observation, affected requirements or planning obligations, validation state, unresolved findings, learning, invalidated downstream state, and the next governed boundary.",
+                "Implementation-local refinement continues from the current candidate without restarting the objective, semantic discovery, planning, or evidence retrieval when governing conditions are unchanged.",
+                "A material change to meaning, authority, scope, required capability, safety or trust boundary, or another governing condition invalidates only affected downstream state and re-enters the earliest necessary governed boundary.",
+                "Request planning derives domain-level planning obligations from Architect-confirmed semantic requirements, modifications, constraints, feasibility obligations, Definition of Done items, and planning directives in addition to the primitives needed to execute SAGE.",
+                "Domain obligations are evaluated against existing Kalaxy3 capabilities; an unsatisfied obligation produces governed capability-gap evidence rather than silently falling back to the original engineering contribution.",
+                "The current secrets-management Architect modification deterministically appears as a planning obligation: reusable secrets management is evaluated, credentials remain outside Git and observable command or evidence surfaces, Ansible remains the deployment/control mechanism, supported Helm packaging may be used when appropriate, and Terraform is not introduced.",
+                "A controller-local private token file plus rendered Kubernetes Secret cannot by itself satisfy the secrets-management obligation merely because that mechanism existed in the original contribution.",
+                "Every intermediate engineering checkpoint with unresolved findings is explicitly non-promotable; commit and push never imply validation or promotion eligibility.",
+                "Final evidence presents objective -> candidate iterations -> findings and dispositions -> validated outcome, preserving intermediate learning instead of flattening candidate defects into repeated failed objectives.",
+                "Positive and negative regressions cover the current secrets case, implementation-local iteration, semantic re-entry, stale approval invalidation, checkpoint-versus-promotion separation, and iteration lineage preservation."
+            ],
+            "measurement_plan": [
+                "Track candidate iteration count, checkpoint count, and the number of iterations that remain within the same objective.",
+                "Track re-entry classifications by earliest affected boundary: implementation-local, planning, semantic confirmation, authority, or other governed boundary.",
+                "Track unnecessary full objective restarts prevented by governed candidate continuation.",
+                "Track Architect-confirmed domain obligations propagated into planning and any obligations lost or rejected by deterministic guardrails.",
+                "Track capability-gap decisions produced for domain obligations and reuse decisions that avoid unnecessary new products or components.",
+                "Require the secrets-management regression to show the negotiated obligation in planning and require Terraform introduction count to remain zero.",
+                "Track promotion attempts blocked while unresolved iteration findings remain and require zero checkpoint commits to be misclassified as promotion success.",
+                "Compare iterative time-to-validated-outcome, rework, and manual reconstruction against prior objective-fail/restart behavior."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-15T01:25:45-05:00",
+                    "actor": "architect",
+                    "reason": "Register governed candidate iteration after iteration 1 exposed that Architect-confirmed domain requirements can survive semantic confirmation but disappear from planning obligations.",
+                    "evidence_references": [
+                        "commit:4db88558aff3c7f973b129e63b5a5c6cde55a4a7",
+                        "path:scripts/sage/request_planning.py",
+                        "path:scripts/sage/workflows/intent_to_outcome.py"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-15T01:27:54-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "Accept governed candidate iteration as the required correction after iteration 1 exposed the semantic-to-domain-planning propagation gap while preserving the candidate as useful non-promotable engineering state.",
+                    "evidence_references": [
+                        "commit:6d98f4b"
+                    ]
+                }
+            ]
         }
     ]
 }

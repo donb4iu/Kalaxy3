@@ -353,18 +353,19 @@
         },
         {
             "primitive_id": "capability.gap",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "module": "workflow.gaps",
             "symbol": "CapabilityGapRecorder",
             "side_effects": "in-memory capability-gap receipt construction and approval validation only",
             "idempotency": "deterministic for fixed receipt inputs",
-            "logging": "caller records gap identifier, candidates considered, proposed primitive, and approval state",
-            "failure_mode": "missing candidate evidence, composition-closable gap, unapproved receipt, or non-pilot primitive fails closed",
+            "logging": "caller records gap identifier, gap kind, candidates considered, proposed primitive when applicable, and approval state",
+            "failure_mode": "missing candidate evidence, invalid domain/primitive gap semantics, composition-closable primitive gap, unapproved primitive implementation, or non-pilot primitive fails closed",
             "tests": [
                 "candidate insufficiency",
                 "composition sufficiency rejection",
-                "approval required",
-                "pilot maturity required"
+                "approval required for primitive implementation",
+                "pilot maturity required",
+                "domain gap does not authorize a new primitive"
             ],
             "maturity": "pilot",
             "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-capability-gap.json"

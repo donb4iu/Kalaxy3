@@ -66,7 +66,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-semantic-bootstrap-self-test sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test
+sage-self-test: sage-semantic-bootstrap-self-test sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test sage-intent-to-outcome-self-test sage-e2e-zero-trust-runtime-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 	python3 scripts/sage/sage-file-delivery-guardrail.py
@@ -121,7 +121,7 @@ sage-operating-contract-check: sage-operating-contract-self-test sage-operating-
 
 sage-guardrails: sage-self-test sage-semantic-bootstrap-guardrail sage-discovery-guardrail sage-operating-contract-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
-                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail sage-checkpoint-promotion-guardrail sage-security-external-access-discovery-guardrail sage-legacy-evidence-projection-guardrail
+                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail sage-checkpoint-promotion-guardrail sage-security-external-access-discovery-guardrail sage-legacy-evidence-projection-guardrail sage-intent-to-outcome-guardrail sage-e2e-zero-trust-guardrail
 	@echo "Kalaxy3 repository SAGE guardrails: PASS"
 
 .PHONY: sage-evidence-brief sage-evidence-prepare \
@@ -511,3 +511,107 @@ sage-security-external-access-discovery-guardrail:
 
 sage-legacy-evidence-projection-guardrail:
 	$(PYTHON) scripts/sage/sage-legacy-evidence-projection-guardrail.py
+
+# SAGE intent-to-outcome and zero-trust E2E viability slice
+SAGE_E2E_INFRA_DIR := infrastructure/k3s-homelab
+
+.PHONY: sage-intent-to-outcome sage-intent-to-outcome-confirm \
+        sage-intent-to-outcome-adopt-request sage-intent-to-outcome-adopt-iteration \
+        sage-intent-to-outcome-iterate sage-intent-to-outcome-continue \
+        sage-intent-to-outcome-continue-routine sage-intent-to-outcome-record-runtime \
+        sage-intent-to-outcome-promote sage-intent-to-outcome-continue-promotion \
+        sage-intent-to-outcome-self-test sage-intent-to-outcome-guardrail \
+        sage-e2e-zero-trust-guardrail sage-e2e-zero-trust-deploy \
+        sage-e2e-zero-trust-runtime-validate sage-e2e-zero-trust-runtime-receipt \
+        sage-e2e-zero-trust-runtime-self-test
+
+sage-intent-to-outcome:
+	@test -n "$${SAGE_REQUEST:-}" || { echo 'SAGE_REQUEST is required'; exit 2; }
+	@test -n "$${SAGE_ACTION_ID:-}" || { echo 'SAGE_ACTION_ID is required'; exit 2; }
+	@test -n "$${SAGE_CONTRIBUTION:-}" || { echo 'SAGE_CONTRIBUTION is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py start --request "$$SAGE_REQUEST" --action-id "$$SAGE_ACTION_ID" --contribution "$$SAGE_CONTRIBUTION"
+
+sage-intent-to-outcome-confirm:
+	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }
+	@test -n "$${SAGE_CONFIRMATION:-}" || { echo 'SAGE_CONFIRMATION is required'; exit 2; }
+	@test -n "$${SAGE_DISPOSITIONS:-}" || { echo 'SAGE_DISPOSITIONS is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py confirm --state "$$SAGE_INTENT_STATE" --confirmation "$$SAGE_CONFIRMATION" --dispositions "$$SAGE_DISPOSITIONS" --actor architect
+
+sage-intent-to-outcome-adopt-request:
+	@test -n "$${SAGE_REQUEST:-}" || { echo 'SAGE_REQUEST is required'; exit 2; }
+	@test -n "$${SAGE_REQUEST_STATE:-}" || { echo 'SAGE_REQUEST_STATE is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py adopt-request --request "$$SAGE_REQUEST" --request-state "$$SAGE_REQUEST_STATE"
+
+sage-intent-to-outcome-adopt-iteration:
+	@test -n "$${SAGE_REQUEST:-}" || { echo 'SAGE_REQUEST is required'; exit 2; }
+	@test -n "$${SAGE_REQUEST_STATE:-}" || { echo 'SAGE_REQUEST_STATE is required'; exit 2; }
+	@test -n "$${SAGE_ACTION_ID:-}" || { echo 'SAGE_ACTION_ID is required'; exit 2; }
+	@test -n "$${SAGE_CANDIDATE_HEAD:-}" || { echo 'SAGE_CANDIDATE_HEAD is required'; exit 2; }
+	@test -n "$${SAGE_UNRESOLVED_FINDING:-}" || { echo 'SAGE_UNRESOLVED_FINDING is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py adopt-iteration --request "$$SAGE_REQUEST" --request-state "$$SAGE_REQUEST_STATE" --action-id "$$SAGE_ACTION_ID" --candidate-head "$$SAGE_CANDIDATE_HEAD" --unresolved-finding "$$SAGE_UNRESOLVED_FINDING"
+
+sage-intent-to-outcome-iterate:
+	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }
+	@test -n "$${SAGE_CONTRIBUTION:-}" || { echo 'SAGE_CONTRIBUTION is required'; exit 2; }
+	@test -n "$${SAGE_ITERATION_TRIGGER:-}" || { echo 'SAGE_ITERATION_TRIGGER is required'; exit 2; }
+	@test -n "$${SAGE_REENTRY_BOUNDARY:-}" || { echo 'SAGE_REENTRY_BOUNDARY is required'; exit 2; }
+	@test -n "$${SAGE_PARENT_CHECKPOINT:-}" || { echo 'SAGE_PARENT_CHECKPOINT is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py iterate --state "$$SAGE_INTENT_STATE" --contribution "$$SAGE_CONTRIBUTION" --trigger "$$SAGE_ITERATION_TRIGGER" --reentry-boundary "$$SAGE_REENTRY_BOUNDARY" --parent-checkpoint "$$SAGE_PARENT_CHECKPOINT"
+
+sage-intent-to-outcome-continue:
+	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }
+	@test -n "$${SAGE_OPERATOR_RESULT:-}" || { echo 'SAGE_OPERATOR_RESULT is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py continue-request --state "$$SAGE_INTENT_STATE" --operator-result "$$SAGE_OPERATOR_RESULT"
+
+sage-intent-to-outcome-continue-routine:
+	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }
+	@test -n "$${SAGE_ROUTINE_RECEIPT:-}" || { echo 'SAGE_ROUTINE_RECEIPT is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py continue-request --state "$$SAGE_INTENT_STATE" --routine-receipt "$$SAGE_ROUTINE_RECEIPT"
+
+sage-intent-to-outcome-record-runtime:
+	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }
+	@test -n "$${SAGE_RUNTIME_RECEIPT:-}" || { echo 'SAGE_RUNTIME_RECEIPT is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py record-runtime --state "$$SAGE_INTENT_STATE" --runtime-receipt "$$SAGE_RUNTIME_RECEIPT"
+
+sage-intent-to-outcome-promote:
+	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }
+	@test -n "$${SAGE_EXPECTED_HEAD:-}" || { echo 'SAGE_EXPECTED_HEAD is required'; exit 2; }
+	@test -n "$${SAGE_PR_TITLE:-}" || { echo 'SAGE_PR_TITLE is required'; exit 2; }
+	@test -n "$${SAGE_PR_BODY:-}" || { echo 'SAGE_PR_BODY is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py promote --state "$$SAGE_INTENT_STATE" --expected-head "$$SAGE_EXPECTED_HEAD" --title "$$SAGE_PR_TITLE" --body "$$SAGE_PR_BODY"
+
+sage-intent-to-outcome-continue-promotion:
+	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }
+	@test -n "$${SAGE_OPERATOR_RESULT:-}" || { echo 'SAGE_OPERATOR_RESULT is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py continue-promotion --state "$$SAGE_INTENT_STATE" --operator-result "$$SAGE_OPERATOR_RESULT"
+
+sage-intent-to-outcome-self-test:
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py --self-test
+
+sage-intent-to-outcome-guardrail:
+	$(PYTHON) scripts/sage/sage-intent-to-outcome-guardrail.py
+
+sage-e2e-zero-trust-guardrail:
+	$(PYTHON) scripts/sage/sage-e2e-zero-trust-guardrail.py
+	$(MAKE) -C $(SAGE_E2E_INFRA_DIR) source-guardrails
+	$(MAKE) -C $(SAGE_E2E_INFRA_DIR) deployment-guardrail
+	$(MAKE) -C $(SAGE_E2E_INFRA_DIR) cluster-guardrails
+	cd $(SAGE_E2E_INFRA_DIR) && .venv/bin/ansible-playbook cloudflare/deploy-sage-e2e.yml --syntax-check
+	cd $(SAGE_E2E_INFRA_DIR) && .venv/bin/ansible-playbook cloudflare/validate-sage-e2e.yml --syntax-check
+
+sage-e2e-zero-trust-deploy:
+	@test -n "$${SAGE_EXTERNAL_HOSTNAME:-}" || { echo 'SAGE_EXTERNAL_HOSTNAME is required'; exit 2; }
+	@test -n "$${KALAXY3_ANSIBLE_SECRETS_FILE:-}" || { echo 'KALAXY3_ANSIBLE_SECRETS_FILE is required'; exit 2; }
+	cd $(SAGE_E2E_INFRA_DIR) && .venv/bin/ansible-playbook cloudflare/deploy-sage-e2e.yml --ask-vault-pass --extra-vars "sage_external_hostname=$$SAGE_EXTERNAL_HOSTNAME kalaxy3_secrets_file=$$KALAXY3_ANSIBLE_SECRETS_FILE"
+
+sage-e2e-zero-trust-runtime-validate:
+	@test -n "$${SAGE_EXTERNAL_HOSTNAME:-}" || { echo 'SAGE_EXTERNAL_HOSTNAME is required'; exit 2; }
+	cd $(SAGE_E2E_INFRA_DIR) && .venv/bin/ansible-playbook cloudflare/validate-sage-e2e.yml --extra-vars "sage_external_hostname=$$SAGE_EXTERNAL_HOSTNAME"
+
+sage-e2e-zero-trust-runtime-receipt:
+	@test -n "$${SAGE_EXTERNAL_HOSTNAME:-}" || { echo 'SAGE_EXTERNAL_HOSTNAME is required'; exit 2; }
+	@test -n "$${SAGE_AUTOMATED_RUNTIME_RECEIPT:-}" || { echo 'SAGE_AUTOMATED_RUNTIME_RECEIPT is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-e2e-zero-trust-runtime-receipt.py --automated "$$SAGE_AUTOMATED_RUNTIME_RECEIPT" --hostname "$$SAGE_EXTERNAL_HOSTNAME" --authorized-mfa-verified --privileged-routes-reviewed --actor architect
+
+sage-e2e-zero-trust-runtime-self-test:
+	$(PYTHON) scripts/sage/sage-e2e-zero-trust-runtime-receipt.py --self-test
