@@ -1335,7 +1335,7 @@
                     "sha256": "210adedc2f6283f76e74554368a9920fe8a7edb162e7919229719e1af52938b5"
                 }
             ],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "Architect",
             "priority": "high",
             "target_control_type": "automation",
@@ -1373,6 +1373,19 @@
                     "evidence_references": [
                         "markdown/evidence-artifacts/SAGE-ACTION-20260815-002-PROVENANCE/post-pr21-delivery-capability-gap.json",
                         "commit:ab7afc0e6280f1fca4b9c9953049b8a4433cd185"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-16T01:44:58-05:00",
+                    "actor": "Architect",
+                    "reason": "Accept the Architect-owned post-PR21 delivery evolution after durable registration from the verified SAGE-GAP-20260816-POST-PR21-DELIVERY capability-gap provenance and completion of the bounded provenance-bootstrap intervention.",
+                    "evidence_references": [
+                        "markdown/evidence-artifacts/SAGE-ACTION-20260815-002-PROVENANCE/post-pr21-delivery-capability-gap.json",
+                        "commit:3e79c0d5e1547ed33d07165ca4077496a8e5eb93"
                     ]
                 }
             ]
