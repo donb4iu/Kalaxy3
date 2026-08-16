@@ -18,7 +18,7 @@ from typing import Any, Final, Sequence
 ROOT: Final = Path(__file__).resolve().parents[2]
 POLICY_PATH: Final = ROOT / "sage-continuous-improvement-policy.json"
 REGISTRY_PATH: Final = ROOT / "sage-improvement-actions.json"
-CONTRACT_FIELDS: Final = (
+LEGACY_CONTRACT_FIELDS: Final = (
     "action_id",
     "title",
     "source_lessons",
@@ -30,7 +30,22 @@ CONTRACT_FIELDS: Final = (
     "acceptance_criteria",
     "measurement_plan",
 )
+CONTRACT_FIELDS: Final = (
+    "action_id",
+    "title",
+    "source_lessons",
+    "source_sessions",
+    "source_records",
+    "owner",
+    "priority",
+    "target_control_type",
+    "desired_outcome",
+    "acceptance_criteria",
+    "measurement_plan",
+)
 MUTABLE_CONTRACT_FIELDS: Final = CONTRACT_FIELDS[1:]
+SUPPORTED_REGISTRY_SCHEMA_VERSIONS: Final = ("1.1", "1.2")
+SOURCE_RECORD_TYPES: Final = ("capability-gap",)
 CORE_EVENT_FIELDS: Final = {
     "sequence",
     "from_status",
@@ -62,12 +77,161 @@ def parse_timestamp(value: str) -> None:
         ) from error
 
 
+def contract_fields(value: dict[str, Any]) -> tuple[str, ...]:
+    """Return the contract shape without rewriting historical action semantics."""
+    if "source_records" in value:
+        return CONTRACT_FIELDS
+    return LEGACY_CONTRACT_FIELDS
+
+
 def action_contract(action: dict[str, Any]) -> dict[str, Any]:
     """Return the canonical mutable contract carried by one action."""
     return {
         key: copy.deepcopy(action[key])
-        for key in CONTRACT_FIELDS
+        for key in contract_fields(action)
     }
+
+
+def _source_record_key(value: dict[str, Any]) -> tuple[str, str, str, str]:
+    return (
+        str(value.get("record_type", "")),
+        str(value.get("record_id", "")),
+        str(value.get("schema_version", "")),
+        str(value.get("sha256", "")),
+    )
+
+
+def validate_source_records(
+    records: Any,
+    *,
+    label: str,
+) -> list[str]:
+    """Validate portable typed provenance descriptors."""
+    failures: list[str] = []
+    if not isinstance(records, list):
+        return [f"{label} source_records must be a list"]
+    keys: list[tuple[str, str, str, str]] = []
+    for index, record in enumerate(records, start=1):
+        prefix = f"{label} source_records[{index}]"
+        if not isinstance(record, dict):
+            failures.append(f"{prefix} must be an object")
+            continue
+        if set(record) != {
+            "record_type",
+            "record_id",
+            "schema_version",
+            "sha256",
+        }:
+            failures.append(f"{prefix} fields invalid")
+            continue
+        if record.get("record_type") not in SOURCE_RECORD_TYPES:
+            failures.append(f"{prefix} record_type invalid")
+        record_id = str(record.get("record_id", ""))
+        if not re.fullmatch(
+            r"SAGE-GAP-[0-9]{8}-[A-Z0-9][A-Z0-9-]*",
+            record_id,
+        ):
+            failures.append(f"{prefix} record_id invalid")
+        if record.get("schema_version") != "1.1":
+            failures.append(f"{prefix} schema_version invalid")
+        digest = str(record.get("sha256", ""))
+        if not re.fullmatch(r"[0-9a-f]{64}", digest):
+            failures.append(f"{prefix} sha256 invalid")
+        keys.append(_source_record_key(record))
+    if len(keys) != len(set(keys)):
+        failures.append(f"{label} source_records must be unique")
+    return failures
+
+
+def source_record_descriptor(path: Path) -> dict[str, Any]:
+    """Validate one governed source receipt and return its portable descriptor."""
+    payload = load_json(path)
+    if not isinstance(payload, dict):
+        raise ValueError(f"source record {path} must be an object")
+    if payload.get("schema_version") != "1.1":
+        raise ValueError(f"source record {path} schema_version invalid")
+    if payload.get("gap_kind") != "domain-capability":
+        raise ValueError(f"source record {path} is not a domain capability gap")
+    gap_id = require_string(payload.get("gap_id"), f"source record {path} gap_id")
+    if not re.fullmatch(r"SAGE-GAP-[0-9]{8}-[A-Z0-9][A-Z0-9-]*", gap_id):
+        raise ValueError(f"source record {path} gap_id invalid")
+    require_string(
+        payload.get("required_capability"),
+        f"source record {path} required_capability",
+    )
+    require_string(
+        payload.get("authority_receipt"),
+        f"source record {path} authority_receipt",
+    )
+    require_string(
+        payload.get("component_manifest"),
+        f"source record {path} component_manifest",
+    )
+    candidates = payload.get("candidates_considered")
+    if not isinstance(candidates, list) or not candidates:
+        raise ValueError(f"source record {path} candidates_considered invalid")
+    gap = payload.get("gap")
+    if not isinstance(gap, dict):
+        raise ValueError(f"source record {path} gap invalid")
+    if gap.get("new_primitive_required") is not False:
+        raise ValueError(f"source record {path} may not authorize a primitive")
+    if gap.get("new_domain_capability_required") is not True:
+        raise ValueError(f"source record {path} does not prove a domain gap")
+    if payload.get("proposed_primitive") is not None:
+        raise ValueError(f"source record {path} proposed_primitive must be null")
+    approval = payload.get("approval")
+    if not isinstance(approval, dict) or approval.get("status") != "approved":
+        raise ValueError(f"source record {path} requires Architect approval")
+    for field in ("reviewed_by", "reviewed_at", "rationale"):
+        require_string(
+            approval.get(field),
+            f"source record {path} approval {field}",
+        )
+    references = payload.get("evidence_references")
+    if (
+        not isinstance(references, list)
+        or not references
+        or len(references) != len(set(references))
+        or not all(isinstance(value, str) and value for value in references)
+    ):
+        raise ValueError(f"source record {path} evidence_references invalid")
+    return {
+        "record_type": "capability-gap",
+        "record_id": gap_id,
+        "schema_version": "1.1",
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+
+
+def load_verified_source_records(paths: Sequence[Path]) -> list[dict[str, Any]]:
+    """Return portable descriptors for verified governed source receipts."""
+    records = [source_record_descriptor(path) for path in paths]
+    failures = validate_source_records(records, label="verified")
+    if failures:
+        raise ValueError("; ".join(failures))
+    return records
+
+
+def require_verified_declared_sources(
+    contract: dict[str, Any],
+    verified_source_records: Sequence[dict[str, Any]],
+) -> None:
+    """Require typed source_records to match receipts verified for this mutation."""
+    declared = contract.get("source_records", [])
+    verified = list(verified_source_records)
+    if declared:
+        if not verified:
+            raise ValueError(
+                "source_records require --source-record-file verification"
+            )
+        if declared != verified:
+            raise ValueError(
+                "declared source_records do not match verified source receipts"
+            )
+    elif verified:
+        raise ValueError(
+            "verified source receipts were supplied but source_records are absent"
+        )
 
 
 def contract_sha256(contract: dict[str, Any]) -> str:
@@ -89,8 +253,9 @@ def validate_contract(
     failures: list[str] = []
     if not isinstance(contract, dict):
         return [f"{label} must be an object"]
-    if set(contract) != set(CONTRACT_FIELDS):
-        return [f"{label} fields must match the contract"]
+    fields = contract_fields(contract)
+    if set(contract) != set(fields):
+        return [f"{label} fields must match a supported contract version"]
 
     action_id = str(contract.get("action_id", ""))
     if not re.fullmatch(r"SAGE-ACTION-[0-9]{8}-[0-9]{3}", action_id):
@@ -103,14 +268,15 @@ def validate_contract(
 
     lessons = contract.get("source_lessons")
     sessions = contract.get("source_sessions")
+    source_records = contract.get("source_records", [])
     if not isinstance(lessons, list):
         failures.append(f"{label} source_lessons must be a list")
         lessons = []
     if not isinstance(sessions, list):
         failures.append(f"{label} source_sessions must be a list")
         sessions = []
-    if not lessons and not sessions:
-        failures.append(f"{label}: at least one source is required")
+    if not lessons and not sessions and not source_records:
+        failures.append(f"{label}: at least one governed source is required")
     for source_label, values in (
         ("source_lessons", lessons),
         ("source_sessions", sessions),
@@ -120,6 +286,9 @@ def validate_contract(
             or not all(isinstance(value, str) and value for value in values)
         ):
             failures.append(f"{label}: {source_label} invalid")
+    failures.extend(
+        validate_source_records(source_records, label=label)
+    )
 
     if contract.get("priority") not in (
         "low",
@@ -218,6 +387,10 @@ def validate_policy(policy: Any) -> list[str]:
         failures.append(
             "action contract amendments must be identified-only"
         )
+    if lifecycle.get("source_record_types") != list(SOURCE_RECORD_TYPES):
+        failures.append("action source_record_types changed")
+    if lifecycle.get("source_record_verification_required") is not True:
+        failures.append("action source record verification must remain required")
     if lifecycle.get("contract_amendment_mutable_fields") != list(
         MUTABLE_CONTRACT_FIELDS
     ):
@@ -235,9 +408,10 @@ def validate_registry(
     failures: list[str] = []
     if not isinstance(registry, dict):
         return ["action registry must be an object"]
-    if registry.get("schema_version") != "1.1":
+    registry_version = registry.get("schema_version")
+    if registry_version not in SUPPORTED_REGISTRY_SCHEMA_VERSIONS:
         failures.append(
-            "action registry schema_version must be 1.1"
+            "action registry schema_version must be 1.1 or 1.2"
         )
     if registry.get("registry_type") != "improvement-actions":
         failures.append(
@@ -262,8 +436,9 @@ def validate_registry(
             failures.append("action entry must be an object")
             continue
 
+        fields = contract_fields(item)
         required = {
-            *CONTRACT_FIELDS,
+            *fields,
             "current_status",
             "history",
         }
@@ -278,11 +453,16 @@ def validate_registry(
             validate_contract(
                 {
                     key: item.get(key)
-                    for key in CONTRACT_FIELDS
+                    for key in fields
                 },
                 label=action_id or "action",
             )
         )
+
+        if registry_version == "1.1" and "source_records" in item:
+            failures.append(
+                f"{action_id}: source_records require registry schema 1.2"
+            )
 
         status = item.get("current_status")
         if status not in statuses:
@@ -548,21 +728,17 @@ def plan_registration(
     actor: str,
     reason: str,
     evidence_references: Sequence[str],
+    verified_source_records: Sequence[dict[str, Any]] = (),
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    required = {
-        "action_id",
-        "title",
-        "source_lessons",
-        "source_sessions",
-        "owner",
-        "priority",
-        "target_control_type",
-        "desired_outcome",
-        "acceptance_criteria",
-        "measurement_plan",
-    }
-    if set(draft) != required:
+    fields = contract_fields(draft)
+    if set(draft) != set(fields):
         raise ValueError("registration draft fields invalid")
+    if "source_records" in draft and registry.get("schema_version") != "1.2":
+        raise ValueError("source_records require registry schema_version 1.2")
+    failures = validate_contract(draft, label=str(draft.get("action_id", "action")))
+    if failures:
+        raise ValueError("; ".join(failures))
+    require_verified_declared_sources(draft, verified_source_records)
     if any(
         item.get("action_id") == draft["action_id"]
         for item in registry["actions"]
@@ -601,13 +777,11 @@ def plan_registration(
             ),
         }
     ]
-    ordered = {
-        key: action[key]
-        for key in (
-            "action_id",
-            "title",
-            "source_lessons",
-            "source_sessions",
+    ordered_fields = list(fields[:4])
+    if "source_records" in fields:
+        ordered_fields.append("source_records")
+    ordered_fields.extend(
+        [
             "current_status",
             "owner",
             "priority",
@@ -616,8 +790,9 @@ def plan_registration(
             "acceptance_criteria",
             "measurement_plan",
             "history",
-        )
-    }
+        ]
+    )
+    ordered = {key: action[key] for key in ordered_fields}
     updated["actions"].append(ordered)
 
     failures = validate_registry(updated, policy)
@@ -640,10 +815,14 @@ def plan_amendment(
     actor: str,
     reason: str,
     evidence_references: Sequence[str],
+    verified_source_records: Sequence[dict[str, Any]] = (),
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Plan one pre-acceptance contract amendment without changing status."""
-    if set(replacement) != set(CONTRACT_FIELDS):
+    replacement_fields = contract_fields(replacement)
+    if set(replacement) != set(replacement_fields):
         raise ValueError("amendment replacement fields invalid")
+    if "source_records" in replacement and registry.get("schema_version") != "1.2":
+        raise ValueError("source_records require registry schema_version 1.2")
     action_id = require_string(
         replacement.get("action_id"),
         "amendment action_id",
@@ -673,6 +852,15 @@ def plan_amendment(
         raise ValueError("evidence references invalid")
 
     before = action_contract(action)
+    if replacement.get("source_records", []) != before.get("source_records", []):
+        require_verified_declared_sources(
+            replacement,
+            verified_source_records,
+        )
+    elif verified_source_records:
+        raise ValueError(
+            "source receipt verification was supplied but source_records did not change"
+        )
     before_digest = contract_sha256(before)
     if expected_contract_sha256 != before_digest:
         raise ValueError(
@@ -689,7 +877,7 @@ def plan_amendment(
     changed_fields = [
         key
         for key in MUTABLE_CONTRACT_FIELDS
-        if before[key] != replacement[key]
+        if before.get(key) != replacement.get(key)
     ]
     if not changed_fields:
         raise ValueError("contract amendment has no changes")
@@ -699,7 +887,10 @@ def plan_amendment(
 
     updated = copy.deepcopy(registry)
     changed = action_by_id(updated, action_id)
-    for key in MUTABLE_CONTRACT_FIELDS:
+    for key in list(changed):
+        if key in MUTABLE_CONTRACT_FIELDS and key not in replacement:
+            del changed[key]
+    for key in replacement_fields[1:]:
         changed[key] = copy.deepcopy(replacement[key])
 
     after = action_contract(changed)
@@ -844,6 +1035,8 @@ def representative_policy() -> dict[str, Any]:
             "atomic_write_required": True,
             "direct_status_edits_forbidden": True,
             "registration_requires_source": True,
+            "source_record_types": list(SOURCE_RECORD_TYPES),
+            "source_record_verification_required": True,
             "contract_amendment_allowed_statuses": ["identified"],
             "contract_amendment_mutable_fields": list(
                 MUTABLE_CONTRACT_FIELDS
@@ -882,7 +1075,7 @@ def run_self_tests() -> list[str]:
     failures: list[str] = []
     policy = representative_policy()
     registry = {
-        "schema_version": "1.1",
+        "schema_version": "1.2",
         "registry_type": "improvement-actions",
         "actions": [],
     }
@@ -1032,6 +1225,90 @@ def run_self_tests() -> list[str]:
     except ValueError:
         pass
 
+    source_record_fixture = {
+        "schema_version": "1.1",
+        "gap_id": "SAGE-GAP-20260815-PROVENANCE",
+        "request": "Prove typed improvement-action provenance.",
+        "created_at": "2026-08-15T23:00:00-05:00",
+        "authority_receipt": "self-test:authority",
+        "component_manifest": "self-test:components",
+        "required_capability": "typed improvement-action provenance",
+        "gap_kind": "domain-capability",
+        "candidates_considered": [
+            {
+                "component_id": "sage.action-lifecycle",
+                "version": "1.0.0",
+                "source_path": "scripts/sage/sage-improvement-actions.py",
+                "insufficiency": "Lesson/session-only origin is insufficient.",
+                "composition_can_close_gap": False,
+            }
+        ],
+        "gap": {
+            "missing_interface_or_behavior": "Typed non-session origin",
+            "why_configuration_is_insufficient": "Contract shape is fixed.",
+            "why_composition_is_insufficient": "Origin cannot be represented.",
+            "new_primitive_required": False,
+            "new_domain_capability_required": True,
+        },
+        "proposed_primitive": None,
+        "approval": {
+            "status": "approved",
+            "reviewed_by": "Architect",
+            "reviewed_at": "2026-08-15T23:00:00-05:00",
+            "rationale": "Approve bounded provenance correction.",
+        },
+        "evidence_references": ["self-test:provenance-gap"],
+    }
+    with tempfile.TemporaryDirectory(prefix="sage-source-record-self-test-") as temp_dir:
+        record_path = Path(temp_dir) / "capability-gap.json"
+        record_path.write_text(
+            json.dumps(source_record_fixture, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        verified = load_verified_source_records([record_path])
+        source_draft = representative_draft()
+        source_draft["source_lessons"] = []
+        source_draft["source_sessions"] = []
+        source_draft["source_records"] = verified
+        try:
+            with_source, source_action = plan_registration(
+                registry,
+                policy,
+                source_draft,
+                recorded_at="2026-08-15T23:01:00-05:00",
+                actor="self-test",
+                reason="Register capability-gap-origin action.",
+                evidence_references=["self-test:provenance-gap"],
+                verified_source_records=verified,
+            )
+            if source_action.get("source_records") != verified:
+                failures.append("verified source_records were not preserved")
+            if validate_registry(with_source, policy):
+                failures.append("source-record action registry failed validation")
+        except ValueError as error:
+            failures.append(f"valid source-record registration failed: {error}")
+        try:
+            plan_registration(
+                registry,
+                policy,
+                source_draft,
+                recorded_at="2026-08-15T23:01:00-05:00",
+                actor="self-test",
+                reason="Reject unverified typed source.",
+                evidence_references=["self-test:unverified"],
+            )
+            failures.append("unverified source_record was accepted")
+        except ValueError:
+            pass
+
+    legacy_registry = {
+        "schema_version": "1.1",
+        "registry_type": "improvement-actions",
+        "actions": [],
+    }
+    if validate_registry(legacy_registry, policy):
+        failures.append("legacy 1.1 action registry compatibility failed")
+
     try:
         registered, _ = plan_registration(
             registry,
@@ -1082,6 +1359,16 @@ def parse_args() -> argparse.Namespace:
         "--evidence-reference",
         action="append",
         default=[],
+    )
+    parser.add_argument(
+        "--source-record-file",
+        action="append",
+        type=Path,
+        default=[],
+        help=(
+            "Verify a governed source receipt and bind its portable descriptor "
+            "to a registration or identified contract amendment."
+        ),
     )
     parser.add_argument("--recorded-at")
     parser.add_argument("--apply", action="store_true")
@@ -1150,6 +1437,10 @@ def main() -> int:
                 "registration and amendment are mutually exclusive"
             )
 
+        verified_source_records = load_verified_source_records(
+            args.source_record_file
+        )
+
         if args.register_file is not None:
             draft = load_json(args.register_file)
             planned, event = plan_registration(
@@ -1162,6 +1453,7 @@ def main() -> int:
                 evidence_references=(
                     args.evidence_reference
                 ),
+                verified_source_records=verified_source_records,
             )
         elif args.amend_file is not None:
             replacement = load_json(args.amend_file)
@@ -1183,8 +1475,13 @@ def main() -> int:
                 evidence_references=(
                     args.evidence_reference
                 ),
+                verified_source_records=verified_source_records,
             )
         else:
+            if verified_source_records:
+                raise ValueError(
+                    "--source-record-file is valid only for registration or amendment"
+                )
             if not args.action_id or not args.to_status:
                 raise ValueError(
                     "use --status, --register-file, --amend-file, "
