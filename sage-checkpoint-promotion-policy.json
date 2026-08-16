@@ -40,7 +40,21 @@
         "require_exact_merge_parent_topology": true,
         "merge_commit_first_parent": "frozen-target",
         "merge_commit_second_parent": "frozen-source",
-        "allow_synchronized_source_descendant_after_merge": true
+        "allow_synchronized_source_descendant_after_merge": true,
+        "required_github_checks": [
+            {
+                "name": "SAGE source governance",
+                "app_slug": "github-actions"
+            },
+            {
+                "name": "MkDocs Material publication validation",
+                "app_slug": "github-actions"
+            },
+            {
+                "name": "Portable OCI stage artifact",
+                "app_slug": "github-actions"
+            }
+        ]
     },
     "gate_rules": [
         {

@@ -814,8 +814,16 @@ def test_github_inspection(root: Path) -> None:
             super().__init__("donb4iu", "Kalaxy3")
             self.details = {17: payload(number=17, merged=False)}
             self.list_items = [{"number": 17, "base": {"ref": "main"}, "head": {"ref": "feature/example", "sha": sha_head}}]
+            self.checks = {
+                "SAGE source governance": [{"id": 31, "name": "SAGE source governance", "head_sha": sha_head, "status": "completed", "conclusion": "success", "app": {"slug": "github-actions"}, "details_url": "https://github.com/donb4iu/Kalaxy3/actions/runs/31"}],
+                "Portable OCI stage artifact": [{"id": 32, "name": "Portable OCI stage artifact", "head_sha": sha_head, "status": "completed", "conclusion": "success", "app": {"slug": "github-actions"}, "details_url": "https://github.com/donb4iu/Kalaxy3/actions/runs/32"}],
+            }
 
         def _request_json(self, path: str, query=None):
+            if path.endswith("/check-runs"):
+                name = str((query or {}).get("check_name", ""))
+                items = list(self.checks.get(name, []))
+                return {"total_count": len(items), "check_runs": items}
             if path.endswith("/pulls"):
                 return list(self.list_items)
             return dict(self.details[int(path.rsplit("/", 1)[1])])
@@ -852,6 +860,46 @@ def test_github_inspection(root: Path) -> None:
         pass
     else:
         raise RuntimeError("github.inspect accepted ambiguous PR identity")
+
+    checks = inspector.require_successful_checks(
+        head_sha=sha_head,
+        required=(("SAGE source governance", "github-actions"), ("Portable OCI stage artifact", "github-actions")),
+    )
+    if [item.name for item in checks] != ["SAGE source governance", "Portable OCI stage artifact"]:
+        raise RuntimeError("github.inspect required-check verification failed")
+    inspector.checks["Portable OCI stage artifact"][0]["conclusion"] = "failure"
+    try:
+        inspector.require_successful_check(head_sha=sha_head, check_name="Portable OCI stage artifact")
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("github.inspect accepted a failed required check")
+    inspector.checks["Portable OCI stage artifact"][0]["conclusion"] = "success"
+    saved_stage_check = dict(inspector.checks["Portable OCI stage artifact"][0])
+    inspector.checks["Portable OCI stage artifact"] = []
+    try:
+        inspector.require_successful_check(head_sha=sha_head, check_name="Portable OCI stage artifact")
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("github.inspect accepted a missing required check")
+    inspector.checks["Portable OCI stage artifact"] = [dict(saved_stage_check), dict(saved_stage_check)]
+    inspector.checks["Portable OCI stage artifact"][1]["id"] = 33
+    try:
+        inspector.require_successful_check(head_sha=sha_head, check_name="Portable OCI stage artifact")
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("github.inspect accepted ambiguous required checks")
+    inspector.checks["Portable OCI stage artifact"] = [dict(saved_stage_check)]
+    inspector.checks["Portable OCI stage artifact"][0]["app"] = {"slug": "foreign-app"}
+    try:
+        inspector.require_successful_check(head_sha=sha_head, check_name="Portable OCI stage artifact")
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("github.inspect accepted a required check from the wrong app")
+    inspector.checks["Portable OCI stage artifact"] = [dict(saved_stage_check)]
 
     for relative in (
         "scripts/sage/workflow/proposal.py",

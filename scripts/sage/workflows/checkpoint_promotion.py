@@ -31,7 +31,7 @@ from workflow import (
 from workflows.request_planning import derive_component_plan
 
 WORKFLOW_ID = "sage.checkpoint-promotion"
-WORKFLOW_VERSION = "1.1.0"
+WORKFLOW_VERSION = "1.2.0"
 POLICY_PATH = "sage-checkpoint-promotion-policy.json"
 PRIMITIVES_USED = (
     "catalog.registry",
@@ -174,6 +174,30 @@ def github_pull_url(
         f"{pull_request_number}"
     )
 
+
+
+def required_github_checks(policy: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+    promotion = policy.get("promotion_policy")
+    if not isinstance(promotion, Mapping):
+        raise WorkflowError("checkpoint promotion policy lacks promotion_policy")
+    raw = promotion.get("required_github_checks")
+    if not isinstance(raw, list) or not raw:
+        raise WorkflowError("checkpoint promotion requires at least one GitHub check")
+    result: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for index, item in enumerate(raw):
+        if not isinstance(item, Mapping) or set(item) != {"name", "app_slug"}:
+            raise WorkflowError(f"required_github_checks[{index}] must contain name and app_slug only")
+        name = str(item.get("name", "")).strip()
+        app_slug = str(item.get("app_slug", "")).strip()
+        if not name or not app_slug:
+            raise WorkflowError(f"required_github_checks[{index}] is incomplete")
+        key = (name, app_slug)
+        if key in seen:
+            raise WorkflowError(f"duplicate required GitHub check: {name}/{app_slug}")
+        seen.add(key)
+        result.append(key)
+    return tuple(result)
 
 def validate_browser_operator_result(
     payload: Mapping[str, Any],
@@ -795,6 +819,12 @@ def continue_promotion(
             merged=False,
             require_mergeable=True,
         )
+        policy = json.loads((resolved_repo / POLICY_PATH).read_text(encoding="utf-8"))
+        check_runs = github.require_successful_checks(
+            head_sha=str(state["source_head"]),
+            required=required_github_checks(policy),
+        )
+        state["required_github_checks"] = [item.as_dict() for item in check_runs]
         current_target = inspector.remote_head(
             "origin", str(state["target_branch"])
         )
@@ -846,6 +876,7 @@ def continue_promotion(
             "status": "pass",
             "boundary": boundary,
             "pull_request": checked.as_dict(),
+            "required_github_checks": [item.as_dict() for item in check_runs],
             "frozen_target_head": current_target,
         }
 

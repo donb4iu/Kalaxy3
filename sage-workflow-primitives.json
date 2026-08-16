@@ -121,20 +121,23 @@
         },
         {
             "primitive_id": "github.inspect",
-            "version": "1.1.0",
+            "version": "1.2.0",
             "module": "workflow.github_inspect",
             "symbol": "GitHubInspector",
-            "side_effects": "read-only GitHub pull-request inspection through fixed GET-only public REST endpoints",
-            "idempotency": "deterministic for unchanged GitHub pull-request state",
+            "side_effects": "read-only GitHub pull-request and exact-commit check-run inspection through fixed GET-only public REST endpoints",
+            "idempotency": "deterministic for unchanged GitHub pull-request and check-run state",
             "logging": "caller records structured snapshot identity and verification outcome; raw HTTP response and credentials are not logged",
-            "failure_mode": "transport failure, invalid response, ambiguous identity, base/head/SHA mismatch, truncated lookup, or unverifiable requested merge state fails closed; merged_at is authoritative for affirmative merged state even when GitHub omits merge_commit_sha, which remains nullable until Git topology verification",
+            "failure_mode": "transport failure, invalid response, ambiguous identity, base/head/SHA mismatch, truncated lookup, unverifiable merge state, missing/incomplete/failed required check, or wrong check application fails closed; merged_at remains authoritative for affirmative merged state even when GitHub omits merge_commit_sha",
             "tests": [
                 "pre-merge structured snapshot",
                 "post-merge structured snapshot",
                 "head SHA mismatch rejection",
                 "ambiguous identity rejection",
                 "direct GitHub API bypass rejection",
-                "merged state with nullable merge_commit_sha"
+                "merged state with nullable merge_commit_sha",
+                "exact-source successful GitHub Actions check",
+                "missing or failed required check rejection",
+                "ambiguous required check rejection"
             ],
             "maturity": "pilot",
             "capability_gap_receipt": "markdown/evidence-artifacts/SAGE-K3-OPERATING-CONTRACT-20260801-001/capability-gap-github-inspect.json"

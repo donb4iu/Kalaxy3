@@ -639,6 +639,20 @@ def validate_docs_and_authority() -> list[str]:
         failures.append("workflow primitive schema is missing")
     else:
         json.loads(SCHEMA.read_text(encoding="utf-8"))
+    github_source = (ROOT / "scripts/sage/workflow/github_inspect.py").read_text(encoding="utf-8")
+    for marker in (
+        "GitHubCheckRunSnapshot",
+        "/check-runs",
+        '"filter": "latest"',
+        "require_successful_check",
+        "require_successful_checks",
+    ):
+        if marker not in github_source:
+            failures.append(f"github.inspect missing check-run marker: {marker}")
+    registry = load_registry()
+    github_items = [item for item in registry.get("primitives", []) if isinstance(item, dict) and item.get("primitive_id") == "github.inspect"]
+    if len(github_items) != 1 or github_items[0].get("version") != "1.2.0":
+        failures.append("github.inspect registry version must be 1.2.0")
     if not OPERATOR_ROUTINE_SCHEMA.is_file():
         failures.append("routine-receipt operator proposal schema is missing")
     else:

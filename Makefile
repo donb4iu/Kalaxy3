@@ -30,13 +30,15 @@ override export REQUEST := $(value REQUEST)
 .PHONY: help sage-preflight sage-changed sage-self-test \
         sage-discovery-guardrail sage-index-check \
         sage-improvement-policy-check sage-operating-contract-self-test \
-        sage-operating-contract-guardrail sage-operating-contract-check sage-guardrails
+        sage-operating-contract-guardrail sage-operating-contract-check \
+        sage-stage-guardrails sage-stage-contract-guardrail sage-stage-receipt-self-test sage-guardrails
 
 help:
 	@printf '%s\n' \
 	  'Kalaxy3 repository entry points:' \
 	  '  SAGE_REQUEST="<request>" make sage-preflight' \
 	  '  make sage-changed' \
+	  '  make sage-stage-guardrails' \
 	  '  make sage-guardrails' \
 	  '  make sage-operating-contract-check' \
 	  '  make sage-improvement-policy-check' \
@@ -66,7 +68,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-semantic-bootstrap-self-test sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test sage-intent-to-outcome-self-test sage-e2e-zero-trust-runtime-self-test
+sage-self-test: sage-semantic-bootstrap-self-test sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test sage-intent-to-outcome-self-test sage-e2e-zero-trust-runtime-self-test sage-stage-receipt-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 	python3 scripts/sage/sage-file-delivery-guardrail.py
@@ -119,10 +121,19 @@ sage-operating-contract-guardrail:
 sage-operating-contract-check: sage-operating-contract-self-test sage-operating-contract-guardrail
 	@echo "Kalaxy3 SAGE operating contract: PASS"
 
-sage-guardrails: sage-self-test sage-semantic-bootstrap-guardrail sage-discovery-guardrail sage-operating-contract-guardrail \
+sage-stage-guardrails: sage-self-test sage-semantic-bootstrap-guardrail sage-discovery-guardrail sage-operating-contract-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
-                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail sage-checkpoint-promotion-guardrail sage-security-external-access-discovery-guardrail sage-legacy-evidence-projection-guardrail sage-intent-to-outcome-guardrail sage-e2e-zero-trust-guardrail
+                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail sage-checkpoint-promotion-guardrail sage-security-external-access-discovery-guardrail sage-legacy-evidence-projection-guardrail sage-intent-to-outcome-guardrail sage-e2e-zero-trust-source-guardrail sage-stage-contract-guardrail
+	@echo "Kalaxy3 portable stage source guardrails: PASS"
+
+sage-guardrails: sage-stage-guardrails sage-e2e-zero-trust-controller-guardrail sage-workflow-support-guardrail sage-workflow-guardrail sage-operating-contract-guardrail
 	@echo "Kalaxy3 repository SAGE guardrails: PASS"
+
+sage-stage-receipt-self-test:
+	$(PYTHON) scripts/sage/sage-stage-receipt.py --self-test
+
+sage-stage-contract-guardrail:
+	$(PYTHON) scripts/sage/sage-portable-stage-guardrail.py
 
 .PHONY: sage-evidence-brief sage-evidence-prepare \
         sage-evidence-check sage-evidence-self-test \
@@ -521,6 +532,7 @@ SAGE_E2E_INFRA_DIR := infrastructure/k3s-homelab
         sage-intent-to-outcome-continue-routine sage-intent-to-outcome-record-runtime \
         sage-intent-to-outcome-promote sage-intent-to-outcome-continue-promotion \
         sage-intent-to-outcome-self-test sage-intent-to-outcome-guardrail \
+        sage-e2e-zero-trust-source-guardrail sage-e2e-zero-trust-controller-guardrail \
         sage-e2e-zero-trust-guardrail sage-e2e-zero-trust-deploy \
         sage-e2e-zero-trust-runtime-validate sage-e2e-zero-trust-runtime-receipt \
         sage-e2e-zero-trust-runtime-self-test
@@ -591,13 +603,17 @@ sage-intent-to-outcome-self-test:
 sage-intent-to-outcome-guardrail:
 	$(PYTHON) scripts/sage/sage-intent-to-outcome-guardrail.py
 
-sage-e2e-zero-trust-guardrail:
+sage-e2e-zero-trust-source-guardrail:
 	$(PYTHON) scripts/sage/sage-e2e-zero-trust-guardrail.py
 	$(MAKE) -C $(SAGE_E2E_INFRA_DIR) source-guardrails
 	$(MAKE) -C $(SAGE_E2E_INFRA_DIR) deployment-guardrail
+
+sage-e2e-zero-trust-controller-guardrail: sage-e2e-zero-trust-source-guardrail
 	$(MAKE) -C $(SAGE_E2E_INFRA_DIR) cluster-guardrails
 	cd $(SAGE_E2E_INFRA_DIR) && .venv/bin/ansible-playbook cloudflare/deploy-sage-e2e.yml --syntax-check
 	cd $(SAGE_E2E_INFRA_DIR) && .venv/bin/ansible-playbook cloudflare/validate-sage-e2e.yml --syntax-check
+
+sage-e2e-zero-trust-guardrail: sage-e2e-zero-trust-controller-guardrail
 
 sage-e2e-zero-trust-deploy:
 	@test -n "$${SAGE_EXTERNAL_HOSTNAME:-}" || { echo 'SAGE_EXTERNAL_HOSTNAME is required'; exit 2; }

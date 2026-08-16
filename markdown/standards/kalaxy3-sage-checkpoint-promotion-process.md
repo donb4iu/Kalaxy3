@@ -62,3 +62,11 @@ separate higher-trust composition.
 The deterministic dependency-deadlock regression proves that blocked work may
 be checkpointed safely while remaining non-promotable, then becomes eligible
 only after the dependency is resolved and the complete applicable gate passes.
+
+## Exact-source CI convergence (prospective after PR #21)
+
+Promotion mergeability is necessary but not sufficient. After PR creation and before SAGE offers the merge boundary, `github.inspect` reads the policy-required GitHub check runs for the exact frozen source SHA. Each required check must be the latest unambiguous check from the declared GitHub App, must be `completed`, and must have conclusion `success`. Missing, queued, in-progress, failed, cancelled, stale, neutral, or ambiguous required checks fail closed.
+
+The source-SHA binding is deliberate. The portable-stage workflow runs on feature-branch `push` so its authoritative stage evidence is attached to the exact source commit rather than only to GitHub's synthetic pull-request merge ref. Additional pull-request checks remain useful integration evidence but do not replace frozen-source identity.
+
+This is a prospective correction learned from PR #21. Historical PR #21 check state is preserved and is not rewritten.
