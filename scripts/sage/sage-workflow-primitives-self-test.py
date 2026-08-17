@@ -830,6 +830,17 @@ def test_github_inspection(root: Path) -> None:
             return dict(self.details[int(path.rsplit("/", 1)[1])])
 
     inspector = FixtureGitHubInspector()
+    saved_list_items = list(inspector.list_items)
+    inspector.list_items = []
+    if inspector.find_pull_request(base_branch="main", head_branch="feature/example", head_sha=sha_head, required=False) is not None:
+        raise RuntimeError("github.inspect optional exact PR lookup fabricated a match")
+    try:
+        inspector.find_pull_request(base_branch="main", head_branch="feature/example", head_sha=sha_head)
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("github.inspect required exact PR lookup accepted no match")
+    inspector.list_items = saved_list_items
     observed = inspector.find_pull_request(base_branch="main", head_branch="feature/example", head_sha=sha_head)
     if observed.number != 17 or observed.merged is not False:
         raise RuntimeError("github.inspect pre-merge lookup failed")

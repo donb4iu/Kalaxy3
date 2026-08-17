@@ -33,6 +33,7 @@
         "github_operator_mode": "browser-review",
         "github_cli_required": false,
         "prepared_pr_create_url_required": true,
+        "reuse_existing_exact_pr_before_merge": true,
         "prepared_pr_merge_url_required": true,
         "post_interaction_github_verification_required": true,
         "allow_post_merge_target_descendants": true,

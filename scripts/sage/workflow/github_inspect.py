@@ -14,7 +14,7 @@ from .model import WorkflowError
 _API_ROOT = "https://api." + "github.com"
 _API_VERSION = "2026-03-10"
 _ACCEPT = "application/vnd.github+json"
-_USER_AGENT = "Kalaxy3-SAGE-github.inspect/1.3.0"
+_USER_AGENT = "Kalaxy3-SAGE-github.inspect/1.4.0"
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _BRANCH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 _SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -245,7 +245,7 @@ class GitHubInspector:
             raise WorkflowError(f"github.inspect mergeability is not affirmatively true: {snapshot.mergeable!r}")
         return snapshot
 
-    def find_pull_request(self, *, base_branch: str, head_branch: str, head_sha: str) -> GitHubPullRequestSnapshot:
+    def find_pull_request(self, *, base_branch: str, head_branch: str, head_sha: str, required: bool = True) -> GitHubPullRequestSnapshot | None:
         expected_base = self._validate_branch(base_branch, "expected base branch")
         expected_head = self._validate_branch(head_branch, "expected head branch")
         expected_sha = self._validate_sha(head_sha, "expected head SHA")
@@ -266,7 +266,9 @@ class GitHubInspector:
             if isinstance(number, int) and number > 0 and base.get("ref") == expected_base and head.get("ref") == expected_head and head.get("sha") == expected_sha:
                 matches.append(number)
         if not matches:
-            raise WorkflowError("github.inspect found no matching pull request")
+            if required:
+                raise WorkflowError("github.inspect found no matching pull request")
+            return None
         if len(matches) != 1:
             raise WorkflowError(f"github.inspect pull-request identity is ambiguous: {matches}")
         return self.require_pull_request(matches[0], base_branch=expected_base, head_branch=expected_head, head_sha=expected_sha)
