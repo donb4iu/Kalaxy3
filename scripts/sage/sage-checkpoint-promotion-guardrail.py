@@ -59,7 +59,7 @@ def main() -> int:
         if isinstance(item, dict) and "primitive_id" in item
     }
     require(primitives["git.inspect"]["version"] == "1.2.0", "git.inspect version mismatch")
-    require(primitives["github.inspect"]["version"] == "1.2.0", "github.inspect version mismatch")
+    require(primitives["github.inspect"]["version"] == "1.3.0", "github.inspect version mismatch")
     workflow = (ROOT / "scripts/sage/workflows/checkpoint_promotion.py").read_text(encoding="utf-8")
     require("GitRepository" not in workflow, "promotion imported mixed Git mutation authority")
     require(".fetch(" not in workflow, "promotion performs workflow-side Git fetch")

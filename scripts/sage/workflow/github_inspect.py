@@ -14,7 +14,7 @@ from .model import WorkflowError
 _API_ROOT = "https://api." + "github.com"
 _API_VERSION = "2026-03-10"
 _ACCEPT = "application/vnd.github+json"
-_USER_AGENT = "Kalaxy3-SAGE-github.inspect/1.2.0"
+_USER_AGENT = "Kalaxy3-SAGE-github.inspect/1.3.0"
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _BRANCH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 _SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -61,6 +61,7 @@ class GitHubPullRequestSnapshot:
 class GitHubCheckRunSnapshot:
     repository: str
     check_run_id: int
+    check_suite_id: int
     name: str
     head_sha: str
     status: str
@@ -72,6 +73,7 @@ class GitHubCheckRunSnapshot:
         return {
             "repository": self.repository,
             "check_run_id": self.check_run_id,
+            "check_suite_id": self.check_suite_id,
             "name": self.name,
             "head_sha": self.head_sha,
             "status": self.status,
@@ -284,12 +286,21 @@ class GitHubInspector:
         conclusion = self._string(data.get("conclusion"), "check-run conclusion", nullable=True)
         if conclusion is not None and conclusion not in {"action_required", "cancelled", "failure", "neutral", "skipped", "stale", "success", "timed_out"}:
             raise WorkflowError(f"github.inspect unsupported check-run conclusion: {conclusion!r}")
+        check_suite = self._mapping(data.get("check_suite"), "check-run check_suite")
+        check_suite_id = check_suite.get("id")
+        if (
+            not isinstance(check_suite_id, int)
+            or isinstance(check_suite_id, bool)
+            or check_suite_id <= 0
+        ):
+            raise WorkflowError("github.inspect check-suite id must be a positive integer")
         app = self._mapping(data.get("app"), "check-run app")
         app_slug = self._string(app.get("slug"), "check-run app.slug")
         details_url = self._string(data.get("details_url"), "check-run details_url", nullable=True)
         return GitHubCheckRunSnapshot(
             repository=self.full_name,
             check_run_id=check_run_id,
+            check_suite_id=check_suite_id,
             name=str(name),
             head_sha=head_sha,
             status=str(status),
@@ -349,7 +360,61 @@ class GitHubInspector:
     ) -> tuple[GitHubCheckRunSnapshot, ...]:
         if not required:
             raise WorkflowError("github.inspect required-check set must not be empty")
-        return tuple(
-            self.require_successful_check(head_sha=head_sha, check_name=name, app_slug=app_slug)
-            for name, app_slug in required
-        )
+        expected_sha = self._validate_sha(head_sha, "expected check-run head SHA")
+        required_runs: list[tuple[tuple[str, str], tuple[GitHubCheckRunSnapshot, ...]]] = []
+        for check_name, app_slug in required:
+            expected_name = str(self._string(check_name, "expected check-run name"))
+            expected_app = str(self._string(app_slug, "expected check-run app slug"))
+            runs = tuple(
+                item
+                for item in self.list_check_runs(
+                    head_sha=expected_sha,
+                    check_name=expected_name,
+                )
+                if item.name == expected_name and item.app_slug == expected_app
+            )
+            if not runs:
+                raise WorkflowError(
+                    f"github.inspect found no required check run: {expected_name}"
+                )
+            required_runs.append(((expected_name, expected_app), runs))
+
+        common_suites = {
+            item.check_suite_id for item in required_runs[0][1]
+        }
+        for _, runs in required_runs[1:]:
+            common_suites &= {item.check_suite_id for item in runs}
+        if not common_suites:
+            raise WorkflowError(
+                "github.inspect found no coherent check suite containing the complete required-check set"
+            )
+
+        successful: list[tuple[int, tuple[GitHubCheckRunSnapshot, ...]]] = []
+        for suite_id in sorted(common_suites):
+            selected: list[GitHubCheckRunSnapshot] = []
+            for _, runs in required_runs:
+                suite_runs = tuple(
+                    item for item in runs if item.check_suite_id == suite_id
+                )
+                if len(suite_runs) != 1:
+                    selected = []
+                    break
+                run = suite_runs[0]
+                if run.status != "completed" or run.conclusion != "success":
+                    selected = []
+                    break
+                selected.append(run)
+            if selected:
+                successful.append((suite_id, tuple(selected)))
+
+        if not successful:
+            raise WorkflowError(
+                "github.inspect found no single successful required check suite for exact source SHA"
+            )
+        if len(successful) != 1:
+            identities = [suite_id for suite_id, _ in successful]
+            raise WorkflowError(
+                "github.inspect successful required check-suite identity is ambiguous: "
+                f"{identities}"
+            )
+        return successful[0][1]
