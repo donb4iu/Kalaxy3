@@ -1,5 +1,5 @@
 {
-    "schema_version": "1.1",
+    "schema_version": "1.2",
     "registry_type": "improvement-actions",
     "actions": [
         {
@@ -1318,6 +1318,74 @@
                     "reason": "Accept governed candidate iteration as the required correction after iteration 1 exposed the semantic-to-domain-planning propagation gap while preserving the candidate as useful non-promotable engineering state.",
                     "evidence_references": [
                         "commit:6d98f4b"
+                    ]
+                }
+            ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260815-002",
+            "title": "Portable Stage Execution, Artifact Promotion, Engine-Neutral Orchestration, and Constraint-Aware Governed Phasing",
+            "source_lessons": [],
+            "source_sessions": [],
+            "source_records": [
+                {
+                    "record_type": "capability-gap",
+                    "record_id": "SAGE-GAP-20260816-POST-PR21-DELIVERY",
+                    "schema_version": "1.1",
+                    "sha256": "210adedc2f6283f76e74554368a9920fe8a7edb162e7919229719e1af52938b5"
+                }
+            ],
+            "current_status": "accepted",
+            "owner": "Architect",
+            "priority": "high",
+            "target_control_type": "automation",
+            "desired_outcome": "Deliver a demonstrable SAGE delivery architecture in which Git/PR can invoke a portable multi-architecture canonical stage independent of the operator device; stage builds/tests/generates once and emits immutable artifacts and evidence; promotion binds only target-environment affinity and deploys already-proven artifacts; execution hosts and workflow engines remain replaceable; convergence consumes applicable check evidence; evidence invalidation re-enters only the earliest materially affected domain; completed child promotion reconciles into parent intent lineage; and real-world immutable constraints can change scope/phasing only through explicit, traceable Architect disposition that preserves quality, security, intent, evidence, learning, innovation, and reconciliation obligations.",
+            "acceptance_criteria": [
+                "The four-role SAGE architecture and existing intent lifecycle remain authoritative; CI/CD engines, OCI executors, runners, and environment manifests do not acquire Architect or semantic authority.",
+                "A versioned multi-architecture OCI stage contract can be invoked from Git/PR without requiring the end-user workstation to define or build the stage environment.",
+                "Stage builds/tests/generates once and produces immutable artifact digests, provenance, and stage evidence that production promotion consumes without rebuilding absent an explicit governed reason.",
+                "Execution hosts and workflow engines are replaceable implementations; GitHub Actions, Jenkins, self-hosted runners, dedicated builders, or Kubernetes may invoke the same engine-neutral stage/promotion contract.",
+                "Environment manifests bind only target-specific configuration, secret authority, artifact selection, topology/placement, routing/DNS/Access, deployment, observability/runtime verification, and receipts.",
+                "Stage, controller qualification, promotion, and runtime evidence are distinct domains; changes invalidate only the earliest materially affected domain instead of invalidating runtime solely because HEAD changed.",
+                "Applicable GitHub/CI checks participate in convergence or receive an explicit evidence-backed applicability disposition, and parent intent can reconcile a separately completed child promotion without historical state rewriting.",
+                "Constraint-aware governed phasing is codified: immutable deadlines or other hard constraints may alter scope, sequencing, interim releases, or capability-adoption timing only with explicit Architect disposition, delivered/deferred scope, residual risk, compensating evidence, demarcation/expiration, and reconciliation obligations.",
+                "PR21 remains immutable historical evidence and a useful interim release; its hosted-CI failure is not rewritten as a pass and its merge remains the pre-portable-stage architectural demarcation.",
+                "The external SAGE/thin-slice experience exposes the decision, evidence, constraint-aware phasing, prevented defects, learning, and delivered value rather than presenting only toolchain mechanics.",
+                "Implementation candidates and resulting architecture are compared with current AWS, Microsoft Azure, Google Cloud, and IBM engineering guidance while the SAGE contract remains implementation-neutral."
+            ],
+            "measurement_plan": [
+                "Verify canonical stage executions produce reproducible immutable artifact/provenance receipts independent of the initiating workstation.",
+                "Verify promotion references exact previously proven artifact digests and does not rebuild production artifacts during the normal path.",
+                "Exercise evidence-domain invalidation cases and prove unrelated CI/orchestration-only changes do not unnecessarily invalidate runtime evidence.",
+                "Exercise applicable-check convergence, completed-child promotion reconciliation, and fail-closed negative cases.",
+                "Record delivery friction, operator boundaries, retries/rework, and time-to-validated-deliverable before/after the portable-stage evolution.",
+                "Verify the externally viewable SAGE demonstration visibly preserves PR21 lineage and explains the resulting architectural learning and constraint-aware interim-release decision."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-16T01:37:07-05:00",
+                    "actor": "Architect",
+                    "reason": "Register the post-PR21 delivery evolution from its verified, Architect-approved domain capability-gap provenance.",
+                    "evidence_references": [
+                        "markdown/evidence-artifacts/SAGE-ACTION-20260815-002-PROVENANCE/post-pr21-delivery-capability-gap.json",
+                        "commit:ab7afc0e6280f1fca4b9c9953049b8a4433cd185"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-16T01:44:58-05:00",
+                    "actor": "Architect",
+                    "reason": "Accept the Architect-owned post-PR21 delivery evolution after durable registration from the verified SAGE-GAP-20260816-POST-PR21-DELIVERY capability-gap provenance and completion of the bounded provenance-bootstrap intervention.",
+                    "evidence_references": [
+                        "markdown/evidence-artifacts/SAGE-ACTION-20260815-002-PROVENANCE/post-pr21-delivery-capability-gap.json",
+                        "commit:3e79c0d5e1547ed33d07165ca4077496a8e5eb93"
                     ]
                 }
             ]

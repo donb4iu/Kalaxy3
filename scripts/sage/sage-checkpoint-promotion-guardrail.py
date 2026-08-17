@@ -33,6 +33,7 @@ def main() -> int:
     require(promotion["github_operator_mode"] == "browser-review", "browser-review mode disabled")
     require(promotion["github_cli_required"] is False, "GitHub CLI became required")
     require(promotion["prepared_pr_create_url_required"] is True, "prepared PR-create URL disabled")
+    require(promotion["reuse_existing_exact_pr_before_merge"] is True, "existing exact PR reuse disabled")
     require(promotion["prepared_pr_merge_url_required"] is True, "prepared PR-merge URL disabled")
     require(
         promotion["post_interaction_github_verification_required"] is True,
@@ -43,6 +44,14 @@ def main() -> int:
         == ["pull-request-create", "pull-request-merge", "post-merge-fetch"],
         "promotion operator boundaries changed",
     )
+    required_checks = promotion.get("required_github_checks")
+    require(isinstance(required_checks, list) and len(required_checks) == 3, "required GitHub check policy is incomplete")
+    require(
+        [item.get("name") for item in required_checks]
+        == ["SAGE source governance", "MkDocs Material publication validation", "Portable OCI stage artifact"],
+        "required GitHub check names drifted",
+    )
+    require(all(item.get("app_slug") == "github-actions" for item in required_checks), "required GitHub checks are not bound to github-actions")
 
     registry = json.loads((ROOT / "sage-workflow-primitives.json").read_text(encoding="utf-8"))
     primitives = {
@@ -51,11 +60,13 @@ def main() -> int:
         if isinstance(item, dict) and "primitive_id" in item
     }
     require(primitives["git.inspect"]["version"] == "1.2.0", "git.inspect version mismatch")
-    require(primitives["github.inspect"]["version"] == "1.1.0", "github.inspect version mismatch")
+    require(primitives["github.inspect"]["version"] == "1.4.0", "github.inspect version mismatch")
     workflow = (ROOT / "scripts/sage/workflows/checkpoint_promotion.py").read_text(encoding="utf-8")
     require("GitRepository" not in workflow, "promotion imported mixed Git mutation authority")
     require(".fetch(" not in workflow, "promotion performs workflow-side Git fetch")
     require("GitHubInspector" in workflow, "promotion does not consume github.inspect")
+    require("require_successful_checks(" in workflow, "promotion does not require successful exact-SHA GitHub checks")
+    require("required_github_checks(" in workflow, "promotion does not consume required-check policy")
     require(
         "remote_head(" in workflow
         and "is_ancestor(" in workflow
@@ -72,6 +83,7 @@ def main() -> int:
         "browser-backed PR proposal composition missing",
     )
     require("github_compare_url(" in workflow, "prepared PR-create browser URL missing")
+    require("existing_pr_merge_proposal(" in workflow and "required=False" in workflow and "existing_pull_request_reused" in workflow, "existing exact PR re-entry composition missing")
     require("github_pull_url(" in workflow, "prepared PR-merge browser URL missing")
     require("validate_browser_operator_result(" in workflow, "browser confirmation binding missing")
     require('("gh", "pr"' not in workflow, "checkpoint promotion still requires GitHub CLI")
@@ -127,7 +139,9 @@ def main() -> int:
     print("PASS checkpoint persistence remains distinct from promotion")
     print("PASS complete applicable gate and frozen-target requirements")
     print("PASS git.inspect + github.inspect least-authority composition")
+    print("PASS exact frozen-source GitHub Actions checks are required before merge proposal")
     print("PASS PR mutation uses prepared browser-review operator proposals")
+    print("PASS exact already-open PR may satisfy the create boundary without duplicate mutation")
     print("PASS post-merge refresh remains an exact operator Git proposal")
     print("PASS nullable GitHub merge SHA falls back to exact post-fetch Git merge topology")
     print("PASS post-merge automation descendants are permitted only after exact merge proof")

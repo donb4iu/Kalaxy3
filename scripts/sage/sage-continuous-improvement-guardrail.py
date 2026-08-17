@@ -499,7 +499,7 @@ def validate_action_registry(
         payload,
         registry_type=registry_type,
         collection=collection,
-        schema_version="1.1",
+        schema_version="1.2",
     )
     if failures:
         return failures
@@ -522,7 +522,7 @@ def validate_action_registry_contract(
     try:
         action_tool = load_action_tool()
         empty_registry = {
-            "schema_version": "1.1",
+            "schema_version": "1.2",
             "registry_type": "improvement-actions",
             "actions": [],
         }

@@ -31,7 +31,7 @@ from workflow import (
 from workflows.request_planning import derive_component_plan
 
 WORKFLOW_ID = "sage.checkpoint-promotion"
-WORKFLOW_VERSION = "1.1.0"
+WORKFLOW_VERSION = "1.3.0"
 POLICY_PATH = "sage-checkpoint-promotion-policy.json"
 PRIMITIVES_USED = (
     "catalog.registry",
@@ -174,6 +174,30 @@ def github_pull_url(
         f"{pull_request_number}"
     )
 
+
+
+def required_github_checks(policy: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+    promotion = policy.get("promotion_policy")
+    if not isinstance(promotion, Mapping):
+        raise WorkflowError("checkpoint promotion policy lacks promotion_policy")
+    raw = promotion.get("required_github_checks")
+    if not isinstance(raw, list) or not raw:
+        raise WorkflowError("checkpoint promotion requires at least one GitHub check")
+    result: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for index, item in enumerate(raw):
+        if not isinstance(item, Mapping) or set(item) != {"name", "app_slug"}:
+            raise WorkflowError(f"required_github_checks[{index}] must contain name and app_slug only")
+        name = str(item.get("name", "")).strip()
+        app_slug = str(item.get("app_slug", "")).strip()
+        if not name or not app_slug:
+            raise WorkflowError(f"required_github_checks[{index}] is incomplete")
+        key = (name, app_slug)
+        if key in seen:
+            raise WorkflowError(f"duplicate required GitHub check: {name}/{app_slug}")
+        seen.add(key)
+        result.append(key)
+    return tuple(result)
 
 def validate_browser_operator_result(
     payload: Mapping[str, Any],
@@ -574,7 +598,73 @@ def create_pr_proposal(context: PromotionContext) -> dict[str, Any]:
     return proposal
 
 
-def save_state(context: PromotionContext, proposal: Mapping[str, Any]) -> Path:
+def existing_pr_merge_proposal(context: PromotionContext) -> tuple[dict[str, Any], Any, tuple[Any, ...], str] | None:
+    if context.authority_path is None or context.component_path is None or context.frozen_target_head is None:
+        raise WorkflowError("Promotion receipts missing before existing-PR lookup")
+    pr = context.github.find_pull_request(
+        base_branch=context.target_branch,
+        head_branch=context.source_branch,
+        head_sha=context.expected_head,
+        required=False,
+    )
+    if pr is None:
+        return None
+    if pr.merged or pr.state != "open" or pr.draft:
+        raise WorkflowError("Existing promotion PR is not an open non-draft PR")
+    checked = context.github.require_pull_request(
+        pr.number,
+        base_branch=context.target_branch,
+        head_branch=context.source_branch,
+        head_sha=context.expected_head,
+        merged=False,
+        require_mergeable=True,
+    )
+    check_runs = context.github.require_successful_checks(
+        head_sha=context.expected_head,
+        required=required_github_checks(context.policy),
+    )
+    current_target = context.inspector.remote_head("origin", context.target_branch)
+    if current_target != context.frozen_target_head:
+        raise WorkflowError("Target advanced after validation; rerun checkpoint promotion")
+    if checked.base_sha != context.frozen_target_head:
+        raise WorkflowError("Existing promotion PR base SHA differs from frozen target")
+    github_policy = context.policy["github_repository"]
+    proposal = OperatorGitProposal.build_browser(
+        proposal_id=proposal_id(context.expected_head, "pull-request-merge"),
+        controller=WORKFLOW_ID,
+        repository=context.inspector.snapshot(),
+        authority_receipt=str(context.authority_path),
+        component_manifest=str(context.component_path),
+        boundary="pull-request-merge",
+        change_scope=context.changed_paths,
+        validation=proposal_validation(context),
+        browser_action="merge-pull-request",
+        browser_url=github_pull_url(github_policy, pull_request_number=checked.number),
+        expected_result=(
+            "Review the independently verified existing pull request, select Create a merge "
+            "commit if GitHub presents multiple merge methods, and click the final merge confirmation."
+        ),
+        risk="Mutates main only after explicit operator approval in GitHub.",
+        rollback="Do not approve if review is not complete; a merged change requires a separately governed revert.",
+        post_interaction_verification=(
+            "github.inspect verifies merged state and exact source SHA",
+            "git.inspect verifies remote main equals the merge commit",
+            "an explicit operator fetch refreshes the local graph",
+        ),
+    )
+    context.proposal_path = context.state_dir / "operator-git-proposal-pr-merge.json"
+    OperatorGitProposal.write(context.proposal_path, proposal, context.writer)
+    return proposal, checked, check_runs, current_target
+
+
+def save_state(
+    context: PromotionContext,
+    proposal: Mapping[str, Any],
+    *,
+    pull_request_number: int | None = None,
+    required_github_checks: tuple[Mapping[str, Any], ...] = (),
+    existing_pull_request_reused: bool = False,
+) -> Path:
     if (
         context.proposal_path is None
         or context.frozen_target_head is None
@@ -601,7 +691,9 @@ def save_state(context: PromotionContext, proposal: Mapping[str, Any]) -> Path:
         "body": context.body,
         "current_boundary": str(proposal["boundary"]),
         "current_proposal": str(context.proposal_path),
-        "pull_request_number": None,
+        "pull_request_number": pull_request_number,
+        "required_github_checks": [dict(item) for item in required_github_checks],
+        "existing_pull_request_reused": existing_pull_request_reused,
         "merge_commit_sha": None,
         "history": [],
     }
@@ -653,8 +745,21 @@ def start_promotion(
     authority_action(context)
     validation_action(context)
     eligibility_action(context)
-    proposal = create_pr_proposal(context)
-    state = save_state(context, proposal)
+    existing = existing_pr_merge_proposal(context)
+    if existing is None:
+        proposal = create_pr_proposal(context)
+        state = save_state(context, proposal)
+        existing_pr_reused = False
+    else:
+        proposal, checked, check_runs, current_target = existing
+        state = save_state(
+            context,
+            proposal,
+            pull_request_number=checked.number,
+            required_github_checks=tuple(item.as_dict() for item in check_runs),
+            existing_pull_request_reused=True,
+        )
+        existing_pr_reused = True
     closeout = write_closeout(
         context,
         "operator-review-required",
@@ -664,6 +769,7 @@ def start_promotion(
             "promotion_eligibility": str(context.eligibility_path),
             "git_mutation": False,
             "github_mutation": False,
+            "existing_pull_request_reused": existing_pr_reused,
         },
     )
     return {
@@ -673,6 +779,7 @@ def start_promotion(
         "promotion_eligibility": str(context.eligibility_path),
         "closeout": str(closeout),
         "event_log": str(context.state_dir / "events.jsonl"),
+        "existing_pull_request_reused": existing_pr_reused,
         "proposal": proposal,
     }
 
@@ -795,6 +902,12 @@ def continue_promotion(
             merged=False,
             require_mergeable=True,
         )
+        policy = json.loads((resolved_repo / POLICY_PATH).read_text(encoding="utf-8"))
+        check_runs = github.require_successful_checks(
+            head_sha=str(state["source_head"]),
+            required=required_github_checks(policy),
+        )
+        state["required_github_checks"] = [item.as_dict() for item in check_runs]
         current_target = inspector.remote_head(
             "origin", str(state["target_branch"])
         )
@@ -846,6 +959,7 @@ def continue_promotion(
             "status": "pass",
             "boundary": boundary,
             "pull_request": checked.as_dict(),
+            "required_github_checks": [item.as_dict() for item in check_runs],
             "frozen_target_head": current_target,
         }
 

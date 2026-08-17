@@ -480,6 +480,10 @@
         "atomic_write_required": true,
         "direct_status_edits_forbidden": true,
         "registration_requires_source": true,
+        "source_record_types": [
+            "capability-gap"
+        ],
+        "source_record_verification_required": true,
         "contract_amendment_allowed_statuses": [
             "identified"
         ],
@@ -487,6 +491,7 @@
             "title",
             "source_lessons",
             "source_sessions",
+            "source_records",
             "owner",
             "priority",
             "target_control_type",
@@ -549,5 +554,6 @@
         "action_registration_is_separate": true,
         "review_registry_mutation_is_separate": true,
         "composite_score_enabled": false
-    }
+    },
+    "improvement_action_schema": "markdown/standards/sage-improvement-action-schema-v1.2.json"
 }

@@ -3,7 +3,7 @@ on:
   pull_request:
   push:
     branches:
-      - main
+      - "**"
     paths-ignore:
       - "docs/**"
   workflow_dispatch:
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   sage-governance:
-    name: SAGE discovery and repository validation
+    name: SAGE source governance
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,7 +34,7 @@ jobs:
         python-version: "3.12"
 
     - name: Run repository SAGE guardrails
-      run: make sage-guardrails
+      run: make sage-stage-guardrails
 
   mkdocs-validation:
     name: MkDocs Material publication validation
@@ -57,8 +57,67 @@ jobs:
     - name: Build and validate MkDocs publication output
       run: make docs-mkdocs-publication-test
 
+  portable-stage:
+    name: Portable OCI stage artifact
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    needs: [sage-governance, mkdocs-validation]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      STAGE_IMAGE: donb4iu/mynginx_docs
+      STAGE_TAG: stage-${{ github.sha }}
+      STAGE_ARCHIVE: ${{ github.workspace }}/sage-stage.oci.tar
+      STAGE_ARTIFACT_NAME: sage-stage-oci-${{ github.sha }}
+
+    steps:
+    - name: Check out exact source SHA
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        ref: ${{ github.sha }}
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build once to a multi-architecture OCI stage artifact
+      uses: docker/build-push-action@v6
+      id: portable_stage_build
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        file: yaml/nginx-docs/k8s-doc-to-nginx/nginx/Dockerfile.stage
+        push: false
+        outputs: type=oci,dest=${{ env.STAGE_ARCHIVE }}
+        tags: ${{ env.STAGE_IMAGE }}:${{ env.STAGE_TAG }}
+        provenance: false
+        build-args: |
+          SAGE_SOURCE_SHA=${{ github.sha }}
+
+    - name: Persist immutable OCI stage artifact
+      uses: actions/upload-artifact@v4
+      id: stage_artifact
+      with:
+        name: ${{ env.STAGE_ARTIFACT_NAME }}
+        path: ${{ env.STAGE_ARCHIVE }}
+        compression-level: 0
+        if-no-files-found: error
+
+    - name: Produce SAGE portable-stage receipt
+      run: python3 scripts/sage/sage-stage-receipt.py --source-sha "${GITHUB_SHA}" --image-repository "${STAGE_IMAGE}" --stage-tag "${STAGE_TAG}" --index-digest "${{ steps.portable_stage_build.outputs.digest }}" --oci-archive "${STAGE_ARCHIVE}" --storage-artifact-name "${STAGE_ARTIFACT_NAME}" --storage-artifact-id "${{ steps.stage_artifact.outputs.artifact-id }}" --storage-artifact-digest "${{ steps.stage_artifact.outputs.artifact-digest }}" --workflow-run-id "${GITHUB_RUN_ID}" --workflow-run-attempt "${GITHUB_RUN_ATTEMPT}" --output "$RUNNER_TEMP/sage-stage-receipt.json"
+
+    - name: Persist stage receipt
+      uses: actions/upload-artifact@v4
+      with:
+        name: sage-stage-receipt-${{ github.sha }}
+        path: ${{ runner.temp }}/sage-stage-receipt.json
+        if-no-files-found: error
+
   doc:
-    if: github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: mkdocs-validation
     env:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

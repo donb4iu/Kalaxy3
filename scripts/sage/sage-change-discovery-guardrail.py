@@ -11,7 +11,6 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Final
 
-
 ROOT: Final = Path(__file__).resolve().parents[2]
 PREFLIGHT_PATH: Final = (
     ROOT / "scripts/sage/sage-change-preflight.py"
@@ -53,7 +52,6 @@ def validate_required_files(
         ROOT / "sage-change-authority.json"
     )
     failures = module.validate_authority_map(payload)
-
     for context in payload["contexts"]:
         for value in context["authoritative_files"]:
             if not (ROOT / value).exists():
@@ -61,7 +59,6 @@ def validate_required_files(
                     f"{context['id']}: "
                     f"authority file missing: {value}"
                 )
-
         working_directory = (
             ROOT / context["working_directory"]
         )
@@ -76,7 +73,6 @@ def validate_required_files(
 def validate_entrypoint_markers() -> list[str]:
     """Require discovery references at entry points."""
     failures: list[str] = []
-
     for relative, marker in REQUIRED_MARKERS.items():
         path = ROOT / relative
         if not path.is_file():
@@ -84,7 +80,6 @@ def validate_entrypoint_markers() -> list[str]:
                 f"Missing discovery entry point: {relative}"
             )
             continue
-
         text = path.read_text(encoding="utf-8")
         if marker not in text:
             failures.append(
@@ -96,15 +91,17 @@ def validate_entrypoint_markers() -> list[str]:
     ).read_text(encoding="utf-8")
     for marker in (
         "pull_request:",
-        "if: github.event_name != 'pull_request'",
-        "make sage-guardrails",
+        "make sage-stage-guardrails",
+        "portable-stage:",
+        "if: github.event_name == 'push' && github.ref != 'refs/heads/main'",
+        "doc:",
+        "if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'",
     ):
         if marker not in workflow:
             failures.append(
                 "GitHub workflow lacks enforcement marker "
                 f"{marker!r}"
             )
-
     homelab_makefile = (
         ROOT / "infrastructure/k3s-homelab/Makefile"
     ).read_text(encoding="utf-8")
@@ -129,7 +126,6 @@ def validate_make_request_transport() -> list[str]:
     )
     environment = dict(os.environ)
     environment["SAGE_REQUEST"] = request
-
     result = subprocess.run(
         [
             "make",
@@ -145,7 +141,6 @@ def validate_make_request_transport() -> list[str]:
 
     failures: list[str] = []
     expected = f"Request: {request}"
-
     if result.returncode != 0:
         failures.append(
             "Root Make request transport failed: "
@@ -174,7 +169,6 @@ def mutation_cases(
         duplicate["contexts"][0]["id"]
     )
     cases.append(("duplicate context", duplicate))
-
     unknown = copy.deepcopy(payload)
     unknown["contexts"][0]["requires"] = [
         "missing-context"
@@ -210,8 +204,6 @@ def run_negative_tests(
     return failures
 
 
-
-
 def validate_request_vocabulary_normalization_mutation(
     module: ModuleType,
 ) -> list[str]:
@@ -223,7 +215,6 @@ def validate_request_vocabulary_normalization_mutation(
 
     def legacy_normalize(value: str) -> str:
         return " ".join(value.lower().replace("_", " ").split())
-
     failures: list[str] = []
     module.normalize = legacy_normalize
     try:
@@ -257,7 +248,6 @@ def validate_request_vocabulary_normalization_mutation(
                 )
     finally:
         module.normalize = original_normalize
-
     return failures
 
 
@@ -288,7 +278,6 @@ def main() -> int:
         RuntimeError,
     ) as error:
         failures = [str(error)]
-
     if failures:
         print(
             "Kalaxy3 SAGE discovery guardrail: "
@@ -297,7 +286,6 @@ def main() -> int:
         for failure in failures:
             print(f"  - {failure}")
         return 1
-
     print(
         "PASS repository-root SAGE discovery entry points"
     )

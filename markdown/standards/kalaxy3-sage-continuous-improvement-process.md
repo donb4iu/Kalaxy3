@@ -365,8 +365,11 @@ The machine-readable authority is:
 
 ## Improvement actions and baseline extraction
 
-Improvement actions convert accepted lessons into controlled engineering
-changes. The lifecycle is:
+Improvement actions convert governed evidence and learning into controlled
+engineering changes. Accepted lessons and completed sessions remain valid
+origins. A typed governed source record may also originate an action when the
+canonical action tool verifies the referenced receipt before registration. The
+lifecycle is:
 
 ```text
 identified
@@ -381,7 +384,16 @@ identified
 Supported rework transitions return an action to the nearest appropriate
 earlier state.
 
-Each action must reference at least one lesson or session and preserve:
+Each action must preserve at least one governed origin. Historical and current
+lesson/session origins remain valid. Registry schema 1.2 additionally permits
+`source_records` containing portable typed descriptors for receipts verified by
+the canonical action tool. The initial supported record type is an
+Architect-approved SAGE domain-capability gap (`schema_version: 1.1`). A plain
+lifecycle `evidence_references` string is supporting evidence and does not by
+itself satisfy action-origin provenance. Existing 1.1-shaped action contracts
+and amendment digests remain valid without historical rewriting.
+
+Each action also preserves:
 
 - owner and priority;
 - intended control type;
@@ -390,6 +402,16 @@ Each action must reference at least one lesson or session and preserve:
 - measurement plan;
 - append-only lifecycle and contract-amendment history;
 - evidence references for every lifecycle event.
+
+An Architect may raise a credible capability-gap concern without fabricating a
+lesson or session. SAGE must preserve the claim as a claim, corroborate it with
+current governed evidence, and use a verified capability-gap source record when
+that gap legitimately originates improvement work. A bounded bootstrap
+intervention is permitted only when the existing action-origin contract itself
+prevents truthful registration of the action required to correct that contract.
+Such an intervention must be explicitly Architect-authorized, narrowly scoped,
+fully validated, traceable to a fixed baseline, and expire as soon as ordinary
+action registration becomes possible.
 
 An action contract may be amended only while the action remains `identified`.
 Amendment is not a lifecycle-state transition: `from_status` and `to_status`
@@ -429,7 +451,8 @@ The machine-readable authority is:
 
 - `sage-improvement-actions.json`;
 - `sage-continuous-improvement-baseline-registry.json`;
-- `markdown/standards/sage-improvement-action-schema-v1.1.json`;
+- `markdown/standards/sage-improvement-action-schema-v1.1.json` (historical);
+- `markdown/standards/sage-improvement-action-schema-v1.2.json` (current);
 - `markdown/standards/sage-continuous-improvement-baseline-schema-v1.0.json`;
 - `scripts/sage/sage-improvement-actions.py`;
 - `scripts/sage/sage-baseline-extract.py`;

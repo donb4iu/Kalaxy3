@@ -814,13 +814,33 @@ def test_github_inspection(root: Path) -> None:
             super().__init__("donb4iu", "Kalaxy3")
             self.details = {17: payload(number=17, merged=False)}
             self.list_items = [{"number": 17, "base": {"ref": "main"}, "head": {"ref": "feature/example", "sha": sha_head}}]
+            self.checks = {
+                "SAGE source governance": [{"id": 31, "name": "SAGE source governance", "head_sha": sha_head, "status": "completed", "conclusion": "success", "check_suite": {"id": 41}, "app": {"slug": "github-actions"}, "details_url": "https://github.com/donb4iu/Kalaxy3/actions/runs/31"}],
+                "MkDocs Material publication validation": [{"id": 32, "name": "MkDocs Material publication validation", "head_sha": sha_head, "status": "completed", "conclusion": "success", "check_suite": {"id": 41}, "app": {"slug": "github-actions"}, "details_url": "https://github.com/donb4iu/Kalaxy3/actions/runs/32"}],
+                "Portable OCI stage artifact": [{"id": 33, "name": "Portable OCI stage artifact", "head_sha": sha_head, "status": "completed", "conclusion": "success", "check_suite": {"id": 41}, "app": {"slug": "github-actions"}, "details_url": "https://github.com/donb4iu/Kalaxy3/actions/runs/33"}],
+            }
 
         def _request_json(self, path: str, query=None):
+            if path.endswith("/check-runs"):
+                name = str((query or {}).get("check_name", ""))
+                items = list(self.checks.get(name, []))
+                return {"total_count": len(items), "check_runs": items}
             if path.endswith("/pulls"):
                 return list(self.list_items)
             return dict(self.details[int(path.rsplit("/", 1)[1])])
 
     inspector = FixtureGitHubInspector()
+    saved_list_items = list(inspector.list_items)
+    inspector.list_items = []
+    if inspector.find_pull_request(base_branch="main", head_branch="feature/example", head_sha=sha_head, required=False) is not None:
+        raise RuntimeError("github.inspect optional exact PR lookup fabricated a match")
+    try:
+        inspector.find_pull_request(base_branch="main", head_branch="feature/example", head_sha=sha_head)
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("github.inspect required exact PR lookup accepted no match")
+    inspector.list_items = saved_list_items
     observed = inspector.find_pull_request(base_branch="main", head_branch="feature/example", head_sha=sha_head)
     if observed.number != 17 or observed.merged is not False:
         raise RuntimeError("github.inspect pre-merge lookup failed")
@@ -852,6 +872,82 @@ def test_github_inspection(root: Path) -> None:
         pass
     else:
         raise RuntimeError("github.inspect accepted ambiguous PR identity")
+
+    required_checks = (
+        ("SAGE source governance", "github-actions"),
+        ("MkDocs Material publication validation", "github-actions"),
+        ("Portable OCI stage artifact", "github-actions"),
+    )
+    checks = inspector.require_successful_checks(
+        head_sha=sha_head,
+        required=required_checks,
+    )
+    if [item.name for item in checks] != [item[0] for item in required_checks]:
+        raise RuntimeError("github.inspect required-check verification failed")
+    if {item.check_suite_id for item in checks} != {41}:
+        raise RuntimeError("github.inspect required checks did not converge on one check suite")
+    inspector.checks["Portable OCI stage artifact"][0]["conclusion"] = "failure"
+    try:
+        inspector.require_successful_check(head_sha=sha_head, check_name="Portable OCI stage artifact")
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("github.inspect accepted a failed required check")
+    inspector.checks["Portable OCI stage artifact"][0]["conclusion"] = "success"
+    saved_stage_check = dict(inspector.checks["Portable OCI stage artifact"][0])
+    inspector.checks["Portable OCI stage artifact"] = []
+    try:
+        inspector.require_successful_check(head_sha=sha_head, check_name="Portable OCI stage artifact")
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("github.inspect accepted a missing required check")
+    inspector.checks["Portable OCI stage artifact"] = [dict(saved_stage_check), dict(saved_stage_check)]
+    inspector.checks["Portable OCI stage artifact"][1]["id"] = 34
+    try:
+        inspector.require_successful_check(head_sha=sha_head, check_name="Portable OCI stage artifact")
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("github.inspect accepted ambiguous required checks")
+    inspector.checks["Portable OCI stage artifact"] = [dict(saved_stage_check)]
+    inspector.checks["Portable OCI stage artifact"][0]["app"] = {"slug": "foreign-app"}
+    try:
+        inspector.require_successful_check(head_sha=sha_head, check_name="Portable OCI stage artifact")
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("github.inspect accepted a required check from the wrong app")
+    inspector.checks["Portable OCI stage artifact"] = [dict(saved_stage_check)]
+
+    # A pull-request workflow may attach duplicate same-name GitHub Actions checks
+    # to the exact source SHA. The portable-stage check is intentionally skipped
+    # in that PR suite, so the complete successful push suite remains uniquely
+    # authoritative for promotion.
+    for name in [item[0] for item in required_checks]:
+        push_run = dict(inspector.checks[name][0])
+        pr_run = dict(push_run)
+        pr_run["id"] = int(push_run["id"]) + 100
+        pr_run["check_suite"] = {"id": 42}
+        if name == "Portable OCI stage artifact":
+            pr_run["conclusion"] = "skipped"
+        inspector.checks[name] = [push_run, pr_run]
+    converged = inspector.require_successful_checks(
+        head_sha=sha_head,
+        required=required_checks,
+    )
+    if {item.check_suite_id for item in converged} != {41}:
+        raise RuntimeError("github.inspect did not select the unique complete successful check suite")
+    inspector.checks["Portable OCI stage artifact"][1]["conclusion"] = "success"
+    try:
+        inspector.require_successful_checks(
+            head_sha=sha_head,
+            required=required_checks,
+        )
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("github.inspect accepted multiple complete successful check suites")
 
     for relative in (
         "scripts/sage/workflow/proposal.py",

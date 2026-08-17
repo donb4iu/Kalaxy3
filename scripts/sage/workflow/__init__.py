@@ -10,7 +10,7 @@ from .files import AtomicFileTransaction, AtomicFileWriter, FileSnapshot
 from .gaps import CapabilityGapRecorder
 from .git import GitRepository
 from .git_inspect import GitAuthoritySnapshot, GitInspector
-from .github_inspect import GitHubInspector, GitHubPullRequestSnapshot
+from .github_inspect import GitHubCheckRunSnapshot, GitHubInspector, GitHubPullRequestSnapshot
 from .lifecycle import ImprovementActionClient, load_improvement_action
 from .logging import JsonlEventLogger
 from .metrics import OutcomeMetrics
@@ -44,6 +44,7 @@ __all__ = [
     "FileSnapshot",
     "GitAuthoritySnapshot",
     "GitInspector",
+    "GitHubCheckRunSnapshot",
     "GitHubInspector",
     "GitHubPullRequestSnapshot",
     "GitSafetyGuardrail",
