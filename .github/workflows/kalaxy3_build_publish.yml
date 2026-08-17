@@ -67,7 +67,7 @@ jobs:
     env:
       STAGE_IMAGE: donb4iu/mynginx_docs
       STAGE_TAG: stage-${{ github.sha }}
-      STAGE_ARCHIVE: ${{ runner.temp }}/sage-stage.oci.tar
+      STAGE_ARCHIVE: ${{ github.workspace }}/sage-stage.oci.tar
       STAGE_ARTIFACT_NAME: sage-stage-oci-${{ github.sha }}
 
     steps:
