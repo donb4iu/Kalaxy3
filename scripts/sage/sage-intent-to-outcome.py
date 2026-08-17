@@ -19,6 +19,7 @@ from workflows.intent_to_outcome import (  # noqa: E402
     adopt_iteration,
     adopt_request_execution,
     begin_candidate_iteration,
+    candidate_iteration_entry_mode,
     begin_intent,
     begin_intent_promotion,
     confirm_intent,
@@ -131,6 +132,18 @@ def self_test() -> int:
         else:
             raise RuntimeError("non-canonical completed-child routine receipt was accepted")
     print("PASS already-completed self-closing request child reconciles without replay")
+    if candidate_iteration_entry_mode("source-git-complete") != "durable-checkpoint":
+        raise RuntimeError("durable candidate checkpoint classification failed")
+    if candidate_iteration_entry_mode("architect-confirmation-required") != "inflight-supersession":
+        raise RuntimeError("pre-mutation candidate could not accumulate a related correction")
+    try:
+        candidate_iteration_entry_mode("request-operator-review-required")
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("live operator-review boundary was silently superseded")
+    print("PASS unfinished pre-mutation candidate can accumulate related corrections before checkpoint")
+    print("PASS live operator-review boundary remains fail-closed")
     print("PASS intent-to-outcome front door self-test")
     return 0
 

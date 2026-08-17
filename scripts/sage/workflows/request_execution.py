@@ -608,10 +608,77 @@ def write_closeout(context: ExecutionContext, status: str, details: Mapping[str,
     )
 
 
-def failure_diagnosis(context: ExecutionContext, error: Exception) -> Path:
-    """Retrieve prior experience and record a reusable composition diagnosis."""
+def recover_repository_after_failure(
+    context: ExecutionContext,
+) -> Mapping[str, Any]:
+    """Rollback only an opened repository transaction and independently verify it."""
+    if context.transaction is None:
+        return {
+            "transaction_started": False,
+            "rollback_attempted": False,
+            "rollback_verified": False,
+            "verification_error": None,
+        }
 
-    text = f"SAGE request execution failed and rolled back: {type(error).__name__}: {error}"
+    try:
+        context.transaction.rollback()
+    except Exception as error:
+        return {
+            "transaction_started": True,
+            "rollback_attempted": True,
+            "rollback_verified": False,
+            "verification_error": f"{type(error).__name__}: {error}",
+        }
+
+    repository = context.bundle.manifest["repository"]
+    try:
+        context.inspector.require_clean()
+        context.inspector.require_branch(str(repository["branch"]))
+        context.inspector.require_head(str(repository["head"]))
+    except Exception as error:
+        return {
+            "transaction_started": True,
+            "rollback_attempted": True,
+            "rollback_verified": False,
+            "verification_error": f"{type(error).__name__}: {error}",
+        }
+
+    return {
+        "transaction_started": True,
+        "rollback_attempted": True,
+        "rollback_verified": True,
+        "verification_error": None,
+    }
+
+
+def failure_closeout_status(recovery: Mapping[str, Any]) -> str:
+    """Classify failure closeout without inferring rollback from control flow."""
+    if recovery.get("transaction_started") is not True:
+        return "failed-pre-mutation"
+    if recovery.get("rollback_verified") is True:
+        return "failed-rolled-back"
+    return "failed-rollback-unverified"
+
+
+def failure_diagnosis(
+    context: ExecutionContext,
+    error: Exception,
+    recovery: Mapping[str, Any],
+) -> Path:
+    """Retrieve prior experience and record measured failure recovery state."""
+    if recovery.get("transaction_started") is not True:
+        recovery_summary = (
+            "repository transaction was not started; rollback was not applicable"
+        )
+    elif recovery.get("rollback_verified") is True:
+        recovery_summary = "repository rollback independently verified"
+    else:
+        recovery_summary = "repository rollback was not independently verified"
+
+    text = (
+        f"SAGE request execution failed: {type(error).__name__}: {error}; "
+        f"{recovery_summary}"
+    )
     result = context.runner.run(
         CommandSpec(
             primitive_id="failure.diagnose",
@@ -623,26 +690,71 @@ def failure_diagnosis(context: ExecutionContext, error: Exception) -> Path:
         step_id="failure-retrieval",
     )
     receipt_match = re.search(r"^Receipt:\s+(.+)$", result.stdout, re.MULTILINE)
-    receipt = receipt_match.group(1).strip() if receipt_match else "failure-retrieval-output"
+    receipt = (
+        receipt_match.group(1).strip()
+        if receipt_match
+        else "failure-retrieval-output"
+    )
     payload = FailureDiagnoser.diagnose(
         diagnosis_id=f"SAGE-DIAG-{datetime.now().strftime('%Y%m%d')}-801",
         failure_id="request-execution",
-        attempted_action="Execute the literal request through the repository-owned SAGE request executor.",
+        attempted_action=(
+            "Execute the literal request through the repository-owned SAGE "
+            "request executor."
+        ),
         what_failed=text,
-        direct_evidence=({"kind": "exception", "value": text},),
-        actual_path={"component_id": "sage.request-execution", "component_version": "1.0", "source_path": "scripts/sage/workflows/request_execution.py", "description": "The reusable request execution composition."},
-        expected_path={"component_id": "workflow.composition", "component_version": context.catalog.versions_for(("workflow.composition",))["workflow.composition"], "source_path": "scripts/sage/workflows/operating_contract.py", "description": "The mandatory SAGE operating-contract sequence."},
-        why_actual_path_differed="The exact reported failure interrupted the composed operating-contract path before the operator boundary.",
+        direct_evidence=(
+            {"kind": "exception", "value": text},
+            {
+                "kind": "recovery-state",
+                "value": stable_json(dict(recovery)).strip(),
+            },
+        ),
+        actual_path={
+            "component_id": "sage.request-execution",
+            "component_version": "1.0",
+            "source_path": "scripts/sage/workflows/request_execution.py",
+            "description": "The reusable request execution composition.",
+        },
+        expected_path={
+            "component_id": "workflow.composition",
+            "component_version": context.catalog.versions_for(
+                ("workflow.composition",)
+            )["workflow.composition"],
+            "source_path": "scripts/sage/workflows/operating_contract.py",
+            "description": "The mandatory SAGE operating-contract sequence.",
+        },
+        why_actual_path_differed=(
+            "The exact reported failure interrupted the composed operating-contract "
+            "path before the operator boundary."
+        ),
         ownership="composition",
-        mutation_effect={"repository_content_restored": True, "git_mutation": False, "github_mutation": False, "deployment_mutation": False},
-        lesson_use={"retrieval_performed": True, "applicable_lesson_ids": [], "surfaced_lesson_ids": [], "used_lesson_ids": []},
+        mutation_effect={
+            "repository_content_restored": bool(recovery.get("rollback_verified")),
+            "git_mutation": False,
+            "github_mutation": False,
+            "deployment_mutation": False,
+        },
+        lesson_use={
+            "retrieval_performed": True,
+            "applicable_lesson_ids": [],
+            "surfaced_lesson_ids": [],
+            "used_lesson_ids": [],
+        },
         previous_failure_references=(),
         avoidable_rework_minutes=None,
-        correction={"disposition": "update-composition", "reusable_correction": "Review the failure retrieval and correct the reusable request execution composition before retry.", "no_action_rationale": None, "regression_test_required": True},
+        correction={
+            "disposition": "update-composition",
+            "reusable_correction": (
+                "Review the failure retrieval and correct the reusable request "
+                "execution composition before retry."
+            ),
+            "no_action_rationale": None,
+            "regression_test_required": True,
+        },
         evidence_references=(receipt, str(context.state_dir / "events.jsonl")),
     )
     return write_state(context, "failure-diagnosis.json", payload)
-
 
 
 def write_execution_state(
@@ -1255,11 +1367,20 @@ def execute_request(repo: Path, request: str, proposal: Path) -> Mapping[str, An
             },
         )
     except Exception as error:
-        if context.transaction is not None:
-            context.transaction.rollback()
-        diagnosis = failure_diagnosis(context, error)
-        closeout = write_closeout(context, "failed-rolled-back", {"error": str(error), "diagnosis": str(diagnosis)})
-        raise WorkflowError(f"{error}\nFailure diagnosis: {diagnosis}\nCloseout: {closeout}") from error
+        recovery = recover_repository_after_failure(context)
+        diagnosis = failure_diagnosis(context, error, recovery)
+        closeout = write_closeout(
+            context,
+            failure_closeout_status(recovery),
+            {
+                "error": str(error),
+                "diagnosis": str(diagnosis),
+                "recovery": dict(recovery),
+            },
+        )
+        raise WorkflowError(
+            f"{error}\nFailure diagnosis: {diagnosis}\nCloseout: {closeout}"
+        ) from error
     return {
         "status": "pass",
         "proposal": proposal_payload,

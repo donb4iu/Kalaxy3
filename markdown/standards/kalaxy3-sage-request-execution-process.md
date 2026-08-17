@@ -36,6 +36,15 @@ If post-mutation closeout fails after the controller receipt exists, `sage-reque
 The proposal package declares the single-line commit message and `origin` push remote used by that deterministic lifecycle. Repository state, not terminal text, remains authoritative: SAGE records the receipt digest and independently verifies Git before closeout.
 The transaction commits only after all validation and safety checks pass and the operator proposal has been written. Any unexpected failure triggers rollback of the declared repository content before closeout and requires failure retrieval and diagnosis before retry.
 
+## Failure recovery evidence
+
+Failure recovery is evidence, not an inference from exception handling. **rollback is not inferred** merely because request execution entered a failure path.
+
+- A failure before `AtomicFileTransaction` exists is recorded as `failed-pre-mutation`; no repository rollback is claimed.
+- When a repository transaction exists, SAGE may call rollback, but `repository_content_restored` becomes true only after independent `git.inspect` verification proves the worktree is clean and the branch and HEAD still equal the proposal-bound authority.
+- A rollback attempt that cannot be independently verified is recorded as `failed-rollback-unverified` and remains fail-closed.
+- Failure diagnosis and closeout preserve the measured recovery state so later planning does not mistake control-flow intent for observed repository state.
+
 ## Proposal package
 
 A proposal ZIP contains exactly `sage-proposal.json` plus `payload/<repository-relative-path>` for every source file. The manifest is governed by `sage-request-execution-proposal-schema-v1.0.json` and binds:

@@ -24,7 +24,7 @@ from workflows.request_planning import (
 from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap, reuse_confirmed_intent
 
 WORKFLOW_ID = "sage.intent-to-outcome"
-WORKFLOW_VERSION = "0.2.3"
+WORKFLOW_VERSION = "0.2.4"
 PRIMITIVES_USED = (
     "catalog.registry",
     "file.atomic-preserve-mode",
@@ -56,6 +56,28 @@ REENTRY_BOUNDARIES = {
     "semantic-confirmation",
     "authority",
 }
+
+DURABLE_CANDIDATE_STATUSES = frozenset({
+    "source-git-complete",
+    "runtime-verified",
+})
+INFLIGHT_CANDIDATE_STATUSES = frozenset({
+    "architect-confirmation-required",
+    "authority-review-required",
+})
+
+
+def candidate_iteration_entry_mode(status: str) -> str:
+    """Classify durable iteration versus safe pre-mutation supersession."""
+    if status in DURABLE_CANDIDATE_STATUSES:
+        return "durable-checkpoint"
+    if status in INFLIGHT_CANDIDATE_STATUSES:
+        return "inflight-supersession"
+    raise WorkflowError(
+        "candidate iteration requires either a durable checkpoint or an "
+        "unfinished pre-mutation candidate that can be safely superseded"
+    )
+
 
 
 def _iteration_record(
@@ -379,13 +401,26 @@ def begin_candidate_iteration(
     if not trigger.strip() or not parent_checkpoint.strip():
         raise WorkflowError("candidate iteration requires trigger and parent checkpoint")
     state = _load_parent(state_path)
-    if state.get("status") not in {"source-git-complete", "runtime-verified"}:
-        raise WorkflowError("candidate iteration requires a durable prior candidate checkpoint")
+    entry_mode = candidate_iteration_entry_mode(str(state.get("status", "")))
     prior = _current_iteration(state)
-    prior["status"] = "checkpoint-non-promotable"
     prior["promotion_eligible"] = False
-    if not prior.get("unresolved_findings"):
-        prior["unresolved_findings"] = [trigger.strip()]
+    findings = prior.setdefault("unresolved_findings", [])
+    if trigger.strip() not in findings:
+        findings.append(trigger.strip())
+    if entry_mode == "durable-checkpoint":
+        prior["status"] = "checkpoint-non-promotable"
+    else:
+        prior["status"] = "superseded-in-progress"
+        prior["next_boundary"] = "candidate-iteration"
+        prior.setdefault("learning", []).append({
+            "kind": "candidate-union",
+            "observation": (
+                "Validation exposed another related correction before the "
+                "candidate reached a durable checkpoint; the successor "
+                "accumulates the unfinished candidate rather than requiring "
+                "separate promotion."
+            ),
+        })
     number = int(state["current_iteration"]) + 1
     iteration = _iteration_record(
         number,
@@ -398,6 +433,7 @@ def begin_candidate_iteration(
     )
     state["iterations"].append(iteration)
     state["current_iteration"] = number
+    iteration["entry_mode"] = entry_mode
     state["promotion_eligible"] = False
     state["runtime_receipt"] = None
     state["promotion_state"] = None

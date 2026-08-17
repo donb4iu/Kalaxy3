@@ -73,6 +73,8 @@ required before a new low-level primitive can be implemented.
 
 If an Architect-confirmed domain capability cannot be proven by an existing registered candidate, the same `capability.gap` ownership records a domain capability gap and fails closed without authorizing a new primitive. This distinction is required for capabilities such as reusable secrets management: the planner must surface the unresolved domain decision instead of accepting a controller-local token file merely because it appeared in the original contribution.
 
+When more than one Architect-confirmed domain capability is unresolved, planning evaluates the complete domain-capability set in the same pass. It writes one versioned receipt per unresolved capability plus a checksum-bound `sage-domain-capability-gap-set` index (the domain capability gap set) and then fails closed once. The planner may not stop after the first domain gap when the remaining required capability set is already known. This permits the Architect and candidate-iteration lifecycle to govern one coherent class-level remediation instead of repeating discovery, confirmation, and mutation for structurally equivalent gaps.
+
 ## Published interface
 
 Successful planning emits the unchanged
@@ -119,7 +121,8 @@ The planner self-test must prove:
 - historical v1.1 semantic planning sources remain readable without rewrite; and
 - a genuinely new post-confirmation context fails closed and returns to semantic confirmation instead of silently expanding authority;
 - Architect-confirmed planning obligations survive into v1.3 planning authority; and
-- the reusable-secrets regression creates a domain capability gap with `new_primitive_required=false`, preserving Ansible as the established deployment/control model and preventing a controller-local token plus rendered Kubernetes Secret from satisfying the obligation by default.
+- the reusable-secrets regression creates a domain capability gap with `new_primitive_required=false`, preserving Ansible as the established deployment/control model and preventing a controller-local token plus rendered Kubernetes Secret from satisfying the obligation by default;
+- two unresolved Architect-confirmed domain capabilities are reported together in one planning pass rather than truncating the gap set to the first capability.
 
 ## Repository-owned source construction
 

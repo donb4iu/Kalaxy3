@@ -41,9 +41,11 @@ def main() -> int:
         "continue_promotion",
         "validate_runtime_receipt",
         "begin_candidate_iteration",
+        "candidate_iteration_entry_mode",
         "reuse_confirmed_intent",
         "reuse_component_plan",
         "checkpoint-non-promotable",
+        "superseded-in-progress",
         "invalidated_downstream_state",
         "_semantic_planning_source",
         "validate_reusable_plan_lineage",
@@ -66,6 +68,8 @@ def main() -> int:
         failures.append("adopt-iteration CLI does not accept historical planning-source lineage")
     if '"planning_source": inherited_source' not in wrapper or '"planning_proposal": inherited_proposal' not in wrapper:
         failures.append("adopt-iteration does not persist validated planning lineage")
+    if "candidate iteration requires a durable prior candidate checkpoint" in wrapper:
+        failures.append("front door still requires checkpoint before same-class accumulation")
 
     imports = {
         alias.name.split(".")[0]
@@ -112,6 +116,10 @@ def main() -> int:
         "runtime evidence",
         "checkpoint promotion",
         "candidate iteration",
+        "Candidate union and serial validation",
+        "Authoritative shared-responsibility role contract",
+        "Intent-first innovation boundary",
+        "Current SAGE capabilities constrain the governed transition path",
         "non-promotable",
         "implementation-local",
         "earliest affected boundary",
@@ -134,6 +142,7 @@ def main() -> int:
     print("PASS adopted iterative objectives preserve and validate planning source/proposal lineage")
     print("PASS already-completed self-closing request children reconcile without replaying Git")
     print("PASS candidate iteration preserves non-promotable checkpoints and earliest-boundary re-entry")
+    print("PASS same-class corrections accumulate before promotion and intent-first role separation is explicit")
     print("Kalaxy3 SAGE intent-to-outcome guardrail: PASS")
     return 0
 
