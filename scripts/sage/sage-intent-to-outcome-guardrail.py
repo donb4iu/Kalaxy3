@@ -54,6 +54,10 @@ def main() -> int:
         "reconcile_completed_request_child",
         "reconciled_from_completed_child",
         "completed request child",
+        "reconcile_completed_semantic_child",
+        "reconciled_from_completed_semantic_child",
+        "planning-source-ready",
+        "approved_gap_set",
     ):
         if marker not in wrapper:
             failures.append(f"front door missing existing-component marker: {marker}")
@@ -127,6 +131,10 @@ def main() -> int:
         "different subset of already-authorized paths",
         "already self-closed",
         "must not replay",
+        "completed semantic child",
+        "persist the planning source before planning",
+        "planning failure",
+        "approved domain-capability gap set",
     ):
         if marker not in standard:
             failures.append(f"intent-to-outcome standard missing: {marker}")
@@ -141,6 +149,7 @@ def main() -> int:
     print("PASS one-time bootstrap adoption path is explicit")
     print("PASS adopted iterative objectives preserve and validate planning source/proposal lineage")
     print("PASS already-completed self-closing request children reconcile without replaying Git")
+    print("PASS already-completed semantic children reconcile without replay and parent planning lineage persists before planning")
     print("PASS candidate iteration preserves non-promotable checkpoints and earliest-boundary re-entry")
     print("PASS same-class corrections accumulate before promotion and intent-first role separation is explicit")
     print("Kalaxy3 SAGE intent-to-outcome guardrail: PASS")

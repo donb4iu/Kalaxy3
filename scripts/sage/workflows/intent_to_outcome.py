@@ -24,7 +24,7 @@ from workflows.request_planning import (
 from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap, reuse_confirmed_intent
 
 WORKFLOW_ID = "sage.intent-to-outcome"
-WORKFLOW_VERSION = "0.2.4"
+WORKFLOW_VERSION = "0.2.5"
 PRIMITIVES_USED = (
     "catalog.registry",
     "file.atomic-preserve-mode",
@@ -63,6 +63,7 @@ DURABLE_CANDIDATE_STATUSES = frozenset({
 })
 INFLIGHT_CANDIDATE_STATUSES = frozenset({
     "architect-confirmation-required",
+    "planning-source-ready",
     "authority-review-required",
 })
 
@@ -159,6 +160,60 @@ def _load_parent(path: Path) -> dict[str, Any]:
     return _ensure_iteration_contract(value)
 
 
+def reconcile_completed_semantic_child(
+    parent: Mapping[str, Any],
+    semantic_state_path: Path,
+    confirmation: str,
+    dispositions: Path,
+    actor: str,
+) -> Mapping[str, Any]:
+    """Validate and reuse one already-completed semantic child without replay."""
+
+    if actor != "architect":
+        raise WorkflowError("semantic confirmation must be exercised by the Architect role")
+    child_path = semantic_state_path.expanduser().resolve()
+    try:
+        child = json.loads(child_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise WorkflowError(f"completed semantic child state is unreadable: {child_path}: {error}") from error
+    if child.get("record_type") != "sage-semantic-bootstrap-state":
+        raise WorkflowError("completed semantic child state type is invalid")
+    if child.get("status") != "planning-source-ready":
+        raise WorkflowError("semantic child is not already planning-source-ready")
+    if child.get("request") != parent.get("request") or child.get("action_id") != parent.get("action_id"):
+        raise WorkflowError("completed semantic child does not match parent request/action lineage")
+    parent_contribution = parent.get("contribution")
+    if not isinstance(parent_contribution, str) or not parent_contribution:
+        raise WorkflowError("intent parent contribution lineage is missing")
+    if Path(str(child.get("contribution", ""))).expanduser().resolve() != Path(parent_contribution).expanduser().resolve():
+        raise WorkflowError("completed semantic child does not match parent contribution lineage")
+    if confirmation != child.get("semantic_understanding_sha256"):
+        raise WorkflowError("completed semantic child confirmation digest does not match the parent confirmation")
+    decisions_path = dispositions.expanduser().resolve()
+    expected_decisions_sha = child.get("architect_dispositions_sha256")
+    if not isinstance(expected_decisions_sha, str) or not expected_decisions_sha:
+        raise WorkflowError("completed semantic child does not preserve Architect disposition evidence")
+    try:
+        observed_decisions_sha = hashlib.sha256(decisions_path.read_bytes()).hexdigest()
+    except OSError as error:
+        raise WorkflowError(f"Architect dispositions are unreadable: {decisions_path}: {error}") from error
+    if observed_decisions_sha != expected_decisions_sha:
+        raise WorkflowError("Architect disposition evidence changed after semantic confirmation")
+    planning_source = child.get("planning_source")
+    if not isinstance(planning_source, str) or not planning_source:
+        raise WorkflowError("completed semantic child does not preserve a planning source")
+    planning_path = Path(planning_source).expanduser().resolve()
+    if not planning_path.is_file():
+        raise WorkflowError(f"completed semantic planning source is missing: {planning_path}")
+    return {
+        "status": "planning-source-ready",
+        "planning_source": str(planning_path),
+        "source": str(planning_path),
+        "state": str(child_path),
+        "reconciled_from_completed_semantic_child": True,
+    }
+
+
 def begin_intent(
     repo: Path,
     action_id: str,
@@ -229,19 +284,46 @@ def confirm_intent(
     state = _load_parent(state_path)
     if state.get("status") != "architect-confirmation-required":
         raise WorkflowError("intent state is not awaiting Architect confirmation")
-    semantic = continue_bootstrap(
-        resolved,
-        Path(str(state["semantic_state"])),
-        confirmation,
-        actor,
-        None,
-        dispositions.expanduser().resolve(),
-    )
+    semantic_state_path = Path(str(state["semantic_state"]))
+    child_state = json.loads(semantic_state_path.expanduser().resolve().read_text(encoding="utf-8"))
+    if child_state.get("status") == "planning-source-ready":
+        semantic = reconcile_completed_semantic_child(
+            state,
+            semantic_state_path,
+            confirmation,
+            dispositions,
+            actor,
+        )
+    else:
+        semantic = continue_bootstrap(
+            resolved,
+            semantic_state_path,
+            confirmation,
+            actor,
+            None,
+            dispositions.expanduser().resolve(),
+        )
     proposal_path = (
         Path("~/Downloads").expanduser()
         / ("sage-request-proposal-" + datetime.now().strftime("%Y%m%d-%H%M%S") + ".zip")
     )
     semantic_source = _semantic_planning_source(semantic)
+    state["planning_source"] = semantic_source
+    state["status"] = "planning-source-ready"
+    iteration = _current_iteration(state)
+    iteration["status"] = "planning"
+    iteration["next_boundary"] = "planning"
+    state["history"].append(
+        {
+            "stage": "semantic-confirmation-complete",
+            "iteration": state["current_iteration"],
+            "planning_source": semantic_source,
+            "reconciled_from_completed_semantic_child": bool(
+                semantic.get("reconciled_from_completed_semantic_child")
+            ),
+        }
+    )
+    _persist(state_path.expanduser().resolve(), state)
     planned = plan_request(
         resolved,
         str(state["request"]),
@@ -393,6 +475,7 @@ def begin_candidate_iteration(
     reentry_boundary: str,
     parent_checkpoint: str,
     affected_obligations: list[str] | None = None,
+    approved_gap_set: Path | None = None,
 ) -> Mapping[str, Any]:
     """Begin the next candidate under the same objective at the earliest affected boundary."""
 
@@ -528,6 +611,7 @@ def begin_candidate_iteration(
             str(state["request"]),
             new_source,
             proposal_path,
+            approved_gap_set=approved_gap_set,
         )
     execution = execute_request(
         resolved,
@@ -548,6 +632,11 @@ def begin_candidate_iteration(
         "planning_source": str(new_source),
         "planning_proposal": str(planned["proposal"]),
         "request_execution_state": str(execution["state"]),
+        "approved_gap_set": (
+            str(approved_gap_set.expanduser().resolve())
+            if approved_gap_set is not None
+            else None
+        ),
     })
     _persist(state_path.expanduser().resolve(), state)
     return {

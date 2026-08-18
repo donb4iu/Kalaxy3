@@ -27,6 +27,7 @@ from workflows.intent_to_outcome import (  # noqa: E402
     continue_intent_request,
     record_runtime,
     reconcile_completed_request_child,
+    reconcile_completed_semantic_child,
     validate_runtime_receipt,
 )
 
@@ -132,10 +133,49 @@ def self_test() -> int:
         else:
             raise RuntimeError("non-canonical completed-child routine receipt was accepted")
     print("PASS already-completed self-closing request child reconciles without replay")
+    with tempfile.TemporaryDirectory(prefix="sage-semantic-child-reconcile-") as raw:
+        temp = Path(raw)
+        contribution = temp / "contribution.zip"
+        contribution.write_bytes(b"fixture")
+        dispositions = temp / "dispositions.json"
+        dispositions.write_text("{}\n", encoding="utf-8")
+        planning_source = temp / "source.zip"
+        planning_source.write_bytes(b"planning")
+        semantic_state = temp / "state.json"
+        semantic_state.write_text(
+            json.dumps({
+                "schema_version": "1.0",
+                "record_type": "sage-semantic-bootstrap-state",
+                "action_id": "SAGE-ACTION-FIXTURE",
+                "request": "fixture request",
+                "contribution": str(contribution),
+                "semantic_understanding_sha256": "a" * 64,
+                "architect_dispositions_sha256": hashlib.sha256(dispositions.read_bytes()).hexdigest(),
+                "planning_source": str(planning_source),
+                "status": "planning-source-ready",
+            }) + "\n",
+            encoding="utf-8",
+        )
+        reconciled_semantic = reconcile_completed_semantic_child(
+            {
+                "request": "fixture request",
+                "action_id": "SAGE-ACTION-FIXTURE",
+                "contribution": str(contribution),
+            },
+            semantic_state,
+            "a" * 64,
+            dispositions,
+            "architect",
+        )
+        if reconciled_semantic.get("planning_source") != str(planning_source.resolve()) or reconciled_semantic.get("reconciled_from_completed_semantic_child") is not True:
+            raise RuntimeError("completed semantic child did not reconcile planning-source lineage")
+    print("PASS already-completed semantic child reconciles without replay")
     if candidate_iteration_entry_mode("source-git-complete") != "durable-checkpoint":
         raise RuntimeError("durable candidate checkpoint classification failed")
     if candidate_iteration_entry_mode("architect-confirmation-required") != "inflight-supersession":
         raise RuntimeError("pre-mutation candidate could not accumulate a related correction")
+    if candidate_iteration_entry_mode("planning-source-ready") != "inflight-supersession":
+        raise RuntimeError("planning-gap candidate could not re-enter without replaying semantic confirmation")
     try:
         candidate_iteration_entry_mode("request-operator-review-required")
     except WorkflowError:
@@ -188,6 +228,7 @@ def parse_args() -> argparse.Namespace:
     )
     iterate.add_argument("--parent-checkpoint", required=True)
     iterate.add_argument("--affected-obligation", action="append", default=[])
+    iterate.add_argument("--approved-gap-set", type=Path)
 
     continuation = sub.add_parser("continue-request")
     continuation.add_argument("--state", type=Path, required=True)
@@ -241,6 +282,7 @@ def main() -> int:
             reentry_boundary=args.reentry_boundary,
             parent_checkpoint=args.parent_checkpoint,
             affected_obligations=args.affected_obligation,
+            approved_gap_set=args.approved_gap_set,
         )
     elif args.command == "continue-request":
         result = continue_intent_request(

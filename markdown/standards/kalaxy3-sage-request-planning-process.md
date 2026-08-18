@@ -75,6 +75,16 @@ If an Architect-confirmed domain capability cannot be proven by an existing regi
 
 When more than one Architect-confirmed domain capability is unresolved, planning evaluates the complete domain-capability set in the same pass. It writes one versioned receipt per unresolved capability plus a checksum-bound `sage-domain-capability-gap-set` index (the domain capability gap set) and then fails closed once. The planner may not stop after the first domain gap when the remaining required capability set is already known. This permits the Architect and candidate-iteration lifecycle to govern one coherent class-level remediation instead of repeating discovery, confirmation, and mutation for structurally equivalent gaps.
 
+### Governed domain-capability remediation and bootstrap deadlock
+
+A domain capability gap is a planning stop, not a dead end. SAGE must not create the **bootstrap deadlock** in which implementing a capability first requires that same capability to already be implemented. The original `review-required` gap receipts remain immutable evidence. The Architect may approve the complete domain capability gap set through the repository-owned approval composition, which creates checksum-bound approved copies and preserves the original receipt paths and digests as evidence. Approval is bound to the exact staged engineering-contribution digest and the semantic-understanding/confirmation digests from the planning run that produced the gap set. Approval authorizes evaluation of that staged implementation candidate; it does not prove that candidate works.
+
+On planning re-entry, an **approved domain capability gap** may select a checksum-bound **staged implementation candidate** only when all of the following are true: the exact capability was Architect-approved in the gap set; the effective engineering-contribution digest and semantic authority in the current planning source exactly match the approval binding; the current governed workflow capability baseline already classifies that capability as a known gap or partial capability; the proposed checksum-bound baseline moves that exact capability to `implemented`; and every mapped implementation path is either present in the approved source package or already exists in the repository. Candidate substitution, semantic-authority substitution, stale approval reuse, or capability-set mismatch fails closed. The selected candidate remains `staged-implementation` until request execution and the complete applicable validation gate succeed. This is implementation authority, not retrospective capability proof.
+
+For later requests, an `implemented` entry in the governed workflow capability baseline becomes a repository-proven domain candidate only when all mapped implementation paths exist. That allows normal planning to consume a capability after it has actually been implemented and validated instead of rediscovering the same gap forever. External callers still may not author capability or candidate semantics.
+
+The optional approved-gap-set input is therefore an explicit Architect authority input to planning, never an LLM or tool self-approval mechanism. Missing, stale, candidate-substituted, semantic-authority-substituted, mismatched, partially approved, or checksum-invalid gap evidence fails closed.
+
 ## Published interface
 
 Successful planning emits the unchanged
@@ -122,7 +132,10 @@ The planner self-test must prove:
 - a genuinely new post-confirmation context fails closed and returns to semantic confirmation instead of silently expanding authority;
 - Architect-confirmed planning obligations survive into v1.3 planning authority; and
 - the reusable-secrets regression creates a domain capability gap with `new_primitive_required=false`, preserving Ansible as the established deployment/control model and preventing a controller-local token plus rendered Kubernetes Secret from satisfying the obligation by default;
-- two unresolved Architect-confirmed domain capabilities are reported together in one planning pass rather than truncating the gap set to the first capability.
+- two unresolved Architect-confirmed domain capabilities are reported together in one planning pass rather than truncating the gap set to the first capability;
+- review-required domain-gap evidence remains immutable while Architect approval produces separately checksum-bound approved copies;
+- an approved known gap can select only the exact contribution- and semantic-authority-bound staged implementation candidate without claiming pre-validation success or requiring the capability it is intended to create; and
+- a domain capability already marked `implemented` with existing mapped repository paths is rediscovered as a repository-proven candidate on later planning runs.
 
 ## Repository-owned source construction
 

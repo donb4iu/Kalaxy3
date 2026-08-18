@@ -18,6 +18,10 @@ A new low-level primitive still requires a separately proven capability gap.
 
 The front door must consume published child-workflow results through compatibility-resolved interfaces. A child that has already completed semantic confirmation and persisted a planning source must not be rerun merely because a parent wrapper expected a different compatible result-field name. Recovery preserves the completed child state and resumes at planning.
 
+The parent must also **persist the planning source before planning**. Semantic confirmation and request planning are separate evidence domains: if semantic confirmation succeeds and planning later fails closed, the parent may not remain falsely recorded as still waiting for Architect confirmation. A **planning failure** therefore preserves the already-completed semantic child, the checksum-bound planning source, and `planning` as the next governed boundary. The parent may then enter a governed candidate iteration without replaying semantic confirmation.
+
+If the semantic child was completed directly or by another compatible caller, the parent validates the child request, action, contribution, confirmation digest, Architect disposition digest, and planning-source existence before reconciling it. This **completed semantic child** reconciliation changes only parent orchestration state; it does not regenerate semantic evidence or fabricate a second confirmation.
+
 A request-execution child may also **already self-closed** when the repository-owned routine Git lifecycle consumes its receipt, performs post-operator verification, records metrics/evidence closeout, and marks the child boundary complete before the intent-to-outcome parent is resumed. In that case the parent **must not replay** the consumed Git boundary. Parent continuation validates the child request binding, canonical routine receipt and recorded digest, and the referenced verification/metrics/evidence closeout artifacts, then reconciles only the parent state to `source-git-complete` with `runtime-validation` as the next boundary.
 
 ## One-time bootstrap seam
@@ -140,7 +144,7 @@ define the future-state solution space.**
 SAGE re-enters only the **earliest affected boundary**:
 
 - `implementation-local`: governing meaning, authority, capability requirements, safety/trust boundaries, and Architect-confirmed implementation scope are unchanged. The active mutation set may narrow to any subset of that confirmed implementation scope; merely touching a different subset of already-authorized paths does not require semantic restart. Expansion outside the confirmed scope does. SAGE reuses the confirmed semantic source and the prior complete component plan, so semantic discovery, evidence retrieval, and component reselection are not repeated.
-- `planning`: confirmed semantic meaning and file scope remain valid, but planning/capability evaluation must be recomputed. SAGE reuses confirmed semantics and re-enters request planning.
+- `planning`: confirmed semantic meaning and file scope remain valid, but planning/capability evaluation must be recomputed. SAGE reuses confirmed semantics and re-enters request planning. When the trigger is an Architect-reviewed domain capability gap set, the iteration may carry the checksum-bound **approved domain-capability gap set** as explicit planning authority only for the exact staged engineering contribution and semantic-confirmation lineage bound into that approval; candidate substitution fails closed. This never converts the gap itself into proof that the staged implementation succeeded.
 - `semantic-confirmation`: meaning, scope, trust boundary, or another semantic condition changed. SAGE re-enters the existing semantic-bootstrap workflow.
 - `authority`: the governing action or authority changed. SAGE records the invalidation and stops for the appropriate authority boundary rather than freelancing continuation.
 

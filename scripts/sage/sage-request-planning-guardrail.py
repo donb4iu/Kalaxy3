@@ -20,6 +20,7 @@ WORKFLOW_PATH = "scripts/sage/workflows/request_planning.py"
 DOMAIN_PATH = "scripts/sage/request_planning.py"
 CLI_PATH = "scripts/sage/sage-request-plan.py"
 GUARDRAIL_PATH = "scripts/sage/sage-request-planning-guardrail.py"
+GAP_APPROVAL_PATH = "scripts/sage/sage-domain-capability-gap-approve.py"
 PROCESS_PATH = (
     "markdown/standards/kalaxy3-sage-request-planning-process.md"
 )
@@ -47,6 +48,7 @@ REQUIRED_PATHS = {
     DOMAIN_PATH,
     CLI_PATH,
     GUARDRAIL_PATH,
+    GAP_APPROVAL_PATH,
     PROCESS_PATH,
     SCHEMA_PATH_V1_0,
     SCHEMA_PATH_V1_1,
@@ -80,6 +82,11 @@ PROCESS_MARKERS = (
     "planning obligations",
     "domain capability gap",
     "domain capability gap set",
+    "approved domain capability gap",
+    "staged implementation candidate",
+    "exact staged engineering-contribution digest",
+    "candidate substitution",
+    "bootstrap deadlock",
     "subset of the architect-confirmed",
     "authority ceiling",
 )
@@ -102,6 +109,13 @@ WORKFLOW_MARKERS = (
     "create_domain",
     "domain_gap_receipts",
     "request-planning-capability-gap-set.json",
+    "approved_gap_set",
+    "approved_domain_capabilities",
+    "candidate-contribution-sha256",
+    "_effective_source_contribution_sha",
+    "staged-domain-capability",
+    "repository-proven",
+    "WORKFLOW_CAPABILITY_BASELINE_PATH",
     "validate_reusable_plan_lineage",
 )
 
@@ -165,6 +179,10 @@ def makefile_failures() -> list[str]:
             'scripts/sage/sage-request-plan.py --request "$$SAGE_REQUEST" '
             '--source "$$SAGE_SOURCE"'
         ),
+        "sage-domain-capability-gap-approve:",
+        "sage-domain-capability-gap-approval-self-test:",
+        "SAGE_APPROVED_GAP_SET",
+        "SAGE_GAP_CANDIDATE_CONTRIBUTION",
     )
     failures = [
         f"Makefile request-planning marker missing: {item}"
@@ -222,6 +240,19 @@ def source_failures() -> list[str]:
             failures.append(f"request-planning semantic authority marker missing: {marker}")
     if "_fixture_source" in cli:
         failures.append("request-planning CLI retains external-style fixture source writer")
+    approval = (ROOT / GAP_APPROVAL_PATH).read_text(encoding="utf-8")
+    for marker in (
+        "review-required",
+        '"approved"',
+        "review-source-sha256",
+        "candidate-request-sha256",
+        "candidate-contribution-sha256",
+        "semantic-understanding-sha256",
+        'actor != "architect"',
+        "must preserve the original review evidence",
+    ):
+        if marker not in approval:
+            failures.append(f"domain capability gap approval marker missing: {marker}")
     paths = tuple(
         ROOT / item
         for item in (
@@ -229,6 +260,7 @@ def source_failures() -> list[str]:
             DOMAIN_PATH,
             CLI_PATH,
             GUARDRAIL_PATH,
+            GAP_APPROVAL_PATH,
         )
     )
     failures.extend(
@@ -375,6 +407,23 @@ def runtime_self_test() -> list[str]:
 
 
 
+def gap_approval_runtime_self_test() -> list[str]:
+    path = ROOT / GAP_APPROVAL_PATH
+    spec = importlib.util.spec_from_file_location(
+        "sage_domain_gap_approval_guardrail",
+        path,
+    )
+    if spec is None or spec.loader is None:
+        return ["domain capability gap approval CLI cannot be loaded"]
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    try:
+        result = module.self_test()
+    except Exception as error:
+        return [f"domain capability gap approval self-test failed: {error}"]
+    return [] if result == 0 else [f"domain capability gap approval self-test returned {result}"]
+
+
 def planning_obligation_failures() -> list[str]:
     description = (
         "Provide reusable secrets management with credentials outside Git and observable "
@@ -421,6 +470,7 @@ def validate() -> list[str]:
     failures.extend(process_failures())
     failures.extend(planning_obligation_failures())
     failures.extend(runtime_self_test())
+    failures.extend(gap_approval_runtime_self_test())
     return failures
 
 
@@ -443,6 +493,8 @@ def main() -> int:
     print("PASS v1.2 separates semantic applicability from implementation authority")
     print("PASS v1.3 preserves Architect-confirmed planning obligations and domain capability gaps")
     print("PASS planner aggregates all unresolved domain capability gaps before stopping")
+    print("PASS Architect-approved gap evidence may authorize checksum-bound staged domain capability implementation without rewriting review evidence")
+    print("PASS repository-proven domain capabilities are rediscovered from the governed workflow capability baseline")
     print("PASS reusable-secrets planning obligation survives as a domain capability without Terraform fallback")
     print("PASS literal discovery cannot silently re-expand confirmed authority")
     print("PASS implementation-local mutation scope may narrow but cannot expand beyond Architect-confirmed authority")

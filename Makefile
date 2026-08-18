@@ -68,7 +68,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-semantic-bootstrap-self-test sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test sage-intent-to-outcome-self-test sage-e2e-zero-trust-runtime-self-test sage-stage-receipt-self-test
+sage-self-test: sage-semantic-bootstrap-self-test sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-domain-capability-gap-approval-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test sage-intent-to-outcome-self-test sage-e2e-zero-trust-runtime-self-test sage-stage-receipt-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 	python3 scripts/sage/sage-file-delivery-guardrail.py
@@ -445,7 +445,7 @@ sage-semantic-bootstrap-self-test:
 sage-semantic-bootstrap-guardrail:
 	$(PYTHON) scripts/sage/sage-semantic-bootstrap-guardrail.py
 
-.PHONY: sage-request-plan sage-request-plan-self-test sage-request-planning-guardrail sage-request-execute sage-request-continue sage-request-continue-routine sage-request-execute-self-test sage-request-execution-guardrail
+.PHONY: sage-request-plan sage-request-plan-self-test sage-request-planning-guardrail sage-domain-capability-gap-approve sage-domain-capability-gap-approval-self-test sage-request-execute sage-request-continue sage-request-continue-routine sage-request-execute-self-test sage-request-execution-guardrail
 
 sage-request-plan:
 	@test -n "$${SAGE_REQUEST:-}" || { \
@@ -456,13 +456,23 @@ sage-request-plan:
 	  echo 'Usage: SAGE_REQUEST="<request>" SAGE_SOURCE="<source.zip>" make sage-request-plan'; \
 	  exit 2; \
 	}
-	$(PYTHON) scripts/sage/sage-request-plan.py --request "$$SAGE_REQUEST" --source "$$SAGE_SOURCE"
+	$(PYTHON) scripts/sage/sage-request-plan.py --request "$$SAGE_REQUEST" --source "$$SAGE_SOURCE" $${SAGE_APPROVED_GAP_SET:+--approved-gap-set "$$SAGE_APPROVED_GAP_SET"}
 
 sage-request-plan-self-test:
 	$(PYTHON) scripts/sage/sage-request-plan.py --self-test
 
 sage-request-planning-guardrail:
 	$(PYTHON) scripts/sage/sage-request-planning-guardrail.py
+
+sage-domain-capability-gap-approve:
+	@test -n "$${SAGE_GAP_SET:-}" || { echo 'SAGE_GAP_SET is required'; exit 2; }
+	@test -n "$${SAGE_GAP_RATIONALE:-}" || { echo 'SAGE_GAP_RATIONALE is required'; exit 2; }
+	@test -n "$${SAGE_GAP_CANDIDATE_CONTRIBUTION:-}" || { echo 'SAGE_GAP_CANDIDATE_CONTRIBUTION is required'; exit 2; }
+	@test -n "$${SAGE_GAP_APPROVED_OUTPUT:-}" || { echo 'SAGE_GAP_APPROVED_OUTPUT is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-domain-capability-gap-approve.py --gap-set "$$SAGE_GAP_SET" --actor architect --rationale "$$SAGE_GAP_RATIONALE" --candidate-contribution "$$SAGE_GAP_CANDIDATE_CONTRIBUTION" --output "$$SAGE_GAP_APPROVED_OUTPUT"
+
+sage-domain-capability-gap-approval-self-test:
+	$(PYTHON) scripts/sage/sage-domain-capability-gap-approve.py --self-test
 
 sage-request-execute:
 	@test -n "$${SAGE_REQUEST:-}" || { \
@@ -581,7 +591,7 @@ sage-intent-to-outcome-iterate:
 	@test -n "$${SAGE_ITERATION_TRIGGER:-}" || { echo 'SAGE_ITERATION_TRIGGER is required'; exit 2; }
 	@test -n "$${SAGE_REENTRY_BOUNDARY:-}" || { echo 'SAGE_REENTRY_BOUNDARY is required'; exit 2; }
 	@test -n "$${SAGE_PARENT_CHECKPOINT:-}" || { echo 'SAGE_PARENT_CHECKPOINT is required'; exit 2; }
-	$(PYTHON) scripts/sage/sage-intent-to-outcome.py iterate --state "$$SAGE_INTENT_STATE" --contribution "$$SAGE_CONTRIBUTION" --trigger "$$SAGE_ITERATION_TRIGGER" --reentry-boundary "$$SAGE_REENTRY_BOUNDARY" --parent-checkpoint "$$SAGE_PARENT_CHECKPOINT"
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py iterate --state "$$SAGE_INTENT_STATE" --contribution "$$SAGE_CONTRIBUTION" --trigger "$$SAGE_ITERATION_TRIGGER" --reentry-boundary "$$SAGE_REENTRY_BOUNDARY" --parent-checkpoint "$$SAGE_PARENT_CHECKPOINT" $${SAGE_APPROVED_GAP_SET:+--approved-gap-set "$$SAGE_APPROVED_GAP_SET"}
 
 sage-intent-to-outcome-continue:
 	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }

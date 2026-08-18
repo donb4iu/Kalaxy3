@@ -14,9 +14,9 @@ SAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SAGE_DIR))
 
 from request_execution import ProposalError, load_proposal
-from request_planning import derive_applicable_contexts, load_source_bundle, reconcile_semantic_contexts, resolve_planning_authority, write_proposal_package, write_source_package
+from request_planning import PlanningSourceBundle, derive_applicable_contexts, load_source_bundle, reconcile_semantic_contexts, resolve_planning_authority, write_proposal_package, write_source_package
 from workflow import PrimitiveCatalog, WorkflowError
-from workflows.request_planning import derive_component_plan, plan_request
+from workflows.request_planning import _approved_domain_gap_capabilities, derive_component_plan, plan_request
 
 
 
@@ -114,6 +114,30 @@ def self_test(repo: Path) -> int:
             f"{observed_domain_gaps}"
         )
 
+    live_domain_obligation = ({
+        "obligation_id": "PO-FIXTURE-LIVE",
+        "kind": "capability",
+        "description": "Use one repository-proven domain capability.",
+        "required": True,
+        "capability_id": "artifact.multiarch-stage",
+        "source": "architect-planning-directive[0]",
+    },)
+    live_domain = derive_component_plan(
+        repo=repo,
+        catalog=catalog,
+        request="Use one repository-proven domain capability.",
+        authority_reference="fixture:authority",
+        planning_obligations=live_domain_obligation,
+    )
+    if live_domain.domain_gap_receipts:
+        raise RuntimeError("repository-proven domain capability still produced a gap")
+    live_candidates = [
+        item for item in live_domain.candidates
+        if "artifact.multiarch-stage" in item.get("capability_ids", [])
+    ]
+    if len(live_candidates) != 1 or live_candidates[0].get("maturity") != "repository-proven":
+        raise RuntimeError("repository-proven domain capability candidate was not selected")
+
     with tempfile.TemporaryDirectory(
         prefix="sage-request-plan-"
     ) as raw:
@@ -133,6 +157,214 @@ def self_test(repo: Path) -> int:
         bundle = load_source_bundle(source, semantic_request)
         if bundle.declared_paths != ("fixture.txt",):
             raise RuntimeError("planning source scope mismatch")
+        baseline_path = "markdown/standards/sage-capability-intelligence-workflow-capability-baseline-v1.0.json"
+        baseline_value = json.loads((repo / baseline_path).read_text(encoding="utf-8"))
+        staged_capability = None
+        for family in baseline_value["families"]:
+            for capability in family["capabilities"]:
+                if capability["capability_id"] == "artifact.promote-without-rebuild":
+                    staged_capability = capability
+                    break
+            if staged_capability is not None:
+                break
+        if staged_capability is None:
+            raise RuntimeError("staged domain capability fixture is missing from baseline")
+        staged_capability["disposition"] = "implemented"
+        staged_capability["implementation"] = ["scripts/sage/fixture-artifact-promotion.py"]
+        baseline_payload = (json.dumps(baseline_value, indent=2) + "\n").encode("utf-8")
+        staged_payload = b"# staged fixture\n"
+        staged_source = temp_root / "staged-domain-source.zip"
+        staged_bundle = write_source_package(
+            staged_source,
+            "Implement one approved staged domain capability.",
+            repository={"branch": "feature/fixture", "head": "0" * 40},
+            source_files=(
+                ProposedFile(baseline_path, sha256_bytes(baseline_payload), 0o644, baseline_payload),
+                ProposedFile("scripts/sage/fixture-artifact-promotion.py", sha256_bytes(staged_payload), 0o644, staged_payload),
+            ),
+            evidence_references=["fixture:approved-domain-gap"],
+            validation_commands=[{"label": "Fixture validation", "argv": ["make", "sage-index-check"], "timeout_seconds": 60}],
+            operator_plan={"commit_message": "Fixture staged domain capability", "push_remote": "origin"},
+        )
+        staged_manifest = dict(staged_bundle.manifest)
+        staged_manifest["evidence_references"] = [
+            "engineering-contribution-sha256:" + "a" * 64
+        ]
+        staged_manifest["semantic_authority"] = {
+            "semantic_understanding_sha256": "b" * 64,
+            "semantic_confirmation_sha256": "c" * 64,
+            "applicable_contexts": ["repository-governance"],
+            "implementation_contexts": ["repository-governance"],
+            "context_dispositions": [
+                {
+                    "context_id": "repository-governance",
+                    "disposition": "applicable-now",
+                }
+            ],
+        }
+        staged_bundle = PlanningSourceBundle(
+            staged_bundle.package_path,
+            staged_manifest,
+            staged_bundle.source_files,
+            staged_bundle.generated_paths,
+        )
+        staged_obligation = ({
+            "obligation_id": "PO-FIXTURE-STAGED",
+            "kind": "capability",
+            "description": "Implement artifact promotion without rebuild.",
+            "required": True,
+            "capability_id": "artifact.promote-without-rebuild",
+            "source": "architect-planning-directive[0]",
+        },)
+        staged_plan = derive_component_plan(
+            repo=repo,
+            catalog=catalog,
+            request="Implement one approved staged domain capability.",
+            authority_reference="fixture:authority",
+            planning_obligations=staged_obligation,
+            source=staged_bundle,
+            approved_domain_capabilities=frozenset({"artifact.promote-without-rebuild"}),
+        )
+        if staged_plan.domain_gap_receipts:
+            raise RuntimeError("approved staged domain capability still produced a gap")
+        staged_candidates = [
+            item for item in staged_plan.candidates
+            if "artifact.promote-without-rebuild" in item.get("capability_ids", [])
+        ]
+        if len(staged_candidates) != 1 or staged_candidates[0].get("maturity") != "staged-implementation":
+            raise RuntimeError("approved staged domain capability was not selected for implementation")
+        approved_receipt_path = temp_root / "approved-domain-gap.json"
+        approved_receipt = {
+            "schema_version": "1.1",
+            "gap_kind": "domain-capability",
+            "request": "Implement one approved staged domain capability.",
+            "required_capability": "artifact.promote-without-rebuild",
+            "gap": {
+                "new_primitive_required": False,
+                "new_domain_capability_required": True,
+            },
+            "proposed_primitive": None,
+            "approval": {
+                "status": "approved",
+                "reviewed_by": "architect",
+                "reviewed_at": "2026-08-18T00:00:00-05:00",
+            },
+            "evidence_references": [
+                "candidate-request-sha256:" + sha256_bytes(
+                    b"Implement one approved staged domain capability."
+                ),
+                "candidate-contribution-sha256:" + "a" * 64,
+                "semantic-understanding-sha256:" + "b" * 64,
+                "semantic-confirmation-sha256:" + "c" * 64,
+                "authority-receipt-sha256:" + "d" * 64,
+            ],
+        }
+        approved_receipt_bytes = (json.dumps(approved_receipt, indent=2) + "\n").encode("utf-8")
+        approved_receipt_path.write_bytes(approved_receipt_bytes)
+        approved_set_path = temp_root / "approved-domain-gap-set.json"
+        approved_set = {
+            "schema_version": "1.0",
+            "record_type": "sage-domain-capability-gap-set",
+            "request": "Implement one approved staged domain capability.",
+            "gaps": [{
+                "required_capability": "artifact.promote-without-rebuild",
+                "gap_receipt": str(approved_receipt_path),
+                "gap_receipt_sha256": sha256_bytes(approved_receipt_bytes),
+            }],
+            "approval": {
+                "status": "approved",
+                "reviewed_by": "architect",
+                "reviewed_at": "2026-08-18T00:00:00-05:00",
+            },
+        }
+        approved_set_path.write_text(
+            json.dumps(approved_set, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        approved_capabilities = _approved_domain_gap_capabilities(
+            approved_set_path,
+            "Implement one approved staged domain capability.",
+            staged_bundle,
+        )
+        if approved_capabilities != frozenset({"artifact.promote-without-rebuild"}):
+            raise RuntimeError("exact staged candidate approval binding was not accepted")
+        mismatched_manifest = dict(staged_bundle.manifest)
+        mismatched_manifest["evidence_references"] = [
+            "implementation-local-contribution-sha256:" + "e" * 64
+        ]
+        mismatched_bundle = PlanningSourceBundle(
+            staged_bundle.package_path,
+            mismatched_manifest,
+            staged_bundle.source_files,
+            staged_bundle.generated_paths,
+        )
+        try:
+            _approved_domain_gap_capabilities(
+                approved_set_path,
+                "Implement one approved staged domain capability.",
+                mismatched_bundle,
+            )
+        except WorkflowError:
+            pass
+        else:
+            raise RuntimeError("planner accepted domain-gap approval for a different staged contribution")
+        forged_receipt_path = temp_root / "forged-approved-domain-gap.json"
+        forged_receipt = {
+            "schema_version": "1.1",
+            "gap_kind": "domain-capability",
+            "request": "Implement one approved staged domain capability.",
+            "required_capability": "artifact.promote-without-rebuild",
+            "gap": {
+                "new_primitive_required": False,
+                "new_domain_capability_required": True,
+            },
+            "proposed_primitive": None,
+            "approval": {
+                "status": "approved",
+                "reviewed_by": "operator",
+                "reviewed_at": "2026-08-18T00:00:00-05:00",
+            },
+            "evidence_references": [
+                "candidate-request-sha256:" + sha256_bytes(
+                    b"Implement one approved staged domain capability."
+                ),
+                "candidate-contribution-sha256:" + "a" * 64,
+                "semantic-understanding-sha256:" + "b" * 64,
+                "semantic-confirmation-sha256:" + "c" * 64,
+                "authority-receipt-sha256:" + "d" * 64,
+            ],
+        }
+        forged_receipt_bytes = (json.dumps(forged_receipt, indent=2) + "\n").encode("utf-8")
+        forged_receipt_path.write_bytes(forged_receipt_bytes)
+        forged_set_path = temp_root / "forged-approved-domain-gap-set.json"
+        forged_set_path.write_text(
+            json.dumps({
+                "schema_version": "1.0",
+                "record_type": "sage-domain-capability-gap-set",
+                "request": "Implement one approved staged domain capability.",
+                "gaps": [{
+                    "required_capability": "artifact.promote-without-rebuild",
+                    "gap_receipt": str(forged_receipt_path),
+                    "gap_receipt_sha256": sha256_bytes(forged_receipt_bytes),
+                }],
+                "approval": {
+                    "status": "approved",
+                    "reviewed_by": "operator",
+                    "reviewed_at": "2026-08-18T00:00:00-05:00",
+                },
+            }, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        try:
+            _approved_domain_gap_capabilities(
+                forged_set_path,
+                "Implement one approved staged domain capability.",
+                staged_bundle,
+            )
+        except WorkflowError:
+            pass
+        else:
+            raise RuntimeError("planner accepted non-Architect domain capability approval evidence")
         proposal = temp_root / "proposal.zip"
         planned = write_proposal_package(
             proposal,
@@ -266,6 +498,9 @@ def self_test(repo: Path) -> int:
     )
     print("PASS unsupported capability produces capability.gap receipt")
     print("PASS all unresolved domain capabilities are aggregated in one planning pass")
+    print("PASS repository-proven domain capabilities are selected from the governed workflow baseline")
+    print("PASS Architect-approved required gaps may select only the exact bound staged implementation candidate without claiming pre-validation success")
+    print("PASS planner rejects candidate-substituted and non-Architect domain capability approval evidence")
     print("PASS repository-owned source package to existing proposal interface")
     print("PASS semantic applicability remains distinct from source-mutation authority")
     print("PASS request-relevant contexts are preserved without leaking unrelated mutation authority")
@@ -280,6 +515,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--request")
     parser.add_argument("--source", type=Path)
+    parser.add_argument("--approved-gap-set", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument(
         "--repo",
@@ -311,6 +547,7 @@ def main() -> int:
         args.request,
         args.source,
         output.expanduser().resolve(),
+        approved_gap_set=args.approved_gap_set,
     )
     print("Kalaxy3 SAGE request planning: PASS")
     print(f"Proposal: {result['proposal']}")
