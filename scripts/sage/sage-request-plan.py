@@ -36,7 +36,7 @@ def self_test(repo: Path) -> int:
         request=semantic_request,
         authority_reference="fixture:authority",
     )
-    if positive.gap_receipt is not None:
+    if positive.gap_receipt is not None or positive.domain_gap_receipts:
         raise RuntimeError(
             "existing request-execution primitives produced a capability gap"
         )
@@ -70,6 +70,48 @@ def self_test(repo: Path) -> int:
     ):
         raise RuntimeError(
             "negative capability-gap receipt is malformed"
+        )
+
+    domain_obligations = (
+        {
+            "obligation_id": "PO-FIXTURE-A",
+            "kind": "capability",
+            "description": "Provide fixture domain capability A.",
+            "required": True,
+            "capability_id": "DOMAIN-FIXTURE-A",
+            "source": "architect-planning-directive[0]",
+        },
+        {
+            "obligation_id": "PO-FIXTURE-B",
+            "kind": "capability",
+            "description": "Provide fixture domain capability B.",
+            "required": True,
+            "capability_id": "DOMAIN-FIXTURE-B",
+            "source": "architect-planning-directive[1]",
+        },
+    )
+    domain_negative = derive_component_plan(
+        repo=repo,
+        catalog=catalog,
+        request="Require two unresolved domain capabilities.",
+        authority_reference="fixture:authority",
+        planning_obligations=domain_obligations,
+    )
+    if domain_negative.gap_receipt is not None:
+        raise RuntimeError(
+            "domain capability gap was misclassified as a primitive gap"
+        )
+    observed_domain_gaps = [
+        item["required_capability"]
+        for item in domain_negative.domain_gap_receipts
+    ]
+    if observed_domain_gaps != [
+        "DOMAIN-FIXTURE-A",
+        "DOMAIN-FIXTURE-B",
+    ]:
+        raise RuntimeError(
+            "planner did not aggregate all domain capability gaps in one pass: "
+            f"{observed_domain_gaps}"
         )
 
     with tempfile.TemporaryDirectory(
@@ -223,6 +265,7 @@ def self_test(repo: Path) -> int:
         "PASS semantic-vocabulary replay without external candidate semantics"
     )
     print("PASS unsupported capability produces capability.gap receipt")
+    print("PASS all unresolved domain capabilities are aggregated in one planning pass")
     print("PASS repository-owned source package to existing proposal interface")
     print("PASS semantic applicability remains distinct from source-mutation authority")
     print("PASS request-relevant contexts are preserved without leaking unrelated mutation authority")

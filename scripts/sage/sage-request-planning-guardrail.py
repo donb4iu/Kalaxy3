@@ -79,6 +79,7 @@ PROCESS_MARKERS = (
     "v1.3",
     "planning obligations",
     "domain capability gap",
+    "domain capability gap set",
     "subset of the architect-confirmed",
     "authority ceiling",
 )
@@ -99,6 +100,8 @@ WORKFLOW_MARKERS = (
     "planning_obligations",
     "_domain_capabilities",
     "create_domain",
+    "domain_gap_receipts",
+    "request-planning-capability-gap-set.json",
     "validate_reusable_plan_lineage",
 )
 
@@ -439,6 +442,7 @@ def main() -> int:
     print("PASS historical v1.1 semantic sources remain immutable and readable")
     print("PASS v1.2 separates semantic applicability from implementation authority")
     print("PASS v1.3 preserves Architect-confirmed planning obligations and domain capability gaps")
+    print("PASS planner aggregates all unresolved domain capability gaps before stopping")
     print("PASS reusable-secrets planning obligation survives as a domain capability without Terraform fallback")
     print("PASS literal discovery cannot silently re-expand confirmed authority")
     print("PASS implementation-local mutation scope may narrow but cannot expand beyond Architect-confirmed authority")

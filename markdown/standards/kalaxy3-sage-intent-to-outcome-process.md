@@ -41,9 +41,99 @@ Safe local-main reconciliation and source-branch retirement remain part of this 
 
 The active objective is distinct from its mutable **candidate iteration**. Each iteration records its number, parent checkpoint, triggering observation, affected planning obligations, validation state, unresolved findings, accumulated learning, invalidated downstream state, next governed boundary, and promotion eligibility.
 
-A commit or push is persistence only. A candidate with unresolved findings is a durable **non-promotable** checkpoint; it is not objective failure, validation success, or promotion eligibility.
+A commit or push is persistence only. If an unfinished candidate is deliberately persisted, unresolved findings make that persistence a durable **non-promotable** checkpoint; persistence is not required before another same-class correction is accumulated into the current candidate. A persisted checkpoint is not objective failure, validation success, or promotion eligibility.
 
 The one-time bootstrap seam may adopt a pre-front-door request execution as iteration 1 with an explicit historical candidate head and unresolved findings. For an iterative objective, adoption must also preserve the prior confirmed planning source and inherit the checksum-bound planning proposal from the adopted request-execution state; the source/proposal pair is validated before it becomes reusable lineage. This preserves the zero-trust iteration-1 lineage rather than rewriting or discarding it.
+
+## Candidate union and serial validation
+
+A governed objective may expose related defects incrementally. Serial validation
+is expected and useful: validation may reveal A, then B, then C. That does **not**
+require A, B, and C to become separately promotable changes.
+
+When a newly observed defect belongs to the same Architect-authorized correction
+class and the current candidate has not crossed into a live operator mutation
+boundary, the unfinished candidate may be superseded by a cumulative candidate:
+
+`A -> A+B -> A+B+C -> validate union -> checkpoint/promote`
+
+The superseded revision is recorded as `superseded-in-progress`. It does not
+have to become independently valid or promotable. A durable non-promotable
+checkpoint remains available when persistence is useful, but persistence is not
+a prerequisite for adding the next related correction. Promotion remains
+fail-closed until the current union candidate satisfies every applicable
+mandatory gate and has no unresolved findings.
+
+A live `request-operator-review-required` boundary is not silently superseded by
+this rule. Its outstanding mutation must first be dispositioned through a
+governed path so an obsolete approved command cannot race a newer candidate.
+
+## Authoritative shared-responsibility role contract
+
+This workflow consumes the accepted `SAGE-ACTION-20260811-001` role contract;
+it does not redefine the roles in workflow-local vocabulary. The following
+responsibility boundaries remain authoritative:
+
+- The metamodel defines four first-class participant classes: human participants,
+  LLM, Kalaxy3 evidence/experience, and deterministic orchestration/execution,
+  with SAGE defined as the governing system-engineering federation that
+  reconciles their inputs into governed decisions.
+- Human participant roles include stakeholder/sponsor/product owner,
+  architect/engineer, operator, and reviewer/approver; the same human may hold
+  multiple roles, and authority is represented as an explicit governed property
+  rather than inferred from technical capability.
+- Shared-responsibility vocabulary defines Accountable Owner, Responsible,
+  Contributor, Authority-Approver, and optional Informed responsibilities per
+  activity; capability overlap is allowed while accountability and legitimate
+  authority remain explicit.
+- The human Architect role has end-to-end accountable architectural
+  responsibility for intended future state, requirements, constraints,
+  Definition of Done, approval boundaries, and architectural fitness; multiple
+  qualified humans may hold the role, but nothing inside SAGE can make the
+  Architect unable to regain architectural control.
+- Architect break-glass intervention is exceptional, explicit, minimum-scope,
+  attributable, and records trigger, rationale, controls or assumptions
+  overridden, resulting risk, and required post-verification; it cannot nullify
+  external legal, security, compliance, or other nondelegable constraints, and
+  recurring intervention classes become continuous-improvement evidence.
+- The LLM is a first-class contributor of external/world knowledge,
+  state-of-practice patterns, alternatives, critique, risk identification, and
+  verification ideas, while remaining untrusted with authority: it cannot be
+  the Accountable Architect, sole source of legitimate stakeholder intent, or
+  holder of human-reserved approval authority.
+- Kalaxy3 is explicitly modeled as accumulated local evidence and experience,
+  including current facts, validated lessons, standards, workflow experience,
+  measurements, and reusable capability; SAGE reconciles this local experience
+  with human intent, LLM knowledge, and current evidence.
+- Deterministic orchestration/execution owns reproducible workflow state,
+  transitions, decisions, branches, retry, compensation, continuation, and exact
+  mutation boundaries; LLM output may propose or inform these operations but
+  does not own deterministic workflow state or transition authority.
+
+## Intent-first innovation boundary
+
+The LLM's architecture contribution is not limited to behavior or capability
+names that current SAGE already understands. It expands the possible solution
+space from the Architect-owned intended future state, requirements, constraints,
+Definition of Done, approval boundaries, and architectural fitness, using its
+defined contribution of external/world knowledge, state-of-practice patterns,
+alternatives, critique, risk identification, and verification ideas.
+
+The LLM may therefore propose innovative behavior, architectural capabilities,
+and alternative solution constructs that are absent from current SAGE. Evidence
+and risk then inform selection, including likelihood of successful
+implementation, maturity and evidence of successful use, operational risk,
+cost/economic basis, observability/measurement basis, security, reliability,
+reversibility, portability, skills, vendor dependency, and uncertainty.
+Experimental or novel alternatives are not excluded merely because SAGE does
+not yet implement or name them; maturity and evidence deficits are explicit
+inputs to Architect disposition.
+
+Only after alternatives have been proposed and evaluated does SAGE reconcile
+the selected or investigated direction with current repository capability,
+evidence, constraints, authority, and deterministic transition mechanisms.
+**Current SAGE capabilities constrain the governed transition path; they do not
+define the future-state solution space.**
 
 ## Earliest affected boundary
 

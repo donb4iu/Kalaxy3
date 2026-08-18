@@ -76,6 +76,11 @@ WORKFLOW_MARKERS = (
     "base_main_head",
     'argv=("python3", "scripts/sage/sage-index.py", "reconcile")',
     'argv=("python3", "-S", "scripts/sage/sage-failure-retrieval-gate.py"',
+    "recover_repository_after_failure",
+    "failure_closeout_status",
+    "failed-pre-mutation",
+    "failed-rollback-unverified",
+    "rollback_verified",
 )
 PROCESS_MARKERS = (
     "untrusted proposal",
@@ -100,6 +105,7 @@ PROCESS_MARKERS = (
     "proposal-bound baseline",
     "newly introduced safety findings",
     "new Python files",
+    "rollback is not inferred",
 )
 
 
@@ -177,6 +183,10 @@ def source_failures() -> list[str]:
             failures.append(f"request-execution workflow marker missing: {marker}")
     if "subprocess" in workflow:
         failures.append("request-execution workflow imports or references subprocess")
+    if "SAGE request execution failed and rolled back:" in workflow:
+        failures.append("request execution still infers rollback success in failure text")
+    if '"repository_content_restored": True' in workflow:
+        failures.append("request execution still hard-codes repository restoration")
     if "continue_request_from_routine_receipt" not in routine_cli:
         failures.append("routine Git CLI does not consume its repository-owned receipt")
     if "operator-result" in routine_cli or "pasted_output_received" in routine_cli:

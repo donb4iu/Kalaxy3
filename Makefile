@@ -121,7 +121,7 @@ sage-operating-contract-guardrail:
 sage-operating-contract-check: sage-operating-contract-self-test sage-operating-contract-guardrail
 	@echo "Kalaxy3 SAGE operating contract: PASS"
 
-sage-stage-guardrails: sage-self-test sage-semantic-bootstrap-guardrail sage-discovery-guardrail sage-operating-contract-guardrail \
+sage-stage-guardrails: sage-self-test sage-semantic-bootstrap-guardrail sage-discovery-guardrail sage-operating-contract-guardrail sage-capability-intelligence-guardrail sage-branch-lifecycle-self-test sage-branch-lifecycle-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
                  sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail sage-checkpoint-promotion-guardrail sage-security-external-access-discovery-guardrail sage-legacy-evidence-projection-guardrail sage-intent-to-outcome-guardrail sage-e2e-zero-trust-source-guardrail sage-stage-contract-guardrail
 	@echo "Kalaxy3 portable stage source guardrails: PASS"
@@ -314,6 +314,12 @@ sage-capability-intelligence-self-test:
 
 sage-capability-intelligence-guardrail:
 	python3 scripts/sage/sage-capability-intelligence-guardrail.py
+	python3 scripts/sage/sage-capability-intelligence-workflow-audit.py
+
+.PHONY: sage-capability-intelligence-workflow-audit
+
+sage-capability-intelligence-workflow-audit:
+	python3 scripts/sage/sage-capability-intelligence-workflow-audit.py
 .PHONY: sage-thin-slice-render sage-thin-slice-check \
 	sage-thin-slice-self-test sage-thin-slice-guardrail
 
@@ -346,6 +352,13 @@ sage-workflow-support-guardrail:
 	$(PYTHON) scripts/sage/sage-workflow-support-guardrail.py
 
 .PHONY: sage-workflow-self-test sage-workflow-guardrail sage-workflow-usage
+.PHONY: sage-branch-lifecycle-self-test sage-branch-lifecycle-guardrail
+
+sage-branch-lifecycle-self-test:
+	$(PYTHON) scripts/sage/sage-workflow-primitives-branch-lifecycle.py --self-test
+
+sage-branch-lifecycle-guardrail:
+	$(PYTHON) scripts/sage/sage-workflow-primitives-branch-lifecycle-guardrail.py
 
 sage-workflow-self-test:
 	$(PYTHON) scripts/sage/sage-workflow-primitives-self-test.py

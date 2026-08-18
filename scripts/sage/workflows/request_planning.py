@@ -32,7 +32,7 @@ from workflow import (
 from workflows.request_execution import PRIMITIVES_USED as EXECUTION_PRIMITIVES
 
 WORKFLOW_ID = "sage.request-planning"
-WORKFLOW_VERSION = "1.1.0"
+WORKFLOW_VERSION = "1.2.0"
 SECRET_ENVIRONMENT_NAMES = (
     "GH_TOKEN",
     "GITHUB_TOKEN",
@@ -60,6 +60,7 @@ class DerivedPlan:
     candidates: list[dict[str, Any]]
     selection_manifest: dict[str, Any]
     gap_receipt: dict[str, Any] | None
+    domain_gap_receipts: list[dict[str, Any]]
 
 
 def _capability_id(primitive_id: str) -> str:
@@ -217,6 +218,7 @@ def _domain_gap_receipt(
     manifest_reference: str,
     missing_capability: str,
     planning_obligations: tuple[Mapping[str, Any], ...],
+    gap_sequence: int,
 ) -> dict[str, Any]:
     obligation = next(
         (
@@ -244,7 +246,10 @@ def _domain_gap_receipt(
         for primitive_id, entry in sorted(catalog.primitives.items())
     ]
     receipt = CapabilityGapRecorder.create_domain(
-        gap_id=f"SAGE-GAP-{datetime.now().strftime('%Y%m%d')}-DOMAIN",
+        gap_id=(
+            f"SAGE-GAP-{datetime.now().strftime('%Y%m%d')}-DOMAIN-"
+            f"{gap_sequence:03d}"
+        ),
         request=request,
         authority_receipt=authority_reference,
         component_manifest=manifest_reference,
@@ -352,16 +357,20 @@ def derive_component_plan(
             ),
         },
     )
-    gaps = list(manifest.get("capability_gap_receipts", []))
+    gaps = [str(item) for item in manifest.get("capability_gap_receipts", [])]
     gap_receipt = None
+    domain_gap_receipts: list[dict[str, Any]] = []
     if gaps:
-        missing_capability = str(gaps[0])
         primitive_by_capability = {
             _capability_id(primitive_id): primitive_id
             for primitive_id in primitive_ids
         }
-        if missing_capability in primitive_by_capability:
-            missing_primitive = primitive_by_capability[missing_capability]
+        primitive_gaps = [
+            item for item in gaps
+            if item in primitive_by_capability
+        ]
+        if primitive_gaps:
+            missing_primitive = primitive_by_capability[primitive_gaps[0]]
             gap_receipt = _gap_receipt(
                 repo=repo,
                 catalog=catalog,
@@ -373,23 +382,30 @@ def derive_component_plan(
                 missing_primitive=missing_primitive,
             )
         else:
-            gap_receipt = _domain_gap_receipt(
-                catalog=catalog,
-                request=request,
-                authority_reference=authority_reference,
-                manifest_reference="request-planning-component-selection.json",
-                missing_capability=missing_capability,
-                planning_obligations=planning_obligations,
-            )
+            for sequence, missing_capability in enumerate(gaps, 1):
+                domain_gap_receipts.append(
+                    _domain_gap_receipt(
+                        catalog=catalog,
+                        request=request,
+                        authority_reference=authority_reference,
+                        manifest_reference=(
+                            "request-planning-component-selection.json"
+                        ),
+                        missing_capability=missing_capability,
+                        planning_obligations=planning_obligations,
+                        gap_sequence=sequence,
+                    )
+                )
     else:
         ComponentSelector.require_complete(manifest)
-
     return DerivedPlan(
         [item.to_dict() for item in capabilities],
         [_candidate_payload(item) for item in candidates],
         manifest,
         gap_receipt,
+        domain_gap_receipts,
     )
+
 
 
 def _write_json(
@@ -530,11 +546,62 @@ def plan_request(
                 f"request planning found an unresolved {kind} capability gap: "
                 f"{gap_path}"
             )
+        if plan.domain_gap_receipts:
+            gap_items: list[dict[str, Any]] = []
+            for index, receipt in enumerate(plan.domain_gap_receipts, 1):
+                path = _write_json(
+                    writer,
+                    state_dir / (
+                        "request-planning-capability-gap-"
+                        f"{index:03d}.json"
+                    ),
+                    receipt,
+                )
+                gap_items.append(
+                    {
+                        "required_capability": receipt["required_capability"],
+                        "gap_receipt": str(path),
+                        "gap_receipt_sha256": hashlib.sha256(
+                            path.read_bytes()
+                        ).hexdigest(),
+                    }
+                )
+            gap_set = {
+                "schema_version": "1.0",
+                "record_type": "sage-domain-capability-gap-set",
+                "request": request,
+                "created_at": datetime.now().astimezone().isoformat(
+                    timespec="seconds"
+                ),
+                "authority_receipt": str(state["authority_reference"]),
+                "component_manifest": str(state["component_path"]),
+                "gap_count": len(gap_items),
+                "gaps": gap_items,
+                "approval": {
+                    "status": "review-required",
+                    "reviewed_by": None,
+                    "reviewed_at": None,
+                    "rationale": (
+                        "Planner aggregates all unresolved Architect-confirmed "
+                        "domain capabilities before stopping so class-level "
+                        "remediation can be governed coherently."
+                    ),
+                },
+            }
+            gap_set_path = _write_json(
+                writer,
+                state_dir / "request-planning-capability-gap-set.json",
+                gap_set,
+            )
+            raise WorkflowError(
+                "request planning found "
+                f"{len(gap_items)} unresolved domain-capability gaps in one "
+                f"pass: {gap_set_path}"
+            )
         return {
             "new_primitive_required": False,
             "composition_can_close_gap": True,
         }
-
     Workflow(
         workflow_id=WORKFLOW_ID,
         logger=logger,
