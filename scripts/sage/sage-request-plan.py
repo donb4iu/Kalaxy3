@@ -168,18 +168,29 @@ def self_test(repo: Path) -> int:
             raise RuntimeError("planning source scope mismatch")
         baseline_path = "markdown/standards/sage-capability-intelligence-workflow-capability-baseline-v1.0.json"
         baseline_value = json.loads((repo / baseline_path).read_text(encoding="utf-8"))
-        staged_capability = None
+        fixture_repo = temp_root / "fixture-repo"
+        (fixture_repo / baseline_path).parent.mkdir(parents=True, exist_ok=True)
+        fixture_capability = None
         for family in baseline_value["families"]:
             for capability in family["capabilities"]:
                 if capability["capability_id"] == "artifact.promote-without-rebuild":
-                    staged_capability = capability
+                    fixture_capability = capability
                     break
-            if staged_capability is not None:
+            if fixture_capability is not None:
                 break
-        if staged_capability is None:
+        if fixture_capability is None:
             raise RuntimeError("staged domain capability fixture is missing from baseline")
-        staged_capability["disposition"] = "implemented"
-        staged_capability["implementation"] = ["scripts/sage/fixture-artifact-promotion.py"]
+        # The staged-domain regression owns its live premise. Never inherit
+        # the candidate-under-test repository disposition for this capability.
+        fixture_capability["disposition"] = "required-gap"
+        fixture_capability["implementation"] = []
+        (fixture_repo / baseline_path).write_text(
+            json.dumps(baseline_value, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        # The proposed side of the same isolated fixture implements the gap.
+        fixture_capability["disposition"] = "implemented"
+        fixture_capability["implementation"] = ["scripts/sage/fixture-artifact-promotion.py"]
         baseline_payload = (json.dumps(baseline_value, indent=2) + "\n").encode("utf-8")
         staged_payload = b"# staged fixture\n"
         staged_source = temp_root / "staged-domain-source.zip"
@@ -226,9 +237,10 @@ def self_test(repo: Path) -> int:
             "source": "architect-planning-directive[0]",
         },)
         staged_plan = derive_component_plan(
-            repo=repo,
+            repo=fixture_repo,
             catalog=catalog,
             request="Implement one approved staged domain capability.",
+            required_primitives=(),
             authority_reference="fixture:authority",
             planning_obligations=staged_obligation,
             source=staged_bundle,
