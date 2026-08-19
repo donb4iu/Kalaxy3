@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from request_planning import reconcile_semantic_contexts, reuse_confirmed_source_package, write_source_package
+from sage_actionable_failure import ActionableFailure, RecoveryStep
 from semantic_understanding import action_record_sha256, load_engineering_contribution, sha256_file
 from workflow import (
     AtomicFileWriter,
@@ -27,7 +28,7 @@ from workflow import (
 )
 
 WORKFLOW_ID = "sage.semantic-bootstrap"
-WORKFLOW_VERSION = "0.4.1"
+WORKFLOW_VERSION = "0.4.2"
 PRIMITIVES_USED = (
     "catalog.registry",
     "logging.events",
@@ -74,6 +75,96 @@ FEASIBILITY_PLANNING_OBLIGATIONS = (
     "Runtime behavior remains unproven until planned source is applied and deterministic validations pass.",
     "Outcome feasibility and external-framework review remain downstream acceptance obligations.",
 )
+
+
+
+class ArchitectDispositionContractError(WorkflowError):
+    """Carry deterministic Architect-disposition contract failure facts."""
+    def __init__(self, proposal_id: str, requirement: str, actual: Any, valid_values: tuple[str, ...] = ()) -> None:
+        self.proposal_id = proposal_id
+        self.requirement = requirement
+        self.actual = actual
+        self.valid_values = valid_values
+        super().__init__(f"{proposal_id}: {requirement}")
+
+
+class SemanticActionableFailure(WorkflowError):
+    """Carry one rendered actionable failure plus its local observation."""
+    def __init__(self, failure: ActionableFailure, observation_path: Path) -> None:
+        self.failure = failure
+        self.observation_path = observation_path
+        super().__init__(failure.why_invalid)
+
+
+def architect_disposition_actionable_failure(
+    error: ArchitectDispositionContractError,
+    state_path: Path,
+    decisions_path: Path,
+    confirmation_sha256: str,
+) -> ActionableFailure:
+    """Translate known disposition-contract facts into the shared failure model."""
+    retry = render_operator_command((
+        "python3", "scripts/sage/sage-action-bootstrap.py",
+        "--continue-state", str(state_path),
+        "--confirm-understanding-sha256", confirmation_sha256,
+        "--actor", "architect",
+        "--dispositions", str(decisions_path),
+    ))
+    valid_text = ", ".join(error.valid_values) if error.valid_values else "the requirement-specific value described below"
+    return ActionableFailure(
+        attempted_action="Confirm Architect semantic understanding and disposition the material semantic proposals.",
+        detected_state=(
+            f"Proposal {error.proposal_id!r} violated a known Architect disposition requirement. "
+            f"observed={error.actual!r}; required={error.requirement}; valid_values={valid_text}; "
+            f"dispositions={decisions_path}; retry_boundary=semantic-confirmation."
+        ),
+        why_invalid="Semantic confirmation cannot proceed because the Architect-owned disposition input does not satisfy a deterministic repository contract.",
+        likely_intended_outcome="SAGE infers that the invoker intended to complete the Architect decision input and retry the same semantic-confirmation boundary.",
+        confirm_correct_approach=(
+            f"Review proposal {error.proposal_id!r} in the generated Architect dispositions artifact.",
+            f"Satisfy this requirement: {error.requirement}.",
+            f"Where a disposition choice is required, use only: {valid_text}.",
+            "Keep the decision with the Architect; SAGE may explain the contract but must not choose the disposition.",
+        ),
+        allowed_actions=(
+            "Edit the generated Architect dispositions artifact to record the Architect's actual decision.",
+            "Provide any rationale, modified value, or new basis required by the selected disposition.",
+            "Rerun the exact repository-owned semantic-confirmation command after the Architect input is complete.",
+            "Preserve this failed path and the local failure-quality observation as workflow-friction evidence.",
+        ),
+        prohibited_actions=(
+            "Do not treat a null or invalid disposition as implicit acceptance.",
+            "Do not let SAGE choose or synthesize the Architect's decision.",
+            "Do not bypass semantic confirmation or weaken the disposition contract.",
+            "Do not mutate repository, GitHub, or deployment state merely to clear this input failure.",
+        ),
+        canonical_recovery=(RecoveryStep(
+            working_directory=".",
+            command=str(retry["display"]),
+            required_paths=(
+                "scripts/sage/sage-action-bootstrap.py",
+                "scripts/sage/workflows/semantic_bootstrap.py",
+                "markdown/standards/kalaxy3-sage-actionable-failure-contract.md",
+                "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
+            ),
+        ),),
+        integrity_requirements=(
+            "Preserve Architect authority over semantic dispositions.",
+            "Preserve the exact semantic-understanding digest and source-lineage checks.",
+            "Retry only the semantic-confirmation boundary after correcting the Architect-owned input.",
+            "Preserve the failed invocation and recovery observation for outcome metrics.",
+        ),
+        authoritative_paths=(
+            "scripts/sage/sage-action-bootstrap.py",
+            "scripts/sage/workflows/semantic_bootstrap.py",
+            "markdown/standards/kalaxy3-sage-actionable-failure-contract.md",
+            "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
+        ),
+        repository_gap=(
+            "If a deterministic semantic-confirmation contract failure reaches the invoker without its known requirement and realistic retry guidance, "
+            "record that as a SAGE failure-quality and interpretation-burden defect."
+        ),
+    )
 
 
 def _planning_obligation(
@@ -216,7 +307,12 @@ def _apply_architect_dispositions(understanding: Mapping[str, Any], decisions: M
         raise WorkflowError("Architect dispositions must be a list")
     ids = [str(item.get("proposal_id")) for item in raw if isinstance(item, Mapping)]
     if len(ids) != len(raw) or len(set(ids)) != len(ids) or set(ids) != set(proposals):
-        raise WorkflowError("every material proposal requires exactly one Architect disposition")
+        raise ArchitectDispositionContractError(
+            proposal_id="disposition-set",
+            requirement="every material proposal requires exactly one Architect disposition",
+            actual={"expected_proposal_ids": sorted(proposals), "received_proposal_ids": ids},
+            valid_values=tuple(sorted(NEGOTIATION_DISPOSITIONS)),
+        )
 
     normalized = []
     confirmed_scope = None
@@ -224,16 +320,34 @@ def _apply_architect_dispositions(understanding: Mapping[str, Any], decisions: M
         proposal = proposals[str(item["proposal_id"])]
         disposition = item.get("disposition")
         if disposition not in NEGOTIATION_DISPOSITIONS:
-            raise WorkflowError(f"{proposal['proposal_id']}: invalid Architect disposition")
+            raise ArchitectDispositionContractError(
+                proposal_id=str(proposal["proposal_id"]),
+                requirement="disposition must be one of accept, reject, modify, or defer",
+                actual=disposition,
+                valid_values=tuple(sorted(NEGOTIATION_DISPOSITIONS)),
+            )
         rationale = item.get("rationale", "")
         if not isinstance(rationale, str) or (disposition != "accept" and not rationale.strip()):
-            raise WorkflowError(f"{proposal['proposal_id']}: non-accept disposition requires rationale")
+            raise ArchitectDispositionContractError(
+                proposal_id=str(proposal["proposal_id"]),
+                requirement="non-accept disposition requires a non-empty rationale",
+                actual=rationale,
+            )
         new_basis = item.get("new_basis", "")
         if proposal.get("prior_disposition") is not None and (not isinstance(new_basis, str) or not new_basis.strip()):
-            raise WorkflowError(f"{proposal['proposal_id']}: resurfaced proposal requires materially new basis")
+            raise ArchitectDispositionContractError(
+                proposal_id=str(proposal["proposal_id"]),
+                requirement="resurfaced proposal requires a materially new basis",
+                actual=new_basis,
+            )
         modified = item.get("modified_value")
         if disposition != "modify" and modified is not None:
-            raise WorkflowError(f"{proposal['proposal_id']}: modified_value is allowed only for modify")
+            raise ArchitectDispositionContractError(
+                proposal_id=str(proposal["proposal_id"]),
+                requirement="modified_value is allowed only when disposition is modify",
+                actual={"disposition": disposition, "modified_value": modified},
+                valid_values=("modify",),
+            )
         effective = modified if disposition == "modify" else proposal["value"]
         authoritative = disposition in {"accept", "modify"}
         if proposal["target"] == "implementation_scope" and authoritative:
@@ -253,7 +367,12 @@ def _apply_architect_dispositions(understanding: Mapping[str, Any], decisions: M
             "effective_value": effective if authoritative else None,
         })
     if confirmed_scope is None:
-        raise WorkflowError("semantic confirmation cannot proceed without an authoritative implementation scope")
+        raise ArchitectDispositionContractError(
+            proposal_id="implementation-scope",
+            requirement="semantic confirmation requires implementation-scope to be accept or modify",
+            actual="no authoritative implementation scope",
+            valid_values=("accept", "modify"),
+        )
     result = json.loads(json.dumps(understanding))
     result["interpretation"]["implementation_scope"] = confirmed_scope
     result["negotiation"] = {
@@ -500,7 +619,36 @@ def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, a
         understanding = json.loads(confirmed_understanding_path.read_text(encoding="utf-8"))
         decisions_path = dispositions_path.expanduser().resolve()
         decisions = json.loads(decisions_path.read_text(encoding="utf-8"))
-        confirmed = _apply_architect_dispositions(understanding, decisions, confirmation_sha256)
+        try:
+            confirmed = _apply_architect_dispositions(understanding, decisions, confirmation_sha256)
+        except ArchitectDispositionContractError as error:
+            failure = architect_disposition_actionable_failure(error, state_path, decisions_path, confirmation_sha256)
+            observation_path = _write_json(
+                writer,
+                state_dir / ("semantic-confirmation-actionable-failure-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f") + ".json"),
+                {
+                    "schema_version": "1.0",
+                    "record_type": "sage-actionable-failure-observation",
+                    "workflow_id": WORKFLOW_ID,
+                    "workflow_version": WORKFLOW_VERSION,
+                    "failure_class": "architect-disposition-contract",
+                    "failure_quality_class": "known-cause-known-recovery",
+                    "proposal_id": error.proposal_id,
+                    "requirement": error.requirement,
+                    "actual": repr(error.actual),
+                    "valid_values": list(error.valid_values),
+                    "known_cause": True,
+                    "recovery_hint_available": True,
+                    "recovery_hint_prepared": True,
+                    "invoker_action_required": True,
+                    "decision_authority": "architect",
+                    "retry_boundary": "semantic-confirmation",
+                    "repository_mutation": False,
+                    "dispositions": str(decisions_path),
+                    "continue_state": str(state_path),
+                },
+            )
+            raise SemanticActionableFailure(failure, observation_path) from error
         confirmed_scope = tuple(str(item) for item in confirmed["interpretation"]["implementation_scope"])
         inferred = tuple(str(item) for item in confirmed["interpretation"].get("inferred_contexts", []))
         reconciliation = reconcile_semantic_contexts(repo, inferred, confirmed_scope)
