@@ -5,11 +5,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
+import shlex
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
+from sage_actionable_failure import ActionableFailure, RecoveryStep
 from request_planning import PlanningSourceBundle, load_source_bundle, resolve_planning_authority, write_proposal_package
 from request_execution import load_proposal
 from workflow import (
@@ -32,7 +36,7 @@ from workflow import (
 from workflows.request_execution import PRIMITIVES_USED as EXECUTION_PRIMITIVES
 
 WORKFLOW_ID = "sage.request-planning"
-WORKFLOW_VERSION = "1.3.0"
+WORKFLOW_VERSION = "1.3.1"
 SECRET_ENVIRONMENT_NAMES = (
     "GH_TOKEN",
     "GITHUB_TOKEN",
@@ -712,6 +716,217 @@ def derive_component_plan(
 
 
 
+
+class RequestPlanningActionableFailure(WorkflowError):
+    # Carry an actionable planning boundary plus its local observation.
+    def __init__(self, failure: ActionableFailure, observation_path: Path) -> None:
+        self.failure = failure
+        self.observation_path = observation_path
+        super().__init__(failure.why_invalid)
+
+
+def _candidate_contribution_from_source(
+    source: PlanningSourceBundle,
+) -> tuple[Path | None, str]:
+    # Recover exact staged-contribution provenance from confirmed semantic source.
+    try:
+        with zipfile.ZipFile(source.package_path) as archive:
+            understanding = json.loads(
+                archive.read("semantic/semantic-understanding.json")
+            )
+    except (KeyError, OSError, ValueError, TypeError, zipfile.BadZipFile, json.JSONDecodeError) as error:
+        return None, (
+            "confirmed planning source does not expose readable staged-contribution "
+            f"provenance: {error}"
+        )
+
+    if not isinstance(understanding, dict):
+        return None, "semantic-understanding artifact is not a JSON object"
+    contribution = understanding.get("contribution")
+    if not isinstance(contribution, dict):
+        return None, "semantic-understanding artifact has no contribution provenance object"
+
+    raw_path = contribution.get("package")
+    expected_sha = contribution.get("package_sha256")
+    if not isinstance(raw_path, str) or not raw_path:
+        return None, "semantic-understanding contribution.package is unavailable"
+    if not isinstance(expected_sha, str) or re.fullmatch(r"[0-9a-f]{64}", expected_sha) is None:
+        return None, "semantic-understanding contribution.package_sha256 is unavailable or invalid"
+
+    candidate = Path(raw_path).expanduser().resolve()
+    if not candidate.is_file():
+        return None, f"staged contribution from semantic provenance is missing: {candidate}"
+    observed_sha = hashlib.sha256(candidate.read_bytes()).hexdigest()
+    if observed_sha != expected_sha:
+        return None, (
+            "staged contribution no longer matches confirmed semantic provenance: "
+            f"expected={expected_sha}, observed={observed_sha}"
+        )
+
+    evidence = tuple(str(item) for item in source.manifest.get("evidence_references", []))
+    evidence_marker = f"engineering-contribution-sha256:{expected_sha}"
+    if evidence_marker not in evidence:
+        return None, (
+            "planning source does not carry the confirmed staged-contribution digest "
+            f"marker {evidence_marker}"
+        )
+    return candidate, ""
+
+
+def domain_gap_actionable_failure(
+    *,
+    request: str,
+    source_path: Path,
+    gap_items: list[dict[str, Any]],
+    gap_set_path: Path,
+    candidate_contribution: Path | None,
+    candidate_issue: str,
+) -> tuple[ActionableFailure, Path]:
+    # Render the known review-required boundary without making the Architect decision.
+    capabilities = tuple(str(item["required_capability"]) for item in gap_items)
+    approved_gap_set = gap_set_path.with_name(
+        "request-planning-capability-gap-set-approved.json"
+    )
+
+    recovery_steps: list[RecoveryStep] = []
+    if candidate_contribution is not None:
+        approval = (
+            'test -n "$SAGE_ARCHITECT_RATIONALE" && '
+            "python3 scripts/sage/sage-domain-capability-gap-approve.py "
+            f"--gap-set {shlex.quote(str(gap_set_path))} "
+            "--actor architect "
+            '--rationale "$SAGE_ARCHITECT_RATIONALE" '
+            f"--candidate-contribution {shlex.quote(str(candidate_contribution))} "
+            f"--output {shlex.quote(str(approved_gap_set))}"
+        )
+        retry = shlex.join(
+            (
+                "env",
+                f"SAGE_REQUEST={request}",
+                f"SAGE_SOURCE={source_path}",
+                f"SAGE_APPROVED_GAP_SET={approved_gap_set}",
+                "make",
+                "sage-request-plan",
+            )
+        )
+        recovery_steps.extend(
+            (
+                RecoveryStep(
+                    working_directory=".",
+                    command=approval,
+                    required_paths=(
+                        "scripts/sage/sage-domain-capability-gap-approve.py",
+                        "scripts/sage/workflows/request_planning.py",
+                        "markdown/standards/kalaxy3-sage-request-planning-process.md",
+                    ),
+                ),
+                RecoveryStep(
+                    working_directory=".",
+                    command=retry,
+                    required_paths=(
+                        "Makefile",
+                        "scripts/sage/sage-request-plan.py",
+                        "scripts/sage/workflows/request_planning.py",
+                    ),
+                ),
+            )
+        )
+        recovery_status = (
+            "The planner recovered and checksum-verified the exact staged contribution. "
+            "All deterministic approval arguments are known. The only unresolved input is "
+            "the Architect-owned rationale in SAGE_ARCHITECT_RATIONALE."
+        )
+    else:
+        recovery_steps.append(
+            RecoveryStep(
+                working_directory=".",
+                command="python3 scripts/sage/sage-domain-capability-gap-approve.py --help",
+                required_paths=(
+                    "scripts/sage/sage-domain-capability-gap-approve.py",
+                    "scripts/sage/workflows/request_planning.py",
+                ),
+            )
+        )
+        recovery_status = (
+            "SAGE knows the review boundary and gap set, but it cannot construct a "
+            "checksum-bound approval command because staged-candidate provenance is "
+            f"not currently available: {candidate_issue}"
+        )
+
+    failure = ActionableFailure(
+        attempted_action=(
+            "Plan the exact request into an executable proposal using the confirmed "
+            "semantic authority and current repository capability evidence."
+        ),
+        detected_state=(
+            f"Request planning found {len(gap_items)} unresolved Architect-confirmed "
+            f"domain-capability gaps: {', '.join(capabilities)}. "
+            f"gap_set={gap_set_path}; decision_authority=architect; "
+            f"retry_boundary=request-planning. {recovery_status}"
+        ),
+        why_invalid=(
+            "Proposal generation cannot continue until the exact checksum-bound domain "
+            "gap set is reviewed for the exact staged candidate. This is a governed "
+            "Architect decision boundary, not an implementation success or failure claim."
+        ),
+        likely_intended_outcome=(
+            "Review the already-known capability gaps as one coherent set, preserve the "
+            "staged candidate and semantic lineage, and resume request planning only after "
+            "an explicit Architect approval or rejection."
+        ),
+        confirm_correct_approach=(
+            f"Review the exact gap set at {gap_set_path}.",
+            f"Capabilities requiring review: {', '.join(capabilities)}.",
+            (
+                "If approving evaluation, the Architect must provide an explicit rationale; "
+                "SAGE supplies no approval decision and no rationale."
+            ),
+            recovery_status,
+            (
+                f"After approval, retry request planning with the approved gap set at "
+                f"{approved_gap_set}."
+            ),
+        ),
+        allowed_actions=(
+            "Review the exact checksum-bound gap-set and underlying gap receipts.",
+            "Set SAGE_ARCHITECT_RATIONALE to the Architect's actual rationale before running the approval recovery step.",
+            "Approve or reject only the exact staged candidate bound to the confirmed semantic lineage.",
+            "After approval, rerun request planning with SAGE_APPROVED_GAP_SET bound to the approved copy.",
+            "Preserve this blocked boundary and its failure-quality observation as workflow-friction evidence.",
+        ),
+        prohibited_actions=(
+            "Do not infer approval from a prior gap set with different receipt hashes.",
+            "Do not let SAGE synthesize the Architect rationale or approval decision.",
+            "Do not treat approval as proof that the staged capabilities are implemented or validated.",
+            "Do not edit review-required gap receipts in place or substitute a different candidate contribution.",
+            "Do not create a new low-level primitive or bypass the request-planning retry boundary.",
+        ),
+        canonical_recovery=tuple(recovery_steps),
+        integrity_requirements=(
+            "Preserve immutable review-required gap evidence.",
+            "Preserve exact staged-contribution, semantic-understanding, and semantic-confirmation binding.",
+            "Preserve Architect authority over approval/rejection and rationale.",
+            "Retry only request planning after the exact approved gap-set exists.",
+            "Preserve fail-closed behavior and no GitHub or deployment mutation at this boundary.",
+        ),
+        authoritative_paths=(
+            "scripts/sage/sage-domain-capability-gap-approve.py",
+            "scripts/sage/workflows/request_planning.py",
+            "scripts/sage/sage-request-plan.py",
+            "markdown/standards/kalaxy3-sage-request-planning-process.md",
+            str(gap_set_path),
+            *((str(candidate_contribution),) if candidate_contribution is not None else ()),
+        ),
+        repository_gap=(
+            "If request planning has already materialized an Architect-reviewable domain "
+            "gap set but reports only a generic WorkflowError, SAGE is imposing avoidable "
+            "interpretation burden. The actionable boundary must surface every deterministic "
+            "fact it already has and identify any genuinely human-owned or unavailable input."
+        ),
+    )
+    return failure, approved_gap_set
+
+
 def _write_json(
     writer: AtomicFileWriter,
     path: Path,
@@ -906,11 +1121,49 @@ def plan_request(
                 state_dir / "request-planning-capability-gap-set.json",
                 gap_set,
             )
-            raise WorkflowError(
-                "request planning found "
-                f"{len(gap_items)} unresolved domain-capability gaps in one "
-                f"pass: {gap_set_path}"
+            candidate_contribution, candidate_issue = (
+                _candidate_contribution_from_source(source)
             )
+            failure, approved_gap_set = domain_gap_actionable_failure(
+                request=request,
+                source_path=source.package_path,
+                gap_items=gap_items,
+                gap_set_path=gap_set_path,
+                candidate_contribution=candidate_contribution,
+                candidate_issue=candidate_issue,
+            )
+            observation_path = _write_json(
+                writer,
+                state_dir / "request-planning-actionable-failure-observation.json",
+                {
+                    "schema_version": "1.0",
+                    "record_type": "sage-actionable-failure-observation",
+                    "workflow_id": WORKFLOW_ID,
+                    "workflow_version": WORKFLOW_VERSION,
+                    "failure_class": "domain-capability-review-required",
+                    "failure_quality_class": "known-cause-decision-dependent-recovery",
+                    "known_cause": True,
+                    "gap_count": len(gap_items),
+                    "required_capabilities": [
+                        str(item["required_capability"]) for item in gap_items
+                    ],
+                    "gap_set": str(gap_set_path),
+                    "recovery_hint_available": True,
+                    "recovery_hint_prepared": True,
+                    "invoker_action_required": True,
+                    "decision_authority": "architect",
+                    "missing_architect_input": "rationale",
+                    "candidate_provenance_available": candidate_contribution is not None,
+                    "candidate_contribution": str(candidate_contribution) if candidate_contribution is not None else None,
+                    "candidate_provenance_issue": candidate_issue or None,
+                    "approved_gap_set": str(approved_gap_set),
+                    "retry_boundary": "request-planning",
+                    "repository_mutation": False,
+                    "github_mutation": False,
+                    "deployment_mutation": False,
+                },
+            )
+            raise RequestPlanningActionableFailure(failure, observation_path)
         return {
             "new_primitive_required": False,
             "composition_can_close_gap": True,

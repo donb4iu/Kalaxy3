@@ -14,9 +14,18 @@ SAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SAGE_DIR))
 
 from request_execution import ProposalError, load_proposal
+from sage_actionable_failure import (
+    render_failure,
+)
 from request_planning import PlanningSourceBundle, derive_applicable_contexts, load_source_bundle, reconcile_semantic_contexts, resolve_planning_authority, write_proposal_package, write_source_package
 from workflow import PrimitiveCatalog, WorkflowError
-from workflows.request_planning import _approved_domain_gap_capabilities, derive_component_plan, plan_request
+from workflows.request_planning import (
+    _approved_domain_gap_capabilities,
+    derive_component_plan,
+    plan_request,
+    RequestPlanningActionableFailure,
+    domain_gap_actionable_failure,
+)
 
 
 
@@ -497,7 +506,44 @@ def self_test(repo: Path) -> int:
         "PASS semantic-vocabulary replay without external candidate semantics"
     )
     print("PASS unsupported capability produces capability.gap receipt")
+    fixture_failure, fixture_approved = domain_gap_actionable_failure(
+        request="fixture domain-gap actionable review",
+        source_path=Path("/tmp/fixture-source.zip"),
+        gap_items=[
+            {"required_capability": "fixture.capability.a"},
+            {"required_capability": "fixture.capability.b"},
+        ],
+        gap_set_path=Path("/tmp/request-planning-capability-gap-set.json"),
+        candidate_contribution=Path("/tmp/fixture-contribution.zip"),
+        candidate_issue="",
+    )
+    rendered_fixture_failure = render_failure(fixture_failure)
+    for marker in (
+        "SAGE ACTION BLOCKED",
+        "fixture.capability.a",
+        "fixture.capability.b",
+        "decision_authority=architect",
+        "SAGE_ARCHITECT_RATIONALE",
+        "--candidate-contribution",
+        "request-planning",
+    ):
+        if marker not in rendered_fixture_failure:
+            raise RuntimeError(f"domain-gap actionable failure omitted {marker!r}")
+    if fixture_approved.name != "request-planning-capability-gap-set-approved.json":
+        raise RuntimeError("approved gap-set recovery path changed")
+    missing_failure, _ = domain_gap_actionable_failure(
+        request="fixture missing candidate provenance",
+        source_path=Path("/tmp/fixture-source.zip"),
+        gap_items=[{"required_capability": "fixture.capability.a"}],
+        gap_set_path=Path("/tmp/request-planning-capability-gap-set.json"),
+        candidate_contribution=None,
+        candidate_issue="fixture provenance unavailable",
+    )
+    missing_rendered = render_failure(missing_failure)
+    if "fixture provenance unavailable" not in missing_rendered:
+        raise RuntimeError("missing candidate provenance was hidden from actionable failure")
     print("PASS all unresolved domain capabilities are aggregated in one planning pass")
+    print("PASS domain-capability review boundaries render actionable decision-dependent recovery")
     print("PASS repository-proven domain capabilities are selected from the governed workflow baseline")
     print("PASS Architect-approved required gaps may select only the exact bound staged implementation candidate without claiming pre-validation success")
     print("PASS planner rejects candidate-substituted and non-Architect domain capability approval evidence")
@@ -564,6 +610,13 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
+    except RequestPlanningActionableFailure as error:
+        print("Kalaxy3 SAGE request planning: FAIL CLOSED", file=sys.stderr)
+        print(render_failure(error.failure), file=sys.stderr)
+        print("", file=sys.stderr)
+        print("Actionable failure observation:", file=sys.stderr)
+        print(f"  {error.observation_path}", file=sys.stderr)
+        raise SystemExit(2)
     except (
         OSError,
         ValueError,

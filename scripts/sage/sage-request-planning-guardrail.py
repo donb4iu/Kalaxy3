@@ -82,6 +82,9 @@ PROCESS_MARKERS = (
     "planning obligations",
     "domain capability gap",
     "domain capability gap set",
+    "actionable domain capability review",
+    "Architect-owned decision content",
+    "sage-actionable-failure-observation",
     "approved domain capability gap",
     "staged implementation candidate",
     "exact staged engineering-contribution digest",
@@ -109,6 +112,10 @@ WORKFLOW_MARKERS = (
     "create_domain",
     "domain_gap_receipts",
     "request-planning-capability-gap-set.json",
+    "RequestPlanningActionableFailure",
+    "domain_gap_actionable_failure",
+    "request-planning-actionable-failure-observation.json",
+    "SAGE_ARCHITECT_RATIONALE",
     "approved_gap_set",
     "approved_domain_capabilities",
     "candidate-contribution-sha256",
@@ -493,6 +500,7 @@ def main() -> int:
     print("PASS v1.2 separates semantic applicability from implementation authority")
     print("PASS v1.3 preserves Architect-confirmed planning obligations and domain capability gaps")
     print("PASS planner aggregates all unresolved domain capability gaps before stopping")
+    print("PASS domain-capability review boundary is actionable without transferring Architect authority")
     print("PASS Architect-approved gap evidence may authorize checksum-bound staged domain capability implementation without rewriting review evidence")
     print("PASS repository-proven domain capabilities are rediscovered from the governed workflow capability baseline")
     print("PASS reusable-secrets planning obligation survives as a domain capability without Terraform fallback")
