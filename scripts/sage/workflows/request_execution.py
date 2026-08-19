@@ -232,31 +232,103 @@ def authority_action(context: ExecutionContext) -> Mapping[str, Any]:
 
 
 def candidate_from_mapping(context: ExecutionContext, item: Mapping[str, Any]) -> ComponentCandidate:
-    """Bind an untrusted candidate declaration to the live primitive registry."""
+    """Bind an untrusted candidate to registered or staged-domain authority."""
 
     component_id = str(item["component_id"])
-    context.catalog.require((component_id,))
-    expected = context.catalog.versions_for((component_id,))[component_id]
-    if str(item["version"]) != expected:
-        raise WorkflowError(f"Candidate {component_id} version mismatch: expected {expected}")
+    capability_ids = tuple(str(value) for value in item["capability_ids"])
+    version = str(item["version"])
+    maturity = str(item["maturity"])
     source_path = str(item["source_path"])
-    if not (context.repo / source_path).is_file():
-        raise WorkflowError(f"Candidate source does not exist: {source_path}")
+    evidence_references = tuple(
+        str(value) for value in item["evidence_references"]
+    )
+    staged_prefix = "staged-domain-capability:"
+
+    if component_id.startswith(staged_prefix):
+        capability_id = component_id.removeprefix(staged_prefix)
+        if not capability_id or capability_ids != (capability_id,):
+            raise WorkflowError(
+                f"Staged domain candidate {component_id} must bind exactly its "
+                "single declared capability"
+            )
+        if maturity != "staged-implementation":
+            raise WorkflowError(
+                f"Staged domain candidate {component_id} has invalid maturity: "
+                f"{maturity}"
+            )
+        approved_reference = f"approved-domain-gap:{capability_id}"
+        if approved_reference not in evidence_references:
+            raise WorkflowError(
+                f"Staged domain candidate {component_id} lacks Architect-approved "
+                "domain-gap evidence"
+            )
+        planning_references = tuple(
+            value.removeprefix("planning-source-sha256:")
+            for value in evidence_references
+            if value.startswith("planning-source-sha256:")
+        )
+        if (
+            len(planning_references) != 1
+            or re.fullmatch(r"[0-9a-f]{64}", planning_references[0]) is None
+        ):
+            raise WorkflowError(
+                f"Staged domain candidate {component_id} lacks one valid "
+                "planning-source SHA-256 provenance reference"
+            )
+        source_sha = planning_references[0]
+        if not version.endswith("@" + source_sha[:12]):
+            raise WorkflowError(
+                f"Staged domain candidate {component_id} version is not bound "
+                "to its planning-source digest"
+            )
+        baseline_references = tuple(
+            value
+            for value in evidence_references
+            if value.startswith("proposed-baseline:")
+            and value.endswith("#" + capability_id)
+        )
+        if len(baseline_references) != 1:
+            raise WorkflowError(
+                f"Staged domain candidate {component_id} lacks one matching "
+                "proposed-baseline provenance reference"
+            )
+        proposal_source_paths = {
+            source.path for source in context.bundle.source_files
+        }
+        if (
+            source_path not in proposal_source_paths
+            and not (context.repo / source_path).is_file()
+        ):
+            raise WorkflowError(
+                f"Staged domain candidate source is absent from both the "
+                f"checksum-bound proposal and repository: {source_path}"
+            )
+        expected = version
+    else:
+        context.catalog.require((component_id,))
+        expected = context.catalog.versions_for((component_id,))[component_id]
+        if version != expected:
+            raise WorkflowError(
+                f"Candidate {component_id} version mismatch: expected {expected}"
+            )
+        if not (context.repo / source_path).is_file():
+            raise WorkflowError(f"Candidate source does not exist: {source_path}")
+
     return ComponentCandidate(
         str(item["candidate_id"]),
-        tuple(str(value) for value in item["capability_ids"]),
+        capability_ids,
         component_id,
         expected,
         source_path,
-        str(item["maturity"]),
+        maturity,
         dict(item["selection_factors"]),
-        tuple(str(value) for value in item["evidence_references"]),
+        evidence_references,
         str(item["rationale"]),
     )
 
 
 def selection_action(context: ExecutionContext) -> Mapping[str, Any]:
-    """Select only live versioned repository primitives for declared capabilities."""
+    """Select registered primitives and governed staged-domain candidates."""
 
     capabilities = tuple(
         RequiredCapability(str(item["capability_id"]), str(item["description"]), bool(item["required"]))
@@ -290,7 +362,7 @@ def gap_action(context: ExecutionContext) -> Mapping[str, Any]:
         "component_manifest": str(context.component_path),
         "new_primitive_required": False,
         "composition_can_close_gap": True,
-        "decision": "Reuse the selected repository primitives; no new low-level primitive is authorized.",
+        "decision": "Reuse selected registered primitives and governed checksum-bound staged-domain candidates; no new low-level primitive is authorized.",
         "approval": {"status": "review-required", "reviewed_by": None, "reviewed_at": None},
     }
     context.gap_path = write_state(context, "capability-gap-decision.json", payload)

@@ -131,10 +131,12 @@ def self_test() -> int:
             CommandRunner,
             CommandSpec,
             JsonlEventLogger,
+            PrimitiveCatalog,
             WorkflowCommandError,
             WorkflowError,
         )
         from workflows.request_execution import (  # noqa: PLC0415
+            candidate_from_mapping,
             capture_python_safety_baseline,
             load_state,
             safety_action,
@@ -169,6 +171,105 @@ def self_test() -> int:
 
         class FixtureContext:
             pass
+
+        candidate_context = FixtureContext()
+        candidate_context.repo = Path(__file__).resolve().parents[2]
+        candidate_context.bundle = bundle
+        candidate_context.catalog = PrimitiveCatalog.load(
+            candidate_context.repo / "sage-workflow-primitives.json"
+        )
+
+        registered = candidate_from_mapping(
+            candidate_context,
+            manifest["candidates"][0],
+        )
+        if registered.component_id != "validation.plan":
+            raise RuntimeError("registered primitive candidate binding changed")
+
+        unknown = dict(manifest["candidates"][0])
+        unknown["component_id"] = "fixture.unknown-primitive"
+        try:
+            candidate_from_mapping(candidate_context, unknown)
+        except WorkflowError as error:
+            if "Unknown workflow primitives" not in str(error):
+                raise RuntimeError(
+                    f"unexpected unknown-primitive rejection: {error}"
+                ) from error
+        else:
+            raise RuntimeError("unknown ordinary primitive unexpectedly passed")
+
+        planning_sha = digest(b"staged-domain-planning-source\\n")
+        staged_capabilities = (
+            "artifact.promote-without-rebuild",
+            "environment.binding",
+            "execution.qualified-executor",
+        )
+        for index, capability_id in enumerate(staged_capabilities, 1):
+            staged = {
+                "candidate_id": f"CAND-STAGED-{index:03d}",
+                "capability_ids": [capability_id],
+                "component_id": f"staged-domain-capability:{capability_id}",
+                "version": (
+                    "SAGE-WORKFLOW-CAPABILITY-BASELINE-FIXTURE@"
+                    + planning_sha[:12]
+                ),
+                "source_path": "fixture.txt",
+                "maturity": "staged-implementation",
+                "selection_factors": dict(
+                    manifest["candidates"][0]["selection_factors"]
+                ),
+                "evidence_references": [
+                    f"approved-domain-gap:{capability_id}",
+                    f"planning-source-sha256:{planning_sha}",
+                    (
+                        "proposed-baseline:markdown/standards/"
+                        "sage-capability-intelligence-workflow-capability-"
+                        f"baseline-v1.0.json#{capability_id}"
+                    ),
+                ],
+                "rationale": "Fixture staged-domain candidate.",
+            }
+            bound = candidate_from_mapping(candidate_context, staged)
+            if (
+                bound.component_id
+                != f"staged-domain-capability:{capability_id}"
+                or bound.version != staged["version"]
+            ):
+                raise RuntimeError(
+                    f"staged-domain candidate binding changed: {capability_id}"
+                )
+
+            malformed = dict(staged)
+            malformed["capability_ids"] = ["different.capability"]
+            try:
+                candidate_from_mapping(candidate_context, malformed)
+            except WorkflowError as error:
+                if "single declared capability" not in str(error):
+                    raise RuntimeError(
+                        f"unexpected staged identity rejection: {error}"
+                    ) from error
+            else:
+                raise RuntimeError(
+                    "mismatched staged-domain capability unexpectedly passed"
+                )
+
+            malformed = dict(staged)
+            malformed["evidence_references"] = [
+                item
+                for item in staged["evidence_references"]
+                if not item.startswith("approved-domain-gap:")
+            ]
+            try:
+                candidate_from_mapping(candidate_context, malformed)
+            except WorkflowError as error:
+                if "Architect-approved domain-gap evidence" not in str(error):
+                    raise RuntimeError(
+                        f"unexpected staged approval rejection: {error}"
+                    ) from error
+            else:
+                raise RuntimeError(
+                    "staged candidate without approval evidence unexpectedly passed"
+                )
 
         valid_context = FixtureContext()
         valid_context.repo = fixture_repo
@@ -505,6 +606,9 @@ def self_test() -> int:
     print("PASS Git SHA-1 and SHA-256 object-ID validation")
     print("PASS unsafe validation target rejection")
     print("PASS new-low-level-primitive fail-closed gate")
+    print("PASS registered and staged-domain candidate binding separation")
+    print("PASS all three Action-002 staged-domain capabilities bind without primitive registration")
+    print("PASS malformed staged-domain identities and approval evidence fail closed")
     print("PASS Python payload undefined-global rejection before repository write")
     print("PASS valid Python payload pre-write validation without repository mutation")
     print("PASS introduced Git and GitHub safety findings rejected before repository mutation")
