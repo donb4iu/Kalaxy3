@@ -422,6 +422,15 @@ def run_self_tests(
                 "evidence",
             },
         ),
+        "request-planning entrypoint path": (
+            ["scripts/sage/sage-request-plan.py"],
+            {
+                "workflow-primitives",
+                "repository-governance",
+                "evidence",
+                "continuous-improvement",
+            },
+        ),
     }
 
     for label, (paths, expected) in path_cases.items():

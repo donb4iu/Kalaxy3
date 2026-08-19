@@ -251,6 +251,36 @@ def validate_request_vocabulary_normalization_mutation(
     return failures
 
 
+def validate_request_planning_changed_path_mapping_mutation(
+    module: ModuleType,
+) -> list[str]:
+    """Prove request-planning changed-path ownership depends on its explicit mapping."""
+    payload = module.load_authority_map(
+        ROOT / "sage-change-authority.json"
+    )
+    candidate = copy.deepcopy(payload)
+    owners = [
+        item for item in candidate["contexts"]
+        if item.get("id") == "workflow-primitives"
+    ]
+    if len(owners) != 1:
+        return ["workflow-primitives context is not uniquely defined"]
+    prefixes = owners[0].get("path_prefixes", [])
+    target = "scripts/sage/sage-request-plan.py"
+    if target not in prefixes:
+        return ["request-planning entrypoint mapping is absent before mutation"]
+    owners[0]["path_prefixes"] = [
+        value for value in prefixes if value != target
+    ]
+    initial = module.infer_context_ids(candidate, "", [target])
+    always = set(candidate.get("always_contexts", []))
+    if "workflow-primitives" in initial:
+        return ["mutation-negative retained workflow-primitives after mapping removal"]
+    if initial != always:
+        return ["mutation-negative did not recreate always-context-only classification"]
+    return []
+
+
 def main() -> int:
     """Run the discovery-path guardrail."""
     try:
@@ -261,6 +291,11 @@ def main() -> int:
         failures.extend(run_negative_tests(module))
         failures.extend(
             validate_request_vocabulary_normalization_mutation(
+                module
+            )
+        )
+        failures.extend(
+            validate_request_planning_changed_path_mapping_mutation(
                 module
             )
         )
@@ -305,6 +340,7 @@ def main() -> int:
         "PASS authority-map mutation negative tests"
     )
     print("PASS request-vocabulary normalization mutation negatives")
+    print("PASS request-planning changed-path mapping mutation negative")
     print("Kalaxy3 SAGE discovery guardrail: PASS")
     return 0
 
