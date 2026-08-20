@@ -68,7 +68,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-semantic-bootstrap-self-test sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-domain-capability-gap-approval-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test sage-intent-to-outcome-self-test sage-e2e-zero-trust-runtime-self-test sage-stage-receipt-self-test
+sage-self-test: sage-semantic-bootstrap-self-test sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-domain-capability-gap-approval-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test sage-intent-to-outcome-self-test sage-e2e-zero-trust-runtime-self-test sage-stage-receipt-self-test sage-artifact-promotion-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 	python3 scripts/sage/sage-file-delivery-guardrail.py
@@ -123,7 +123,7 @@ sage-operating-contract-check: sage-operating-contract-self-test sage-operating-
 
 sage-stage-guardrails: sage-self-test sage-semantic-bootstrap-guardrail sage-discovery-guardrail sage-operating-contract-guardrail sage-capability-intelligence-guardrail sage-branch-lifecycle-self-test sage-branch-lifecycle-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
-                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail sage-checkpoint-promotion-guardrail sage-security-external-access-discovery-guardrail sage-legacy-evidence-projection-guardrail sage-intent-to-outcome-guardrail sage-e2e-zero-trust-source-guardrail sage-stage-contract-guardrail
+                 sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail sage-checkpoint-promotion-guardrail sage-security-external-access-discovery-guardrail sage-legacy-evidence-projection-guardrail sage-intent-to-outcome-guardrail sage-e2e-zero-trust-source-guardrail sage-stage-contract-guardrail sage-artifact-promotion-guardrail
 	@echo "Kalaxy3 portable stage source guardrails: PASS"
 
 sage-guardrails: sage-stage-guardrails sage-e2e-zero-trust-controller-guardrail sage-workflow-support-guardrail sage-workflow-guardrail sage-operating-contract-guardrail
@@ -654,3 +654,28 @@ sage-e2e-zero-trust-runtime-receipt:
 
 sage-e2e-zero-trust-runtime-self-test:
 	$(PYTHON) scripts/sage/sage-e2e-zero-trust-runtime-receipt.py --self-test
+
+# SAGE Action-002 immutable artifact promotion
+.PHONY: sage-artifact-promotion-self-test sage-artifact-promotion-guardrail sage-artifact-promotion-prepare sage-artifact-promotion-execute
+
+sage-artifact-promotion-self-test:
+	$(PYTHON) scripts/sage/sage-artifact-promote.py --self-test
+sage-artifact-promotion-guardrail:
+	$(PYTHON) scripts/sage/sage-artifact-promotion-guardrail.py
+sage-artifact-promotion-prepare:
+	@test -n "$${SAGE_STAGE_RECEIPT:-}" || { echo 'SAGE_STAGE_RECEIPT is required'; exit 2; }
+	@test -n "$${SAGE_STAGE_ARCHIVE:-}" || { echo 'SAGE_STAGE_ARCHIVE is required'; exit 2; }
+	@test -n "$${SAGE_PROMOTION_ENVIRONMENT:-}" || { echo 'SAGE_PROMOTION_ENVIRONMENT is required'; exit 2; }
+	@test -n "$${SAGE_PROMOTION_EVENT_LOG:-}" || { echo 'SAGE_PROMOTION_EVENT_LOG is required'; exit 2; }
+	@test -n "$${SAGE_EXECUTOR_ID:-}" || { echo 'SAGE_EXECUTOR_ID is required'; exit 2; }
+	@test -n "$${SAGE_WORKFLOW_ENGINE:-}" || { echo 'SAGE_WORKFLOW_ENGINE is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-artifact-promote.py prepare --stage-receipt "$$SAGE_STAGE_RECEIPT" --oci-archive "$$SAGE_STAGE_ARCHIVE" --environment "$$SAGE_PROMOTION_ENVIRONMENT" --event-log "$$SAGE_PROMOTION_EVENT_LOG" --executor-id "$$SAGE_EXECUTOR_ID" --workflow-engine "$$SAGE_WORKFLOW_ENGINE"
+sage-artifact-promotion-execute:
+	@test -n "$${SAGE_STAGE_RECEIPT:-}" || { echo 'SAGE_STAGE_RECEIPT is required'; exit 2; }
+	@test -n "$${SAGE_STAGE_ARCHIVE:-}" || { echo 'SAGE_STAGE_ARCHIVE is required'; exit 2; }
+	@test -n "$${SAGE_PROMOTION_ENVIRONMENT:-}" || { echo 'SAGE_PROMOTION_ENVIRONMENT is required'; exit 2; }
+	@test -n "$${SAGE_PROMOTION_EVENT_LOG:-}" || { echo 'SAGE_PROMOTION_EVENT_LOG is required'; exit 2; }
+	@test -n "$${SAGE_PROMOTION_RECEIPT:-}" || { echo 'SAGE_PROMOTION_RECEIPT is required'; exit 2; }
+	@test -n "$${SAGE_EXECUTOR_ID:-}" || { echo 'SAGE_EXECUTOR_ID is required'; exit 2; }
+	@test -n "$${SAGE_WORKFLOW_ENGINE:-}" || { echo 'SAGE_WORKFLOW_ENGINE is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-artifact-promote.py execute --stage-receipt "$$SAGE_STAGE_RECEIPT" --oci-archive "$$SAGE_STAGE_ARCHIVE" --environment "$$SAGE_PROMOTION_ENVIRONMENT" --event-log "$$SAGE_PROMOTION_EVENT_LOG" --output "$$SAGE_PROMOTION_RECEIPT" --executor-id "$$SAGE_EXECUTOR_ID" --workflow-engine "$$SAGE_WORKFLOW_ENGINE"

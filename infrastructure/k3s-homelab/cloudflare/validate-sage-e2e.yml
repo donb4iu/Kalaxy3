@@ -4,6 +4,32 @@
   gather_facts: false
   become: true
 
+  pre_tasks:
+    - name: Read controller-local immutable artifact promotion receipt
+      ansible.builtin.slurp:
+        src: "{{ sage_promotion_receipt_file }}"
+      delegate_to: localhost
+      become: false
+      vars:
+        ansible_become: false
+      register: sage_promotion_receipt_source
+      changed_when: false
+
+    - name: Parse expected promoted image identity
+      ansible.builtin.set_fact:
+        sage_expected_promotion_receipt: >-
+          {{ sage_promotion_receipt_source.content | b64decode | from_json }}
+        sage_expected_image_ref: >-
+          {{ (sage_promotion_receipt_source.content | b64decode | from_json).target.image_ref }}
+
+    - name: Require exact promotion evidence for runtime validation
+      ansible.builtin.assert:
+        that:
+          - sage_expected_promotion_receipt.record_type == 'sage-artifact-promotion-receipt'
+          - sage_expected_promotion_receipt.status == 'pass'
+          - sage_expected_promotion_receipt.environment.environment_id == 'kalaxy3-home-sage-experience'
+          - sage_expected_image_ref is match('^docker\.io/donb4iu/mynginx_docs@sha256:[0-9a-f]{64}$')
+
   tasks:
     - name: Read SAGE experience deployment
       ansible.builtin.command:
@@ -88,6 +114,12 @@
         cloudflared_pods_object: "{{ cloudflared_pods.stdout | from_json }}"
         sage_ingress_object: "{{ sage_experience_ingress.stdout | from_json }}"
         cloudflared_monitor_object: "{{ cloudflared_monitor.stdout | from_json }}"
+
+    - name: Require deployed SAGE experience to use the exact promoted image digest
+      ansible.builtin.assert:
+        that:
+          - sage_experience_object.spec.template.spec.containers[0].image == sage_expected_image_ref
+        fail_msg: "Live SAGE experience image does not match the verified promotion receipt."
 
     - name: Require two ready SAGE experience replicas
       ansible.builtin.assert:

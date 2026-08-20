@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "record_type": "sage-promotion-environment-manifest",
+  "environment_id": "kalaxy3-home-sage-experience",
+  "artifact_target": {
+    "transport": "docker",
+    "repository": "docker.io/donb4iu/mynginx_docs",
+    "publication_tag_prefix": "sage-promoted-"
+  },
+  "deployment_binding": {
+    "kind": "ansible-kubernetes-image",
+    "playbook": "infrastructure/k3s-homelab/cloudflare/deploy-sage-e2e.yml",
+    "receipt_variable": "sage_promotion_receipt_file",
+    "namespace": "documentation",
+    "workload": "sage-experience",
+    "container": "nginx"
+  },
+  "executor_contract": {
+    "required_tool": "skopeo",
+    "required_capabilities": [
+      "oci-archive-source",
+      "copy-all",
+      "preserve-digests",
+      "raw-inspect"
+    ],
+    "identity_is_provenance_only": true
+  },
+  "authority": {
+    "registry_credentials": "executor-runtime-only",
+    "secrets_in_manifest": false,
+    "secrets_in_command_arguments": false
+  }
+}

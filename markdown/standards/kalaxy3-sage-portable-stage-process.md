@@ -67,3 +67,7 @@ This first slice does not close all of SAGE-ACTION-20260815-002. The following r
 - reconcile a separately completed promotion child into parent intent state without historical rewriting;
 - codify constraint-aware governed phasing as a reusable lifecycle contract;
 - expose the PR #21 lineage, decision, prevented defect, stage evidence, learning, and delivered value in the external SAGE thin-slice experience.
+
+## Subsequent artifact-promotion clarification
+
+The follow-on immutable-artifact-promotion slice preserves this first-slice history but refines the target boundary. The inherited `doc` job is historical documentation-publication plumbing rather than the desired SAGE application promotion architecture. The `mynginx_docs`/Nginx runtime pattern itself remains fit for purpose. Current SAGE promotion therefore consumes the proven portable-stage artifact, publishes the exact OCI content by digest, and binds that digest into the existing Ansible/Kubernetes SAGE experience path. See `kalaxy3-sage-artifact-promotion-process.md`.
