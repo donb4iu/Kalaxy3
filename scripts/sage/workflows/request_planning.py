@@ -6,7 +6,6 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import shlex
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime
@@ -32,11 +31,12 @@ from workflow import (
     Step,
     Workflow,
     WorkflowError,
+    render_operator_command,
 )
 from workflows.request_execution import PRIMITIVES_USED as EXECUTION_PRIMITIVES
 
 WORKFLOW_ID = "sage.request-planning"
-WORKFLOW_VERSION = "1.3.1"
+WORKFLOW_VERSION = "1.3.2"
 SECRET_ENVIRONMENT_NAMES = (
     "GH_TOKEN",
     "GITHUB_TOKEN",
@@ -790,16 +790,24 @@ def domain_gap_actionable_failure(
 
     recovery_steps: list[RecoveryStep] = []
     if candidate_contribution is not None:
-        approval = (
-            'test -n "$SAGE_ARCHITECT_RATIONALE" && '
-            "python3 scripts/sage/sage-domain-capability-gap-approve.py "
-            f"--gap-set {shlex.quote(str(gap_set_path))} "
-            "--actor architect "
-            '--rationale "$SAGE_ARCHITECT_RATIONALE" '
-            f"--candidate-contribution {shlex.quote(str(candidate_contribution))} "
-            f"--output {shlex.quote(str(approved_gap_set))}"
-        )
-        retry = shlex.join(
+        approval = render_operator_command(
+            (
+                "sh",
+                "-c",
+                (
+                    'test -n "$SAGE_ARCHITECT_RATIONALE" && '
+                    'exec python3 "$1" --gap-set "$2" --actor architect '
+                    '--rationale "$SAGE_ARCHITECT_RATIONALE" '
+                    '--candidate-contribution "$3" --output "$4"'
+                ),
+                "sage-domain-capability-gap-approve",
+                "scripts/sage/sage-domain-capability-gap-approve.py",
+                str(gap_set_path),
+                str(candidate_contribution),
+                str(approved_gap_set),
+            )
+        )["display"]
+        retry = render_operator_command(
             (
                 "env",
                 f"SAGE_REQUEST={request}",
@@ -808,7 +816,7 @@ def domain_gap_actionable_failure(
                 "make",
                 "sage-request-plan",
             )
-        )
+        )["display"]
         recovery_steps.extend(
             (
                 RecoveryStep(
