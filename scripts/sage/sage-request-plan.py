@@ -20,6 +20,7 @@ from sage_actionable_failure import (
 from request_planning import PlanningSourceBundle, derive_applicable_contexts, load_source_bundle, reconcile_semantic_contexts, resolve_planning_authority, write_proposal_package, write_source_package
 from workflow import PrimitiveCatalog, WorkflowError
 from workflows.request_planning import (
+    _candidate_contribution_from_source,
     _approved_domain_gap_capabilities,
     derive_component_plan,
     plan_request,
@@ -154,6 +155,61 @@ def self_test(repo: Path) -> int:
         source = temp_root / "source.zip"
         payload = b"fixture\n"
         from request_execution import ProposedFile, sha256_bytes
+        local_payload = b"implementation-local fixture\n"
+        local_relative = "implementation-local-fixture.txt"
+        local_contribution = temp_root / "implementation-local-contribution.zip"
+        local_manifest = {
+            "schema_version": "1.0",
+            "contribution_id": "SAGE-SELFTEST-IMPLEMENTATION-LOCAL-PROVENANCE",
+            "contributor": {"participant_class": "llm", "identity": "request-planning-self-test"},
+            "summary": "Exercise implementation-local candidate provenance.",
+            "rationale": "Verify candidate/source binding without rewriting confirmed semantics.",
+            "assumptions": ["Fixture only."],
+            "alternatives": ["No-op fixture rejected."],
+            "files": [{"path": local_relative, "mode": "0644"}],
+        }
+        with zipfile.ZipFile(local_contribution, "w", zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("engineering-contribution.json", json.dumps(local_manifest, indent=2) + "\n")
+            archive.writestr("payload/" + local_relative, local_payload)
+        local_sha = sha256_bytes(local_contribution.read_bytes())
+        local_file = ProposedFile(local_relative, sha256_bytes(local_payload), 0o644, local_payload)
+        local_bundle = PlanningSourceBundle(
+            temp_root / "implementation-local-source.zip",
+            {"evidence_references": [
+                "implementation-local-contribution-sha256:" + local_sha,
+                "implementation-local-contribution-package:" + str(local_contribution),
+            ]},
+            (local_file,),
+            (),
+        )
+        resolved_local, local_issue = _candidate_contribution_from_source(local_bundle)
+        if resolved_local != local_contribution.resolve() or local_issue:
+            raise RuntimeError(f"implementation-local candidate did not resolve: {resolved_local}, {local_issue}")
+        incomplete_bundle = PlanningSourceBundle(
+            temp_root / "implementation-local-source-incomplete.zip",
+            {"evidence_references": ["implementation-local-contribution-sha256:" + local_sha]},
+            (local_file,),
+            (),
+        )
+        incomplete_candidate, incomplete_issue = _candidate_contribution_from_source(incomplete_bundle)
+        if incomplete_candidate is not None or "bind both" not in incomplete_issue:
+            raise RuntimeError("incomplete implementation-local provenance did not fail closed")
+        substituted_payload = b"substituted payload\n"
+        substituted_file = ProposedFile(
+            local_relative,
+            sha256_bytes(substituted_payload),
+            0o644,
+            substituted_payload,
+        )
+        substituted_bundle = PlanningSourceBundle(
+            temp_root / "implementation-local-source-substituted.zip",
+            dict(local_bundle.manifest),
+            (substituted_file,),
+            (),
+        )
+        substituted_candidate, substituted_issue = _candidate_contribution_from_source(substituted_bundle)
+        if substituted_candidate is not None or "do not exactly match" not in substituted_issue:
+            raise RuntimeError("payload-substituted implementation-local provenance did not fail closed")
         bundle = write_source_package(
             source,
             semantic_request,
@@ -559,6 +615,8 @@ def self_test(repo: Path) -> int:
     print("PASS repository-proven domain capabilities are selected from the governed workflow baseline")
     print("PASS Architect-approved required gaps may select only the exact bound staged implementation candidate without claiming pre-validation success")
     print("PASS planner rejects candidate-substituted and non-Architect domain capability approval evidence")
+    print("PASS implementation-local planning sources resolve the exact current candidate without rewriting confirmed semantic authority")
+    print("PASS incomplete and payload-substituted implementation-local candidate provenance fails closed")
     print("PASS repository-owned source package to existing proposal interface")
     print("PASS semantic applicability remains distinct from source-mutation authority")
     print("PASS request-relevant contexts are preserved without leaking unrelated mutation authority")

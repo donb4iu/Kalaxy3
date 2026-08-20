@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from sage_actionable_failure import ActionableFailure, RecoveryStep
+from request_execution import ProposalError
+from semantic_understanding import load_engineering_contribution
 from request_planning import PlanningSourceBundle, load_source_bundle, resolve_planning_authority, write_proposal_package
 from request_execution import load_proposal
 from workflow import (
@@ -36,7 +38,7 @@ from workflow import (
 from workflows.request_execution import PRIMITIVES_USED as EXECUTION_PRIMITIVES
 
 WORKFLOW_ID = "sage.request-planning"
-WORKFLOW_VERSION = "1.3.2"
+WORKFLOW_VERSION = "1.3.3"
 SECRET_ENVIRONMENT_NAMES = (
     "GH_TOKEN",
     "GITHUB_TOKEN",
@@ -725,10 +727,86 @@ class RequestPlanningActionableFailure(WorkflowError):
         super().__init__(failure.why_invalid)
 
 
+IMPLEMENTATION_LOCAL_CONTRIBUTION_SHA256_PREFIX = "implementation-local-contribution-sha256:"
+IMPLEMENTATION_LOCAL_CONTRIBUTION_PACKAGE_PREFIX = "implementation-local-contribution-package:"
+
+
+def _unique_evidence_value(
+    evidence: tuple[str, ...],
+    prefix: str,
+    label: str,
+) -> tuple[str | None, str]:
+    values = tuple(item[len(prefix):] for item in evidence if item.startswith(prefix))
+    if not values:
+        return None, ""
+    if len(values) != 1 or not values[0]:
+        return None, f"planning source carries ambiguous {label} provenance"
+    return values[0], ""
+
+
+def _implementation_local_candidate_from_source(
+    source: PlanningSourceBundle,
+) -> tuple[Path | None, str, bool]:
+    evidence = tuple(str(item) for item in source.manifest.get("evidence_references", []))
+    raw_sha, sha_issue = _unique_evidence_value(
+        evidence,
+        IMPLEMENTATION_LOCAL_CONTRIBUTION_SHA256_PREFIX,
+        "implementation-local contribution digest",
+    )
+    raw_package, package_issue = _unique_evidence_value(
+        evidence,
+        IMPLEMENTATION_LOCAL_CONTRIBUTION_PACKAGE_PREFIX,
+        "implementation-local contribution package",
+    )
+    claimed = raw_sha is not None or raw_package is not None or bool(sha_issue or package_issue)
+    if not claimed:
+        return None, "", False
+    if sha_issue:
+        return None, sha_issue, True
+    if package_issue:
+        return None, package_issue, True
+    if raw_sha is None or raw_package is None:
+        return None, (
+            "implementation-local planning source must bind both contribution package "
+            "and SHA-256 provenance"
+        ), True
+    if re.fullmatch(r"[0-9a-f]{64}", raw_sha) is None:
+        return None, "implementation-local contribution SHA-256 is invalid", True
+    candidate = Path(raw_package).expanduser().resolve()
+    if not candidate.is_file():
+        return None, f"implementation-local staged contribution is missing: {candidate}", True
+    observed_sha = hashlib.sha256(candidate.read_bytes()).hexdigest()
+    if observed_sha != raw_sha:
+        return None, (
+            "implementation-local staged contribution checksum mismatch: "
+            f"expected={raw_sha}, observed={observed_sha}"
+        ), True
+    try:
+        staged = load_engineering_contribution(candidate)
+    except ProposalError as error:
+        return None, f"implementation-local staged contribution is invalid: {error}", True
+    source_signature = tuple((item.path, item.sha256, item.mode) for item in source.source_files)
+    staged_signature = tuple((item.path, item.sha256, item.mode) for item in staged.source_files)
+    if source_signature != staged_signature:
+        return None, (
+            "implementation-local planning source payloads do not exactly match "
+            "the bound staged engineering contribution"
+        ), True
+    return candidate, "", True
+
+
 def _candidate_contribution_from_source(
     source: PlanningSourceBundle,
 ) -> tuple[Path | None, str]:
-    # Recover exact staged-contribution provenance from confirmed semantic source.
+    # Prefer the exact implementation-local candidate while preserving immutable
+    # Architect-confirmed semantic artifacts as semantic authority only.
+    implementation_local, implementation_issue, implementation_claimed = (
+        _implementation_local_candidate_from_source(source)
+    )
+    if implementation_claimed:
+        return implementation_local, implementation_issue
+
+    # Initial/historical semantic-bound sources retain original candidate provenance.
     try:
         with zipfile.ZipFile(source.package_path) as archive:
             understanding = json.loads(

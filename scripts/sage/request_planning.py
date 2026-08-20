@@ -656,6 +656,7 @@ def reuse_confirmed_source_package(
     repository: Mapping[str, Any],
     source_files: tuple[ProposedFile, ...],
     evidence_reference: str,
+    additional_evidence_references: tuple[str, ...] = (),
 ) -> PlanningSourceBundle:
     """Rebind changed bytes to unchanged confirmed semantics without rediscovery."""
 
@@ -697,8 +698,19 @@ def reuse_confirmed_source_package(
         {"path": item.path, "sha256": item.sha256, "mode": f"{item.mode:04o}"}
         for item in source_files
     ]
+    if not isinstance(evidence_reference, str) or not evidence_reference:
+        raise ProposalError("implementation-local evidence reference must be a non-empty string")
+    additional = tuple(dict.fromkeys(str(item) for item in additional_evidence_references))
+    if any(not item for item in additional):
+        raise ProposalError("additional implementation-local evidence references must be non-empty strings")
     manifest_input["evidence_references"] = list(
-        dict.fromkeys([*prior.manifest["evidence_references"], evidence_reference])
+        dict.fromkeys(
+            [
+                *prior.manifest["evidence_references"],
+                evidence_reference,
+                *additional,
+            ]
+        )
     )
     manifest = _validate_manifest(manifest_input, request)
     destination = path.expanduser().resolve()

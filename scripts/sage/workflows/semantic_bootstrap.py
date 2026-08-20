@@ -28,7 +28,7 @@ from workflow import (
 )
 
 WORKFLOW_ID = "sage.semantic-bootstrap"
-WORKFLOW_VERSION = "0.4.2"
+WORKFLOW_VERSION = "0.4.3"
 PRIMITIVES_USED = (
     "catalog.registry",
     "logging.events",
@@ -803,6 +803,9 @@ def reuse_confirmed_intent(
         repository={"branch": branch, "head": head},
         source_files=contribution.source_files,
         evidence_reference=f"implementation-local-contribution-sha256:{contribution.package_sha256}",
+        additional_evidence_references=(
+            f"implementation-local-contribution-package:{contribution.package_path}",
+        ),
     )
     return {
         "status": "planning-source-ready",
