@@ -58,8 +58,20 @@ def self_test(repo: Path) -> int:
             "schema_version":"1.0","record_type":"sage-promotion-environment-manifest","environment_id":"fixture",
             "artifact_target":{"transport":"docker","repository":"registry.example/fixture/image","publication_tag_prefix":"promoted-"},
             "deployment_binding":{"kind":"ansible-kubernetes-image","playbook":"fixture.yml","receipt_variable":"sage_promotion_receipt_file","namespace":"documentation","workload":"fixture","container":"nginx"},
-            "executor_contract":{"required_tool":"skopeo","required_capabilities":["oci-archive-source","copy-all","preserve-digests","raw-inspect"],"identity_is_provenance_only":True},
+            "executor_contract":{"required_capabilities":["oci-archive-source","copy-all","preserve-digests","raw-inspect"],"identity_is_provenance_only":True},
             "authority":{"registry_credentials":"executor-runtime-only","secrets_in_manifest":False,"secrets_in_command_arguments":False}}, indent=2)+"\n")
+        validate_promotion_inputs(stage_receipt, archive, environment)
+        tool_pinned = json.loads(environment.read_text())
+        tool_pinned["executor_contract"]["required_tool"] = "skopeo"
+        environment.write_text(json.dumps(tool_pinned))
+        try:
+            validate_promotion_inputs(stage_receipt, archive, environment)
+        except WorkflowError:
+            pass
+        else:
+            raise RuntimeError("environment semantics incorrectly accepted a pinned adapter tool")
+        tool_pinned["executor_contract"].pop("required_tool")
+        environment.write_text(json.dumps(tool_pinned))
         validate_promotion_inputs(stage_receipt, archive, environment)
         fake = temp / "bin" / "skopeo"; fake.parent.mkdir()
         fake.write_text("""#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 'skopeo version fixture'; exit 0; fi\nif [ \"$1\" = \"copy\" ] && [ \"$2\" = \"--help\" ]; then echo '--all --preserve-digests --digestfile'; exit 0; fi\nif [ \"$1\" = \"inspect\" ] && [ \"$2\" = \"--help\" ]; then echo '--raw'; exit 0; fi\nif [ \"$1\" = \"copy\" ]; then while [ $# -gt 0 ]; do if [ \"$1\" = \"--digestfile\" ]; then shift; printf '%s\\n' \"$FAKE_DIGEST\" > \"$1\"; fi; shift; done; exit 0; fi\nif [ \"$1\" = \"inspect\" ] && [ \"$2\" = \"--raw\" ]; then cat \"$FAKE_RAW\"; exit 0; fi\nexit 2\n""")
@@ -89,7 +101,8 @@ def self_test(repo: Path) -> int:
         else:
             raise RuntimeError("environment manifest permitting secret coupling was accepted")
     print("PASS retrieved OCI archive is bound to the exact portable-stage receipt")
-    print("PASS executor qualification is capability-based and identity remains provenance only")
+    print("PASS environment semantics declare capabilities without pinning an adapter tool")
+    print("PASS executor qualification is capability-based and adapter identity remains provenance only")
     print("PASS promotion copies all manifests with digest preservation and independently verifies target raw digest")
     print("PASS promotion receipt binds deployment image by immutable digest and records rebuild_performed=false")
     print("Kalaxy3 SAGE artifact promotion self-test: PASS")

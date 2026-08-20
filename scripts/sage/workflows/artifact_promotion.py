@@ -83,8 +83,13 @@ def validate_environment_manifest(path: Path) -> Mapping[str, Any]:
         raise WorkflowError("promotion environment transport must be docker")
     if binding.get("kind") != "ansible-kubernetes-image" or binding.get("receipt_variable") != "sage_promotion_receipt_file":
         raise WorkflowError("deployment binding contract is unsupported")
+    expected_executor_fields = {"required_capabilities", "identity_is_provenance_only"}
+    if set(executor) != expected_executor_fields:
+        raise WorkflowError(
+            "executor contract must declare required capabilities and provenance semantics only"
+        )
     required_capabilities = set(executor.get("required_capabilities", []))
-    if executor.get("required_tool") != "skopeo" or required_capabilities != {"oci-archive-source", "copy-all", "preserve-digests", "raw-inspect"}:
+    if required_capabilities != {"oci-archive-source", "copy-all", "preserve-digests", "raw-inspect"}:
         raise WorkflowError("executor contract does not require the exact promotion capabilities")
     if executor.get("identity_is_provenance_only") is not True:
         raise WorkflowError("executor identity must be provenance only")
@@ -129,29 +134,49 @@ def build_runner(repo: Path, event_log: Path) -> tuple[CommandRunner, PrimitiveC
     return runner, catalog
 
 
-def qualify_executor(runner: CommandRunner, repo: Path) -> dict[str, Any]:
-    version = runner.run(CommandSpec("command.run", "Qualify OCI promotion tool version", ("skopeo", "--version"), repo))
-    if "skopeo" not in version.stdout.lower():
-        raise WorkflowError("qualified executor did not identify skopeo")
-    copy_help = runner.run(CommandSpec("command.run", "Qualify OCI copy capabilities", ("skopeo", "copy", "--help"), repo))
+def qualify_executor(
+    runner: CommandRunner,
+    repo: Path,
+    required_capabilities: set[str],
+) -> dict[str, Any]:
+    # Skopeo is the first implemented adapter, selected by implementation rather than environment semantics.
+    tool = "skopeo"
+    version = runner.run(
+        CommandSpec("command.run", "Qualify OCI promotion adapter version", (tool, "--version"), repo)
+    )
+    if tool not in version.stdout.lower():
+        raise WorkflowError("selected OCI promotion adapter did not identify itself")
+    copy_help = runner.run(
+        CommandSpec("command.run", "Qualify OCI copy capabilities", (tool, "copy", "--help"), repo)
+    )
     for marker in ("--all", "--preserve-digests"):
         if marker not in copy_help.stdout + copy_help.stderr:
-            raise WorkflowError(f"qualified executor lacks required skopeo copy capability: {marker}")
-    inspect_help = runner.run(CommandSpec("command.run", "Qualify raw target inspection", ("skopeo", "inspect", "--help"), repo))
+            raise WorkflowError(f"selected OCI promotion adapter lacks copy capability: {marker}")
+    inspect_help = runner.run(
+        CommandSpec("command.run", "Qualify raw target inspection", (tool, "inspect", "--help"), repo)
+    )
     if "--raw" not in inspect_help.stdout + inspect_help.stderr:
-        raise WorkflowError("qualified executor lacks skopeo raw-manifest inspection")
+        raise WorkflowError("selected OCI promotion adapter lacks raw-manifest inspection")
+    capabilities = ["oci-archive-source", "copy-all", "preserve-digests", "raw-inspect"]
+    if set(capabilities) != required_capabilities:
+        raise WorkflowError("selected OCI promotion adapter does not satisfy required capabilities")
     return {
-        "tool": "skopeo",
+        "tool": tool,
         "version": version.stdout.strip(),
         "version_output_sha256": hashlib.sha256(version.stdout.encode("utf-8")).hexdigest(),
-        "capabilities": ["oci-archive-source", "copy-all", "preserve-digests", "raw-inspect"],
+        "capabilities": capabilities,
     }
 
 
 def prepare_promotion(*, repo: Path, stage_receipt: Path, archive: Path, environment: Path, event_log: Path, executor_id: str, workflow_engine: str) -> dict[str, Any]:
     inputs = validate_promotion_inputs(stage_receipt, archive, environment)
     runner, _ = build_runner(repo, event_log)
-    qualification = qualify_executor(runner, repo.expanduser().resolve())
+    required_capabilities = set(inputs["environment"]["executor_contract"]["required_capabilities"])
+    qualification = qualify_executor(
+        runner,
+        repo.expanduser().resolve(),
+        required_capabilities,
+    )
     return {
         "schema_version": "1.0",
         "record_type": "sage-artifact-promotion-plan",
@@ -172,13 +197,19 @@ def prepare_promotion(*, repo: Path, stage_receipt: Path, archive: Path, environ
 def execute_promotion(*, repo: Path, stage_receipt: Path, archive: Path, environment: Path, event_log: Path, output: Path, executor_id: str, workflow_engine: str) -> dict[str, Any]:
     inputs = validate_promotion_inputs(stage_receipt, archive, environment)
     runner, _ = build_runner(repo, event_log)
-    qualification = qualify_executor(runner, repo.expanduser().resolve())
+    required_capabilities = set(inputs["environment"]["executor_contract"]["required_capabilities"])
+    qualification = qualify_executor(
+        runner,
+        repo.expanduser().resolve(),
+        required_capabilities,
+    )
+    tool = str(qualification["tool"])
     state_dir = output.expanduser().resolve().parent
     state_dir.mkdir(parents=True, exist_ok=True)
     digest_file = state_dir / ".promotion-copy-digest.txt"
     digest_file.unlink(missing_ok=True)
     copy_argv = (
-        "skopeo", "copy", "--all", "--preserve-digests", "--digestfile", str(digest_file),
+        tool, "copy", "--all", "--preserve-digests", "--digestfile", str(digest_file),
         inputs["source_transport_reference"], inputs["target_transport_reference"],
     )
     runner.run(CommandSpec("command.run", "Promote exact OCI content without rebuild", copy_argv, repo.expanduser().resolve(), timeout_seconds=1800.0))
@@ -188,7 +219,7 @@ def execute_promotion(*, repo: Path, stage_receipt: Path, archive: Path, environ
     expected_digest = str(inputs["archive_identity"]["index_digest"])
     if copied_digest != expected_digest:
         raise WorkflowError("OCI copy destination digest differs from the proven stage digest")
-    raw = runner.run(CommandSpec("command.run", "Independently inspect promoted OCI index", ("skopeo", "inspect", "--raw", inputs["target_transport_reference"]), repo.expanduser().resolve()))
+    raw = runner.run(CommandSpec("command.run", "Independently inspect promoted OCI index", (tool, "inspect", "--raw", inputs["target_transport_reference"]), repo.expanduser().resolve()))
     raw_bytes = raw.stdout.encode("utf-8")
     observed_digest = "sha256:" + hashlib.sha256(raw_bytes).hexdigest()
     if observed_digest != expected_digest:
@@ -219,7 +250,7 @@ def execute_promotion(*, repo: Path, stage_receipt: Path, archive: Path, environ
         "executor": {
             "workflow_engine": workflow_engine, "executor_id": executor_id,
             "os": platform.system().lower() or "unknown", "architecture": platform.machine().lower() or "unknown",
-            "tool": {"name": "skopeo", "version": qualification["version"], "version_output_sha256": qualification["version_output_sha256"]},
+            "tool": {"name": qualification["tool"], "version": qualification["version"], "version_output_sha256": qualification["version_output_sha256"]},
             "identity_is_provenance_only": True,
         },
         "evidence": {"event_log_sha256": sha256_file(event_log.expanduser().resolve())},

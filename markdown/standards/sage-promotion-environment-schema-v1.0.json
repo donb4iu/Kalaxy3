@@ -86,14 +86,10 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "required_tool",
         "required_capabilities",
         "identity_is_provenance_only"
       ],
       "properties": {
-        "required_tool": {
-          "const": "skopeo"
-        },
         "required_capabilities": {
           "type": "array",
           "minItems": 4,

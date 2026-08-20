@@ -16,7 +16,6 @@
     "container": "nginx"
   },
   "executor_contract": {
-    "required_tool": "skopeo",
     "required_capabilities": [
       "oci-archive-source",
       "copy-all",
