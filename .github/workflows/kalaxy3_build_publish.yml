@@ -209,7 +209,6 @@ jobs:
     env:
       PROMOTION_SOURCE_SHA: ${{ inputs.promotion_source_sha }}
       PROMOTION_STAGE_RUN_ID: ${{ inputs.promotion_stage_run_id }}
-      PROMOTION_ROOT: ${{ runner.temp }}/sage-artifact-promotion
       SAGE_PROMOTION_ENVIRONMENT: ${{ github.workspace }}/infrastructure/k3s-homelab/cloudflare/sage-experience-promotion-environment.json
 
     steps:
@@ -291,6 +290,7 @@ jobs:
 
     - name: Prepare immutable promotion before registry credentials are exposed
       env:
+        PROMOTION_ROOT: ${{ runner.temp }}/sage-artifact-promotion
         SAGE_STAGE_RECEIPT: ${{ runner.temp }}/sage-stage-receipt/sage-stage-receipt.json
         SAGE_STAGE_ARCHIVE: ${{ runner.temp }}/sage-stage-oci/sage-stage.oci.tar
         SAGE_PROMOTION_EVENT_LOG: ${{ runner.temp }}/sage-artifact-promotion/promotion-events.jsonl

@@ -93,6 +93,22 @@ def main() -> int:
         and promotion_region.count("docker/login-action@v3") == 1,
         "Docker Hub authority is not isolated to the immutable-promotion job",
     )
+    promotion_job_env = promotion_region.split("    env:", 1)[1].split("\n    steps:", 1)[0]
+    require(
+        "${{ runner." not in promotion_job_env,
+        "promotion job-level env uses runner context before GitHub assigns a runner",
+    )
+    prepare_step = promotion_region.split(
+        "    - name: Prepare immutable promotion before registry credentials are exposed",
+        1,
+    )[1].split(
+        "    - name: Login to Docker Hub at the approved publication boundary",
+        1,
+    )[0]
+    require(
+        "PROMOTION_ROOT: ${{ runner.temp }}/sage-artifact-promotion" in prepare_step,
+        "promotion temporary root is not bound at runner-available step scope",
+    )
     prepare_index = ci_workflow.index("make sage-artifact-promotion-prepare")
     login_index = ci_workflow.index("docker/login-action@v3")
     execute_index = ci_workflow.index("make sage-artifact-promotion-execute")
