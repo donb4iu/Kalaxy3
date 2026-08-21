@@ -163,7 +163,8 @@
           ],
           "properties": {
             "name": {
-              "const": "skopeo"
+              "type": "string",
+              "minLength": 1
             },
             "version_output_sha256": {
               "type": "string",

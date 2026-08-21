@@ -22,6 +22,8 @@ A feature-branch `push` is intentionally used for the authoritative source-stage
 
 The source branch and its generated candidate are not permitted to receive production or external-registry credentials merely to create stage evidence. The first stage implementation exports the multi-architecture result locally as an OCI image-layout tar and persists it through an immutable GitHub Actions artifact. The job has read-only repository permission and no Docker Hub login or other external registry credential. This keeps artifact construction separate from later publication/promotion authority.
 
+The later publication boundary must evaluate predecessor workflow lineage before introducing credentials. In the current repository, the historical main-branch Docker publication job already establishes Docker Hub authority through GitHub-managed `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets. The Action-002 promotion composition therefore reuses that existing GitHub secret boundary in an explicitly dispatched promotion job instead of creating an operator-local login or another token. HashiCorp Vault remains the governed credential source when the same promotion contract is executed outside GitHub Actions.
+
 GitHub Actions artifact retention is finite. Therefore a stage artifact is eligible for later promotion only while the immutable stored artifact and its bound receipt remain available and verify successfully. Expiration or loss is not permission to rebuild during promotion; it invalidates that stage artifact and requires governed re-entry to stage.
 
 ## Promotion convergence
