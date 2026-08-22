@@ -914,6 +914,7 @@
         "capability-gap receipt",
         "authority reconciliation",
         "failure diagnosis",
+        "fail-closed recovery",
         "what should have been done",
         "operator-executed",
         "git mutation gate",
