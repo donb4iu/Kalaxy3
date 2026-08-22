@@ -1417,7 +1417,7 @@
                     "sha256": "e900cb4a0dbb9589313b7d5940b3f1f0b1abac73d0f945226fbdf7c75200ed8c"
                 }
             ],
-            "current_status": "accepted",
+            "current_status": "implemented",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -1472,6 +1472,19 @@
                     "reason": "Architect accepts the registered self-directing recovery capability after its capability-gap source, acceptance criteria, measurement plan, one-path registration commit, remote synchronization, and routine Git lifecycle closeout were verified.",
                     "evidence_references": [
                         "commit:ffcf6f992bdf111f57e2f2cbacd5fd83f09c3cbf"
+                    ]
+                },
+                {
+                    "sequence": 3,
+                    "from_status": "accepted",
+                    "to_status": "implemented",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-22T05:19:53-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The governed 15-path self-directing recovery implementation is now persisted and synchronized at commit f76d88f24320721381a6f66ffb7111b6db1bfc7e; request execution, applicable guardrails, exact-scope topology, routine Git lifecycle verification, outcome metrics, and evidence closeout passed.",
+                    "evidence_references": [
+                        "commit:f76d88f24320721381a6f66ffb7111b6db1bfc7e",
+                        "routine-git-receipt-sha256:c3ecb6727e3a1831364f07f5f77246dd78bf838a3fa33e01ee631c32b4e97171"
                     ]
                 }
             ]
