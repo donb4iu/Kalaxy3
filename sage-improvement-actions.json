@@ -1417,7 +1417,7 @@
                     "sha256": "e900cb4a0dbb9589313b7d5940b3f1f0b1abac73d0f945226fbdf7c75200ed8c"
                 }
             ],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -1460,6 +1460,18 @@
                         "action:SAGE-ACTION-20260810-001",
                         "action:SAGE-ACTION-20260815-002",
                         "commit:4192551f1df150d06d8ad62235746bc5f29eaa18"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-22T02:13:34-05:00",
+                    "actor": "architect",
+                    "reason": "Architect accepts the registered self-directing recovery capability after its capability-gap source, acceptance criteria, measurement plan, one-path registration commit, remote synchronization, and routine Git lifecycle closeout were verified.",
+                    "evidence_references": [
+                        "commit:ffcf6f992bdf111f57e2f2cbacd5fd83f09c3cbf"
                     ]
                 }
             ]
