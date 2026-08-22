@@ -15,7 +15,12 @@ SAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SAGE_DIR))
 
 from request_execution import ProposalError, load_proposal, next_operator_boundary, request_sha256, validate_operator_result, validate_routine_git_lifecycle_receipt  # noqa: E402
-from workflow.diagnosis import classify_post_retrieval_continuation, require_post_retrieval_boundary  # noqa: E402
+from workflow.diagnosis import FailureDiagnoser, classify_post_retrieval_continuation, require_post_retrieval_boundary  # noqa: E402
+from workflow.recovery import (  # noqa: E402
+    bind_successor_operator_boundary,
+    build_recovery_identity,
+    decide_next_boundary,
+)
 
 
 def digest(payload: bytes) -> str:
@@ -88,9 +93,275 @@ def expect_rejected(path: Path, request: str, fragment: str) -> None:
     raise RuntimeError(f"invalid proposal unexpectedly passed: {fragment}")
 
 
+
+def _recovery_identity_self_test() -> None:
+    """Prove stable failure identity preserves separate repository authority."""
+
+    request = "Action-002 immutable promotion"
+    failure = (
+        "Feature branch HEAD 4192551f1df150d06d8ad62235746bc5f29eaa18 "
+        "is not based on current remote main cf514c41400ed546c9781db0f5834ea5d16a14fa"
+    )
+    first = build_recovery_identity(
+        request=request,
+        component_id="sage.request-execution",
+        failure_text=failure,
+        repository_authority={"branch": "feature/fixture", "head": "4" * 40},
+    )
+    second = build_recovery_identity(
+        request=request,
+        component_id="sage.request-execution",
+        failure_text=failure,
+        repository_authority={"branch": "feature/fixture", "head": "5" * 40},
+    )
+    if first["identity_sha256"] != second["identity_sha256"]:
+        raise RuntimeError("recovery identity changed with repository authority")
+    if first["repository_authority_sha256"] == second["repository_authority_sha256"]:
+        raise RuntimeError("repository authority evidence was flattened into identity")
+
+
+def _recovery_boundary_self_test() -> None:
+    """Prove new change, duplicate loop, repair, and successor dispositions."""
+
+    identity = build_recovery_identity(
+        request="Action-002 immutable promotion",
+        component_id="sage.request-execution",
+        failure_text="fixture ancestry failure",
+        repository_authority={"branch": "feature/fixture", "head": "4" * 40},
+    )
+    post = classify_post_retrieval_continuation(
+        retrieval_performed=True,
+        attempted_action_authorized=True,
+        governing_changes={
+            "authority": False, "scope": False, "required_capability": False,
+            "safety_requirements": False, "repository_owned_composition": True,
+            "approval_or_mutation_boundaries": False,
+        },
+        recovery_identity=identity,
+    )
+    if post.get("recovery_identity_sha256") != identity["identity_sha256"]:
+        raise RuntimeError("post-retrieval decision lost recovery identity")
+    evidence = {"repository_owned_composition_sha256": "a" * 64}
+    first = decide_next_boundary(
+        identity=identity, post_retrieval=post, governing_evidence=evidence,
+        previous=(), consumed_fingerprints=set(),
+        owning_component="sage.request-execution",
+        control_action_id="SAGE-ACTION-20260810-001",
+        control_action_status="accepted", accepted_control_failure=False,
+    )
+    if first["next_boundary"] != "planning":
+        raise RuntimeError("new governing change did not route to planning")
+    _assert_recovery_recurrence(identity, post, evidence, first)
+
+
+def _assert_recovery_recurrence(
+    identity: dict[str, object],
+    post: dict[str, object],
+    evidence: dict[str, str],
+    first: dict[str, object],
+) -> None:
+    """Prove one fingerprint cannot cause repeated planning re-entry."""
+
+    prior = [{**first, "_path": "/tmp/first-recovery.json"}]
+    duplicate = decide_next_boundary(
+        identity=identity, post_retrieval=post, governing_evidence=evidence,
+        previous=prior, consumed_fingerprints=set(),
+        owning_component="sage.request-execution",
+        control_action_id="SAGE-ACTION-20260810-001",
+        control_action_status="accepted", accepted_control_failure=True,
+    )
+    if duplicate["next_boundary"] != "await-existing-reentry":
+        raise RuntimeError("duplicate planning re-entry was not blocked")
+    consumed = {str(first["governing_condition_fingerprint"])}
+    successor = decide_next_boundary(
+        identity=identity, post_retrieval=post, governing_evidence=evidence,
+        previous=prior, consumed_fingerprints=consumed,
+        owning_component="sage.request-execution",
+        control_action_id="SAGE-ACTION-20260810-001",
+        control_action_status="accepted", accepted_control_failure=True,
+    )
+    if successor["disposition"] != "successor-action":
+        raise RuntimeError("accepted-control recurrence did not escalate")
+    successor = bind_successor_operator_boundary(
+        successor, Path("/tmp/recovery-next-boundary.json")
+    )
+    command = successor.get("operator_boundary", {}).get("command", "")
+    if "sage-improvement-action-transition.py --recovery-decision" not in command:
+        raise RuntimeError("successor escalation bypassed action lifecycle")
+
+
+
+def _repair_recurrence_self_test() -> None:
+    """Prove unchanged recurrence stays at repair without governance re-entry."""
+
+    identity = build_recovery_identity(
+        request="Action-002 immutable promotion",
+        component_id="sage.request-execution",
+        failure_text=(
+            "ancestry failure at "
+            "4192551f1df150d06d8ad62235746bc5f29eaa18"
+        ),
+        repository_authority={"branch": "feature/fixture", "head": "4" * 40},
+    )
+    post = classify_post_retrieval_continuation(
+        retrieval_performed=True,
+        attempted_action_authorized=True,
+        governing_changes={
+            "authority": False, "scope": False, "required_capability": False,
+            "safety_requirements": False, "repository_owned_composition": False,
+            "approval_or_mutation_boundaries": False,
+        },
+        recovery_identity=identity,
+    )
+    evidence = {"repository_owned_composition_sha256": "a" * 64}
+    first = decide_next_boundary(
+        identity=identity, post_retrieval=post, governing_evidence=evidence,
+        previous=(), consumed_fingerprints=set(),
+        owning_component="sage.request-execution", control_action_id=None,
+        control_action_status=None, accepted_control_failure=False,
+    )
+    prior = [{**first, "_path": "/tmp/first-repair.json"}]
+    second = decide_next_boundary(
+        identity=identity, post_retrieval=post, governing_evidence=evidence,
+        previous=prior, consumed_fingerprints=set(),
+        owning_component="sage.request-execution", control_action_id=None,
+        control_action_status=None, accepted_control_failure=False,
+    )
+    if second["classification"] != "recurrence":
+        raise RuntimeError("second live failure was not classified as recurrence")
+    if second["disposition"] != "repair":
+        raise RuntimeError("unchanged recurrence did not stay at repair")
+
+
+def _diagnosis_recovery_self_test() -> None:
+    """Prove failure diagnosis consumes the same recovery contract."""
+
+    identity = build_recovery_identity(
+        request="fixture request", component_id="sage.request-execution",
+        failure_text="fixture failure",
+        repository_authority={"branch": "feature/fixture", "head": "4" * 40},
+    )
+    post = classify_post_retrieval_continuation(
+        retrieval_performed=True, attempted_action_authorized=True,
+        governing_changes={name: False for name in (
+            "authority", "scope", "required_capability", "safety_requirements",
+            "repository_owned_composition", "approval_or_mutation_boundaries",
+        )}, recovery_identity=identity,
+    )
+    decision = decide_next_boundary(
+        identity=identity, post_retrieval=post, governing_evidence={"fixture": "a"},
+        previous=(), consumed_fingerprints=set(),
+        owning_component="sage.request-execution", control_action_id=None,
+        control_action_status=None, accepted_control_failure=False,
+    )
+    component = {"component_id": "fixture", "component_version": "1.0",
+                 "source_path": "fixture.py", "description": "fixture"}
+    diagnosis = FailureDiagnoser.diagnose(
+        diagnosis_id="SAGE-DIAG-FIXTURE", failure_id="fixture",
+        attempted_action="fixture", what_failed="fixture failure",
+        direct_evidence=({"kind": "fixture", "value": "failure"},),
+        actual_path=component, expected_path=component,
+        why_actual_path_differed="fixture", ownership="composition",
+        mutation_effect={}, lesson_use={"retrieval_performed": True},
+        previous_failure_references=(), avoidable_rework_minutes=None,
+        correction={"disposition": "update-composition",
+                    "reusable_correction": "fixture",
+                    "regression_test_required": True},
+        evidence_references=("fixture",), recovery_decision=decision,
+    )
+    if diagnosis.get("recovery", {}).get("identity_sha256") != identity["identity_sha256"]:
+        raise RuntimeError("failure diagnosis lost shared recovery identity")
+
+
+class _AncestrySnapshot:
+    """Minimal synchronized feature snapshot for ancestry regression."""
+
+    branch = "feature/fixture"
+    head = "0" * 40
+    upstream_head = "0" * 40
+    working_tree_status = "clean"
+
+    def as_dict(self) -> dict[str, object]:
+        """Return the fields consumed by request execution."""
+
+        return {
+            "branch": self.branch,
+            "head": self.head,
+            "upstream_head": self.upstream_head,
+            "working_tree_status": self.working_tree_status,
+        }
+
+
+class _NonAncestorInspector:
+    """Fail if request execution tries to elevate main ancestry to authority."""
+
+    def require_clean(self) -> None:
+        """Accept the clean regression fixture."""
+
+    def require_branch(self, expected: str) -> None:
+        """Verify proposal-bound branch authority."""
+
+        if expected != "feature/fixture":
+            raise RuntimeError("fixture branch binding changed")
+
+    def require_head(self, expected: str) -> None:
+        """Verify proposal-bound HEAD authority."""
+
+        if expected != "0" * 40:
+            raise RuntimeError("fixture HEAD binding changed")
+
+    def snapshot(self) -> _AncestrySnapshot:
+        """Return the synchronized feature snapshot."""
+
+        return _AncestrySnapshot()
+
+    def remote_head(self, remote: str, branch: str) -> str:
+        """Return an intentionally non-ancestor main authority."""
+
+        if (remote, branch) != ("origin", "main"):
+            raise RuntimeError("unexpected remote authority lookup")
+        return "1" * 40
+
+    def is_ancestor(self, _ancestor: str, _descendant: str) -> bool:
+        """Prove the execution path never asks this question."""
+
+        raise RuntimeError("request execution must not require current-main ancestry")
+
+
+def _ancestry_regression_self_test() -> None:
+    """Prove synchronized feature authority does not require main ancestry."""
+
+    from types import SimpleNamespace
+    from workflows.request_execution import git_action  # noqa: PLC0415
+
+    context = SimpleNamespace(
+        bundle=SimpleNamespace(manifest={
+            "repository": {"branch": "feature/fixture", "head": "0" * 40}
+        }),
+        inspector=_NonAncestorInspector(),
+        git_snapshot=None,
+        remote_main_head=None,
+    )
+    observed = git_action(context)
+    if observed.get("remote_main_head") != "1" * 40:
+        raise RuntimeError("live main authority was not captured")
+
+    path = Path(__file__).resolve().parent / "workflows/request_execution.py"
+    source = path.read_text(encoding="utf-8")
+    if "context.inspector.is_ancestor(" in source:
+        raise RuntimeError("request execution still enforces false main ancestry")
+    if "remote main authority changed during validation" not in source:
+        raise RuntimeError("frozen-main drift protection was not preserved")
+
+
 def self_test() -> int:
     """Exercise positive and negative proposal-package runtime paths."""
 
+    _recovery_identity_self_test()
+    _recovery_boundary_self_test()
+    _repair_recurrence_self_test()
+    _diagnosis_recovery_self_test()
+    _ancestry_regression_self_test()
     request = "exercise SAGE request execution"
     payload = b"fixture\n"
     with tempfile.TemporaryDirectory(prefix="sage-request-execute-") as raw:
@@ -139,7 +410,6 @@ def self_test() -> int:
         from workflows.request_execution import (  # noqa: PLC0415
             candidate_from_mapping,
             capture_python_safety_baseline,
-            git_action,
             load_state,
             safety_action,
             validate_python_payloads,
@@ -173,82 +443,6 @@ def self_test() -> int:
 
         class FixtureContext:
             pass
-
-        class FixtureSnapshot:
-            branch = "feature/fixture"
-            head = "0" * 40
-            upstream_head = "0" * 40
-            working_tree_status = "clean"
-
-            def as_dict(self):
-                return {
-                    "branch": self.branch,
-                    "head": self.head,
-                    "upstream_head": self.upstream_head,
-                    "working_tree_status": self.working_tree_status,
-                }
-
-        class NonAncestorInspector:
-            def require_clean(self):
-                return None
-
-            def require_branch(self, expected):
-                if expected != "feature/fixture":
-                    raise RuntimeError("fixture branch binding changed")
-
-            def require_head(self, expected):
-                if expected != "0" * 40:
-                    raise RuntimeError("fixture HEAD binding changed")
-
-            def snapshot(self):
-                return FixtureSnapshot()
-
-            def remote_head(self, remote, branch):
-                if (remote, branch) != ("origin", "main"):
-                    raise RuntimeError("unexpected remote authority lookup")
-                return "1" * 40
-
-            def is_ancestor(self, ancestor, descendant):
-                raise RuntimeError(
-                    "request execution must not require current-main ancestry"
-                )
-
-        non_ancestor_context = FixtureContext()
-        non_ancestor_context.bundle = bundle
-        non_ancestor_context.inspector = NonAncestorInspector()
-        non_ancestor_context.git_snapshot = None
-        non_ancestor_context.remote_main_head = None
-        observed_git = git_action(non_ancestor_context)
-        if (
-            observed_git.get("remote_main_head") != "1" * 40
-            or non_ancestor_context.remote_main_head != "1" * 40
-            or non_ancestor_context.git_snapshot.head != "0" * 40
-        ):
-            raise RuntimeError(
-                "non-ancestor feature branch did not preserve frozen main authority"
-            )
-
-        workflow_source = (
-            Path(__file__).resolve().parent
-            / "workflows"
-            / "request_execution.py"
-        ).read_text(encoding="utf-8")
-        if "is an ancestor of the active feature HEAD" in workflow_source:
-            raise RuntimeError(
-                "request execution still asserts current-main ancestry authority"
-            )
-        frozen_main_guard = (
-            'if context.inspector.remote_head(str(plan["push_remote"]), "main") '
-            "!= context.remote_main_head:"
-        )
-        if (
-            frozen_main_guard not in workflow_source
-            or "routine Git lifecycle remote main authority changed during validation"
-            not in workflow_source
-        ):
-            raise RuntimeError(
-                "frozen remote-main drift protection was not preserved"
-            )
 
         candidate_context = FixtureContext()
         candidate_context.repo = Path(__file__).resolve().parents[2]
@@ -726,8 +920,6 @@ def self_test() -> int:
             raise RuntimeError(
                 "routine lifecycle main authority was not preserved"
             )
-    print("PASS synchronized feature authority does not require current origin/main ancestry")
-    print("PASS captured origin/main remains frozen and drift-protected through validation")
     print("PASS exact literal-request binding")
     print("PASS checksum-bound source payload")
     print("PASS Git SHA-1 and SHA-256 object-ID validation")

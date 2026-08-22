@@ -28,6 +28,14 @@ CLI_PATH = "scripts/sage/sage-request-execute.py"
 GUARDRAIL_PATH = "scripts/sage/sage-request-execution-guardrail.py"
 ROUTINE_CONTROLLER_PATH = "scripts/sage/workflows/routine_git_lifecycle.py"
 ROUTINE_CLI_PATH = "scripts/sage/sage-routine-git-lifecycle.py"
+RECOVERY_PATH = "scripts/sage/workflow/recovery.py"
+RECOVERY_PROCESS_PATH = "markdown/standards/kalaxy3-sage-recovery-process.md"
+RECOVERY_SCHEMA_PATH = "markdown/standards/sage-recovery-next-boundary-schema-v1.0.json"
+RECOVERY_CONSUMPTION_SCHEMA_PATH = (
+    "markdown/standards/sage-recovery-consumption-schema-v1.0.json"
+)
+INTENT_WORKFLOW_PATH = "scripts/sage/workflows/intent_to_outcome.py"
+RECOVERY_POLICY_PATH = "sage-recovery-policy.json"
 ROUTINE_OPERATOR_SCHEMA_PATH = "markdown/standards/sage-operator-git-proposal-schema-v1.2.json"
 PROCESS_PATH = "markdown/standards/kalaxy3-sage-request-execution-process.md"
 SCHEMA_PATH = "markdown/standards/sage-request-execution-proposal-schema-v1.0.json"
@@ -41,6 +49,12 @@ REQUIRED_PATHS = {
     ROUTINE_CONTROLLER_PATH,
     ROUTINE_CLI_PATH,
     ROUTINE_OPERATOR_SCHEMA_PATH,
+    RECOVERY_PATH,
+    RECOVERY_PROCESS_PATH,
+    RECOVERY_SCHEMA_PATH,
+    RECOVERY_CONSUMPTION_SCHEMA_PATH,
+    INTENT_WORKFLOW_PATH,
+    RECOVERY_POLICY_PATH,
 }
 SHA256_PATTERN = r"^[0-9a-f]{64}$"
 GIT_OBJECT_ID_PATTERN = r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
@@ -75,7 +89,7 @@ WORKFLOW_MARKERS = (
     "boundary_result_sha256",
     "base_main_head",
     'argv=("python3", "scripts/sage/sage-index.py", "reconcile")',
-    'argv=("python3", "-S", "scripts/sage/sage-failure-retrieval-gate.py"',
+    "scripts/sage/sage-failure-retrieval-gate.py",
     "recover_repository_after_failure",
     "failure_closeout_status",
     "failed-pre-mutation",
@@ -83,6 +97,14 @@ WORKFLOW_MARKERS = (
     "rollback_verified",
     "classify_post_retrieval_continuation",
     "post-retrieval-continuation-decision.json",
+    "build_recovery_identity",
+    "load_recovery_decisions",
+    "load_consumed_fingerprints",
+    "decide_next_boundary",
+    "RECOVERY_DECISION_NAME",
+    "bind_successor_operator_boundary",
+    "recovery_identity=identity",
+    "recovery_decision=decision",
 )
 PROCESS_MARKERS = (
     "untrusted proposal",
@@ -110,6 +132,9 @@ PROCESS_MARKERS = (
     "rollback is not inferred",
     "post-retrieval continuation decision",
     "unnecessary over-governance",
+    "stable recovery identity",
+    "governing-condition fingerprint",
+    "successor capability-gap",
 )
 
 
@@ -181,6 +206,10 @@ def source_failures() -> list[str]:
 
     failures: list[str] = []
     workflow = (ROOT / WORKFLOW_PATH).read_text(encoding="utf-8")
+    recovery = (ROOT / RECOVERY_PATH).read_text(encoding="utf-8")
+    recovery_process = (ROOT / RECOVERY_PROCESS_PATH).read_text(encoding="utf-8")
+    recovery_policy = load_object(ROOT / RECOVERY_POLICY_PATH)
+    intent_workflow = (ROOT / INTENT_WORKFLOW_PATH).read_text(encoding="utf-8")
     routine_cli = (ROOT / ROUTINE_CLI_PATH).read_text(encoding="utf-8")
     for marker in WORKFLOW_MARKERS:
         if marker not in workflow:
@@ -200,15 +229,74 @@ def source_failures() -> list[str]:
         "unchanged post-retrieval conditions did not stay implementation-local",
         "redundant replanning after unchanged failure did not fail closed",
         "composition-changing same-request retry did not fail closed",
+        "second live failure was not classified as recurrence",
+        "duplicate planning re-entry was not blocked",
+        "accepted-control recurrence did not escalate",
+        "successor escalation bypassed action lifecycle",
+        "failure diagnosis lost shared recovery identity",
     ):
         if marker not in cli:
             failures.append(f"post-retrieval continuation regression missing: {marker}")
+    for marker in (
+        "sage-recovery-next-boundary",
+        "governing_condition_fingerprint",
+        "over-governance-blocked",
+        "successor-action",
+        "RECOVERY_CONSUMPTION_NAME",
+    ):
+        if marker not in recovery:
+            failures.append(f"recovery contract marker missing: {marker}")
+    for marker in (
+        "stable recovery identity",
+        "governing-condition fingerprint",
+        "await-existing-reentry",
+        "successor capability-gap",
+        "Remote-main authority",
+    ):
+        if marker not in recovery_process:
+            failures.append(f"recovery process marker missing: {marker}")
+    behavior = recovery_policy.get("behavior", {})
+    if (
+        recovery_policy.get("action_id") != "SAGE-ACTION-20260821-001"
+        or behavior.get("stable_failure_identity_required") is not True
+        or behavior.get("duplicate_reentry_for_same_fingerprint_forbidden") is not True
+        or behavior.get(
+            "accepted_control_failure_requires_successor_boundary"
+        ) is not True
+        or behavior.get("remote_main_ancestry_required") is not False
+    ):
+        failures.append("recovery policy behavior contract drifted")
+    for marker in (
+        "_consume_recovery_reentry",
+        "build_consumption_record",
+        "load_consumed_fingerprints",
+        "repeated governance re-entry blocked",
+    ):
+        if marker not in intent_workflow:
+            failures.append(f"intent recovery-consumption marker missing: {marker}")
+    if "context.inspector.is_ancestor(" in workflow:
+        failures.append(
+            "request execution still invents remote-main ancestry authority"
+        )
+    if "and is an ancestor of the active feature HEAD" in workflow:
+        failures.append("request execution still records false ancestry authority")
     routine_controller = (ROOT / "scripts/sage/workflows/routine_git_lifecycle.py").read_text(encoding="utf-8")
     request_domain = (ROOT / "scripts/sage/request_execution.py").read_text(encoding="utf-8")
     legacy_marker = "already-open legacy schema 1.0 proposal"
     if legacy_marker not in routine_controller or legacy_marker not in request_domain:
         failures.append("bounded already-open routine activation compatibility is missing")
-    paths = tuple(ROOT / path for path in (WORKFLOW_PATH, DOMAIN_PATH, CLI_PATH, GUARDRAIL_PATH, ROUTINE_CONTROLLER_PATH, ROUTINE_CLI_PATH))
+    paths = tuple(
+        ROOT / path
+        for path in (
+            WORKFLOW_PATH,
+            DOMAIN_PATH,
+            CLI_PATH,
+            GUARDRAIL_PATH,
+            ROUTINE_CONTROLLER_PATH,
+            ROUTINE_CLI_PATH,
+            RECOVERY_PATH,
+        )
+    )
     violations = GitSafetyGuardrail.scan_paths(paths)
     failures.extend(item.render() for item in violations)
     return failures

@@ -25,6 +25,7 @@ def classify_post_retrieval_continuation(
     retrieval_performed: bool,
     attempted_action_authorized: bool,
     governing_changes: Mapping[str, bool],
+    recovery_identity: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Classify corrective retry versus governance re-entry deterministically."""
 
@@ -69,7 +70,7 @@ def classify_post_retrieval_continuation(
         required_boundary = "planning"
         reason = "Required capability or repository-owned composition changed."
 
-    return {
+    result = {
         "schema_version": "1.0",
         "record_type": "sage-post-retrieval-continuation-decision",
         "retrieval_performed": True,
@@ -80,6 +81,12 @@ def classify_post_retrieval_continuation(
         "required_reentry_boundary": required_boundary,
         "reason": reason,
     }
+    if recovery_identity is not None:
+        identity_sha = recovery_identity.get("identity_sha256")
+        if not isinstance(identity_sha, str) or len(identity_sha) != 64:
+            raise ValueError("Recovery identity digest is invalid")
+        result["recovery_identity_sha256"] = identity_sha
+    return result
 
 
 def require_post_retrieval_boundary(
@@ -94,6 +101,37 @@ def require_post_retrieval_boundary(
             "Post-retrieval continuation boundary mismatch: "
             f"required={required}, requested={requested_boundary}"
         )
+
+
+def recovery_contract_view(
+    decision: Mapping[str, Any] | None,
+    previous_references: Iterable[str],
+) -> dict[str, Any] | None:
+    """Validate and project the shared recovery contract into diagnosis."""
+
+    if decision is None:
+        return None
+    if decision.get("record_type") != "sage-recovery-next-boundary":
+        raise ValueError("Failure diagnosis recovery contract type is invalid")
+    identity = decision.get("recovery_identity")
+    if not isinstance(identity, Mapping):
+        raise ValueError("Failure diagnosis recovery identity is missing")
+    identity_sha = identity.get("identity_sha256")
+    if not isinstance(identity_sha, str) or len(identity_sha) != 64:
+        raise ValueError("Failure diagnosis recovery identity digest is invalid")
+    previous = list(dict.fromkeys(previous_references))
+    if previous != list(decision.get("previous_failure_references", [])):
+        raise ValueError("Failure diagnosis recurrence references diverged from recovery")
+    return {
+        "identity_sha256": identity_sha,
+        "failure_signature": identity.get("failure_signature"),
+        "classification": decision.get("classification"),
+        "governing_condition_fingerprint": decision.get(
+            "governing_condition_fingerprint"
+        ),
+        "next_boundary": decision.get("next_boundary"),
+        "owning_component": decision.get("owning_component"),
+    }
 
 
 class FailureDiagnoser:
@@ -117,6 +155,7 @@ class FailureDiagnoser:
         avoidable_rework_minutes: float | None,
         correction: Mapping[str, Any],
         evidence_references: Iterable[str],
+        recovery_decision: Mapping[str, Any] | None = None,
         recorded_at: str | None = None,
     ) -> dict[str, Any]:
         evidence = [dict(item) for item in direct_evidence]
@@ -131,6 +170,7 @@ class FailureDiagnoser:
         if ownership not in {"primitive", "composition", "policy", "authority", "environment", "operator", "external-dependency"}:
             raise ValueError(f"Unsupported failure ownership: {ownership}")
         previous = list(dict.fromkeys(previous_failure_references))
+        recovery = recovery_contract_view(recovery_decision, previous)
         recurred = bool(previous)
         disposition = correction.get("disposition")
         if disposition not in {"create-control", "update-primitive", "update-composition", "update-policy", "update-authority", "environment-repair", "operator-correction", "no-action"}:
@@ -150,7 +190,7 @@ class FailureDiagnoser:
             raise ValueError("Used lessons must have been surfaced")
         if set(surfaced) - set(applicable):
             raise ValueError("Surfaced lessons must be applicable")
-        return {
+        result = {
             "schema_version": "1.0",
             "diagnosis_id": diagnosis_id,
             "failure_id": failure_id,
@@ -178,3 +218,6 @@ class FailureDiagnoser:
             "correction": dict(correction),
             "evidence_references": list(dict.fromkeys(evidence_references)),
         }
+        if recovery is not None:
+            result["recovery"] = recovery
+        return result

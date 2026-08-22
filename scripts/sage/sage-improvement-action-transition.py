@@ -12,7 +12,11 @@ SAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SAGE_DIR))
 
 from workflow import WorkflowError
-from workflows.improvement_action_transition import self_test, start_transition
+from workflows.improvement_action_transition import (
+    emit_successor_action_boundary,
+    self_test,
+    start_transition,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -35,6 +39,8 @@ def parse_args() -> argparse.Namespace:
         default=Path(__file__).resolve().parents[2],
     )
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--recovery-decision", type=Path)
+    parser.add_argument("--output", type=Path)
     return parser.parse_args()
 
 
@@ -46,10 +52,28 @@ def required(value: str | None, label: str) -> str:
     return value.strip()
 
 
+def run_recovery_boundary(args: argparse.Namespace) -> int:
+    """Materialize the lifecycle-owned Architect boundary for accepted recurrence."""
+
+    result = emit_successor_action_boundary(
+        repo=args.repo,
+        recovery_decision_path=args.recovery_decision,
+        output=args.output,
+    )
+    print("Kalaxy3 SAGE improvement-action successor boundary: PASS")
+    print(json.dumps(result, indent=2))
+    print("Next Architect boundary:")
+    print("  Review and authorize the emitted successor capability-gap/action boundary.")
+    print("Repository mutation: none")
+    return 0
+
+
 def main() -> int:
     args = parse_args()
     if args.self_test:
         return self_test()
+    if args.recovery_decision is not None:
+        return run_recovery_boundary(args)
     request = required(args.request, "--request")
     action_id = required(args.action_id, "--action-id")
     to_status = required(args.to_status, "--to-status")

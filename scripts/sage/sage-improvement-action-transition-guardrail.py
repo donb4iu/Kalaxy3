@@ -130,6 +130,16 @@ def main() -> int:
         )
     if "start_amendment" not in amendment_cli_source:
         failures.append("amendment CLI does not call shared amendment entry point")
+    for marker in (
+        "build_successor_action_boundary",
+        "emit_successor_action_boundary",
+        "sage-improvement-action-successor-boundary",
+        "architect-decision-required",
+    ):
+        if marker not in workflow_source:
+            failures.append(f"successor lifecycle marker missing: {marker}")
+    if "--recovery-decision" not in cli_source:
+        failures.append("transition CLI cannot consume recovery successor boundary")
     workflows_dir = ROOT / "scripts/sage/workflows"
     parallel = [
         path.name
@@ -166,6 +176,7 @@ def main() -> int:
         "PASS exact action-registry mutation and request continuation"
     )
     print("PASS Make and CLI integration")
+    print("PASS accepted-control recurrence is owned by action lifecycle")
     print(
         "Kalaxy3 SAGE improvement-action transition guardrail: PASS"
     )

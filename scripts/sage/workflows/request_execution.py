@@ -38,6 +38,15 @@ from workflow import (
     WorkflowError,
 )
 from workflow.diagnosis import classify_post_retrieval_continuation
+from workflow.recovery import (
+    RECOVERY_DECISION_NAME,
+    bind_successor_operator_boundary,
+    build_recovery_identity,
+    decide_next_boundary,
+    digest_value,
+    load_consumed_fingerprints,
+    load_recovery_decisions,
+)
 from workflows.operating_contract import build_post_operator_workflow, build_pre_mutation_workflow
 
 PRIMITIVES_USED = (
@@ -167,7 +176,7 @@ def discovery_action(context: ExecutionContext) -> Mapping[str, Any]:
 
 
 def git_action(context: ExecutionContext) -> Mapping[str, Any]:
-    """Require exact clean branch, proposal-bound HEAD, and live main authority."""
+    """Require proposal-bound feature authority and observe current remote main."""
 
     repository = context.bundle.manifest["repository"]
     context.inspector.require_clean()
@@ -200,7 +209,23 @@ def authority_assertions(context: ExecutionContext, captured: str) -> tuple[Auth
         AuthorityAssertion("ASSERT-003", "github", "repository-policy", "sage-operating-contract-policy.json#helper_policy", subject="GitHub mutation boundary", statement="SAGE request execution may not mutate GitHub; an operator boundary is required.", measurement_type="declared", evidence_sha256=sha256_file(policy), **common),
         AuthorityAssertion("ASSERT-004", "repository-policy", "repository", "markdown/standards/kalaxy3-sage-operating-contract.md", subject="repository mutation policy", statement="Repository content may be changed atomically and validated before one operator-executed Git proposal.", measurement_type="declared", evidence_sha256=sha256_file(standard), **common),
         AuthorityAssertion("ASSERT-005", "sage", "repository", "sage-change-authority.json", subject="SAGE discovery authority", statement="The literal request was classified through current repository SAGE discovery and its authoritative files were readable.", measurement_type="measured", evidence_sha256=discovery_digest, **common),
-        AuthorityAssertion("ASSERT-006", "git", "git", f"origin/main:{context.remote_main_head}", subject="remote main authority", statement=f"Live origin/main is {context.remote_main_head} and is captured as frozen main authority for this request execution.", measurement_type="measured", evidence_sha256=hashlib.sha256(str(context.remote_main_head).encode()).hexdigest(), **common),
+        AuthorityAssertion(
+            "ASSERT-006",
+            "git",
+            "git",
+            f"origin/main:{context.remote_main_head}",
+            subject="remote main authority",
+            statement=(
+                f"Live origin/main is {context.remote_main_head}; it is frozen "
+                "as observed authority evidence and is not an ancestry "
+                "requirement unless an applicable authority explicitly says so."
+            ),
+            measurement_type="measured",
+            evidence_sha256=hashlib.sha256(
+                str(context.remote_main_head).encode()
+            ).hexdigest(),
+            **common,
+        ),
     )
 
 
@@ -725,90 +750,306 @@ def failure_closeout_status(recovery: Mapping[str, Any]) -> str:
     return "failed-rollback-unverified"
 
 
-def failure_diagnosis(
+
+def _recovery_policy(context: ExecutionContext) -> dict[str, Any]:
+    """Load the repository-owned fail-closed recovery policy."""
+
+    policy_path = context.repo / "sage-recovery-policy.json"
+    recovery = json.loads(policy_path.read_text(encoding="utf-8"))
+    if (
+        not isinstance(recovery, dict)
+        or recovery.get("schema_version") != "1.0"
+        or recovery.get("policy_id") != "kalaxy3-sage-recovery"
+    ):
+        raise WorkflowError("SAGE recovery policy is invalid")
+    return recovery
+
+
+def _action_status(context: ExecutionContext, action_id: str) -> str | None:
+    """Return the current lifecycle status for one improvement action."""
+
+    registry = json.loads(
+        (context.repo / "sage-improvement-actions.json").read_text(encoding="utf-8")
+    )
+    for action in registry.get("actions", []):
+        if isinstance(action, dict) and action.get("action_id") == action_id:
+            status = action.get("current_status")
+            return str(status) if status is not None else None
+    return None
+
+
+def _composition_digest(
     context: ExecutionContext,
+    paths: list[str],
+) -> str:
+    """Hash the repository-owned recovery composition source set."""
+
+    evidence: dict[str, str] = {}
+    for relative in paths:
+        path = context.repo / relative
+        if not path.is_file():
+            raise WorkflowError(f"recovery composition path is missing: {relative}")
+        evidence[relative] = sha256_file(path)
+    return digest_value(evidence)
+
+
+def _governing_evidence(context: ExecutionContext) -> dict[str, Any]:
+    """Build stable evidence for all post-retrieval governing conditions."""
+
+    policy_path = context.repo / "sage-operating-contract-policy.json"
+    policy = json.loads(policy_path.read_text(encoding="utf-8"))
+    recovery = _recovery_policy(context)
+    paths = recovery.get("governing_composition_paths", [])
+    if not isinstance(paths, list) or not all(isinstance(item, str) for item in paths):
+        raise WorkflowError("recovery governing composition paths are invalid")
+    return {
+        "authority_contract_sha256": digest_value(
+            {
+                "branch": context.bundle.manifest["repository"]["branch"],
+                "policy": policy.get("authority_policy", {}),
+            }
+        ),
+        "scope_sha256": digest_value(list(context.bundle.declared_paths)),
+        "required_capability_sha256": digest_value(
+            context.bundle.manifest.get("capabilities", [])
+        ),
+        "safety_requirements_sha256": digest_value(policy.get("helper_policy", {})),
+        "repository_owned_composition_sha256": _composition_digest(context, paths),
+        "approval_or_mutation_boundaries_sha256": digest_value(
+            {
+                "operator_plan": context.bundle.manifest.get("operator_plan", {}),
+                "policy": policy.get("operator_mutation_policy", {}),
+            }
+        ),
+        "observed_remote_main": context.remote_main_head,
+    }
+
+
+def _governing_changes(
+    identity: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+    previous: list[Mapping[str, Any]],
+) -> dict[str, bool]:
+    """Compare current governing evidence with the prior matching failure."""
+
+    if not previous:
+        return {
+            "authority": False,
+            "scope": False,
+            "required_capability": False,
+            "safety_requirements": False,
+            "repository_owned_composition": False,
+            "approval_or_mutation_boundaries": False,
+        }
+    prior = previous[-1]
+    prior_evidence = prior.get("governing_evidence", {})
+    return {
+        "authority": (
+            evidence.get("authority_contract_sha256")
+            != prior_evidence.get("authority_contract_sha256")
+        ),
+        "scope": evidence.get("scope_sha256") != prior_evidence.get("scope_sha256"),
+        "required_capability": (
+            evidence.get("required_capability_sha256")
+            != prior_evidence.get("required_capability_sha256")
+        ),
+        "safety_requirements": (
+            evidence.get("safety_requirements_sha256")
+            != prior_evidence.get("safety_requirements_sha256")
+        ),
+        "repository_owned_composition": (
+            evidence.get("repository_owned_composition_sha256")
+            != prior_evidence.get("repository_owned_composition_sha256")
+        ),
+        "approval_or_mutation_boundaries": (
+            evidence.get("approval_or_mutation_boundaries_sha256")
+            != prior_evidence.get("approval_or_mutation_boundaries_sha256")
+        ),
+    }
+
+
+def _recovery_authority(context: ExecutionContext) -> dict[str, str]:
+    """Return stable feature-branch authority for recovery identity."""
+
+    repository = context.bundle.manifest["repository"]
+    return {
+        "branch": str(repository["branch"]),
+        "head": str(repository["head"]),
+    }
+
+
+def _build_recovery_decision(
+    context: ExecutionContext,
+    text: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build post-retrieval and recurrence-aware next-boundary decisions."""
+
+    recovery = _recovery_policy(context)
+    identity = build_recovery_identity(
+        request=context.request,
+        component_id=WORKFLOW_ID,
+        failure_text=text,
+        repository_authority=_recovery_authority(context),
+    )
+    state_root = Path(str(recovery.get("state_root", "~/.local/state/kalaxy3")))
+    state_root = state_root.expanduser()
+    previous = load_recovery_decisions(state_root, str(identity["identity_sha256"]))
+    evidence = _governing_evidence(context)
+    changes = _governing_changes(identity, evidence, previous)
+    post_retrieval = classify_post_retrieval_continuation(
+        retrieval_performed=True,
+        attempted_action_authorized=True,
+        governing_changes=changes,
+        recovery_identity=identity,
+    )
+    control_id = str(recovery.get("owning_control_action_id", "")) or None
+    status = _action_status(context, control_id) if control_id else None
+    accepted_failure = any(
+        item.get("disposition") == "governance-reentry"
+        for item in previous
+    )
+    consumed = load_consumed_fingerprints(
+        state_root,
+        str(identity["identity_sha256"]),
+    )
+    decision = decide_next_boundary(
+        identity=identity,
+        post_retrieval=post_retrieval,
+        governing_evidence=evidence,
+        previous=previous,
+        consumed_fingerprints=consumed,
+        owning_component=WORKFLOW_ID,
+        control_action_id=control_id,
+        control_action_status=status,
+        accepted_control_failure=accepted_failure,
+    )
+    return post_retrieval, decision
+
+
+def _diagnosis_correction(
+    context: ExecutionContext,
+    decision: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Map the shared recovery decision into failure-diagnosis correction."""
+
+    recovery = _recovery_policy(context)
+    disposition = str(decision.get("disposition"))
+    action_reference = None
+    if disposition in {"successor-action", "over-governance-blocked"}:
+        action_reference = recovery.get("recovery_control_action_id")
+    if disposition == "successor-action":
+        correction = "Create the governed successor action emitted by recovery."
+        target = "create-control"
+    elif disposition == "over-governance-blocked":
+        correction = "Consume or resolve the already-emitted recovery boundary."
+        target = "no-action"
+    else:
+        correction = "Repair, regress, and revalidate through the selected boundary."
+        target = "update-composition"
+    return {
+        "disposition": target,
+        "reusable_correction": correction,
+        "no_action_rationale": (
+            "A duplicate governance re-entry is already outstanding."
+            if target == "no-action"
+            else None
+        ),
+        "regression_test_required": target != "no-action",
+        "action_reference": action_reference,
+    }
+
+def _failure_text(
     error: Exception,
     recovery: Mapping[str, Any],
-) -> Path:
-    """Retrieve prior experience and record measured failure recovery state."""
-    if recovery.get("transaction_started") is not True:
-        recovery_summary = (
-            "repository transaction was not started; rollback was not applicable"
-        )
-    elif recovery.get("rollback_verified") is True:
-        recovery_summary = "repository rollback independently verified"
-    else:
-        recovery_summary = "repository rollback was not independently verified"
+) -> str:
+    """Render one stable request-execution failure description."""
 
-    text = (
+    if recovery.get("transaction_started") is not True:
+        summary = "repository transaction was not started; rollback was not applicable"
+    elif recovery.get("rollback_verified") is True:
+        summary = "repository rollback independently verified"
+    else:
+        summary = "repository rollback was not independently verified"
+    return (
         f"SAGE request execution failed: {type(error).__name__}: {error}; "
-        f"{recovery_summary}"
+        f"{summary}"
     )
+
+
+def _failure_retrieval(
+    context: ExecutionContext,
+    text: str,
+) -> str:
+    """Run canonical failure retrieval and return its receipt reference."""
+
     result = context.runner.run(
         CommandSpec(
             primitive_id="failure.diagnose",
             label="Retrieve SAGE experience after request-execution failure",
-            argv=("python3", "-S", "scripts/sage/sage-failure-retrieval-gate.py", "--failure", text),
+            argv=(
+                "python3",
+                "-S",
+                "scripts/sage/sage-failure-retrieval-gate.py",
+                "--failure",
+                text,
+            ),
             cwd=context.repo,
             timeout_seconds=600,
         ),
         step_id="failure-retrieval",
     )
-    receipt_match = re.search(r"^Receipt:\s+(.+)$", result.stdout, re.MULTILINE)
-    receipt = (
-        receipt_match.group(1).strip()
-        if receipt_match
-        else "failure-retrieval-output"
-    )
-    post_retrieval = classify_post_retrieval_continuation(
-        retrieval_performed=True,
-        attempted_action_authorized=True,
-        governing_changes={
-            "authority": False,
-            "scope": False,
-            "required_capability": False,
-            "safety_requirements": False,
-            "repository_owned_composition": True,
-            "approval_or_mutation_boundaries": False,
-        },
-    )
-    post_retrieval_path = write_state(
-        context,
-        "post-retrieval-continuation-decision.json",
-        post_retrieval,
-    )
-    payload = FailureDiagnoser.diagnose(
-        diagnosis_id=f"SAGE-DIAG-{datetime.now().strftime('%Y%m%d')}-801",
+    match = re.search(r"^Receipt:\s+(.+)$", result.stdout, re.MULTILINE)
+    return match.group(1).strip() if match else "failure-retrieval-output"
+
+
+def _failure_paths(
+    context: ExecutionContext,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Return actual and expected component paths for diagnosis."""
+
+    actual = {
+        "component_id": WORKFLOW_ID,
+        "component_version": "1.0",
+        "source_path": "scripts/sage/workflows/request_execution.py",
+        "description": "The reusable request execution composition.",
+    }
+    expected = {
+        "component_id": "workflow.composition",
+        "component_version": context.catalog.versions_for(
+            ("workflow.composition",)
+        )["workflow.composition"],
+        "source_path": "scripts/sage/workflows/operating_contract.py",
+        "description": "The mandatory SAGE operating-contract sequence.",
+    }
+    return actual, expected
+
+
+def _diagnose_failure(
+    context: ExecutionContext,
+    text: str,
+    recovery: Mapping[str, Any],
+    receipt: str,
+    post_path: Path,
+    decision_path: Path,
+    decision: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Build the canonical failure diagnosis from shared recovery evidence."""
+    actual, expected = _failure_paths(context)
+    diagnosis_id = f"SAGE-DIAG-{datetime.now().strftime('%Y%m%d')}-801"
+    return FailureDiagnoser.diagnose(
+        diagnosis_id=diagnosis_id,
         failure_id="request-execution",
-        attempted_action=(
-            "Execute the literal request through the repository-owned SAGE "
-            "request executor."
-        ),
+        attempted_action="Execute the literal request through SAGE request execution.",
         what_failed=text,
         direct_evidence=(
             {"kind": "exception", "value": text},
-            {
-                "kind": "recovery-state",
-                "value": stable_json(dict(recovery)).strip(),
-            },
+            {"kind": "recovery-state", "value": stable_json(dict(recovery)).strip()},
+            {"kind": "next-boundary", "value": stable_json(dict(decision)).strip()},
         ),
-        actual_path={
-            "component_id": "sage.request-execution",
-            "component_version": "1.0",
-            "source_path": "scripts/sage/workflows/request_execution.py",
-            "description": "The reusable request execution composition.",
-        },
-        expected_path={
-            "component_id": "workflow.composition",
-            "component_version": context.catalog.versions_for(
-                ("workflow.composition",)
-            )["workflow.composition"],
-            "source_path": "scripts/sage/workflows/operating_contract.py",
-            "description": "The mandatory SAGE operating-contract sequence.",
-        },
+        actual_path=actual,
+        expected_path=expected,
         why_actual_path_differed=(
-            "The exact reported failure interrupted the composed operating-contract "
-            "path before the operator boundary."
+            "The failure interrupted the governed operating-contract path."
         ),
         ownership="composition",
         mutation_effect={
@@ -823,25 +1064,48 @@ def failure_diagnosis(
             "surfaced_lesson_ids": [],
             "used_lesson_ids": [],
         },
-        previous_failure_references=(),
+        previous_failure_references=decision.get("previous_failure_references", []),
         avoidable_rework_minutes=None,
-        correction={
-            "disposition": "update-composition",
-            "reusable_correction": (
-                "Review the failure retrieval and correct the reusable request "
-                "execution composition before retry."
-            ),
-            "no_action_rationale": None,
-            "regression_test_required": True,
-        },
+        correction=_diagnosis_correction(context, decision),
         evidence_references=(
             receipt,
-            str(post_retrieval_path),
+            str(post_path),
+            str(decision_path),
             str(context.state_dir / "events.jsonl"),
         ),
+        recovery_decision=decision,
     )
-    return write_state(context, "failure-diagnosis.json", payload)
 
+
+def failure_diagnosis(
+    context: ExecutionContext,
+    error: Exception,
+    recovery: Mapping[str, Any],
+) -> tuple[Path, Path]:
+    """Retrieve experience and emit diagnosis plus one governed next boundary."""
+
+    text = _failure_text(error, recovery)
+    receipt = _failure_retrieval(context, text)
+    post_retrieval, decision = _build_recovery_decision(context, text)
+    decision_path = context.state_dir / RECOVERY_DECISION_NAME
+    decision = bind_successor_operator_boundary(decision, decision_path)
+    post_path = write_state(
+        context,
+        "post-retrieval-continuation-decision.json",
+        post_retrieval,
+    )
+    decision_path = write_state(context, RECOVERY_DECISION_NAME, decision)
+    diagnosis = _diagnose_failure(
+        context,
+        text,
+        recovery,
+        receipt,
+        post_path,
+        decision_path,
+        decision,
+    )
+    diagnosis_path = write_state(context, "failure-diagnosis.json", diagnosis)
+    return diagnosis_path, decision_path
 
 def write_execution_state(
     context: ExecutionContext,
@@ -1454,18 +1718,24 @@ def execute_request(repo: Path, request: str, proposal: Path) -> Mapping[str, An
         )
     except Exception as error:
         recovery = recover_repository_after_failure(context)
-        diagnosis = failure_diagnosis(context, error, recovery)
+        diagnosis, next_boundary = failure_diagnosis(
+            context,
+            error,
+            recovery,
+        )
         closeout = write_closeout(
             context,
             failure_closeout_status(recovery),
             {
                 "error": str(error),
                 "diagnosis": str(diagnosis),
+                "next_boundary": str(next_boundary),
                 "recovery": dict(recovery),
             },
         )
         raise WorkflowError(
-            f"{error}\nFailure diagnosis: {diagnosis}\nCloseout: {closeout}"
+            f"{error}\nFailure diagnosis: {diagnosis}\n"
+            f"Next governed boundary: {next_boundary}\nCloseout: {closeout}"
         ) from error
     return {
         "status": "pass",

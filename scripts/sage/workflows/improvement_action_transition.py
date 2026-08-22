@@ -37,6 +37,8 @@ from workflows.request_planning import derive_component_plan
 WORKFLOW_ID = "sage.improvement-action-transition"
 WORKFLOW_VERSION = "1.1.0"
 REGISTRY_PATH = "sage-improvement-actions.json"
+RECOVERY_DECISION_TYPE = "sage-recovery-next-boundary"
+SUCCESSOR_BOUNDARY_NAME = "successor-improvement-action-boundary.json"
 PRIMITIVES_USED = (
     "catalog.registry",
     "logging.events",
@@ -120,6 +122,66 @@ def write_local(
     path = context.state_dir / name
     context.writer.write_text(path, stable_json(value), new_mode=0o600)
     return path
+
+
+def build_successor_action_boundary(
+    decision: Mapping[str, Any],
+    source_reference: str,
+) -> dict[str, Any]:
+    """Translate accepted-control recurrence into an Architect lifecycle boundary."""
+
+    if decision.get("record_type") != RECOVERY_DECISION_TYPE:
+        raise WorkflowError("successor recovery decision type is invalid")
+    control = decision.get("owning_control")
+    if not isinstance(control, Mapping):
+        raise WorkflowError("successor recovery owning control is missing")
+    if decision.get("disposition") != "successor-action":
+        raise WorkflowError("recovery decision does not require successor action")
+    if decision.get("classification") != "recurrence":
+        raise WorkflowError("successor action requires a recurrence")
+    if control.get("status") != "accepted" or control.get("accepted_control_failure") is not True:
+        raise WorkflowError("successor action requires failure of an accepted control")
+    if not decision.get("previous_failure_references"):
+        raise WorkflowError("successor action requires previous failure evidence")
+    return {
+        "schema_version": "1.0",
+        "record_type": "sage-improvement-action-successor-boundary",
+        "status": "architect-decision-required",
+        "decision_authority": "architect",
+        "requested_outcome": "register-successor-capability-gap/improvement-action",
+        "source_recovery_decision": source_reference,
+        "recovery_identity": dict(decision.get("recovery_identity", {})),
+        "owning_component": decision.get("owning_component"),
+        "owning_control": dict(control),
+        "reason": decision.get("reason"),
+        "required_evidence": list(decision.get("required_evidence", [])),
+        "mutation_authority": "sage.action-lifecycle",
+        "next_boundary": "architect-decision",
+    }
+
+
+def emit_successor_action_boundary(
+    repo: Path,
+    recovery_decision_path: Path,
+    output: Path | None = None,
+) -> Mapping[str, Any]:
+    """Persist one lifecycle-owned successor Architect boundary without repo mutation."""
+
+    resolved_repo = repo.expanduser().resolve()
+    source = recovery_decision_path.expanduser().resolve()
+    decision = json.loads(source.read_text(encoding="utf-8"))
+    boundary = build_successor_action_boundary(decision, str(source))
+    destination = (output or source.parent / SUCCESSOR_BOUNDARY_NAME).expanduser().resolve()
+    catalog = PrimitiveCatalog.load(resolved_repo / "sage-workflow-primitives.json")
+    catalog.require(("file.atomic-preserve-mode",))
+    writer = AtomicFileWriter((destination.parent,))
+    writer.write_text(destination, stable_json(boundary), new_mode=0o600)
+    return {
+        "status": "architect-decision-required",
+        "boundary": str(destination),
+        "decision": boundary,
+        "repository_mutation": False,
+    }
 
 
 def build_context(
@@ -848,9 +910,40 @@ def start_amendment(
     )
     return run_lifecycle(context)
 
+def _successor_recovery_self_test() -> None:
+    """Prove action lifecycle owns accepted-control successor escalation."""
+
+    decision = {
+        "record_type": RECOVERY_DECISION_TYPE,
+        "classification": "recurrence",
+        "disposition": "successor-action",
+        "previous_failure_references": ["prior.json"],
+        "recovery_identity": {"identity_sha256": "a" * 64},
+        "owning_component": "sage.request-execution",
+        "owning_control": {"action_id": "SAGE-ACTION-20260810-001",
+                           "status": "accepted",
+                           "accepted_control_failure": True},
+        "reason": "accepted control recurred",
+        "required_evidence": ["failure retrieval receipt"],
+    }
+    boundary = build_successor_action_boundary(decision, "/tmp/recovery.json")
+    if boundary.get("status") != "architect-decision-required":
+        raise RuntimeError("successor lifecycle boundary did not require Architect")
+    if boundary.get("mutation_authority") != "sage.action-lifecycle":
+        raise RuntimeError("successor escalation escaped action lifecycle")
+    rejected = dict(decision)
+    rejected["disposition"] = "repair"
+    try:
+        build_successor_action_boundary(rejected, "/tmp/recovery.json")
+    except WorkflowError:
+        return
+    raise RuntimeError("non-successor recovery entered action lifecycle escalation")
+
+
 def self_test() -> int:
     """Exercise least-authority and continuation contracts without mutation."""
 
+    _successor_recovery_self_test()
     for method in (
         "require_clean",
         "require_exact_paths",
@@ -891,6 +984,7 @@ def self_test() -> int:
     print("PASS least-authority Git inspection contract")
     print("PASS canonical improvement-action transition and amendment ownership")
     print("PASS exact single-registry mutation scope")
+    print("PASS accepted-control recurrence emits Architect successor boundary")
     print("PASS operator stage boundary with request-execution continuation")
     print(
         "Kalaxy3 SAGE improvement-action transition self-test: PASS"

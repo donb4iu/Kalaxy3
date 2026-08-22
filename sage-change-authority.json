@@ -117,7 +117,13 @@
         "scripts/sage/sage-semantic-bootstrap-guardrail.py",
         "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
         "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
-        "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
+        "markdown/standards/sage-semantic-understanding-schema-v1.0.json",
+        "sage-recovery-policy.json",
+        "markdown/standards/kalaxy3-sage-recovery-process.md",
+        "markdown/standards/sage-recovery-next-boundary-schema-v1.0.json",
+        "markdown/standards/sage-recovery-consumption-schema-v1.0.json",
+        "scripts/sage/workflow/recovery.py",
+        "scripts/sage/workflows/intent_to_outcome.py"
       ],
       "baseline_checks": [
         "make sage-discovery-guardrail"
@@ -273,7 +279,10 @@
         "applied evidence",
         "rejected evidence",
         "reviewed-not-applicable",
-        "engineering experience"
+        "engineering experience",
+        "recovery identity",
+        "governing fingerprint",
+        "fail-closed recovery"
       ],
       "path_prefixes": [
         "sage-evidence-retrieval-",
@@ -301,7 +310,12 @@
         "sage-improvement-actions.json",
         "sage-post-session-review-registry.json",
         "scripts/sage/sage-failure-retrieval-gate.py",
-        "scripts/sage/sage-validator-runner.py"
+        "scripts/sage/sage-validator-runner.py",
+        "sage-recovery-policy.json",
+        "markdown/standards/kalaxy3-sage-recovery-process.md",
+        "markdown/standards/sage-recovery-next-boundary-schema-v1.0.json",
+        "markdown/standards/sage-recovery-consumption-schema-v1.0.json",
+        "scripts/sage/workflow/recovery.py"
       ],
       "baseline_checks": [
         "make sage-failure-retrieval-self-test",
@@ -371,7 +385,12 @@
         "companion artifact validation",
         "checkpoint persistence",
         "checkpoint promotion",
-        "promotion eligibility"
+        "promotion eligibility",
+        "self-directing recovery",
+        "recovery identity",
+        "governing fingerprint",
+        "recurrence-aware recovery",
+        "successor action"
       ],
       "path_prefixes": [
         "sage-continuous-improvement-",
@@ -403,7 +422,11 @@
         "scripts/sage/sage-post-session-review",
         "sage-active-session-",
         "markdown/standards/sage-active-session-",
-        "scripts/sage/sage-active-session"
+        "scripts/sage/sage-active-session",
+        "sage-recovery-",
+        "markdown/standards/kalaxy3-sage-recovery",
+        "markdown/standards/sage-recovery-",
+        "scripts/sage/workflow/recovery.py"
       ],
       "requires": [
         "repository-governance",
@@ -497,7 +520,12 @@
         "scripts/sage/sage-semantic-bootstrap-guardrail.py",
         "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
         "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
-        "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
+        "markdown/standards/sage-semantic-understanding-schema-v1.0.json",
+        "sage-recovery-policy.json",
+        "markdown/standards/kalaxy3-sage-recovery-process.md",
+        "markdown/standards/sage-recovery-next-boundary-schema-v1.0.json",
+        "markdown/standards/sage-recovery-consumption-schema-v1.0.json",
+        "scripts/sage/workflow/recovery.py"
       ],
       "baseline_checks": [
         "make sage-active-session-self-test",
@@ -940,7 +968,10 @@
         "promotion eligibility",
         "routine git lifecycle",
         "one-approval git lifecycle",
-        "routine-git-lifecycle"
+        "routine-git-lifecycle",
+        "recovery identity",
+        "governing-condition fingerprint",
+        "next-boundary recovery"
       ],
       "path_prefixes": [
         "sage-workflow-primitives.json",
@@ -954,7 +985,10 @@
         "scripts/sage/sage-change-preflight.py",
         "scripts/sage/sage-change-discovery-guardrail.py",
         "scripts/sage/sage-routine-git-lifecycle.py",
-        "scripts/sage/sage-request-plan.py"
+        "scripts/sage/sage-request-plan.py",
+        "sage-recovery-policy.json",
+        "markdown/standards/kalaxy3-sage-recovery",
+        "markdown/standards/sage-recovery-"
       ],
       "requires": [
         "repository-governance",
@@ -1056,7 +1090,13 @@
         "scripts/sage/sage-semantic-bootstrap-guardrail.py",
         "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
         "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
-        "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
+        "markdown/standards/sage-semantic-understanding-schema-v1.0.json",
+        "sage-recovery-policy.json",
+        "markdown/standards/kalaxy3-sage-recovery-process.md",
+        "markdown/standards/sage-recovery-next-boundary-schema-v1.0.json",
+        "markdown/standards/sage-recovery-consumption-schema-v1.0.json",
+        "scripts/sage/workflow/recovery.py",
+        "scripts/sage/workflows/intent_to_outcome.py"
       ],
       "baseline_checks": [
         "make sage-discovery-guardrail",

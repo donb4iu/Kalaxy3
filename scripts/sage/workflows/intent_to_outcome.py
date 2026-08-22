@@ -10,6 +10,12 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from workflow import AtomicFileWriter, PrimitiveCatalog, WorkflowError
+from workflow.recovery import (
+    RECOVERY_CONSUMPTION_NAME,
+    build_consumption_record,
+    latest_matching_reentry,
+    load_consumed_fingerprints,
+)
 from workflows.checkpoint_promotion import continue_promotion, start_promotion
 from workflows.request_execution import (
     continue_request,
@@ -31,6 +37,7 @@ PRIMITIVES_USED = (
     "workflow.composition",
 )
 STATE_ROOT = Path("~/.local/state/kalaxy3/sage-intent-to-outcome").expanduser()
+RECOVERY_STATE_ROOT = Path("~/.local/state/kalaxy3").expanduser()
 
 
 def _stable_json(value: Mapping[str, Any]) -> str:
@@ -466,6 +473,50 @@ def adopt_request_execution(
     return adopt_iteration(repo, request, request_state)
 
 
+
+def _consume_recovery_reentry(
+    state_path: Path,
+    state: Mapping[str, Any],
+    reentry_boundary: str,
+) -> str | None:
+    """Consume one matching recovery re-entry exactly once."""
+
+    if reentry_boundary == "implementation-local":
+        return None
+    match = latest_matching_reentry(
+        RECOVERY_STATE_ROOT,
+        str(state["request_sha256"]),
+        reentry_boundary,
+    )
+    if match is None:
+        return None
+    _, decision = match
+    identity = decision.get("recovery_identity", {})
+    identity_sha = str(identity.get("identity_sha256", ""))
+    fingerprint = str(decision.get("governing_condition_fingerprint", ""))
+    if not identity_sha or not fingerprint:
+        raise WorkflowError("recovery re-entry decision identity is invalid")
+    consumed = load_consumed_fingerprints(RECOVERY_STATE_ROOT, identity_sha)
+    if fingerprint in consumed:
+        raise WorkflowError(
+            "repeated governance re-entry blocked for consumed recovery fingerprint"
+        )
+    destination = (
+        state_path.expanduser().resolve().parent
+        / "recovery-consumptions"
+        / fingerprint
+        / RECOVERY_CONSUMPTION_NAME
+    )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    record = build_consumption_record(
+        decision,
+        consumed_boundary=reentry_boundary,
+        consumer_reference=str(state_path.expanduser().resolve()),
+    )
+    _persist(destination, record)
+    return str(destination)
+
+
 def begin_candidate_iteration(
     repo: Path,
     state_path: Path,
@@ -485,6 +536,11 @@ def begin_candidate_iteration(
         raise WorkflowError("candidate iteration requires trigger and parent checkpoint")
     state = _load_parent(state_path)
     entry_mode = candidate_iteration_entry_mode(str(state.get("status", "")))
+    recovery_consumption = _consume_recovery_reentry(
+        state_path,
+        state,
+        reentry_boundary,
+    )
     prior = _current_iteration(state)
     prior["promotion_eligible"] = False
     findings = prior.setdefault("unresolved_findings", [])
@@ -517,6 +573,8 @@ def begin_candidate_iteration(
     state["iterations"].append(iteration)
     state["current_iteration"] = number
     iteration["entry_mode"] = entry_mode
+    if recovery_consumption is not None:
+        iteration["recovery_consumption"] = recovery_consumption
     state["promotion_eligible"] = False
     state["runtime_receipt"] = None
     state["promotion_state"] = None

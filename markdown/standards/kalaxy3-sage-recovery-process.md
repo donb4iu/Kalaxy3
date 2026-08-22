@@ -1,0 +1,90 @@
+# Kalaxy3 SAGE Self-Directing Recovery Process
+
+## Purpose
+
+SAGE recovery is a deterministic continuation contract, not an instruction for
+the operator or LLM to inspect source and invent the next step. Every
+fail-closed outcome must end with one machine-readable next-boundary decision
+or an explicit terminal/no-action decision.
+
+The shared contract is governed by `sage-recovery-policy.json`, implemented
+by `scripts/sage/workflow/recovery.py`, and used with the existing
+`failure.diagnose`, request-execution, post-retrieval,
+intent-to-outcome, and improvement-action lifecycle controls. It introduces no
+new low-level primitive.
+
+## Stable recovery identity
+
+A recovery identity preserves separate facts for:
+
+- the SHA-256 of the literal request;
+- the owning component identifier;
+- a normalized failure signature that removes attempt-local Git object IDs,
+  local-state paths, and timestamps; and
+- measured repository authority evidence.
+
+The stable identity digest is derived from request, component, and failure
+signature. Repository authority is preserved beside that identity and hashed
+separately so a recurrence is not misclassified as new merely because an
+authorized repair advanced HEAD.
+
+## Governing-condition fingerprint
+
+After the required first failure retrieval, SAGE measures the six existing
+post-retrieval governing conditions: authority, scope, required capability,
+safety requirements, repository-owned composition, and approval/mutation
+boundaries. Those booleans are backed by deterministic evidence digests and
+combined into one governing-condition fingerprint.
+
+A fingerprint is new only when current governing evidence differs from the
+prior matching failure. A new governance change may re-enter the earliest
+required governance boundary exactly once. An unchanged fingerprint cannot
+cause repeated discovery, retrieval, semantic confirmation, or planning.
+
+## Re-entry consumption
+
+Intent-to-outcome records an immutable
+`sage-recovery-governing-change-consumption` receipt when it actually starts the
+governance re-entry emitted by recovery. The receipt binds the recovery identity,
+governing fingerprint, required boundary, actual consumed boundary, and durable
+consumer state.
+
+If the same failure recurs before the emitted boundary is consumed, SAGE blocks
+another governance loop and reports `await-existing-reentry`. If it recurs
+after the fingerprint is consumed, SAGE stays at implementation-local
+repair/regression/revalidation unless the recurrence proves that the accepted
+owning control itself failed.
+
+## Accepted-control escalation
+
+When a recurrence demonstrates failure of an already accepted owning control,
+the current accepted action is not silently amended. Recovery emits one exact
+repository-owned action-lifecycle command bound to the recovery decision. The
+action lifecycle validates the recurrence and materializes the explicit Architect
+decision boundary for a successor capability-gap/improvement action. That
+boundary carries the stable recovery identity, owning component/control, reason,
+required evidence, and mutation authority without requiring source inspection or
+route invention by the operator or LLM.
+
+## Remote-main authority
+
+Current `origin/main` is observed and frozen as repository authority evidence.
+Request execution does not require current remote main to be an ancestor of an
+otherwise synchronized governed feature HEAD unless an applicable repository
+authority explicitly declares that constraint.
+
+## Observability
+
+Every recovery decision records:
+
+- new versus recurrence classification;
+- previous failure references;
+- governing fingerprint and consumption state;
+- selected next-boundary disposition;
+- owning component and control;
+- prevented duplicate re-entry;
+- successor escalation; and
+- required evidence and operator/Architect boundary.
+
+These fields make recurrence precision, prevented loops, consumed governance
+changes, operator steps, and avoidable rework measurable.
