@@ -1401,6 +1401,68 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260821-001",
+            "title": "Make fail-closed recovery self-directing and recurrence-aware",
+            "source_lessons": [
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "source_records": [
+                {
+                    "record_type": "capability-gap",
+                    "record_id": "SAGE-GAP-20260821-SELF-DIRECTING-RECOVERY",
+                    "schema_version": "1.1",
+                    "sha256": "e900cb4a0dbb9589313b7d5940b3f1f0b1abac73d0f945226fbdf7c75200ed8c"
+                }
+            ],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "SAGE owns recovery from every fail-closed state. It persists stable failure and governing-condition identities across attempts, distinguishes a genuinely new governance change from one already consumed by an earlier required re-entry, recognizes unchanged recurrence, prevents repeated identical governance loops, and emits exactly one machine-readable governed next boundary. When the current lifecycle has no authorized transition, including live failure of an accepted control, SAGE emits the capability-gap/successor-action route itself instead of requiring the LLM or operator to inspect repository source and invent recovery.",
+            "acceptance_criteria": [
+                "Every fail-closed closeout contains one structured next-boundary decision or an explicit terminal/no-action decision.",
+                "Failure identity persists across attempts using stable request, component, failure-signature, and repository-authority evidence with previous-failure references.",
+                "The second live Action-002 ancestry failure at HEAD 4192551f1df150d06d8ad62235746bc5f29eaa18 is deterministically classified as recurrence rather than classification=new.",
+                "A governing-condition change has a stable fingerprint and is marked consumed by the re-entry it required; the unchanged fingerprint is not reported as newly changed on the next attempt.",
+                "The exact live Action-002 sequence cannot route to planning twice for the same repository-owned-composition fingerprint at unchanged authority.",
+                "An unchanged recurrence routes to the owning repair/regression/revalidation boundary rather than repeating discovery or planning.",
+                "If the owning control is already accepted and cannot be amended under lifecycle policy, SAGE emits a verified successor capability-gap/improvement-action boundary without LLM/operator source-code inspection.",
+                "The emitted boundary identifies owning component, reason, required evidence, mutation authority, and exactly one repository-owned operator command or explicit Architect decision boundary.",
+                "The false origin/main ancestry assertion has a deterministic regression proving request execution does not require current remote main to be an ancestor of an otherwise synchronized governed feature HEAD unless an applicable authority explicitly requires it.",
+                "Request execution, intent-to-outcome, failure diagnosis, post-retrieval continuation, and action lifecycle consume one recovery identity/next-boundary contract instead of divergent local classifiers.",
+                "Repeated discovery, retrieval, semantic confirmation, or planning with no new governing-condition fingerprint fails closed as over-governance before another mutation.",
+                "Positive and negative regressions prove: new governance change -> earliest required re-entry once; unchanged recurrence -> repair; exhausted/unsupported recovery -> successor gap/action.",
+                "Structured events and closeouts make recurrence, consumed changes, prevented loops, operator boundaries, and avoidable rework measurable."
+            ],
+            "measurement_plan": [
+                "Track fail-closed outcomes by next-boundary disposition and owning component.",
+                "Track recurrence detection precision for identical signatures at unchanged authority.",
+                "Track governing-change fingerprints created, consumed, and incorrectly re-emitted; require zero duplicate re-entry for one unchanged consumed fingerprint.",
+                "Track prevented redundant discovery, retrieval, semantic-confirmation, and planning passes.",
+                "Track accepted-control live failures that automatically emit a governed successor gap/action boundary.",
+                "Replay the 2026-08-21 Action-002 ancestry-failure sequence and require one recovery route instead of a planning loop.",
+                "Track operator-visible discrete commands from first failure through validated recovery."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-21T23:45:04-05:00",
+                    "actor": "Architect",
+                    "reason": "Register self-directing recovery after the live Action-002 sequence proved the accepted post-retrieval control can repeatedly emit the same planning re-entry and cannot itself escalate failure of an accepted control.",
+                    "evidence_references": [
+                        "markdown/evidence-artifacts/SAGE-ACTION-20260821-001-PROVENANCE/self-directing-recovery-capability-gap.json",
+                        "action:SAGE-ACTION-20260810-001",
+                        "action:SAGE-ACTION-20260815-002",
+                        "commit:4192551f1df150d06d8ad62235746bc5f29eaa18"
+                    ]
+                }
+            ]
         }
     ]
 }
