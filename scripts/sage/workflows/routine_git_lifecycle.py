@@ -240,8 +240,6 @@ def run_controller(
         raise WorkflowError(
             f"routine Git lifecycle remote main authority changed: expected={base_main_head}, observed={live_main}"
         )
-    if not inspector.is_ancestor(base_main_head, expected_head):
-        raise WorkflowError("routine Git lifecycle feature HEAD is not based on the frozen main authority")
 
     repository = GitRepository(repo, runner, remote=remote)
     commit = repository.commit_and_push(
