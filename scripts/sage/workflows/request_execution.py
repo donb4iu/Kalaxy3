@@ -175,14 +175,6 @@ def git_action(context: ExecutionContext) -> Mapping[str, Any]:
     context.inspector.require_head(str(repository["head"]))
     context.git_snapshot = context.inspector.snapshot()
     context.remote_main_head = context.inspector.remote_head("origin", "main")
-    if not context.inspector.is_ancestor(
-        context.remote_main_head,
-        context.git_snapshot.head,
-    ):
-        raise WorkflowError(
-            "Feature branch HEAD is not based on current remote main authority: "
-            f"main={context.remote_main_head}, head={context.git_snapshot.head}"
-        )
     return {
         **context.git_snapshot.as_dict(),
         "remote_main_head": context.remote_main_head,
@@ -208,7 +200,7 @@ def authority_assertions(context: ExecutionContext, captured: str) -> tuple[Auth
         AuthorityAssertion("ASSERT-003", "github", "repository-policy", "sage-operating-contract-policy.json#helper_policy", subject="GitHub mutation boundary", statement="SAGE request execution may not mutate GitHub; an operator boundary is required.", measurement_type="declared", evidence_sha256=sha256_file(policy), **common),
         AuthorityAssertion("ASSERT-004", "repository-policy", "repository", "markdown/standards/kalaxy3-sage-operating-contract.md", subject="repository mutation policy", statement="Repository content may be changed atomically and validated before one operator-executed Git proposal.", measurement_type="declared", evidence_sha256=sha256_file(standard), **common),
         AuthorityAssertion("ASSERT-005", "sage", "repository", "sage-change-authority.json", subject="SAGE discovery authority", statement="The literal request was classified through current repository SAGE discovery and its authoritative files were readable.", measurement_type="measured", evidence_sha256=discovery_digest, **common),
-        AuthorityAssertion("ASSERT-006", "git", "git", f"origin/main:{context.remote_main_head}", subject="remote main authority", statement=f"Live origin/main is {context.remote_main_head} and is an ancestor of the active feature HEAD.", measurement_type="measured", evidence_sha256=hashlib.sha256(str(context.remote_main_head).encode()).hexdigest(), **common),
+        AuthorityAssertion("ASSERT-006", "git", "git", f"origin/main:{context.remote_main_head}", subject="remote main authority", statement=f"Live origin/main is {context.remote_main_head} and is captured as frozen main authority for this request execution.", measurement_type="measured", evidence_sha256=hashlib.sha256(str(context.remote_main_head).encode()).hexdigest(), **common),
     )
 
 

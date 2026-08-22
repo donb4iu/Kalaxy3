@@ -139,6 +139,7 @@ def self_test() -> int:
         from workflows.request_execution import (  # noqa: PLC0415
             candidate_from_mapping,
             capture_python_safety_baseline,
+            git_action,
             load_state,
             safety_action,
             validate_python_payloads,
@@ -172,6 +173,82 @@ def self_test() -> int:
 
         class FixtureContext:
             pass
+
+        class FixtureSnapshot:
+            branch = "feature/fixture"
+            head = "0" * 40
+            upstream_head = "0" * 40
+            working_tree_status = "clean"
+
+            def as_dict(self):
+                return {
+                    "branch": self.branch,
+                    "head": self.head,
+                    "upstream_head": self.upstream_head,
+                    "working_tree_status": self.working_tree_status,
+                }
+
+        class NonAncestorInspector:
+            def require_clean(self):
+                return None
+
+            def require_branch(self, expected):
+                if expected != "feature/fixture":
+                    raise RuntimeError("fixture branch binding changed")
+
+            def require_head(self, expected):
+                if expected != "0" * 40:
+                    raise RuntimeError("fixture HEAD binding changed")
+
+            def snapshot(self):
+                return FixtureSnapshot()
+
+            def remote_head(self, remote, branch):
+                if (remote, branch) != ("origin", "main"):
+                    raise RuntimeError("unexpected remote authority lookup")
+                return "1" * 40
+
+            def is_ancestor(self, ancestor, descendant):
+                raise RuntimeError(
+                    "request execution must not require current-main ancestry"
+                )
+
+        non_ancestor_context = FixtureContext()
+        non_ancestor_context.bundle = bundle
+        non_ancestor_context.inspector = NonAncestorInspector()
+        non_ancestor_context.git_snapshot = None
+        non_ancestor_context.remote_main_head = None
+        observed_git = git_action(non_ancestor_context)
+        if (
+            observed_git.get("remote_main_head") != "1" * 40
+            or non_ancestor_context.remote_main_head != "1" * 40
+            or non_ancestor_context.git_snapshot.head != "0" * 40
+        ):
+            raise RuntimeError(
+                "non-ancestor feature branch did not preserve frozen main authority"
+            )
+
+        workflow_source = (
+            Path(__file__).resolve().parent
+            / "workflows"
+            / "request_execution.py"
+        ).read_text(encoding="utf-8")
+        if "is an ancestor of the active feature HEAD" in workflow_source:
+            raise RuntimeError(
+                "request execution still asserts current-main ancestry authority"
+            )
+        frozen_main_guard = (
+            'if context.inspector.remote_head(str(plan["push_remote"]), "main") '
+            "!= context.remote_main_head:"
+        )
+        if (
+            frozen_main_guard not in workflow_source
+            or "routine Git lifecycle remote main authority changed during validation"
+            not in workflow_source
+        ):
+            raise RuntimeError(
+                "frozen remote-main drift protection was not preserved"
+            )
 
         candidate_context = FixtureContext()
         candidate_context.repo = Path(__file__).resolve().parents[2]
@@ -649,6 +726,8 @@ def self_test() -> int:
             raise RuntimeError(
                 "routine lifecycle main authority was not preserved"
             )
+    print("PASS synchronized feature authority does not require current origin/main ancestry")
+    print("PASS captured origin/main remains frozen and drift-protected through validation")
     print("PASS exact literal-request binding")
     print("PASS checksum-bound source payload")
     print("PASS Git SHA-1 and SHA-256 object-ID validation")
