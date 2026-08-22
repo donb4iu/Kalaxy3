@@ -10,6 +10,92 @@ def _now() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
 
+POST_RETRIEVAL_GOVERNING_CONDITIONS = (
+    "authority",
+    "scope",
+    "required_capability",
+    "safety_requirements",
+    "repository_owned_composition",
+    "approval_or_mutation_boundaries",
+)
+
+
+def classify_post_retrieval_continuation(
+    *,
+    retrieval_performed: bool,
+    attempted_action_authorized: bool,
+    governing_changes: Mapping[str, bool],
+) -> dict[str, Any]:
+    """Classify corrective retry versus governance re-entry deterministically."""
+
+    if retrieval_performed is not True:
+        raise ValueError("Post-retrieval continuation requires completed failure retrieval")
+    if set(governing_changes) != set(POST_RETRIEVAL_GOVERNING_CONDITIONS):
+        raise ValueError("Post-retrieval governing-condition fields are invalid")
+    if any(not isinstance(value, bool) for value in governing_changes.values()):
+        raise ValueError("Post-retrieval governing-condition values must be boolean")
+    if not isinstance(attempted_action_authorized, bool):
+        raise ValueError("Post-retrieval attempted-action authorization must be boolean")
+
+    changed = [
+        name for name in POST_RETRIEVAL_GOVERNING_CONDITIONS
+        if governing_changes[name]
+    ]
+    if not attempted_action_authorized:
+        disposition = "governance-reentry"
+        required_boundary = "authority"
+        reason = "The attempted action is no longer authorized."
+    elif not changed:
+        disposition = "implementation-local-retry"
+        required_boundary = "implementation-local"
+        reason = (
+            "Authority, scope, required capability, safety requirements, "
+            "repository-owned composition, and approval or mutation boundaries "
+            "are unchanged."
+        )
+    elif "authority" in changed:
+        disposition = "governance-reentry"
+        required_boundary = "authority"
+        reason = "Repository or execution authority changed."
+    elif any(
+        name in changed
+        for name in ("scope", "safety_requirements", "approval_or_mutation_boundaries")
+    ):
+        disposition = "governance-reentry"
+        required_boundary = "semantic-confirmation"
+        reason = "A semantic, safety, or approval-boundary condition changed."
+    else:
+        disposition = "governance-reentry"
+        required_boundary = "planning"
+        reason = "Required capability or repository-owned composition changed."
+
+    return {
+        "schema_version": "1.0",
+        "record_type": "sage-post-retrieval-continuation-decision",
+        "retrieval_performed": True,
+        "attempted_action_authorized": attempted_action_authorized,
+        "governing_conditions": dict(governing_changes),
+        "changed_conditions": changed,
+        "disposition": disposition,
+        "required_reentry_boundary": required_boundary,
+        "reason": reason,
+    }
+
+
+def require_post_retrieval_boundary(
+    decision: Mapping[str, Any],
+    requested_boundary: str,
+) -> None:
+    """Fail closed when a corrective path does not match the classified boundary."""
+
+    required = decision.get("required_reentry_boundary")
+    if requested_boundary != required:
+        raise ValueError(
+            "Post-retrieval continuation boundary mismatch: "
+            f"required={required}, requested={requested_boundary}"
+        )
+
+
 class FailureDiagnoser:
     """Record expected and actual paths, ownership, recurrence, and correction."""
 

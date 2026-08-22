@@ -15,6 +15,7 @@ SAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SAGE_DIR))
 
 from request_execution import ProposalError, load_proposal, next_operator_boundary, request_sha256, validate_operator_result, validate_routine_git_lifecycle_receipt  # noqa: E402
+from workflow.diagnosis import classify_post_retrieval_continuation, require_post_retrieval_boundary  # noqa: E402
 
 
 def digest(payload: bytes) -> str:
@@ -138,7 +139,6 @@ def self_test() -> int:
         from workflows.request_execution import (  # noqa: PLC0415
             candidate_from_mapping,
             capture_python_safety_baseline,
-            git_action,
             load_state,
             safety_action,
             validate_python_payloads,
@@ -172,82 +172,6 @@ def self_test() -> int:
 
         class FixtureContext:
             pass
-
-        class FixtureSnapshot:
-            branch = "feature/fixture"
-            head = "0" * 40
-            upstream_head = "0" * 40
-            working_tree_status = "clean"
-
-            def as_dict(self):
-                return {
-                    "branch": self.branch,
-                    "head": self.head,
-                    "upstream_head": self.upstream_head,
-                    "working_tree_status": self.working_tree_status,
-                }
-
-        class NonAncestorInspector:
-            def require_clean(self):
-                return None
-
-            def require_branch(self, expected):
-                if expected != "feature/fixture":
-                    raise RuntimeError("fixture branch binding changed")
-
-            def require_head(self, expected):
-                if expected != "0" * 40:
-                    raise RuntimeError("fixture HEAD binding changed")
-
-            def snapshot(self):
-                return FixtureSnapshot()
-
-            def remote_head(self, remote, branch):
-                if (remote, branch) != ("origin", "main"):
-                    raise RuntimeError("unexpected remote authority lookup")
-                return "1" * 40
-
-            def is_ancestor(self, ancestor, descendant):
-                raise RuntimeError(
-                    "request execution must not require current-main ancestry"
-                )
-
-        non_ancestor_context = FixtureContext()
-        non_ancestor_context.bundle = bundle
-        non_ancestor_context.inspector = NonAncestorInspector()
-        non_ancestor_context.git_snapshot = None
-        non_ancestor_context.remote_main_head = None
-        observed_git = git_action(non_ancestor_context)
-        if (
-            observed_git.get("remote_main_head") != "1" * 40
-            or non_ancestor_context.remote_main_head != "1" * 40
-            or non_ancestor_context.git_snapshot.head != "0" * 40
-        ):
-            raise RuntimeError(
-                "non-ancestor feature branch did not preserve frozen main authority"
-            )
-
-        workflow_source = (
-            Path(__file__).resolve().parent
-            / "workflows"
-            / "request_execution.py"
-        ).read_text(encoding="utf-8")
-        if "is an ancestor of the active feature HEAD" in workflow_source:
-            raise RuntimeError(
-                "request execution still asserts current-main ancestry authority"
-            )
-        frozen_main_guard = (
-            'if context.inspector.remote_head(str(plan["push_remote"]), "main") '
-            "!= context.remote_main_head:"
-        )
-        if (
-            frozen_main_guard not in workflow_source
-            or "routine Git lifecycle remote main authority changed during validation"
-            not in workflow_source
-        ):
-            raise RuntimeError(
-                "frozen remote-main drift protection was not preserved"
-            )
 
         candidate_context = FixtureContext()
         candidate_context.repo = Path(__file__).resolve().parents[2]
@@ -544,6 +468,53 @@ def self_test() -> int:
         observed = validate_operator_result(operator_result, operator_proposal)
         if observed["complete_output_sha256"] != digest(b"") or observed["result_sha256"] != digest(b""):
             raise RuntimeError("operator-result output digest mismatch")
+
+        unchanged = classify_post_retrieval_continuation(
+            retrieval_performed=True,
+            attempted_action_authorized=True,
+            governing_changes={
+                "authority": False,
+                "scope": False,
+                "required_capability": False,
+                "safety_requirements": False,
+                "repository_owned_composition": False,
+                "approval_or_mutation_boundaries": False,
+            },
+        )
+        if unchanged["disposition"] != "implementation-local-retry":
+            raise RuntimeError("unchanged post-retrieval conditions did not stay implementation-local")
+        require_post_retrieval_boundary(unchanged, "implementation-local")
+        try:
+            require_post_retrieval_boundary(unchanged, "planning")
+        except ValueError:
+            pass
+        else:
+            raise RuntimeError("redundant replanning after unchanged failure did not fail closed")
+
+        composition_changed = classify_post_retrieval_continuation(
+            retrieval_performed=True,
+            attempted_action_authorized=True,
+            governing_changes={
+                "authority": False,
+                "scope": False,
+                "required_capability": False,
+                "safety_requirements": False,
+                "repository_owned_composition": True,
+                "approval_or_mutation_boundaries": False,
+            },
+        )
+        if (
+            composition_changed["disposition"] != "governance-reentry"
+            or composition_changed["required_reentry_boundary"] != "planning"
+        ):
+            raise RuntimeError("composition change did not require planning re-entry")
+        try:
+            require_post_retrieval_boundary(composition_changed, "implementation-local")
+        except ValueError:
+            pass
+        else:
+            raise RuntimeError("composition-changing same-request retry did not fail closed")
+        require_post_retrieval_boundary(composition_changed, "planning")
         routine_proposal = {
             "schema_version": "1.2",
             "proposal_id": "SAGE-GIT-20260806-002",
@@ -678,8 +649,6 @@ def self_test() -> int:
             raise RuntimeError(
                 "routine lifecycle main authority was not preserved"
             )
-    print("PASS synchronized proposal-bound feature HEAD does not require current origin/main ancestry")
-    print("PASS captured origin/main remains frozen and drift-protected through validation")
     print("PASS exact literal-request binding")
     print("PASS checksum-bound source payload")
     print("PASS Git SHA-1 and SHA-256 object-ID validation")

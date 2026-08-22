@@ -45,6 +45,12 @@ Failure recovery is evidence, not an inference from exception handling. **rollba
 - A rollback attempt that cannot be independently verified is recorded as `failed-rollback-unverified` and remains fail-closed.
 - Failure diagnosis and closeout preserve the measured recovery state so later planning does not mistake control-flow intent for observed repository state.
 
+### Post-retrieval continuation classification
+
+After the mandatory first unexpected-failure retrieval, SAGE records a deterministic post-retrieval continuation decision before corrective retry guidance. The decision records whether authority, scope, required capability, safety requirements, repository-owned composition, or approval or mutation boundaries changed, and whether the attempted action remains authorized.
+
+When none of those governing conditions changed, the required re-entry boundary is `implementation-local`; repair, an exact regression, revalidation, and retry stay inside the same governed request. Repeating discovery or replanning for that unchanged failure class is rejected as unnecessary over-governance. When a governing condition changed, implementation-local retry is rejected: authority changes return to `authority`, semantic/safety/approval-boundary changes return to `semantic-confirmation`, and required-capability or repository-composition changes return to `planning`. The decision is written beside the failure diagnosis and referenced as failure evidence so the continuation reason remains observable and measurable.
+
 ## Proposal package
 
 A proposal ZIP contains exactly `sage-proposal.json` plus `payload/<repository-relative-path>` for every source file. The manifest is governed by `sage-request-execution-proposal-schema-v1.0.json` and binds:

@@ -81,6 +81,8 @@ WORKFLOW_MARKERS = (
     "failed-pre-mutation",
     "failed-rollback-unverified",
     "rollback_verified",
+    "classify_post_retrieval_continuation",
+    "post-retrieval-continuation-decision.json",
 )
 PROCESS_MARKERS = (
     "untrusted proposal",
@@ -106,6 +108,8 @@ PROCESS_MARKERS = (
     "newly introduced safety findings",
     "new Python files",
     "rollback is not inferred",
+    "post-retrieval continuation decision",
+    "unnecessary over-governance",
 )
 
 
@@ -191,6 +195,14 @@ def source_failures() -> list[str]:
         failures.append("routine Git CLI does not consume its repository-owned receipt")
     if "operator-result" in routine_cli or "pasted_output_received" in routine_cli:
         failures.append("routine Git CLI still depends on caller-authored pasted operator results")
+    cli = (ROOT / CLI_PATH).read_text(encoding="utf-8")
+    for marker in (
+        "unchanged post-retrieval conditions did not stay implementation-local",
+        "redundant replanning after unchanged failure did not fail closed",
+        "composition-changing same-request retry did not fail closed",
+    ):
+        if marker not in cli:
+            failures.append(f"post-retrieval continuation regression missing: {marker}")
     routine_controller = (ROOT / "scripts/sage/workflows/routine_git_lifecycle.py").read_text(encoding="utf-8")
     request_domain = (ROOT / "scripts/sage/request_execution.py").read_text(encoding="utf-8")
     legacy_marker = "already-open legacy schema 1.0 proposal"
