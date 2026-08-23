@@ -11,6 +11,7 @@ from typing import Any, Iterable, Mapping
 
 RECOVERY_DECISION_NAME = "recovery-next-boundary.json"
 RECOVERY_CONSUMPTION_NAME = "recovery-governing-change-consumption.json"
+ACCEPTED_CONTROL_STATUSES = frozenset({"accepted", "implemented", "validated"})
 _SHA = re.compile(r"\b[0-9a-f]{40}(?:[0-9a-f]{24})?\b")
 _STATE_PATH = re.compile(r"/[^\s]*/\.local/state/kalaxy3/[^\s]+")
 _TIMESTAMP = re.compile(r"\b\d{8}-\d{6}(?:-\d{6})?\b")
@@ -320,7 +321,11 @@ def _select_disposition(
 
     if same and not consumed and same[-1].get("disposition") == "governance-reentry":
         return "over-governance-blocked", "await-existing-reentry"
-    if same and accepted_control_failure and control_action_status == "accepted":
+    if (
+        same
+        and accepted_control_failure
+        and control_action_status in ACCEPTED_CONTROL_STATUSES
+    ):
         return "successor-action", "architect-decision"
     if same:
         return "repair", "implementation-local"
@@ -365,7 +370,7 @@ def _decision_payload(
         "next_boundary": boundary,
         "owning_component": owning_component,
         "owning_control": dict(owning_control),
-        "reason": _reason(disposition, requested),
+        "reason": _reason(disposition, requested, bool(prior)),
         "required_evidence": _required_evidence(),
         "mutation_authority": "repository-workflow",
         "operator_boundary": _operator_boundary(
@@ -398,17 +403,33 @@ def _required_evidence() -> list[str]:
     ]
 
 
-def _reason(disposition: str, requested_boundary: str) -> str:
+def _reason(
+    disposition: str,
+    requested_boundary: str,
+    recurred: bool,
+) -> str:
     """Render one concise deterministic recovery reason.
 
     Args:
         disposition: Selected recovery disposition.
         requested_boundary: Boundary requested by post-retrieval classification.
+        recurred: Whether prior stable-failure evidence exists.
 
     Returns:
-        Human-readable reason.
+        Human-readable reason consistent with recurrence classification.
     """
 
+    if disposition == "repair":
+        if recurred:
+            return (
+                "The failure recurred without a new governing-condition "
+                "fingerprint; repair, regression, and revalidation stay "
+                "implementation-local."
+            )
+        return (
+            "The failure is new and does not require governance re-entry; "
+            "repair, regression, and revalidation stay implementation-local."
+        )
     reasons = {
         "over-governance-blocked": (
             "The same governing fingerprint already emitted a re-entry that has "
@@ -417,10 +438,6 @@ def _reason(disposition: str, requested_boundary: str) -> str:
         "successor-action": (
             "The same failure recurred under an accepted owning control; the "
             "current lifecycle cannot silently amend that accepted control."
-        ),
-        "repair": (
-            "The failure recurred without a new governing-condition fingerprint; "
-            "repair, regression, and revalidation stay implementation-local."
         ),
         "governance-reentry": (
             f"A genuinely new governing fingerprint requires one "

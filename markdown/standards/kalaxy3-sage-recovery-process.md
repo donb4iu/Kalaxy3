@@ -57,14 +57,19 @@ owning control itself failed.
 
 ## Accepted-control escalation
 
-When a recurrence demonstrates failure of an already accepted owning control,
-the current accepted action is not silently amended. Recovery emits one exact
+When a recurrence demonstrates failure of an owning control in accepted lifecycle
+lineage (`accepted`, `implemented`, or `validated`), the current action is not
+silently amended. Recovery emits one exact
 repository-owned action-lifecycle command bound to the recovery decision. The
 action lifecycle validates the recurrence and materializes the explicit Architect
 decision boundary for a successor capability-gap/improvement action. That
 boundary carries the stable recovery identity, owning component/control, reason,
 required evidence, and mutation authority without requiring source inspection or
 route invention by the operator or LLM.
+
+Improvement-action lifecycle failures, including discovery/preflight failures,
+must invoke this recovery contract before returning fail-closed so the closeout
+contains one machine-readable next boundary rather than only an exception.
 
 ## Remote-main authority
 

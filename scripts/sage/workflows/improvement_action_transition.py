@@ -32,6 +32,16 @@ from workflow import (
     Workflow,
     WorkflowError,
 )
+from workflow.diagnosis import classify_post_retrieval_continuation
+from workflow.recovery import (
+    RECOVERY_DECISION_NAME,
+    bind_successor_operator_boundary,
+    build_recovery_identity,
+    decide_next_boundary,
+    digest_value,
+    load_consumed_fingerprints,
+    load_recovery_decisions,
+)
 from workflows.request_planning import derive_component_plan
 
 WORKFLOW_ID = "sage.improvement-action-transition"
@@ -124,6 +134,181 @@ def write_local(
     return path
 
 
+def _recovery_policy(context: TransitionContext) -> dict[str, Any]:
+    """Load the repository-owned self-directing recovery policy."""
+
+    path = context.repo / "sage-recovery-policy.json"
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if (
+        not isinstance(value, dict)
+        or value.get("schema_version") != "1.0"
+        or value.get("policy_id") != "kalaxy3-sage-recovery"
+    ):
+        raise WorkflowError("SAGE recovery policy is invalid")
+    return value
+
+
+def _current_action_status(context: TransitionContext, action_id: str) -> str | None:
+    """Return the current lifecycle status of one improvement action."""
+
+    registry = json.loads(
+        (context.repo / REGISTRY_PATH).read_text(encoding="utf-8")
+    )
+    for action in registry.get("actions", []):
+        if isinstance(action, dict) and action.get("action_id") == action_id:
+            status = action.get("current_status")
+            return str(status) if status is not None else None
+    return None
+
+
+def _recovery_composition_digest(
+    context: TransitionContext,
+    paths: list[str],
+) -> str:
+    """Hash the repository-owned composition that governs recovery."""
+
+    evidence: dict[str, str] = {}
+    for relative in paths:
+        path = context.repo / relative
+        if not path.is_file():
+            raise WorkflowError(f"recovery composition path is missing: {relative}")
+        evidence[relative] = sha256_file(path)
+    return digest_value(evidence)
+
+
+def _recovery_governing_evidence(
+    context: TransitionContext,
+    policy: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Measure stable governing evidence for action-lifecycle recovery."""
+
+    operating = json.loads(
+        (context.repo / "sage-operating-contract-policy.json").read_text(encoding="utf-8")
+    )
+    paths = policy.get("governing_composition_paths", [])
+    if not isinstance(paths, list) or not all(isinstance(item, str) for item in paths):
+        raise WorkflowError("recovery governing composition paths are invalid")
+    return {
+        "authority_contract_sha256": digest_value({
+            "branch": context.inspector.branch(),
+            "authority_policy": operating.get("authority_policy", {}),
+        }),
+        "scope_sha256": digest_value([REGISTRY_PATH]),
+        "required_capability_sha256": digest_value([
+            "improvement-action-lifecycle",
+            context.operation,
+        ]),
+        "safety_requirements_sha256": digest_value(
+            operating.get("helper_policy", {})
+        ),
+        "repository_owned_composition_sha256": _recovery_composition_digest(
+            context, paths
+        ),
+        "approval_or_mutation_boundaries_sha256": digest_value(
+            operating.get("operator_mutation_policy", {})
+        ),
+    }
+
+
+def _recovery_governing_changes(
+    evidence: Mapping[str, Any],
+    previous: list[Mapping[str, Any]],
+) -> dict[str, bool]:
+    """Compare the six governing conditions with the prior same failure."""
+
+    names = (
+        ("authority", "authority_contract_sha256"),
+        ("scope", "scope_sha256"),
+        ("required_capability", "required_capability_sha256"),
+        ("safety_requirements", "safety_requirements_sha256"),
+        ("repository_owned_composition", "repository_owned_composition_sha256"),
+        ("approval_or_mutation_boundaries", "approval_or_mutation_boundaries_sha256"),
+    )
+    if not previous:
+        return {name: False for name, _ in names}
+    prior = previous[-1].get("governing_evidence", {})
+    return {name: evidence.get(field) != prior.get(field) for name, field in names}
+
+
+def _failure_retrieval(context: TransitionContext) -> str:
+    """Retrieve repository experience after a lifecycle failure."""
+
+    result = context.runner.run(
+        CommandSpec(
+            primitive_id="command.run",
+            label="Retrieve evidence for failed improvement-action lifecycle",
+            argv=(
+                "python3",
+                "scripts/sage/sage-evidence-retrieval.py",
+                "retrieve",
+                "--request",
+                context.request,
+            ),
+            cwd=context.repo,
+            timeout_seconds=600,
+        ),
+        step_id="transition-failure-evidence-retrieval",
+    )
+    return result.output_sha256
+
+
+def failure_recovery_action(
+    context: TransitionContext,
+    error: Exception,
+) -> tuple[Path, Path]:
+    """Emit one recovery decision for any fail-closed lifecycle outcome."""
+
+    retrieval_sha256 = _failure_retrieval(context)
+    policy = _recovery_policy(context)
+    authority = context.inspector.snapshot().as_dict()
+    failure_text = f"{type(error).__name__}: {error}"
+    identity = build_recovery_identity(
+        request=context.request,
+        component_id=WORKFLOW_ID,
+        failure_text=failure_text,
+        repository_authority=authority,
+    )
+    state_root = Path(str(policy.get("state_root", "~/.local/state/kalaxy3"))).expanduser()
+    previous = load_recovery_decisions(
+        state_root, str(identity["identity_sha256"])
+    )
+    evidence = _recovery_governing_evidence(context, policy)
+    changes = _recovery_governing_changes(evidence, previous)
+    post_retrieval = classify_post_retrieval_continuation(
+        retrieval_performed=True,
+        attempted_action_authorized=True,
+        governing_changes=changes,
+        recovery_identity=identity,
+    )
+    control_id = str(policy.get("recovery_control_action_id", "")) or None
+    control_status = (
+        _current_action_status(context, control_id) if control_id else None
+    )
+    accepted_failure = control_status == "validated"
+    consumed = load_consumed_fingerprints(
+        state_root, str(identity["identity_sha256"])
+    )
+    decision = decide_next_boundary(
+        identity=identity,
+        post_retrieval=post_retrieval,
+        governing_evidence=evidence,
+        previous=previous,
+        consumed_fingerprints=consumed,
+        owning_component=WORKFLOW_ID,
+        control_action_id=control_id,
+        control_action_status=control_status,
+        accepted_control_failure=accepted_failure,
+    )
+    decision["governing_evidence"]["failure_retrieval_sha256"] = retrieval_sha256
+    decision_path = context.state_dir / RECOVERY_DECISION_NAME
+    decision = bind_successor_operator_boundary(decision, decision_path)
+    post_path = write_local(
+        context, "post-retrieval-continuation-decision.json", post_retrieval
+    )
+    decision_path = write_local(context, RECOVERY_DECISION_NAME, decision)
+    return post_path, decision_path
+
+
 def build_successor_action_boundary(
     decision: Mapping[str, Any],
     source_reference: str,
@@ -139,7 +324,10 @@ def build_successor_action_boundary(
         raise WorkflowError("recovery decision does not require successor action")
     if decision.get("classification") != "recurrence":
         raise WorkflowError("successor action requires a recurrence")
-    if control.get("status") != "accepted" or control.get("accepted_control_failure") is not True:
+    if (
+        control.get("status") not in {"accepted", "implemented", "validated"}
+        or control.get("accepted_control_failure") is not True
+    ):
         raise WorkflowError("successor action requires failure of an accepted control")
     if not decision.get("previous_failure_references"):
         raise WorkflowError("successor action requires previous failure evidence")
@@ -816,15 +1004,25 @@ def run_lifecycle(context: TransitionContext) -> Mapping[str, Any]:
                 )
             transaction.commit()
     except Exception as error:
+        post_path, decision_path = failure_recovery_action(context, error)
+        decision = json.loads(decision_path.read_text(encoding="utf-8"))
         details = _closeout_details(context)
         details.update(
             {
                 "error": f"{type(error).__name__}: {error}",
                 "repository_registry_rollback": True,
+                "post_retrieval": str(post_path),
+                "next_boundary": str(decision_path),
+                "recovery_disposition": decision.get("disposition"),
             }
         )
-        write_closeout(context, status="failed-rolled-back", details=details)
-        raise
+        closeout = write_closeout(
+            context, status="failed-rolled-back", details=details
+        )
+        raise WorkflowError(
+            f"{error}\nNext governed boundary: {decision_path}\n"
+            f"Closeout: {closeout}"
+        ) from error
 
     closeout = write_closeout(
         context,
@@ -910,6 +1108,38 @@ def start_amendment(
     )
     return run_lifecycle(context)
 
+def _recovery_reason_consistency_self_test() -> None:
+    """Prove recurrence classification, metric, and reason remain consistent."""
+
+    common = {
+        "identity": {"identity_sha256": "b" * 64},
+        "post_retrieval": {
+            "governing_conditions": {},
+            "required_reentry_boundary": "implementation-local",
+        },
+        "governing_evidence": {"authority_contract_sha256": "a" * 64},
+        "consumed_fingerprints": set(),
+        "owning_component": "sage.improvement-action-transition",
+        "control_action_id": "SAGE-ACTION-20260821-001",
+        "control_action_status": "implemented",
+        "accepted_control_failure": False,
+    }
+    first = decide_next_boundary(previous=[], **common)
+    if first.get("classification") != "new":
+        raise RuntimeError("first recovery occurrence was not classified new")
+    if first.get("metrics", {}).get("recurrence_detected"):
+        raise RuntimeError("new recovery occurrence reported recurrence")
+    if "recurred" in str(first.get("reason", "")).lower():
+        raise RuntimeError("new recovery reason falsely claimed recurrence")
+    repeated = decide_next_boundary(previous=[first], **common)
+    if repeated.get("classification") != "recurrence":
+        raise RuntimeError("repeated recovery was not classified recurrence")
+    if not repeated.get("metrics", {}).get("recurrence_detected"):
+        raise RuntimeError("repeated recovery omitted recurrence metric")
+    if "recurred" not in str(repeated.get("reason", "")).lower():
+        raise RuntimeError("recurrence recovery reason omitted recurrence")
+
+
 def _successor_recovery_self_test() -> None:
     """Prove action lifecycle owns accepted-control successor escalation."""
 
@@ -921,7 +1151,7 @@ def _successor_recovery_self_test() -> None:
         "recovery_identity": {"identity_sha256": "a" * 64},
         "owning_component": "sage.request-execution",
         "owning_control": {"action_id": "SAGE-ACTION-20260810-001",
-                           "status": "accepted",
+                           "status": "validated",
                            "accepted_control_failure": True},
         "reason": "accepted control recurred",
         "required_evidence": ["failure retrieval receipt"],
@@ -943,6 +1173,7 @@ def _successor_recovery_self_test() -> None:
 def self_test() -> int:
     """Exercise least-authority and continuation contracts without mutation."""
 
+    _recovery_reason_consistency_self_test()
     _successor_recovery_self_test()
     for method in (
         "require_clean",
@@ -984,6 +1215,7 @@ def self_test() -> int:
     print("PASS least-authority Git inspection contract")
     print("PASS canonical improvement-action transition and amendment ownership")
     print("PASS exact single-registry mutation scope")
+    print("PASS recovery classification, metric, and reason consistency")
     print("PASS accepted-control recurrence emits Architect successor boundary")
     print("PASS operator stage boundary with request-execution continuation")
     print(

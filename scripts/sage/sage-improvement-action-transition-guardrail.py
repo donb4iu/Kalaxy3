@@ -140,6 +140,17 @@ def main() -> int:
             failures.append(f"successor lifecycle marker missing: {marker}")
     if "--recovery-decision" not in cli_source:
         failures.append("transition CLI cannot consume recovery successor boundary")
+    for marker in (
+        "failure_recovery_action(context, error)",
+        "classify_post_retrieval_continuation",
+        "RECOVERY_DECISION_NAME",
+        "recovery_control_action_id",
+        "Next governed boundary:",
+    ):
+        if marker not in workflow_source:
+            failures.append(
+                "fail-closed lifecycle recovery integration missing: " + marker
+            )
     workflows_dir = ROOT / "scripts/sage/workflows"
     parallel = [
         path.name
@@ -177,6 +188,7 @@ def main() -> int:
     )
     print("PASS Make and CLI integration")
     print("PASS accepted-control recurrence is owned by action lifecycle")
+    print("PASS lifecycle failures emit one recovery next-boundary contract")
     print(
         "Kalaxy3 SAGE improvement-action transition guardrail: PASS"
     )
