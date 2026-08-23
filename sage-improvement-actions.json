@@ -1488,6 +1488,65 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260823-001",
+            "title": "Integrate objective-first routing, assurance, and debt feedback",
+            "source_lessons": [],
+            "source_sessions": [],
+            "source_records": [
+                {
+                    "record_type": "capability-gap",
+                    "record_id": "SAGE-GAP-20260823-OBJECTIVE-FIRST-INTEGRATION",
+                    "schema_version": "1.1",
+                    "sha256": "59d7a743375f0975aee49f9a73453d654751aa1162e21d3449ed6ff6911b76b2"
+                }
+            ],
+            "current_status": "identified",
+            "owner": "Architect",
+            "priority": "high",
+            "target_control_type": "automation",
+            "desired_outcome": "SAGE calculates and preserves a governed path from the active Architect-owned objective before candidate mutation; evaluates established alternatives and prior art against evidence, risk, guardrails, authority, reversibility, operability, and opportunity cost; treats gaps as subordinate impediments; separates safe canonical integration from capability maturity, runtime promotion, and objective completion; continuously measures BDD-style regression assurance and the effectiveness of guardrails/collaboration; actively reevaluates deferred technical debt; exposes the resulting decision state through the existing Cloudflare-protected SAGE experience; and returns to the parent objective after bounded remediation.",
+            "acceptance_criteria": [
+                "Before a new candidate mutation or gap-remediation branch, the active objective exposes a machine-readable route containing remaining obligations, current evidence, dependencies, viable established alternatives including do-nothing when meaningful, predicted risks, reversibility, expected value/time-to-evidence, selected/promoted candidate or explicit Architect choice, and the intended re-entry point.",
+                "SAGE treats apparent novelty as an exception: viable prior art and repository-owned experience are evaluated first; materially viable alternatives and rejection/defer rationale remain evidence; a genuinely novel direction is explicitly identified, justified, independently validated, and Architect-approved.",
+                "A detected gap is dispositioned in parent-objective context as bounded local remediation, efficient class-level remediation, or deferred/non-blocking debt. Gap closure does not silently replace the active objective.",
+                "Canonical integration eligibility is distinct from capability validation, runtime/production promotion, and objective completion. A candidate may integrate when the known approved functional/nonfunctional envelope is non-regressing and no nondelegable constraint is violated, while known limitations and unearned claims remain explicit.",
+                "Known limitations support three governed objective-context dispositions: integrate with monitoring/protective controls, block dependent activity until fixed, or defer remediation when the opportunity cost of fixing later is better. Each disposition preserves rationale, alternatives, risk, detectability, reversibility, dependencies, recovery cost, and reconsideration triggers.",
+                "Deferred technical debt is an active obligation rather than a passive backlog item. Relevant debt is surfaced before dependent/adjacent planned work and reevaluated against current risk/cost of continued deferral versus remediation cost/opportunity cost; alerts/thresholds indicate when the original deferral decision is becoming stale.",
+                "BDD-style assurance maps known approved functional and nonfunctional requirements/guardrails to executable regression scenarios and, where applicable, runtime evidence. SAGE reports uncovered, weak, stale, or runtime-unmapped obligations rather than assuming the behavioral model is complete.",
+                "Guardrail and collaboration effectiveness are measurable: activations, prevented defects, false positives, overrides/break-glass use, manual corrections, unplanned recovery steps, operator boundaries, interpretation burden when measurable, and stale/uncovered behavioral assurance can drive strengthen/combine/weaken/retire decisions.",
+                "When remediation is warranted, SAGE evaluates adjacent opportunity and may remove nearby objective-relevant impediments or a recurring failure class when the incremental scope improves total lifecycle efficiency; adjacent opportunity may not displace the parent objective.",
+                "The existing Cloudflare Access/MFA protected SAGE experience can show current objective/route, evidence confidence, candidate integration and maturity state, known limitations, deferred-debt rationale and triggers, BDD assurance gaps, guardrail/collaboration metrics, alternatives, and the next governed decision without exposing privileged management surfaces or weakening zero trust.",
+                "Completion of SAGE-ACTION-20260815-002 is recorded as the trigger for a counterfactual architecture-convergence review: compare evolved Kalaxy3/SAGE with the architecture we would intentionally design using then-current knowledge; classify material divergences as retain, converge, simplify/consolidate, retire, defer, or fix-now; perform convergence only when the deviation materially affects near-term objective execution, risk, safety, recoverability, participant/authority semantics, guardrails, feedback loops, or lifecycle efficiency.",
+                "Existing Architect authority, semantic confirmation, earliest-affected-boundary invalidation, repository-owned mutation authority, fail-closed safety, evidence provenance, Vault/governed-secret policy, and Action-002 portable-stage/artifact-promotion contracts remain authoritative.",
+                "The implementation explicitly identifies SAGE-ACTION-20260815-002 as the parent delivery re-entry point and does not require completion of the post-Action-002 convergence review before Action-002 promotion/runtime work proceeds."
+            ],
+            "measurement_plan": [
+                "Track planned objective-route steps versus unplanned recovery/correction steps and the fraction of failures anticipated as route branches.",
+                "Track BDD/regression obligation coverage, stale scenarios, runtime-evidence mapping, and defects discovered outside the modeled behavioral envelope.",
+                "Track candidate integrations with limitations, regressions prevented, blocked integrations, deferred limitations, reconsideration-trigger activations, and debt items fixed earlier/later than their economic threshold indicated.",
+                "Track guardrail activations, prevented defects, false positives, overrides, manual corrections, operator boundaries, recurrence, and avoidable rework without manufacturing unavailable human-effort values.",
+                "Track whether gap remediations return to their declared parent-objective re-entry point and whether class-level remediations reduce repeated work.",
+                "Expose the above objective/debt/assurance/guardrail state through the protected SAGE experience and record user/Architect decisions as evidence.",
+                "After Action-002 completion, execute the counterfactual architecture review once and measure whether identified divergences materially alter the next objective path before authorizing convergence work."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-23T03:11:37-05:00",
+                    "actor": "Architect",
+                    "reason": "Architect authorizes objective-first routing, value-preserving integration, BDD assurance observability, active technical-debt economics, guardrail/collaboration feedback, protected UX projection, and a post-Action-002 counterfactual architecture review as one bounded integration of existing SAGE responsibilities.",
+                    "evidence_references": [
+                        "action:SAGE-ACTION-20260815-002",
+                        "action:SAGE-ACTION-20260821-001",
+                        "commit:e0d07fd00041683c10923263c72f7723575bcc69"
+                    ]
+                }
+            ]
         }
     ]
 }
