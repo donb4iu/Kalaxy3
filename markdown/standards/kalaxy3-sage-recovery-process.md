@@ -55,6 +55,26 @@ after the fingerprint is consumed, SAGE stays at implementation-local
 repair/regression/revalidation unless the recurrence proves that the accepted
 owning control itself failed.
 
+## Owner-aware implementation-local continuation
+
+An implementation-local repair returns to the repository workflow that owns the
+failed component. The shared recovery decision therefore binds the continuation
+command by `owning_component` rather than routing every repair through the
+improvement-action lifecycle.
+
+Current registered owners are:
+
+- `sage.request-execution` → `sage-request-execute.py --recovery-decision`;
+- `sage.improvement-action-transition` →
+  `sage-improvement-action-transition.py --recovery-decision`.
+
+Each owner validates its own repair regression, records the immutable recovery
+consumption receipt, and performs no repository mutation while consuming the
+fingerprint. Unknown implementation-local owners fail closed until a
+repository-owned consumer is explicitly registered. Successor-action escalation
+is different: it always returns to the improvement-action lifecycle because the
+next authority boundary belongs to the Architect, not to the failed component.
+
 ## Accepted-control escalation
 
 When a recurrence demonstrates failure of an owning control in accepted lifecycle

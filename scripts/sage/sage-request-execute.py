@@ -220,6 +220,14 @@ def _repair_recurrence_self_test() -> None:
         owning_component="sage.request-execution", control_action_id=None,
         control_action_status=None, accepted_control_failure=False,
     )
+    bound = bind_successor_operator_boundary(
+        first, Path("/tmp/request-execution-recovery-next-boundary.json")
+    )
+    command = bound.get("operator_boundary", {}).get("command", "")
+    if "sage-request-execute.py --recovery-decision" not in command:
+        raise RuntimeError(
+            "implementation-local repair bypassed request-execution recovery consumer"
+        )
     prior = [{**first, "_path": "/tmp/first-repair.json"}]
     second = decide_next_boundary(
         identity=identity, post_retrieval=post, governing_evidence=evidence,
@@ -934,6 +942,7 @@ def self_test() -> int:
     print("PASS unchanged proposal-bound safety findings remain baseline-only")
     print("PASS newly introduced and new-file unsafe findings fail closed")
     print("PASS repository-receipt routine lifecycle continuation and legacy pasted stage/commit/push compatibility")
+    print("PASS owner-aware request-execution implementation-local recovery handoff")
     print("Kalaxy3 SAGE request execution self-test: PASS")
     return 0
 
@@ -947,6 +956,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--continue-state", type=Path)
     parser.add_argument("--operator-result", type=Path)
     parser.add_argument("--routine-receipt", type=Path)
+    parser.add_argument("--recovery-decision", type=Path)
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument("--self-test", action="store_true")
     return parser.parse_args()
@@ -959,6 +970,32 @@ def main() -> int:
     if args.self_test:
         return self_test()
     repo = args.repo.expanduser().resolve()
+    if args.recovery_decision is not None:
+        if any(
+            value is not None
+            for value in (
+                args.request,
+                args.proposal,
+                args.continue_state,
+                args.operator_result,
+                args.routine_receipt,
+            )
+        ):
+            raise ProposalError(
+                "--recovery-decision cannot be combined with start or continue arguments"
+            )
+        from workflows.request_execution import consume_recovery_decision  # noqa: PLC0415
+        result = consume_recovery_decision(
+            repo,
+            args.recovery_decision,
+            args.output,
+        )
+        print("Kalaxy3 SAGE request-execution implementation-local recovery: PASS")
+        print(json.dumps(result, indent=2))
+        print("Next governed boundary:")
+        print("  Retry the exact failed lifecycle request without changing its wording.")
+        print("Repository mutation: none")
+        return 0
     legacy_continuing = args.operator_result is not None
     routine_continuing = args.routine_receipt is not None
     continuing = args.continue_state is not None or legacy_continuing or routine_continuing

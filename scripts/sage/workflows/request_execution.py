@@ -39,8 +39,10 @@ from workflow import (
 )
 from workflow.diagnosis import classify_post_retrieval_continuation
 from workflow.recovery import (
+    RECOVERY_CONSUMPTION_NAME,
     RECOVERY_DECISION_NAME,
     bind_successor_operator_boundary,
+    build_consumption_record,
     build_recovery_identity,
     decide_next_boundary,
     digest_value,
@@ -121,6 +123,105 @@ def write_state(context: ExecutionContext, name: str, value: Mapping[str, Any]) 
     path = context.state_dir / name
     context.writer.write_text(path, stable_json(value), new_mode=0o600)
     return path
+
+
+def _request_execution_recovery_state_root(source: Path) -> Path:
+    """Resolve the shared local-state root for a request-execution recovery."""
+
+    for parent in source.parents:
+        if parent.name == "sage-request-execution":
+            return parent.parent
+    raise WorkflowError("recovery decision is outside SAGE request-execution state")
+
+
+def _request_execution_recovery_runtime(
+    repo: Path,
+    state_dir: Path,
+) -> tuple[CommandRunner, Path]:
+    """Build the registered command runtime for request-execution recovery."""
+
+    required = ("command.run", "file.atomic-preserve-mode")
+    catalog = PrimitiveCatalog.load(repo / "sage-workflow-primitives.json")
+    catalog.require(required)
+    event_log = state_dir / "recovery-consumption-events.jsonl"
+    logger = JsonlEventLogger(
+        event_log,
+        WORKFLOW_ID + ".recovery",
+        primitive_versions=catalog.versions_for(required),
+    )
+    runner = CommandRunner(
+        logger,
+        allowed_roots=(repo, state_dir),
+        base_environment={name: "" for name in SECRET_ENVIRONMENT_NAMES},
+    )
+    return runner, event_log
+
+
+def consume_recovery_decision(
+    repo: Path,
+    recovery_decision_path: Path,
+    output: Path | None = None,
+) -> Mapping[str, Any]:
+    """Consume one implementation-local recovery owned by request execution."""
+
+    resolved_repo = repo.expanduser().resolve()
+    source = recovery_decision_path.expanduser().resolve()
+    decision = json.loads(source.read_text(encoding="utf-8"))
+    if decision.get("record_type") != "sage-recovery-next-boundary":
+        raise WorkflowError("request-execution recovery decision type is invalid")
+    if decision.get("owning_component") != WORKFLOW_ID:
+        raise WorkflowError("request-execution recovery owner is invalid")
+    if (
+        decision.get("disposition") != "repair"
+        or decision.get("next_boundary") != "implementation-local"
+    ):
+        raise WorkflowError("request-execution recovery is not implementation-local repair")
+    identity = decision.get("recovery_identity", {})
+    identity_sha = str(identity.get("identity_sha256", ""))
+    fingerprint = str(decision.get("governing_condition_fingerprint", ""))
+    if not identity_sha or not fingerprint:
+        raise WorkflowError("request-execution recovery identity is invalid")
+
+    state_root = _request_execution_recovery_state_root(source)
+    if fingerprint in load_consumed_fingerprints(state_root, identity_sha):
+        raise WorkflowError("request-execution recovery fingerprint already consumed")
+
+    runner, event_log = _request_execution_recovery_runtime(
+        resolved_repo,
+        source.parent,
+    )
+    result = runner.run(
+        CommandSpec(
+            primitive_id="command.run",
+            label="Validate request-execution implementation-local recovery",
+            argv=("make", "sage-request-execute-self-test"),
+            cwd=resolved_repo,
+            timeout_seconds=600,
+        ),
+        step_id="request-execution-implementation-local-recovery-validation",
+    )
+    destination = (
+        output or source.parent / RECOVERY_CONSUMPTION_NAME
+    ).expanduser().resolve()
+    if destination.exists():
+        raise WorkflowError(f"recovery consumption already exists: {destination}")
+    record = build_consumption_record(
+        decision,
+        consumed_boundary="implementation-local",
+        consumer_reference=str(event_log.resolve()),
+    )
+    AtomicFileWriter((source.parent, destination.parent)).write_text(
+        destination,
+        stable_json(record),
+        new_mode=0o600,
+    )
+    return {
+        "status": "consumed",
+        "consumption": str(destination),
+        "validation_output_sha256": result.output_sha256,
+        "source_recovery_decision": str(source),
+        "repository_mutation": False,
+    }
 
 
 def build_context(repo: Path, request: str, proposal: Path) -> ExecutionContext:

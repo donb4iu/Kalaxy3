@@ -237,24 +237,58 @@ def _operator_boundary(
     }
 
 
+def _bound_recovery_command(
+    *,
+    disposition: str,
+    owning_component: str,
+    decision_path: Path,
+) -> str:
+    """Return the registered continuation command for one recovery owner."""
+
+    resolved = decision_path.expanduser().resolve()
+    quoted = json.dumps(str(resolved))
+    if disposition == "successor-action":
+        return (
+            "python3 scripts/sage/sage-improvement-action-transition.py "
+            f"--recovery-decision {quoted}"
+        )
+    implementation_local = {
+        "sage.improvement-action-transition": (
+            "python3 scripts/sage/sage-improvement-action-transition.py "
+            f"--recovery-decision {quoted}"
+        ),
+        "sage.request-execution": (
+            "python3 scripts/sage/sage-request-execute.py "
+            f"--recovery-decision {quoted}"
+        ),
+    }
+    command = implementation_local.get(owning_component)
+    if command is None:
+        raise ValueError(
+            "no implementation-local recovery consumer registered for "
+            f"{owning_component}"
+        )
+    return command
+
+
 def bind_successor_operator_boundary(
     decision: Mapping[str, Any],
     decision_path: Path,
 ) -> dict[str, Any]:
-    """Bind lifecycle-owned recovery to the repository continuation CLI."""
+    """Bind recovery to the repository continuation owned by its boundary."""
 
     payload = json.loads(json.dumps(decision))
-    disposition = payload.get("disposition")
+    disposition = str(payload.get("disposition", ""))
     implementation_local = (
         disposition == "repair"
         and payload.get("next_boundary") == "implementation-local"
     )
     if disposition != "successor-action" and not implementation_local:
         return payload
-    resolved = decision_path.expanduser().resolve()
-    command = (
-        "python3 scripts/sage/sage-improvement-action-transition.py "
-        f"--recovery-decision {json.dumps(str(resolved))}"
+    command = _bound_recovery_command(
+        disposition=disposition,
+        owning_component=str(payload.get("owning_component", "")),
+        decision_path=decision_path,
     )
     payload["operator_boundary"] = {
         "kind": "repository-workflow",

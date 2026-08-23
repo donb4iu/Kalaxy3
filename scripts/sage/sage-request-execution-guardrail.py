@@ -103,6 +103,11 @@ WORKFLOW_MARKERS = (
     "decide_next_boundary",
     "RECOVERY_DECISION_NAME",
     "bind_successor_operator_boundary",
+    "RECOVERY_CONSUMPTION_NAME",
+    "build_consumption_record",
+    "consume_recovery_decision",
+    "_request_execution_recovery_state_root",
+    "request-execution-implementation-local-recovery-validation",
     "recovery_identity=identity",
     "recovery_decision=decision",
 )
@@ -233,16 +238,25 @@ def source_failures() -> list[str]:
         "duplicate planning re-entry was not blocked",
         "accepted-control recurrence did not escalate",
         "successor escalation bypassed action lifecycle",
+        "implementation-local repair bypassed request-execution recovery consumer",
+        "owner-aware request-execution implementation-local recovery handoff",
         "failure diagnosis lost shared recovery identity",
     ):
         if marker not in cli:
             failures.append(f"post-retrieval continuation regression missing: {marker}")
+    if "--recovery-decision" not in cli:
+        failures.append("request-execution CLI cannot consume its recovery boundary")
+    if "consume_recovery_decision" not in cli:
+        failures.append("request-execution CLI bypasses owner-aware recovery continuation")
     for marker in (
         "sage-recovery-next-boundary",
         "governing_condition_fingerprint",
         "over-governance-blocked",
         "successor-action",
         "RECOVERY_CONSUMPTION_NAME",
+        "sage.request-execution",
+        "sage-request-execute.py",
+        "no implementation-local recovery consumer registered",
     ):
         if marker not in recovery:
             failures.append(f"recovery contract marker missing: {marker}")
