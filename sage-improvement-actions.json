@@ -1502,7 +1502,7 @@
                     "sha256": "59d7a743375f0975aee49f9a73453d654751aa1162e21d3449ed6ff6911b76b2"
                 }
             ],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "Architect",
             "priority": "high",
             "target_control_type": "automation",
@@ -1544,6 +1544,18 @@
                         "action:SAGE-ACTION-20260815-002",
                         "action:SAGE-ACTION-20260821-001",
                         "commit:e0d07fd00041683c10923263c72f7723575bcc69"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-23T03:28:54-05:00",
+                    "actor": "Architect",
+                    "reason": "Accept the registered objective-first integration action. Its purpose is to compose existing SAGE responsibilities into an objective-driven decision loop, preserve Action-002 as the parent delivery objective, and defer the counterfactual architecture-convergence review until Action-002 completes.",
+                    "evidence_references": [
+                        "commit:2e66695bdb93b8d108525d034e0305cad64c0993"
                     ]
                 }
             ]
