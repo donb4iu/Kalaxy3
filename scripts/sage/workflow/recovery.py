@@ -241,10 +241,15 @@ def bind_successor_operator_boundary(
     decision: Mapping[str, Any],
     decision_path: Path,
 ) -> dict[str, Any]:
-    """Bind accepted-control escalation to the repository action lifecycle."""
+    """Bind lifecycle-owned recovery to the repository continuation CLI."""
 
     payload = json.loads(json.dumps(decision))
-    if payload.get("disposition") != "successor-action":
+    disposition = payload.get("disposition")
+    implementation_local = (
+        disposition == "repair"
+        and payload.get("next_boundary") == "implementation-local"
+    )
+    if disposition != "successor-action" and not implementation_local:
         return payload
     resolved = decision_path.expanduser().resolve()
     command = (

@@ -133,13 +133,18 @@ def main() -> int:
     for marker in (
         "build_successor_action_boundary",
         "emit_successor_action_boundary",
+        "consume_recovery_decision",
+        "build_consumption_record",
+        "RECOVERY_CONSUMPTION_NAME",
         "sage-improvement-action-successor-boundary",
         "architect-decision-required",
     ):
         if marker not in workflow_source:
             failures.append(f"successor lifecycle marker missing: {marker}")
     if "--recovery-decision" not in cli_source:
-        failures.append("transition CLI cannot consume recovery successor boundary")
+        failures.append("transition CLI cannot consume recovery boundary")
+    if "consume_recovery_decision" not in cli_source:
+        failures.append("transition CLI bypasses shared recovery continuation")
     for marker in (
         "failure_recovery_action(context, error)",
         "classify_post_retrieval_continuation",

@@ -34,11 +34,14 @@ from workflow import (
 )
 from workflow.diagnosis import classify_post_retrieval_continuation
 from workflow.recovery import (
+    RECOVERY_CONSUMPTION_NAME,
     RECOVERY_DECISION_NAME,
     bind_successor_operator_boundary,
+    build_consumption_record,
     build_recovery_identity,
     decide_next_boundary,
     digest_value,
+    governing_fingerprint,
     load_consumed_fingerprints,
     load_recovery_decisions,
 )
@@ -284,9 +287,13 @@ def failure_recovery_action(
     control_status = (
         _current_action_status(context, control_id) if control_id else None
     )
-    accepted_failure = control_status == "validated"
     consumed = load_consumed_fingerprints(
         state_root, str(identity["identity_sha256"])
+    )
+    current_fingerprint = governing_fingerprint(evidence)
+    accepted_failure = (
+        current_fingerprint in consumed
+        and control_status in {"accepted", "implemented", "validated"}
     )
     decision = decide_next_boundary(
         identity=identity,
@@ -370,6 +377,125 @@ def emit_successor_action_boundary(
         "decision": boundary,
         "repository_mutation": False,
     }
+
+
+def _recovery_state_root(source: Path) -> Path:
+    """Resolve the local-state root from a transition recovery decision."""
+
+    for parent in source.parents:
+        if parent.name == "sage-action-transition":
+            return parent.parent
+    raise WorkflowError("recovery decision is outside SAGE transition state")
+
+
+def _recovery_runtime(
+    repo: Path,
+    state_dir: Path,
+) -> tuple[CommandRunner, Path]:
+    """Build the registered command runtime for one recovery continuation."""
+
+    required = ("command.run", "file.atomic-preserve-mode")
+    catalog = PrimitiveCatalog.load(repo / "sage-workflow-primitives.json")
+    catalog.require(required)
+    event_log = state_dir / "recovery-consumption-events.jsonl"
+    logger = JsonlEventLogger(
+        event_log,
+        WORKFLOW_ID + ".recovery",
+        primitive_versions=catalog.versions_for(required),
+    )
+    runner = CommandRunner(
+        logger,
+        allowed_roots=(repo, state_dir),
+        base_environment={name: "" for name in SECRET_ENVIRONMENT_NAMES},
+    )
+    return runner, event_log
+
+
+def _consume_implementation_local_recovery(
+    repo: Path,
+    source: Path,
+    decision: Mapping[str, Any],
+    output: Path | None,
+) -> Mapping[str, Any]:
+    """Run repository validation and consume one repair fingerprint."""
+
+    if decision.get("record_type") != RECOVERY_DECISION_TYPE:
+        raise WorkflowError("implementation-local recovery decision type is invalid")
+    if decision.get("owning_component") != WORKFLOW_ID:
+        raise WorkflowError("implementation-local recovery owner is invalid")
+    if (
+        decision.get("disposition") != "repair"
+        or decision.get("next_boundary") != "implementation-local"
+    ):
+        raise WorkflowError("recovery decision is not implementation-local repair")
+    identity = decision.get("recovery_identity", {})
+    identity_sha = str(identity.get("identity_sha256", ""))
+    fingerprint = str(decision.get("governing_condition_fingerprint", ""))
+    if not identity_sha or not fingerprint:
+        raise WorkflowError("implementation-local recovery identity is invalid")
+
+    state_root = _recovery_state_root(source)
+    if fingerprint in load_consumed_fingerprints(state_root, identity_sha):
+        raise WorkflowError("implementation-local recovery fingerprint already consumed")
+
+    runner, event_log = _recovery_runtime(repo, source.parent)
+    result = runner.run(
+        CommandSpec(
+            primitive_id="command.run",
+            label="Validate implementation-local recovery",
+            argv=("make", "sage-request-execute-self-test"),
+            cwd=repo,
+            timeout_seconds=600,
+        ),
+        step_id="implementation-local-recovery-validation",
+    )
+
+    destination = (
+        output or source.parent / RECOVERY_CONSUMPTION_NAME
+    ).expanduser().resolve()
+    if destination.exists():
+        raise WorkflowError(f"recovery consumption already exists: {destination}")
+    record = build_consumption_record(
+        decision,
+        consumed_boundary="implementation-local",
+        consumer_reference=str(event_log.resolve()),
+    )
+    AtomicFileWriter((source.parent, destination.parent)).write_text(
+        destination,
+        stable_json(record),
+        new_mode=0o600,
+    )
+    return {
+        "status": "consumed",
+        "consumption": str(destination),
+        "validation_output_sha256": result.output_sha256,
+        "source_recovery_decision": str(source),
+        "repository_mutation": False,
+    }
+
+
+def consume_recovery_decision(
+    repo: Path,
+    recovery_decision_path: Path,
+    output: Path | None = None,
+) -> Mapping[str, Any]:
+    """Continue the exact lifecycle-owned boundary in one recovery decision."""
+
+    resolved_repo = repo.expanduser().resolve()
+    source = recovery_decision_path.expanduser().resolve()
+    decision = json.loads(source.read_text(encoding="utf-8"))
+    if decision.get("disposition") == "successor-action":
+        return emit_successor_action_boundary(
+            resolved_repo,
+            source,
+            output,
+        )
+    return _consume_implementation_local_recovery(
+        resolved_repo,
+        source,
+        decision,
+        output,
+    )
 
 
 def build_context(
@@ -1140,6 +1266,63 @@ def _recovery_reason_consistency_self_test() -> None:
         raise RuntimeError("recurrence recovery reason omitted recurrence")
 
 
+def _consumed_repair_recovery_self_test() -> None:
+    """Prove successful local recovery is consumed before successor escalation."""
+
+    common = {
+        "identity": {"identity_sha256": "c" * 64},
+        "post_retrieval": {
+            "governing_conditions": {},
+            "required_reentry_boundary": "implementation-local",
+        },
+        "governing_evidence": {"authority_contract_sha256": "d" * 64},
+        "owning_component": WORKFLOW_ID,
+        "control_action_id": "SAGE-ACTION-20260821-001",
+        "control_action_status": "implemented",
+    }
+    first = decide_next_boundary(
+        previous=[],
+        consumed_fingerprints=set(),
+        accepted_control_failure=False,
+        **common,
+    )
+    prior = [{**first, "_path": "/tmp/first-repair.json"}]
+    repeated = decide_next_boundary(
+        previous=prior,
+        consumed_fingerprints=set(),
+        accepted_control_failure=False,
+        **common,
+    )
+    if repeated.get("disposition") != "repair":
+        raise RuntimeError("unconsumed recurrence did not remain repair-local")
+    rebound = bind_successor_operator_boundary(
+        repeated,
+        Path("/tmp/recovery-next-boundary.json"),
+    )
+    command = rebound.get("operator_boundary", {}).get("command", "")
+    if "--recovery-decision" not in command:
+        raise RuntimeError("repair recovery is not bound to governed continuation")
+    fingerprint = str(first["governing_condition_fingerprint"])
+    foreign_consumed = {"e" * 64}
+    still_repair = decide_next_boundary(
+        previous=prior,
+        consumed_fingerprints=foreign_consumed,
+        accepted_control_failure=False,
+        **common,
+    )
+    if still_repair.get("disposition") != "repair":
+        raise RuntimeError("foreign consumed fingerprint escalated current repair")
+    consumed = {fingerprint}
+    exhausted = decide_next_boundary(
+        previous=prior,
+        consumed_fingerprints=consumed,
+        accepted_control_failure=True,
+        **common,
+    )
+    if exhausted.get("disposition") != "successor-action":
+        raise RuntimeError("consumed accepted-control repair did not escalate")
+
+
 def _successor_recovery_self_test() -> None:
     """Prove action lifecycle owns accepted-control successor escalation."""
 
@@ -1174,6 +1357,7 @@ def self_test() -> int:
     """Exercise least-authority and continuation contracts without mutation."""
 
     _recovery_reason_consistency_self_test()
+    _consumed_repair_recovery_self_test()
     _successor_recovery_self_test()
     for method in (
         "require_clean",
@@ -1216,6 +1400,7 @@ def self_test() -> int:
     print("PASS canonical improvement-action transition and amendment ownership")
     print("PASS exact single-registry mutation scope")
     print("PASS recovery classification, metric, and reason consistency")
+    print("PASS implementation-local recovery consumption prevents repair loops")
     print("PASS accepted-control recurrence emits Architect successor boundary")
     print("PASS operator stage boundary with request-execution continuation")
     print(

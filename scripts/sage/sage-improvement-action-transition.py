@@ -13,7 +13,7 @@ sys.path.insert(0, str(SAGE_DIR))
 
 from workflow import WorkflowError
 from workflows.improvement_action_transition import (
-    emit_successor_action_boundary,
+    consume_recovery_decision,
     self_test,
     start_transition,
 )
@@ -53,19 +53,29 @@ def required(value: str | None, label: str) -> str:
 
 
 def run_recovery_boundary(args: argparse.Namespace) -> int:
-    """Materialize the lifecycle-owned Architect boundary for accepted recurrence."""
+    """Continue one lifecycle-owned recovery decision."""
 
-    result = emit_successor_action_boundary(
+    result = consume_recovery_decision(
         repo=args.repo,
         recovery_decision_path=args.recovery_decision,
         output=args.output,
     )
-    print("Kalaxy3 SAGE improvement-action successor boundary: PASS")
-    print(json.dumps(result, indent=2))
-    print("Next Architect boundary:")
-    print("  Review and authorize the emitted successor capability-gap/action boundary.")
-    print("Repository mutation: none")
-    return 0
+    status = result.get("status")
+    if status == "architect-decision-required":
+        print("Kalaxy3 SAGE improvement-action successor boundary: PASS")
+        print(json.dumps(result, indent=2))
+        print("Next Architect boundary:")
+        print("  Review and authorize the emitted successor capability-gap/action boundary.")
+        print("Repository mutation: none")
+        return 0
+    if status == "consumed":
+        print("Kalaxy3 SAGE implementation-local recovery: PASS")
+        print(json.dumps(result, indent=2))
+        print("Next governed boundary:")
+        print("  Retry the exact failed lifecycle request without changing its wording.")
+        print("Repository mutation: none")
+        return 0
+    raise WorkflowError(f"unsupported recovery continuation status: {status}")
 
 
 def main() -> int:
