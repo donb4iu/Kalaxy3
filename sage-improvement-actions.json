@@ -1573,7 +1573,7 @@
                     "sha256": "20375c715c5d7814d39c8297f433a371acfd2c8036912d0386f5ac1cbfb225b0"
                 }
             ],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -1610,6 +1610,20 @@
                         "state:/Users/donbuddenbaum/.local/state/kalaxy3/sage-request-execution/20260823-061708-820813/recovery-next-boundary.json",
                         "action:SAGE-ACTION-20260823-001",
                         "action:SAGE-ACTION-20260815-002"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-23T23:00:40-05:00",
+                    "actor": "Architect",
+                    "reason": "Architect accepts the bounded successor remediation: accepted-control failure must require evidence that the control itself failed; recurrence of the underlying implementation defect alone must not force successor escalation.",
+                    "evidence_references": [
+                        "commit:e31938aabd1b6070404067dd5abbc80ca0411e74",
+                        "state:/Users/donbuddenbaum/.local/state/kalaxy3/sage-action-transition/20260823-225458-859343/recovery-next-boundary.json",
+                        "state:/Users/donbuddenbaum/.local/state/kalaxy3/sage-action-transition/20260823-225839-755906/recovery-next-boundary.json"
                     ]
                 }
             ]
