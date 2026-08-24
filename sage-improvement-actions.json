@@ -1559,6 +1559,60 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260823-002",
+            "title": "Make accepted-control failure attribution evidence-grounded",
+            "source_lessons": [],
+            "source_sessions": [],
+            "source_records": [
+                {
+                    "record_type": "capability-gap",
+                    "record_id": "SAGE-GAP-20260823-ACCEPTED-CONTROL-FAILURE-ATTRIBUTION",
+                    "schema_version": "1.1",
+                    "sha256": "20375c715c5d7814d39c8297f433a371acfd2c8036912d0386f5ac1cbfb225b0"
+                }
+            ],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "SAGE distinguishes recurrence of an underlying candidate or execution defect from failure of the accepted recovery control governing that defect. A consumed governing fingerprint plus accepted control status is not by itself sufficient evidence that the control failed. When current post-retrieval evidence says authority, scope, required capability, safety, repository-owned composition, and approval/mutation boundaries are unchanged, an unchanged implementation defect remains on the bounded implementation-local repair/regression/revalidation path unless separate evidence demonstrates that the accepted control violated its promised behavior. Genuine accepted-control failure still emits exactly one Architect-owned successor boundary. After correction, the blocked SAGE-ACTION-20260823-001 candidate returns to its declared parent re-entry path and SAGE-ACTION-20260815-002 remains the parent delivery objective.",
+            "acceptance_criteria": [
+                "Accepted-control failure is represented as a distinct evidence-backed assertion and is not inferred solely from a consumed governing-condition fingerprint plus accepted/implemented/validated control status.",
+                "A deterministic regression reproduces recovery identity d173954d83b3ca52666a4380ea3b7ace129c8a5c57182390a3b3a4e31c9eb16e and fingerprint b869f5985a1d5d31b309c481779b2e9a341e6dbe912356cc8d8115a5aeba6ec2: post-retrieval implementation-local-retry remains implementation-local when the same candidate whitespace defect recurs under unchanged governing conditions.",
+                "The regression proves that recurrence of the controlled workload or candidate defect does not by itself mark the owning accepted control as failed.",
+                "A separate negative regression proves a genuinely violated accepted control contract still escalates exactly once to successor-action / architect-decision.",
+                "Recovery identity, consumed-fingerprint loop prevention, owner-aware implementation-local continuation, and fail-closed behavior from SAGE-ACTION-20260821-001 remain intact.",
+                "Request-execution diagnosis, post-retrieval continuation, recovery decision, and intent-to-outcome re-entry agree on the selected boundary or fail closed with explicit contradiction evidence.",
+                "No change broadens Git, GitHub, deployment, secret, or repository mutation authority.",
+                "After validation, SAGE-ACTION-20260823-001 can resume the bounded implementation-local correction of its objective-route contribution without repeating semantic confirmation or planning absent a genuinely new governing-condition change.",
+                "Completion returns to SAGE-ACTION-20260823-001 and subsequently SAGE-ACTION-20260815-002; this remediation does not become a competing parent objective."
+            ],
+            "measurement_plan": [
+                "Track unchanged implementation recurrences that remain implementation-local versus those escalated as accepted-control failures.",
+                "Track accepted-control failure assertions with the concrete violated control obligation/evidence that justified escalation.",
+                "Require zero successor actions caused solely by an already-consumed fingerprint when the owning control's promised behavior remains satisfied.",
+                "Track duplicate governance re-entry prevented and implementation-local repair paths successfully resumed.",
+                "Replay the live Action-001 whitespace-validation sequence and verify the route returns to bounded candidate correction, then parent Action-001/Action-002 continuation."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-23T22:40:26-05:00",
+                    "actor": "Architect",
+                    "reason": "Register the Architect-approved successor control for evidence-grounded accepted-control failure attribution.",
+                    "evidence_references": [
+                        "state:/Users/donbuddenbaum/.local/state/kalaxy3/sage-request-execution/20260823-061708-820813/successor-improvement-action-boundary.json",
+                        "state:/Users/donbuddenbaum/.local/state/kalaxy3/sage-request-execution/20260823-061708-820813/recovery-next-boundary.json",
+                        "action:SAGE-ACTION-20260823-001",
+                        "action:SAGE-ACTION-20260815-002"
+                    ]
+                }
+            ]
         }
     ]
 }
