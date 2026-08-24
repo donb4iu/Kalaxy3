@@ -38,6 +38,7 @@ from workflow.recovery import (
     RECOVERY_DECISION_NAME,
     bind_successor_operator_boundary,
     build_consumption_record,
+    build_accepted_control_failure_assertion,
     build_recovery_identity,
     decide_next_boundary,
     digest_value,
@@ -290,11 +291,9 @@ def failure_recovery_action(
     consumed = load_consumed_fingerprints(
         state_root, str(identity["identity_sha256"])
     )
-    current_fingerprint = governing_fingerprint(evidence)
-    accepted_failure = (
-        current_fingerprint in consumed
-        and control_status in {"accepted", "implemented", "validated"}
-    )
+    # Consumed fingerprint plus accepted lifecycle status is recurrence context,
+    # not evidence that the accepted control itself violated its contract.
+    accepted_failure = None
     decision = decide_next_boundary(
         identity=identity,
         post_retrieval=post_retrieval,
@@ -331,11 +330,18 @@ def build_successor_action_boundary(
         raise WorkflowError("recovery decision does not require successor action")
     if decision.get("classification") != "recurrence":
         raise WorkflowError("successor action requires a recurrence")
+    assertion = control.get("accepted_control_failure_assertion")
     if (
         control.get("status") not in {"accepted", "implemented", "validated"}
         or control.get("accepted_control_failure") is not True
+        or not isinstance(assertion, Mapping)
+        or assertion.get("control_action_id") != control.get("action_id")
+        or not assertion.get("violated_obligation")
+        or not assertion.get("evidence_references")
     ):
-        raise WorkflowError("successor action requires failure of an accepted control")
+        raise WorkflowError(
+            "successor action requires evidence-backed failure of an accepted control"
+        )
     if not decision.get("previous_failure_references"):
         raise WorkflowError("successor action requires previous failure evidence")
     return {
@@ -1248,7 +1254,7 @@ def _recovery_reason_consistency_self_test() -> None:
         "owning_component": "sage.improvement-action-transition",
         "control_action_id": "SAGE-ACTION-20260821-001",
         "control_action_status": "implemented",
-        "accepted_control_failure": False,
+        "accepted_control_failure": None,
     }
     first = decide_next_boundary(previous=[], **common)
     if first.get("classification") != "new":
@@ -1283,14 +1289,14 @@ def _consumed_repair_recovery_self_test() -> None:
     first = decide_next_boundary(
         previous=[],
         consumed_fingerprints=set(),
-        accepted_control_failure=False,
+        accepted_control_failure=None,
         **common,
     )
     prior = [{**first, "_path": "/tmp/first-repair.json"}]
     repeated = decide_next_boundary(
         previous=prior,
         consumed_fingerprints=set(),
-        accepted_control_failure=False,
+        accepted_control_failure=None,
         **common,
     )
     if repeated.get("disposition") != "repair":
@@ -1307,7 +1313,7 @@ def _consumed_repair_recovery_self_test() -> None:
     still_repair = decide_next_boundary(
         previous=prior,
         consumed_fingerprints=foreign_consumed,
-        accepted_control_failure=False,
+        accepted_control_failure=None,
         **common,
     )
     if still_repair.get("disposition") != "repair":
@@ -1316,7 +1322,11 @@ def _consumed_repair_recovery_self_test() -> None:
     exhausted = decide_next_boundary(
         previous=prior,
         consumed_fingerprints=consumed,
-        accepted_control_failure=True,
+        accepted_control_failure=build_accepted_control_failure_assertion(
+            control_action_id="SAGE-ACTION-20260821-001",
+            violated_obligation="fixture: accepted control violated recovery contract",
+            evidence_references=("fixture:accepted-control-violation",),
+        ),
         **common,
     )
     if exhausted.get("disposition") != "successor-action":
@@ -1333,9 +1343,20 @@ def _successor_recovery_self_test() -> None:
         "previous_failure_references": ["prior.json"],
         "recovery_identity": {"identity_sha256": "a" * 64},
         "owning_component": "sage.request-execution",
-        "owning_control": {"action_id": "SAGE-ACTION-20260810-001",
-                           "status": "validated",
-                           "accepted_control_failure": True},
+        "owning_control": {
+            "action_id": "SAGE-ACTION-20260810-001",
+            "status": "validated",
+            "accepted_control_failure": True,
+            "accepted_control_failure_assertion": (
+                build_accepted_control_failure_assertion(
+                    control_action_id="SAGE-ACTION-20260810-001",
+                    violated_obligation=(
+                        "fixture: accepted control violated recovery contract"
+                    ),
+                    evidence_references=("fixture:accepted-control-violation",),
+                )
+            ),
+        },
         "reason": "accepted control recurred",
         "required_evidence": ["failure retrieval receipt"],
     }
@@ -1401,7 +1422,7 @@ def self_test() -> int:
     print("PASS exact single-registry mutation scope")
     print("PASS recovery classification, metric, and reason consistency")
     print("PASS implementation-local recovery consumption prevents repair loops")
-    print("PASS accepted-control recurrence emits Architect successor boundary")
+    print("PASS evidence-backed accepted-control failure emits Architect successor boundary")
     print("PASS operator stage boundary with request-execution continuation")
     print(
         "Kalaxy3 SAGE improvement-action transition self-test: PASS"

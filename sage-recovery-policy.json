@@ -35,6 +35,7 @@
     "consumed_reentry_required": true,
     "duplicate_reentry_for_same_fingerprint_forbidden": true,
     "accepted_control_failure_requires_successor_boundary": true,
-    "remote_main_ancestry_required": false
+    "remote_main_ancestry_required": false,
+    "accepted_control_failure_requires_evidence_assertion": true
   }
 }

@@ -1005,10 +1005,9 @@ def _build_recovery_decision(
     )
     control_id = str(recovery.get("owning_control_action_id", "")) or None
     status = _action_status(context, control_id) if control_id else None
-    accepted_failure = any(
-        item.get("disposition") == "governance-reentry"
-        for item in previous
-    )
+    # Recurrence, consumed re-entry, and accepted control status are context,
+    # not proof that the owning control violated its contract.
+    accepted_failure = None
     consumed = load_consumed_fingerprints(
         state_root,
         str(identity["identity_sha256"]),

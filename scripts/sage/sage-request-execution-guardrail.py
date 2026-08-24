@@ -214,6 +214,7 @@ def source_failures() -> list[str]:
     recovery = (ROOT / RECOVERY_PATH).read_text(encoding="utf-8")
     recovery_process = (ROOT / RECOVERY_PROCESS_PATH).read_text(encoding="utf-8")
     recovery_policy = load_object(ROOT / RECOVERY_POLICY_PATH)
+    recovery_schema = load_object(ROOT / RECOVERY_SCHEMA_PATH)
     intent_workflow = (ROOT / INTENT_WORKFLOW_PATH).read_text(encoding="utf-8")
     routine_cli = (ROOT / ROUTINE_CLI_PATH).read_text(encoding="utf-8")
     for marker in WORKFLOW_MARKERS:
@@ -236,7 +237,11 @@ def source_failures() -> list[str]:
         "composition-changing same-request retry did not fail closed",
         "second live failure was not classified as recurrence",
         "duplicate planning re-entry was not blocked",
-        "accepted-control recurrence did not escalate",
+        "consumed recurrence falsely became accepted-control failure",
+        "explicit accepted-control violation did not escalate",
+        "live unchanged whitespace recurrence falsely escalated",
+        "d173954d83b3ca52666a4380ea3b7ace129c8a5c57182390a3b3a4e31c9eb16e",
+        "b869f5985a1d5d31b309c481779b2e9a341e6dbe912356cc8d8115a5aeba6ec2",
         "successor escalation bypassed action lifecycle",
         "implementation-local repair bypassed request-execution recovery consumer",
         "owner-aware request-execution implementation-local recovery handoff",
@@ -250,6 +255,9 @@ def source_failures() -> list[str]:
         failures.append("request-execution CLI bypasses owner-aware recovery continuation")
     for marker in (
         "sage-recovery-next-boundary",
+        "ACCEPTED_CONTROL_FAILURE_ASSERTION_TYPE",
+        "build_accepted_control_failure_assertion",
+        "accepted_control_failure_assertion",
         "governing_condition_fingerprint",
         "over-governance-blocked",
         "successor-action",
@@ -265,6 +273,7 @@ def source_failures() -> list[str]:
         "governing-condition fingerprint",
         "await-existing-reentry",
         "successor capability-gap",
+        "accepted-control failure assertion",
         "Remote-main authority",
     ):
         if marker not in recovery_process:
@@ -277,9 +286,28 @@ def source_failures() -> list[str]:
         or behavior.get(
             "accepted_control_failure_requires_successor_boundary"
         ) is not True
+        or behavior.get(
+            "accepted_control_failure_requires_evidence_assertion"
+        ) is not True
         or behavior.get("remote_main_ancestry_required") is not False
     ):
         failures.append("recovery policy behavior contract drifted")
+    owning_control = (
+        recovery_schema.get("properties", {})
+        .get("owning_control", {})
+    )
+    assertion_schema = (
+        owning_control.get("properties", {})
+        .get("accepted_control_failure_assertion")
+    )
+    if (
+        not isinstance(assertion_schema, dict)
+        or assertion_schema.get("type") != ["object", "null"]
+        or assertion_schema.get("properties", {})
+        .get("record_type", {})
+        .get("const") != "sage-accepted-control-failure-assertion"
+    ):
+        failures.append("recovery schema lacks optional accepted-control failure assertion")
     for marker in (
         "_consume_recovery_reentry",
         "build_consumption_record",

@@ -53,28 +53,29 @@ When none of those governing conditions changed, the required re-entry boundary 
 
 ### Stable recovery identity and recurrence ownership
 
-The post-retrieval decision is now paired with the shared
+The post-retrieval decision is paired with the shared
 `sage-recovery-next-boundary` contract. SAGE persists a stable recovery identity
 from the literal request, owning component, normalized failure signature, and
 separate repository-authority evidence. It also hashes the evidence behind the
 six governing conditions so a repository-owned composition change has a stable
-governing-condition fingerprint rather than being reported as changed on every retry.
+governing-condition fingerprint rather than being reported as changed on every
+retry.
 
 A new governing fingerprint may cause its earliest required re-entry once.
 Intent-to-outcome writes a consumption receipt when that re-entry actually
-starts. The same unconsumed fingerprint is blocked as
-`await-existing-reentry`; the same consumed fingerprint routes to
-implementation-local repair/regression/revalidation instead of repeating
-planning. If the recurrence proves the accepted owning recovery control itself failed,
-request execution routes the shared recovery contract to the canonical
-improvement-action lifecycle. That lifecycle validates the accepted-control
-recurrence and emits the successor capability-gap/improvement-action Architect
-boundary; no caller invents the escalation route.
+starts. The same unconsumed governance re-entry is reported as
+`await-existing-reentry`; the same consumed fingerprint returns to
+implementation-local repair/regression/revalidation when governing conditions
+remain unchanged.
 
-Request execution observes current `origin/main` as authority evidence but does
-not require it to be an ancestor of a synchronized governed feature HEAD unless
-a separately applicable authority explicitly imposes that constraint.
-
+Consumed fingerprint state, recurrence of the controlled workload, and
+accepted/implemented/validated lifecycle status are context only. They do not
+prove an accepted control failed. **Accepted-control failure assertion**
+evidence must separately identify the owning action, the promised obligation
+that was violated, and concrete evidence references. Only that distinct
+assertion permits `successor-action` / `architect-decision`; a genuine evidenced
+control failure still enters the improvement-action lifecycle and emits the
+successor capability-gap/improvement-action Architect boundary exactly once.
 
 ## Proposal package
 

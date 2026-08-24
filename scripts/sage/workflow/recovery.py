@@ -12,6 +12,7 @@ from typing import Any, Iterable, Mapping
 RECOVERY_DECISION_NAME = "recovery-next-boundary.json"
 RECOVERY_CONSUMPTION_NAME = "recovery-governing-change-consumption.json"
 ACCEPTED_CONTROL_STATUSES = frozenset({"accepted", "implemented", "validated"})
+ACCEPTED_CONTROL_FAILURE_ASSERTION_TYPE = "sage-accepted-control-failure-assertion"
 _SHA = re.compile(r"\b[0-9a-f]{40}(?:[0-9a-f]{24})?\b")
 _STATE_PATH = re.compile(r"/[^\s]*/\.local/state/kalaxy3/[^\s]+")
 _TIMESTAMP = re.compile(r"\b\d{8}-\d{6}(?:-\d{6})?\b")
@@ -298,6 +299,86 @@ def bind_successor_operator_boundary(
     return payload
 
 
+def build_accepted_control_failure_assertion(
+    *,
+    control_action_id: str,
+    violated_obligation: str,
+    evidence_references: Iterable[str],
+) -> dict[str, Any]:
+    """Build explicit evidence that an accepted control violated its contract."""
+
+    references = tuple(str(item) for item in evidence_references)
+    if not control_action_id:
+        raise ValueError("accepted-control failure assertion requires control action id")
+    if not violated_obligation.strip():
+        raise ValueError("accepted-control failure assertion requires violated obligation")
+    if not references or any(not item.strip() for item in references):
+        raise ValueError("accepted-control failure assertion requires concrete evidence")
+    if len(set(references)) != len(references):
+        raise ValueError("accepted-control failure assertion evidence must be unique")
+    return {
+        "schema_version": "1.0",
+        "record_type": ACCEPTED_CONTROL_FAILURE_ASSERTION_TYPE,
+        "control_action_id": control_action_id,
+        "violated_obligation": violated_obligation,
+        "evidence_references": list(references),
+    }
+
+
+def _validate_accepted_control_failure_assertion(
+    value: Mapping[str, Any] | None,
+    *,
+    control_action_id: str | None,
+) -> dict[str, Any] | None:
+    """Validate distinct evidence that the owning accepted control itself failed."""
+
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError(
+            "accepted-control failure must be a machine-readable evidence assertion"
+        )
+    expected = {
+        "schema_version",
+        "record_type",
+        "control_action_id",
+        "violated_obligation",
+        "evidence_references",
+    }
+    if set(value) != expected:
+        raise ValueError("accepted-control failure assertion fields are invalid")
+    if (
+        value.get("schema_version") != "1.0"
+        or value.get("record_type") != ACCEPTED_CONTROL_FAILURE_ASSERTION_TYPE
+    ):
+        raise ValueError("accepted-control failure assertion version/type is invalid")
+    asserted_control = value.get("control_action_id")
+    if (
+        not isinstance(asserted_control, str)
+        or not asserted_control
+        or asserted_control != control_action_id
+    ):
+        raise ValueError("accepted-control failure assertion control identity drifted")
+    obligation = value.get("violated_obligation")
+    if not isinstance(obligation, str) or not obligation.strip():
+        raise ValueError("accepted-control failure assertion lacks violated obligation")
+    references = value.get("evidence_references")
+    if (
+        not isinstance(references, list)
+        or not references
+        or any(not isinstance(item, str) or not item.strip() for item in references)
+        or len(set(references)) != len(references)
+    ):
+        raise ValueError("accepted-control failure assertion evidence is invalid")
+    return {
+        "schema_version": "1.0",
+        "record_type": ACCEPTED_CONTROL_FAILURE_ASSERTION_TYPE,
+        "control_action_id": asserted_control,
+        "violated_obligation": obligation,
+        "evidence_references": list(references),
+    }
+
+
 def decide_next_boundary(
     *,
     identity: Mapping[str, Any],
@@ -308,7 +389,7 @@ def decide_next_boundary(
     owning_component: str,
     control_action_id: str | None,
     control_action_status: str | None,
-    accepted_control_failure: bool,
+    accepted_control_failure: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     """Choose one recovery boundary from stable recurrence evidence."""
     conditions = post_retrieval.get("governing_conditions", {})
@@ -323,16 +404,25 @@ def decide_next_boundary(
     requested = str(
         post_retrieval.get("required_reentry_boundary", "implementation-local")
     )
+    failure_assertion = _validate_accepted_control_failure_assertion(
+        accepted_control_failure,
+        control_action_id=control_action_id,
+    )
+    accepted_failure = failure_assertion is not None
     disposition, boundary = _select_disposition(
         same=same,
         consumed=consumed,
         post_retrieval=post_retrieval,
         requested=requested,
-        accepted_control_failure=accepted_control_failure,
+        accepted_control_failure=accepted_failure,
         control_action_status=control_action_status,
     )
-    control = {"action_id": control_action_id, "status": control_action_status,
-               "accepted_control_failure": accepted_control_failure}
+    control = {
+        "action_id": control_action_id,
+        "status": control_action_status,
+        "accepted_control_failure": accepted_failure,
+        "accepted_control_failure_assertion": failure_assertion,
+    }
     return _decision_payload(
         identity=identity,
         post_retrieval=post_retrieval,
@@ -475,8 +565,9 @@ def _reason(
             "not been consumed; another governance loop is blocked."
         ),
         "successor-action": (
-            "The same failure recurred under an accepted owning control; the "
-            "current lifecycle cannot silently amend that accepted control."
+            "Distinct evidence shows the accepted owning control violated its "
+            "promised obligation; the current lifecycle cannot silently amend "
+            "that accepted control."
         ),
         "governance-reentry": (
             f"A genuinely new governing fingerprint requires one "

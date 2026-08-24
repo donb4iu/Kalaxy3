@@ -77,15 +77,30 @@ next authority boundary belongs to the Architect, not to the failed component.
 
 ## Accepted-control escalation
 
-When a recurrence demonstrates failure of an owning control in accepted lifecycle
-lineage (`accepted`, `implemented`, or `validated`), the current action is not
-silently amended. Recovery emits one exact
-repository-owned action-lifecycle command bound to the recovery decision. The
-action lifecycle validates the recurrence and materializes the explicit Architect
-decision boundary for a successor capability-gap/improvement action. That
-boundary carries the stable recovery identity, owning component/control, reason,
-required evidence, and mutation authority without requiring source inspection or
-route invention by the operator or LLM.
+Accepted lifecycle status (`accepted`, `implemented`, or `validated`),
+recurrence of the controlled workload, and consumption of a governing-condition
+fingerprint are context only; none of them proves that the accepted control
+itself failed. Successor escalation requires a distinct machine-readable
+**accepted-control failure assertion** naming the owning action, the specific
+violated control obligation, and concrete evidence references.
+
+Without that assertion, an unchanged recurrence stays on
+implementation-local repair/regression/revalidation even when an earlier
+governance re-entry was consumed. This preserves the Action-20260821 recovery
+invariant: new governing change re-enters once, unchanged recurrence repairs
+locally, and only an evidenced accepted-control failure enters successor
+governance.
+
+When the assertion demonstrates failure of an owning control in accepted
+lifecycle lineage, the current action is not silently amended. Recovery emits
+one exact repository-owned action-lifecycle command bound to the recovery
+decision. The action lifecycle validates the recurrence and the assertion
+before materializing the explicit Architect decision boundary for a
+successor capability-gap/improvement action. The boundary carries the
+stable recovery identity, owning component/control, violated obligation,
+evidence references,
+reason, required evidence, and mutation authority without requiring source
+inspection or route invention by the operator or LLM.
 
 Improvement-action lifecycle failures, including discovery/preflight failures,
 must invoke this recovery contract before returning fail-closed so the closeout

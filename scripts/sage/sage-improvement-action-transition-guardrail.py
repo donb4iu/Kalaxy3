@@ -85,6 +85,15 @@ def main() -> int:
         failures.append(
             "transition workflow bypasses repository command primitives"
         )
+    if (
+        'current_fingerprint in consumed' in workflow_source
+        and 'control_status in {"accepted", "implemented", "validated"}'
+        in workflow_source
+    ):
+        failures.append(
+            "transition workflow still infers accepted-control failure from "
+            "consumed fingerprint plus lifecycle status"
+        )
     if "ImprovementActionClient(\n        context.inspector," not in workflow_source:
         failures.append(
             "transition workflow does not supply GitInspector to the "
@@ -138,6 +147,9 @@ def main() -> int:
         "RECOVERY_CONSUMPTION_NAME",
         "sage-improvement-action-successor-boundary",
         "architect-decision-required",
+        "build_accepted_control_failure_assertion",
+        "accepted_control_failure_assertion",
+        "evidence-backed failure of an accepted control",
     ):
         if marker not in workflow_source:
             failures.append(f"successor lifecycle marker missing: {marker}")
@@ -192,7 +204,7 @@ def main() -> int:
         "PASS exact action-registry mutation and request continuation"
     )
     print("PASS Make and CLI integration")
-    print("PASS accepted-control recurrence is owned by action lifecycle")
+    print("PASS evidence-backed accepted-control failure is owned by action lifecycle")
     print("PASS lifecycle failures emit one recovery next-boundary contract")
     print(
         "Kalaxy3 SAGE improvement-action transition guardrail: PASS"

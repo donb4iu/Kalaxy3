@@ -18,6 +18,7 @@ from request_execution import ProposalError, load_proposal, next_operator_bounda
 from workflow.diagnosis import FailureDiagnoser, classify_post_retrieval_continuation, require_post_retrieval_boundary  # noqa: E402
 from workflow.recovery import (  # noqa: E402
     bind_successor_operator_boundary,
+    build_accepted_control_failure_assertion,
     build_recovery_identity,
     decide_next_boundary,
 )
@@ -147,7 +148,7 @@ def _recovery_boundary_self_test() -> None:
         previous=(), consumed_fingerprints=set(),
         owning_component="sage.request-execution",
         control_action_id="SAGE-ACTION-20260810-001",
-        control_action_status="accepted", accepted_control_failure=False,
+        control_action_status="accepted", accepted_control_failure=None,
     )
     if first["next_boundary"] != "planning":
         raise RuntimeError("new governing change did not route to planning")
@@ -160,28 +161,63 @@ def _assert_recovery_recurrence(
     evidence: dict[str, str],
     first: dict[str, object],
 ) -> None:
-    """Prove one fingerprint cannot cause repeated planning re-entry."""
+    """Prove recurrence alone cannot manufacture accepted-control failure."""
 
     prior = [{**first, "_path": "/tmp/first-recovery.json"}]
     duplicate = decide_next_boundary(
-        identity=identity, post_retrieval=post, governing_evidence=evidence,
-        previous=prior, consumed_fingerprints=set(),
+        identity=identity,
+        post_retrieval=post,
+        governing_evidence=evidence,
+        previous=prior,
+        consumed_fingerprints=set(),
         owning_component="sage.request-execution",
         control_action_id="SAGE-ACTION-20260810-001",
-        control_action_status="accepted", accepted_control_failure=True,
+        control_action_status="accepted",
+        accepted_control_failure=None,
     )
     if duplicate["next_boundary"] != "await-existing-reentry":
         raise RuntimeError("duplicate planning re-entry was not blocked")
+
     consumed = {str(first["governing_condition_fingerprint"])}
-    successor = decide_next_boundary(
-        identity=identity, post_retrieval=post, governing_evidence=evidence,
-        previous=prior, consumed_fingerprints=consumed,
+    repeated = decide_next_boundary(
+        identity=identity,
+        post_retrieval=post,
+        governing_evidence=evidence,
+        previous=prior,
+        consumed_fingerprints=consumed,
         owning_component="sage.request-execution",
         control_action_id="SAGE-ACTION-20260810-001",
-        control_action_status="accepted", accepted_control_failure=True,
+        control_action_status="accepted",
+        accepted_control_failure=None,
+    )
+    if repeated["disposition"] != "repair":
+        raise RuntimeError("consumed recurrence falsely became accepted-control failure")
+    if repeated["next_boundary"] != "implementation-local":
+        raise RuntimeError("consumed recurrence escaped implementation-local repair")
+
+    assertion = build_accepted_control_failure_assertion(
+        control_action_id="SAGE-ACTION-20260810-001",
+        violated_obligation=(
+            "fixture: accepted recovery control violated its promised "
+            "post-retrieval routing behavior"
+        ),
+        evidence_references=("fixture:accepted-control-contract-violation",),
+    )
+    successor = decide_next_boundary(
+        identity=identity,
+        post_retrieval=post,
+        governing_evidence=evidence,
+        previous=prior,
+        consumed_fingerprints=consumed,
+        owning_component="sage.request-execution",
+        control_action_id="SAGE-ACTION-20260810-001",
+        control_action_status="accepted",
+        accepted_control_failure=assertion,
     )
     if successor["disposition"] != "successor-action":
-        raise RuntimeError("accepted-control recurrence did not escalate")
+        raise RuntimeError("explicit accepted-control violation did not escalate")
+    if successor["next_boundary"] != "architect-decision":
+        raise RuntimeError("explicit accepted-control violation lost Architect boundary")
     successor = bind_successor_operator_boundary(
         successor, Path("/tmp/recovery-next-boundary.json")
     )
@@ -189,6 +225,95 @@ def _assert_recovery_recurrence(
     if "sage-improvement-action-transition.py --recovery-decision" not in command:
         raise RuntimeError("successor escalation bypassed action lifecycle")
 
+
+def _live_accepted_control_attribution_self_test() -> None:
+    """Replay the live Action-001 d173/b869 attribution contradiction."""
+
+    expected_identity = (
+        "d173954d83b3ca52666a4380ea3b7ace129c8a5c57182390a3b3a4e31c9eb16e"
+    )
+    expected_fingerprint = (
+        "b869f5985a1d5d31b309c481779b2e9a341e6dbe912356cc8d8115a5aeba6ec2"
+    )
+    identity = {
+        "request_sha256": (
+            "8b45d3ebe51aa680cee343b7ab0d3f4b136bb141535b58e0d670efacf76f4f40"
+        ),
+        "component_id": "sage.request-execution",
+        "failure_signature": (
+            "8b1f07cb73f85f9db4507881fe4d9475bbc0bdccfffc244d5a29d28b8753b418"
+        ),
+        "repository_authority": {
+            "branch": "feature/sage-action-20260815-002-immutable-artifact-promotion",
+            "head": "c1bea2c03ad1aa38b9aa4a57af39cdba71611211",
+        },
+        "repository_authority_sha256": (
+            "0ff9377865fdd1b2c17230f4db3eef5ca06527f58293cee316b2f4b226228e71"
+        ),
+        "identity_sha256": expected_identity,
+    }
+    post = {
+        "governing_conditions": {
+            "authority": False,
+            "scope": False,
+            "required_capability": False,
+            "safety_requirements": False,
+            "repository_owned_composition": False,
+            "approval_or_mutation_boundaries": False,
+        },
+        "disposition": "implementation-local-retry",
+        "required_reentry_boundary": "implementation-local",
+    }
+    evidence = {
+        "authority_contract_sha256": (
+            "1e052c26358ac39414a56ea60114b5d336a58c99ab46a73d29445fb8c72cb651"
+        ),
+        "scope_sha256": (
+            "07c05d1a24f4eb4eb0f9ce4b0e03ccb6cf7134f8dbee0ca773ea7db8ed0dfec2"
+        ),
+        "required_capability_sha256": (
+            "a6c8d7d894e347e42c3956da4a14342f6a53434be39b1e367006098e31615c8e"
+        ),
+        "safety_requirements_sha256": (
+            "cd3ce1d1aa1da2dc0ff2887a902aef33f2057e89ef804f45d8aebfbdb5bfad97"
+        ),
+        "repository_owned_composition_sha256": (
+            "2f23579d02b20db50e1204fb17ec631f71213f98e0ff2b1be8e5f85f128eae5f"
+        ),
+        "approval_or_mutation_boundaries_sha256": (
+            "a2e48c34194eba4155d072e5c9ead05d1b886c2a05cf7e57007d98a11df0e7d4"
+        ),
+        "observed_remote_main": "cf514c41400ed546c9781db0f5834ea5d16a14fa",
+    }
+    prior = [{
+        "governing_condition_fingerprint": expected_fingerprint,
+        "disposition": "governance-reentry",
+        "_path": "/fixture/previous-recovery.json",
+    }]
+    decision = decide_next_boundary(
+        identity=identity,
+        post_retrieval=post,
+        governing_evidence=evidence,
+        previous=prior,
+        consumed_fingerprints={expected_fingerprint},
+        owning_component="sage.request-execution",
+        control_action_id="SAGE-ACTION-20260810-001",
+        control_action_status="accepted",
+        accepted_control_failure=None,
+    )
+    if decision.get("recovery_identity", {}).get("identity_sha256") != expected_identity:
+        raise RuntimeError("live attribution regression lost d173 recovery identity")
+    if decision.get("governing_condition_fingerprint") != expected_fingerprint:
+        raise RuntimeError("live attribution regression lost b869 governing fingerprint")
+    if decision.get("disposition") != "repair":
+        raise RuntimeError("live unchanged whitespace recurrence falsely escalated")
+    if decision.get("next_boundary") != "implementation-local":
+        raise RuntimeError("live unchanged whitespace recurrence left implementation-local")
+    control = decision.get("owning_control", {})
+    if control.get("accepted_control_failure") is not False:
+        raise RuntimeError("live recurrence manufactured accepted-control failure")
+    if control.get("accepted_control_failure_assertion") is not None:
+        raise RuntimeError("live recurrence manufactured control-failure evidence")
 
 
 def _repair_recurrence_self_test() -> None:
@@ -218,7 +343,7 @@ def _repair_recurrence_self_test() -> None:
         identity=identity, post_retrieval=post, governing_evidence=evidence,
         previous=(), consumed_fingerprints=set(),
         owning_component="sage.request-execution", control_action_id=None,
-        control_action_status=None, accepted_control_failure=False,
+        control_action_status=None, accepted_control_failure=None,
     )
     bound = bind_successor_operator_boundary(
         first, Path("/tmp/request-execution-recovery-next-boundary.json")
@@ -233,7 +358,7 @@ def _repair_recurrence_self_test() -> None:
         identity=identity, post_retrieval=post, governing_evidence=evidence,
         previous=prior, consumed_fingerprints=set(),
         owning_component="sage.request-execution", control_action_id=None,
-        control_action_status=None, accepted_control_failure=False,
+        control_action_status=None, accepted_control_failure=None,
     )
     if second["classification"] != "recurrence":
         raise RuntimeError("second live failure was not classified as recurrence")
@@ -260,7 +385,7 @@ def _diagnosis_recovery_self_test() -> None:
         identity=identity, post_retrieval=post, governing_evidence={"fixture": "a"},
         previous=(), consumed_fingerprints=set(),
         owning_component="sage.request-execution", control_action_id=None,
-        control_action_status=None, accepted_control_failure=False,
+        control_action_status=None, accepted_control_failure=None,
     )
     component = {"component_id": "fixture", "component_version": "1.0",
                  "source_path": "fixture.py", "description": "fixture"}
@@ -367,6 +492,7 @@ def self_test() -> int:
 
     _recovery_identity_self_test()
     _recovery_boundary_self_test()
+    _live_accepted_control_attribution_self_test()
     _repair_recurrence_self_test()
     _diagnosis_recovery_self_test()
     _ancestry_regression_self_test()
