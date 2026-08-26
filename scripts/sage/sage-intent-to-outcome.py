@@ -24,12 +24,14 @@ from workflows.intent_to_outcome import (  # noqa: E402
     candidate_iteration_entry_mode,
     begin_intent,
     begin_intent_promotion,
+    build_objective_route,
     confirm_intent,
     continue_intent_promotion,
     continue_intent_request,
     record_runtime,
     reconcile_completed_request_child,
     reconcile_completed_semantic_child,
+    objective_route_snapshot,
     validate_runtime_receipt,
 )
 
@@ -284,6 +286,48 @@ def self_test() -> int:
             intent_workflow.RECOVERY_STATE_ROOT = original_root
     print("PASS stale consumed recovery decisions do not block changed recovery composition")
     print("PASS current consumed recovery decisions still block duplicate governance re-entry")
+    route = build_objective_route(
+        {
+            "action_id": "SAGE-ACTION-20260823-001",
+            "desired_outcome": "Keep the parent objective visible while routing bounded remediation.",
+            "acceptance_criteria": [
+                "The implementation explicitly identifies SAGE-ACTION-20260815-002 as the parent delivery re-entry point."
+            ],
+            "measurement_plan": ["Track unplanned recovery steps."],
+        },
+        {
+            "objective_id": "SAGE-ACTION-20260823-001",
+            "status": "planning-source-ready",
+            "current_iteration": 1,
+            "iterations": [
+                {
+                    "iteration": 1,
+                    "candidate_head": None,
+                    "status": "planning",
+                    "validation_state": "pending",
+                    "unresolved_findings": [],
+                    "next_boundary": "planning",
+                    "promotion_eligible": False,
+                }
+            ],
+        },
+        {
+            "alternatives": [
+                "Extend the existing intent-to-outcome composition.",
+                "Do nothing and retain the current collision-driven routing behavior.",
+            ]
+        },
+    )
+    if route.get("parent_objective_id") != "SAGE-ACTION-20260815-002":
+        raise RuntimeError("objective route did not preserve explicit parent re-entry")
+    if route.get("next_governed_boundary") != "planning":
+        raise RuntimeError("objective route did not preserve the current governed boundary")
+    alternatives = route.get("alternatives", [])
+    if not alternatives or not all("risk" in item and "expected_value" in item for item in alternatives):
+        raise RuntimeError("objective route alternatives do not expose evaluation dimensions")
+    if route.get("integration_state", {}).get("canonical_integration_eligibility") != "unassessed":
+        raise RuntimeError("objective route manufactured integration assurance")
+    print("PASS objective route preserves parent re-entry, alternatives, and unearned-assurance boundaries")
     print("PASS unfinished pre-mutation candidate can accumulate related corrections before checkpoint")
     print("PASS live operator-review boundary remains fail-closed")
     print("PASS intent-to-outcome front door self-test")
@@ -350,6 +394,9 @@ def parse_args() -> argparse.Namespace:
     promotion = sub.add_parser("continue-promotion")
     promotion.add_argument("--state", type=Path, required=True)
     promotion.add_argument("--operator-result", type=Path, required=True)
+
+    route = sub.add_parser("route")
+    route.add_argument("--state", type=Path, required=True)
     return parser.parse_args()
 
 
@@ -394,7 +441,7 @@ def main() -> int:
             routine_receipt=args.routine_receipt,
         )
     elif args.command == "record-runtime":
-        result = record_runtime(args.state, args.runtime_receipt)
+        result = record_runtime(args.repo, args.state, args.runtime_receipt)
     elif args.command == "promote":
         result = begin_intent_promotion(
             args.repo, args.state, args.expected_head, args.title, args.body
@@ -403,6 +450,8 @@ def main() -> int:
         result = continue_intent_promotion(
             args.repo, args.state, args.operator_result
         )
+    elif args.command == "route":
+        result = objective_route_snapshot(args.repo, args.state)
     else:
         raise WorkflowError("one intent-to-outcome command is required")
     print("Kalaxy3 SAGE intent-to-outcome: PASS")

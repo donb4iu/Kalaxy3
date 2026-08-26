@@ -58,6 +58,14 @@ def main() -> int:
         "reconciled_from_completed_semantic_child",
         "planning-source-ready",
         "approved_gap_set",
+        "build_objective_route",
+        "objective_route_snapshot",
+        "sage-objective-route",
+        "remaining_obligations",
+        "parent_objective_id",
+        "canonical_integration_eligibility",
+        "bdd_requirement_coverage",
+        "guardrail_collaboration_feedback",
         "_current_recovery_composition_sha256",
         "governing_composition_digest",
         "repository_owned_composition_sha256=current_composition",
@@ -79,6 +87,8 @@ def main() -> int:
             failures.append(f"intent recovery-composition regression missing: {marker}")
     if '"--planning-source"' not in cli:
         failures.append("adopt-iteration CLI does not accept historical planning-source lineage")
+    if 'sub.add_parser("route")' not in cli or "objective_route_snapshot" not in cli:
+        failures.append("intent-to-outcome CLI lacks read-only objective route inspection")
     if '"planning_source": inherited_source' not in wrapper or '"planning_proposal": inherited_proposal' not in wrapper:
         failures.append("adopt-iteration does not persist validated planning lineage")
     if "candidate iteration requires a durable prior candidate checkpoint" in wrapper:
@@ -144,6 +154,12 @@ def main() -> int:
         "persist the planning source before planning",
         "planning failure",
         "approved domain-capability gap set",
+        "Objective-first route",
+        "value-preserving integration",
+        "BDD-style assurance",
+        "active technical debt",
+        "parent delivery re-entry",
+        "read-only route",
         "current recovery composition",
         "historical consumed recovery decision",
     ):
@@ -163,6 +179,8 @@ def main() -> int:
     print("PASS already-completed semantic children reconcile without replay and parent planning lineage persists before planning")
     print("PASS candidate iteration preserves non-promotable checkpoints and earliest-boundary re-entry")
     print("PASS same-class corrections accumulate before promotion and intent-first role separation is explicit")
+    print("PASS objective-first route is a read-only extension of the existing front door, not a parallel orchestrator")
+    print("PASS route exposes parent re-entry, limitations, BDD assurance status, integration separation, and collaboration feedback without manufacturing evidence")
     print("Kalaxy3 SAGE intent-to-outcome guardrail: PASS")
     return 0
 

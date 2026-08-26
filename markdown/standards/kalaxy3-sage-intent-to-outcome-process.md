@@ -164,3 +164,86 @@ Only downstream state at or after the selected boundary is invalidated. Runtime 
 ## Promotion separation
 
 Runtime verification may make the current candidate eligible for promotion only when the current iteration has no unresolved findings. Checkpoint persistence, source validation, and remote synchronization remain insufficient by themselves.
+
+## Objective-first route
+
+Before a new candidate mutation or gap-remediation candidate is prepared, the
+intent-to-outcome front door preserves a machine-readable **objective-first
+route**. The route is derived from the accepted action, current intent state,
+current candidate iteration, existing evidence references, and the engineering
+contribution's proposed alternatives. It is an extension of the existing
+intent-to-outcome composition, not a second planner or parallel orchestration
+system.
+
+The route exposes the active objective, explicit **parent delivery re-entry**
+when the accepted action names one, remaining accepted-action obligations,
+current evidence references, dependencies, alternatives (including do-nothing),
+the current candidate, next governed boundary, known limitations, deferred debt,
+assurance state, integration/maturity state, and guardrail/collaboration feedback
+fields. Unknown risk, reversibility, expected-value, time-to-evidence, assurance,
+and human-effort values remain explicitly `unassessed` or unavailable rather
+than being manufactured.
+
+`python3 scripts/sage/sage-intent-to-outcome.py route --state <state.json>` is a
+**read-only route** inspection boundary. It can project the objective route from
+legacy intent state without rewriting historical evidence. Candidate-iteration
+entry refreshes and persists the route before semantic/planning/execution child
+work is started so a gap cannot silently become the objective.
+
+## Value-preserving integration and maturity separation
+
+Canonical **value-preserving integration** eligibility is distinct from source
+validation, capability maturity, runtime/production promotion, and objective
+completion. The route therefore carries these states separately. This first
+bounded composition does not infer integration eligibility from a successful
+commit, push, source guardrail, or runtime receipt; eligibility remains
+`unassessed` until executable assurance and nondelegable-constraint evidence
+support the claim.
+
+A limitation may therefore remain visible without automatically becoming proof
+that all useful non-regressive work must be discarded. Its eventual governed
+disposition is one of: integrate with monitoring/protective controls, block
+dependent activity until fixed, or defer remediation. The current route records
+observed unresolved findings conservatively as blocking until a later governed
+disposition supplies the missing risk, detectability, reversibility, recovery
+cost, dependencies, and reconsideration basis.
+
+## BDD-style assurance and active technical debt
+
+The route includes a **BDD-style assurance** surface that separates source
+validation, runtime-evidence mapping, and requirement/scenario coverage. Until
+approved functional and nonfunctional obligations are mapped to executable
+regression scenarios, coverage remains `unassessed` and those obligations are
+reported as uncovered or weak. Passing existing guardrails does not silently
+claim a complete behavioral model.
+
+Deferred limitations are **active technical debt**, not a passive backlog.
+Debt records remain attached to the objective route and are intended to carry
+rationale, risk, detectability, reversibility, remediation/recovery cost,
+dependencies, opportunity cost, monitoring, and reconsideration triggers. A
+later slice may automate the economic crossover evaluation, but this route
+contract establishes the location where that decision evidence lives.
+
+Guardrail and collaboration effectiveness also remain first-class route data.
+Activations, prevented defects, false positives, break-glass use, manual
+corrections, unplanned recovery steps, operator boundaries, and interpretation
+burden are represented without inventing unavailable values. Existing outcome
+metrics and continuous-improvement evidence remain the authoritative sources
+for populating those fields.
+
+## Bounded Action-001 delivery and Action-002 re-entry
+
+For `SAGE-ACTION-20260823-001`, the first coherent implementation slice is the
+objective-route contract and read-only projection on the existing
+intent-to-outcome front door. It deliberately reuses capability intelligence,
+semantic bootstrap, request planning/execution, recovery, evidence, and
+promotion compositions rather than reimplementing them.
+
+The registration-to-Git persistence composition seam observed while registering
+Action-001 remains explicit deferred technical debt for this slice; fixing that
+seam is not allowed to displace the parent delivery objective. Cloudflare's
+Access/MFA-protected SAGE experience may consume the route in a later bounded
+slice, but this slice does not alter external-access or privileged-surface
+policy. The counterfactual architecture-convergence review remains triggered
+only after `SAGE-ACTION-20260815-002` completes and must not block its runtime or
+promotion work.
