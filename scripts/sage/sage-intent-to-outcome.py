@@ -15,6 +15,8 @@ SAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SAGE_DIR))
 
 from workflow import WorkflowError  # noqa: E402
+from workflows import intent_to_outcome as intent_workflow  # noqa: E402
+from workflow.recovery import governing_composition_digest  # noqa: E402
 from workflows.intent_to_outcome import (  # noqa: E402
     adopt_iteration,
     adopt_request_execution,
@@ -182,6 +184,106 @@ def self_test() -> int:
         pass
     else:
         raise RuntimeError("live operator-review boundary was silently superseded")
+    with tempfile.TemporaryDirectory(prefix="sage-intent-recovery-composition-") as raw:
+        temp = Path(raw)
+        repo = temp / "repo"
+        repo.mkdir()
+        governed = repo / "fixture-recovery-component.py"
+        governed.write_text("old composition\n", encoding="utf-8")
+        policy = {
+            "schema_version": "1.0",
+            "policy_id": "kalaxy3-sage-recovery",
+            "governing_composition_paths": [governed.name],
+        }
+        (repo / "sage-recovery-policy.json").write_text(
+            json.dumps(policy) + "\n", encoding="utf-8"
+        )
+        recovery_root = temp / "recovery"
+        stale_dir = recovery_root / "stale"
+        stale_dir.mkdir(parents=True)
+        request = "fixture recovery composition request"
+        request_sha = hashlib.sha256(request.encode("utf-8")).hexdigest()
+        identity_sha = "d" * 64
+        stale_fingerprint = "b" * 64
+        stale_composition = governing_composition_digest(repo, [governed.name])
+        stale_decision = {
+            "schema_version": "1.0",
+            "record_type": "sage-recovery-next-boundary",
+            "recorded_at": "2026-08-23T06:00:00-05:00",
+            "recovery_identity": {
+                "request_sha256": request_sha,
+                "identity_sha256": identity_sha,
+            },
+            "governing_condition_fingerprint": stale_fingerprint,
+            "governing_evidence": {
+                "repository_owned_composition_sha256": stale_composition,
+            },
+            "next_boundary": "planning",
+        }
+        (stale_dir / "recovery-next-boundary.json").write_text(
+            json.dumps(stale_decision) + "\n", encoding="utf-8"
+        )
+        (stale_dir / "recovery-governing-change-consumption.json").write_text(
+            json.dumps({
+                "record_type": "sage-recovery-governing-change-consumption",
+                "recovery_identity_sha256": identity_sha,
+                "governing_condition_fingerprint": stale_fingerprint,
+            }) + "\n",
+            encoding="utf-8",
+        )
+        governed.write_text("current composition\n", encoding="utf-8")
+        parent = temp / "intent-to-outcome-state.json"
+        parent.write_text("{}\n", encoding="utf-8")
+        original_root = intent_workflow.RECOVERY_STATE_ROOT
+        intent_workflow.RECOVERY_STATE_ROOT = recovery_root
+        try:
+            stale_result = intent_workflow._consume_recovery_reentry(
+                repo, parent, {"request_sha256": request_sha}, "planning"
+            )
+            if stale_result is not None:
+                raise RuntimeError(
+                    "stale consumed recovery decision was treated as current composition"
+                )
+            current_dir = recovery_root / "current"
+            current_dir.mkdir()
+            current_fingerprint = "c" * 64
+            current_composition = governing_composition_digest(
+                repo, [governed.name]
+            )
+            current_decision = {
+                **stale_decision,
+                "recorded_at": "2026-08-24T00:00:00-05:00",
+                "governing_condition_fingerprint": current_fingerprint,
+                "governing_evidence": {
+                    "repository_owned_composition_sha256": current_composition,
+                },
+            }
+            (current_dir / "recovery-next-boundary.json").write_text(
+                json.dumps(current_decision) + "\n", encoding="utf-8"
+            )
+            (current_dir / "recovery-governing-change-consumption.json").write_text(
+                json.dumps({
+                    "record_type": "sage-recovery-governing-change-consumption",
+                    "recovery_identity_sha256": identity_sha,
+                    "governing_condition_fingerprint": current_fingerprint,
+                }) + "\n",
+                encoding="utf-8",
+            )
+            try:
+                intent_workflow._consume_recovery_reentry(
+                    repo, parent, {"request_sha256": request_sha}, "planning"
+                )
+            except WorkflowError as error:
+                if "repeated governance re-entry blocked" not in str(error):
+                    raise
+            else:
+                raise RuntimeError(
+                    "current consumed recovery decision failed to block duplicate re-entry"
+                )
+        finally:
+            intent_workflow.RECOVERY_STATE_ROOT = original_root
+    print("PASS stale consumed recovery decisions do not block changed recovery composition")
+    print("PASS current consumed recovery decisions still block duplicate governance re-entry")
     print("PASS unfinished pre-mutation candidate can accumulate related corrections before checkpoint")
     print("PASS live operator-review boundary remains fail-closed")
     print("PASS intent-to-outcome front door self-test")

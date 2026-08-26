@@ -13,6 +13,7 @@ from workflow import AtomicFileWriter, PrimitiveCatalog, WorkflowError
 from workflow.recovery import (
     RECOVERY_CONSUMPTION_NAME,
     build_consumption_record,
+    governing_composition_digest,
     latest_matching_reentry,
     load_consumed_fingerprints,
 )
@@ -30,7 +31,7 @@ from workflows.request_planning import (
 from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap, reuse_confirmed_intent
 
 WORKFLOW_ID = "sage.intent-to-outcome"
-WORKFLOW_VERSION = "0.2.5"
+WORKFLOW_VERSION = "0.2.6"
 PRIMITIVES_USED = (
     "catalog.registry",
     "file.atomic-preserve-mode",
@@ -474,19 +475,40 @@ def adopt_request_execution(
 
 
 
+def _current_recovery_composition_sha256(repo: Path) -> str:
+    """Return the current policy-declared recovery-composition digest."""
+
+    resolved = repo.expanduser().resolve()
+    policy_path = resolved / "sage-recovery-policy.json"
+    policy = json.loads(policy_path.read_text(encoding="utf-8"))
+    if (
+        not isinstance(policy, dict)
+        or policy.get("schema_version") != "1.0"
+        or policy.get("policy_id") != "kalaxy3-sage-recovery"
+    ):
+        raise WorkflowError("SAGE recovery policy is invalid")
+    paths = policy.get("governing_composition_paths")
+    if not isinstance(paths, list) or not all(isinstance(item, str) for item in paths):
+        raise WorkflowError("recovery governing composition paths are invalid")
+    return governing_composition_digest(resolved, paths)
+
+
 def _consume_recovery_reentry(
+    repo: Path,
     state_path: Path,
     state: Mapping[str, Any],
     reentry_boundary: str,
 ) -> str | None:
-    """Consume one matching recovery re-entry exactly once."""
+    """Consume one current-composition recovery re-entry exactly once."""
 
     if reentry_boundary == "implementation-local":
         return None
+    current_composition = _current_recovery_composition_sha256(repo)
     match = latest_matching_reentry(
         RECOVERY_STATE_ROOT,
         str(state["request_sha256"]),
         reentry_boundary,
+        repository_owned_composition_sha256=current_composition,
     )
     if match is None:
         return None
@@ -534,9 +556,11 @@ def begin_candidate_iteration(
         raise WorkflowError(f"unsupported iteration re-entry boundary: {reentry_boundary}")
     if not trigger.strip() or not parent_checkpoint.strip():
         raise WorkflowError("candidate iteration requires trigger and parent checkpoint")
+    resolved = repo.expanduser().resolve()
     state = _load_parent(state_path)
     entry_mode = candidate_iteration_entry_mode(str(state.get("status", "")))
     recovery_consumption = _consume_recovery_reentry(
+        resolved,
         state_path,
         state,
         reentry_boundary,
@@ -580,7 +604,6 @@ def begin_candidate_iteration(
     state["promotion_state"] = None
     state["contribution"] = str(contribution.expanduser().resolve())
 
-    resolved = repo.expanduser().resolve()
     if reentry_boundary == "authority":
         iteration["status"] = "authority-review-required"
         iteration["invalidated_downstream_state"] = [

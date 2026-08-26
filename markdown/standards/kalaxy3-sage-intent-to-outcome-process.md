@@ -72,6 +72,15 @@ A live `request-operator-review-required` boundary is not silently superseded by
 this rule. Its outstanding mutation must first be dispositioned through a
 governed path so an obsolete approved command cannot race a newer candidate.
 
+Before a governance re-entry is consumed or rejected as a duplicate, the parent
+filters recovery decisions to the **current recovery composition** using the
+repository-owned composition digest recorded in governing evidence. A
+**historical consumed recovery decision** from an older composition remains visible
+as history but does not block a candidate whose governing recovery composition has
+changed. A consumed decision for the current composition still fails closed on a
+duplicate re-entry. This prevents stale recovery state from masquerading as current
+authority without weakening consumed-fingerprint loop prevention.
+
 ## Authoritative shared-responsibility role contract
 
 This workflow consumes the accepted `SAGE-ACTION-20260811-001` role contract;

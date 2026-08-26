@@ -46,6 +46,7 @@ from workflow.recovery import (
     build_recovery_identity,
     decide_next_boundary,
     digest_value,
+    governing_composition_digest,
     load_consumed_fingerprints,
     load_recovery_decisions,
 )
@@ -879,21 +880,6 @@ def _action_status(context: ExecutionContext, action_id: str) -> str | None:
     return None
 
 
-def _composition_digest(
-    context: ExecutionContext,
-    paths: list[str],
-) -> str:
-    """Hash the repository-owned recovery composition source set."""
-
-    evidence: dict[str, str] = {}
-    for relative in paths:
-        path = context.repo / relative
-        if not path.is_file():
-            raise WorkflowError(f"recovery composition path is missing: {relative}")
-        evidence[relative] = sha256_file(path)
-    return digest_value(evidence)
-
-
 def _governing_evidence(context: ExecutionContext) -> dict[str, Any]:
     """Build stable evidence for all post-retrieval governing conditions."""
 
@@ -915,7 +901,9 @@ def _governing_evidence(context: ExecutionContext) -> dict[str, Any]:
             context.bundle.manifest.get("capabilities", [])
         ),
         "safety_requirements_sha256": digest_value(policy.get("helper_policy", {})),
-        "repository_owned_composition_sha256": _composition_digest(context, paths),
+        "repository_owned_composition_sha256": governing_composition_digest(
+            context.repo, paths
+        ),
         "approval_or_mutation_boundaries_sha256": digest_value(
             {
                 "operator_plan": context.bundle.manifest.get("operator_plan", {}),

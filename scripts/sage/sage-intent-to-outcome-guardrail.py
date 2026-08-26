@@ -58,6 +58,9 @@ def main() -> int:
         "reconciled_from_completed_semantic_child",
         "planning-source-ready",
         "approved_gap_set",
+        "_current_recovery_composition_sha256",
+        "governing_composition_digest",
+        "repository_owned_composition_sha256=current_composition",
     ):
         if marker not in wrapper:
             failures.append(f"front door missing existing-component marker: {marker}")
@@ -68,6 +71,12 @@ def main() -> int:
         failures.append("front door lacks semantic-bootstrap planning-source compatibility resolution")
 
     cli = CLI.read_text(encoding="utf-8")
+    for marker in (
+        "stale consumed recovery decisions do not block changed recovery composition",
+        "current consumed recovery decisions still block duplicate governance re-entry",
+    ):
+        if marker not in cli:
+            failures.append(f"intent recovery-composition regression missing: {marker}")
     if '"--planning-source"' not in cli:
         failures.append("adopt-iteration CLI does not accept historical planning-source lineage")
     if '"planning_source": inherited_source' not in wrapper or '"planning_proposal": inherited_proposal' not in wrapper:
@@ -135,6 +144,8 @@ def main() -> int:
         "persist the planning source before planning",
         "planning failure",
         "approved domain-capability gap set",
+        "current recovery composition",
+        "historical consumed recovery decision",
     ):
         if marker not in standard:
             failures.append(f"intent-to-outcome standard missing: {marker}")

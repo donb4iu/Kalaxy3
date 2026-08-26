@@ -55,6 +55,16 @@ after the fingerprint is consumed, SAGE stays at implementation-local
 repair/regression/revalidation unless the recurrence proves that the accepted
 owning control itself failed.
 
+Recovery re-entry applicability is also scoped to the **current recovery composition**.
+A governance decision records the repository-owned composition digest that supported
+its boundary. Intent-to-outcome compares that digest with the current digest of the
+policy-declared governing composition before applying duplicate-consumption blocking.
+A **historical consumed recovery decision** from an older composition remains durable
+evidence but cannot block a later candidate after that governing composition changes.
+A consumed decision whose composition digest still matches current authority continues
+to block duplicate re-entry. This freshness check does not invent a new boundary; the
+caller must still enter the earliest boundary justified by current governing evidence.
+
 ## Owner-aware implementation-local continuation
 
 An implementation-local repair returns to the repository workflow that owns the

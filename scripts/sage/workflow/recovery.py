@@ -55,6 +55,41 @@ def digest_value(value: object) -> str:
     return hashlib.sha256(stable_json(value).encode("utf-8")).hexdigest()
 
 
+def governing_composition_digest(
+    repo: Path,
+    paths: Iterable[str],
+) -> str:
+    """Hash one policy-declared repository composition source set.
+
+    The shared digest keeps recovery producers and consumers on the same
+    repository-owned composition evidence instead of duplicating file-set
+    hashing in each workflow.
+    """
+
+    resolved = repo.expanduser().resolve()
+    normalized = tuple(str(item) for item in paths)
+    if not normalized or len(set(normalized)) != len(normalized):
+        raise ValueError("recovery governing composition paths are invalid")
+    evidence: dict[str, str] = {}
+    for relative in normalized:
+        candidate = Path(relative)
+        if (
+            not relative.strip()
+            or candidate.is_absolute()
+            or ".." in candidate.parts
+        ):
+            raise ValueError(
+                f"recovery governing composition path is unsafe: {relative}"
+            )
+        path = resolved / candidate
+        if not path.is_file():
+            raise ValueError(
+                f"recovery governing composition path is missing: {relative}"
+            )
+        evidence[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return digest_value(evidence)
+
+
 def normalize_failure_text(text: str) -> str:
     """Normalize attempt-local tokens out of a failure signature.
 
@@ -613,18 +648,29 @@ def latest_matching_reentry(
     root: Path,
     request_sha256: str,
     boundary: str,
+    *,
+    repository_owned_composition_sha256: str | None = None,
 ) -> tuple[Path, dict[str, Any]] | None:
-    """Find the newest recovery re-entry for a request and boundary.
+    """Find the newest applicable recovery re-entry for a request and boundary.
 
     Args:
         root: SAGE local-state root.
         request_sha256: Literal request digest.
         boundary: Re-entry boundary being started.
+        repository_owned_composition_sha256: Optional current recovery-composition
+            digest. When supplied, decisions emitted by older compositions remain
+            historical and are not treated as current re-entry authority.
 
     Returns:
         Matching decision path/object pair, or None.
     """
 
+    if (
+        repository_owned_composition_sha256 is not None
+        and re.fullmatch(r"[0-9a-f]{64}", repository_owned_composition_sha256)
+        is None
+    ):
+        raise ValueError("current recovery composition digest is invalid")
     candidates: list[tuple[Path, dict[str, Any]]] = []
     if not root.is_dir():
         return None
@@ -637,7 +683,17 @@ def latest_matching_reentry(
             continue
         if identity.get("request_sha256") != request_sha256:
             continue
-        if payload.get("next_boundary") == boundary:
-            candidates.append((path, payload))
+        if payload.get("next_boundary") != boundary:
+            continue
+        if repository_owned_composition_sha256 is not None:
+            evidence = payload.get("governing_evidence")
+            if not isinstance(evidence, dict):
+                continue
+            if (
+                evidence.get("repository_owned_composition_sha256")
+                != repository_owned_composition_sha256
+            ):
+                continue
+        candidates.append((path, payload))
     candidates.sort(key=lambda item: str(item[1].get("recorded_at", "")))
     return candidates[-1] if candidates else None

@@ -99,6 +99,7 @@ WORKFLOW_MARKERS = (
     "post-retrieval-continuation-decision.json",
     "build_recovery_identity",
     "load_recovery_decisions",
+    "governing_composition_digest",
     "load_consumed_fingerprints",
     "decide_next_boundary",
     "RECOVERY_DECISION_NAME",
@@ -265,6 +266,8 @@ def source_failures() -> list[str]:
         "sage.request-execution",
         "sage-request-execute.py",
         "no implementation-local recovery consumer registered",
+        "governing_composition_digest",
+        "repository_owned_composition_sha256",
     ):
         if marker not in recovery:
             failures.append(f"recovery contract marker missing: {marker}")
@@ -274,6 +277,8 @@ def source_failures() -> list[str]:
         "await-existing-reentry",
         "successor capability-gap",
         "accepted-control failure assertion",
+        "current recovery composition",
+        "historical consumed recovery decision",
         "Remote-main authority",
     ):
         if marker not in recovery_process:
@@ -313,9 +318,13 @@ def source_failures() -> list[str]:
         "build_consumption_record",
         "load_consumed_fingerprints",
         "repeated governance re-entry blocked",
+        "_current_recovery_composition_sha256",
+        "repository_owned_composition_sha256=current_composition",
     ):
         if marker not in intent_workflow:
             failures.append(f"intent recovery-consumption marker missing: {marker}")
+    if "def _composition_digest(" in workflow:
+        failures.append("request execution duplicates shared recovery composition digest")
     if "context.inspector.is_ancestor(" in workflow:
         failures.append(
             "request execution still invents remote-main ancestry authority"
