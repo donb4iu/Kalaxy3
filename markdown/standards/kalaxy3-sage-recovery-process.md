@@ -78,12 +78,21 @@ Current registered owners are:
 - `sage.improvement-action-transition` →
   `sage-improvement-action-transition.py --recovery-decision`.
 
-Each owner validates its own repair regression, records the immutable recovery
-consumption receipt, and performs no repository mutation while consuming the
-fingerprint. Unknown implementation-local owners fail closed until a
-repository-owned consumer is explicitly registered. Successor-action escalation
-is different: it always returns to the improvement-action lifecycle because the
-next authority boundary belongs to the Architect, not to the failed component.
+Each owner validates its own repair regression and, on first consumption,
+records the immutable recovery consumption receipt without performing repository
+mutation. If the same implementation-local fingerprint is already consumed, the
+owner treats the consumer as idempotent: it revalidates the repair control, writes
+no second consumption receipt, performs no repository mutation, and returns
+`already-consumed`. The owner must carry a behavioral regression proving the
+first-consumption/second-consumption sequence, including receipt immutability and
+revalidation on recurrence. This does not authorize semantic or governance replay
+and does not freeze candidate bytes; the literal request wording remains unchanged
+while the bounded implementation-local candidate correction may be revised before
+the owning lifecycle is retried. Unknown implementation-local owners fail closed
+until a repository-owned consumer is explicitly registered. Successor-action
+escalation is different: it always returns to the improvement-action lifecycle
+because the next authority boundary belongs to the Architect, not to the failed
+component.
 
 ## Accepted-control escalation
 

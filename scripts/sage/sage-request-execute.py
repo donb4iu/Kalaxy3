@@ -316,6 +316,83 @@ def _live_accepted_control_attribution_self_test() -> None:
         raise RuntimeError("live recurrence manufactured control-failure evidence")
 
 
+def _idempotent_recovery_consumption_self_test() -> None:
+    """Prove identical implementation-local recovery consumption is idempotent."""
+
+    import workflows.request_execution as request_execution_workflow  # noqa: PLC0415
+
+    class _Result:
+        output_sha256 = "9" * 64
+
+    class _Runner:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def run(self, *_args, **_kwargs):
+            self.calls += 1
+            return _Result()
+
+    with tempfile.TemporaryDirectory(
+        prefix="sage-request-execute-idempotent-recovery-"
+    ) as raw:
+        root = Path(raw)
+        state_root = root / "sage-request-execution"
+        run_dir = state_root / "fixture-run"
+        run_dir.mkdir(parents=True)
+        identity_sha = "1" * 64
+        fingerprint = "2" * 64
+        decision_path = run_dir / "recovery-next-boundary.json"
+        decision_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "record_type": "sage-recovery-next-boundary",
+                    "owning_component": "sage.request-execution",
+                    "disposition": "repair",
+                    "next_boundary": "implementation-local",
+                    "recovery_identity": {"identity_sha256": identity_sha},
+                    "governing_condition_fingerprint": fingerprint,
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        runner = _Runner()
+        original_runtime = request_execution_workflow._request_execution_recovery_runtime
+        request_execution_workflow._request_execution_recovery_runtime = (
+            lambda _repo, _state_dir: (runner, run_dir / "recovery-consumption-events.jsonl")
+        )
+        try:
+            first = request_execution_workflow.consume_recovery_decision(
+                root,
+                decision_path,
+            )
+            receipt = run_dir / "recovery-governing-change-consumption.json"
+            if first.get("status") != "consumed" or not receipt.is_file():
+                raise RuntimeError("first recovery consumption did not persist one receipt")
+            first_receipt = receipt.read_bytes()
+
+            second = request_execution_workflow.consume_recovery_decision(
+                root,
+                decision_path,
+            )
+            if second.get("status") != "already-consumed":
+                raise RuntimeError("second identical recovery consumption was not idempotent")
+            if second.get("consumption") is not None:
+                raise RuntimeError("idempotent recovery reported a duplicate consumption receipt")
+            if receipt.read_bytes() != first_receipt:
+                raise RuntimeError("idempotent recovery rewrote the first consumption receipt")
+            receipts = list(root.rglob("recovery-governing-change-consumption.json"))
+            if receipts != [receipt]:
+                raise RuntimeError("idempotent recovery created a second consumption receipt")
+            if runner.calls != 2:
+                raise RuntimeError("idempotent recovery did not revalidate on recurrence")
+            if second.get("repository_mutation") is not False:
+                raise RuntimeError("idempotent recovery claimed repository mutation")
+        finally:
+            request_execution_workflow._request_execution_recovery_runtime = original_runtime
+
+
 def _repair_recurrence_self_test() -> None:
     """Prove unchanged recurrence stays at repair without governance re-entry."""
 
@@ -493,6 +570,7 @@ def self_test() -> int:
     _recovery_identity_self_test()
     _recovery_boundary_self_test()
     _live_accepted_control_attribution_self_test()
+    _idempotent_recovery_consumption_self_test()
     _repair_recurrence_self_test()
     _diagnosis_recovery_self_test()
     _ancestry_regression_self_test()

@@ -184,8 +184,10 @@ def consume_recovery_decision(
         raise WorkflowError("request-execution recovery identity is invalid")
 
     state_root = _request_execution_recovery_state_root(source)
-    if fingerprint in load_consumed_fingerprints(state_root, identity_sha):
-        raise WorkflowError("request-execution recovery fingerprint already consumed")
+    already_consumed = fingerprint in load_consumed_fingerprints(
+        state_root,
+        identity_sha,
+    )
 
     runner, event_log = _request_execution_recovery_runtime(
         resolved_repo,
@@ -201,6 +203,15 @@ def consume_recovery_decision(
         ),
         step_id="request-execution-implementation-local-recovery-validation",
     )
+    if already_consumed:
+        return {
+            "status": "already-consumed",
+            "consumption": None,
+            "validation_output_sha256": result.output_sha256,
+            "source_recovery_decision": str(source),
+            "repository_mutation": False,
+        }
+
     destination = (
         output or source.parent / RECOVERY_CONSUMPTION_NAME
     ).expanduser().resolve()

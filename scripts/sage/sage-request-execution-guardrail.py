@@ -254,6 +254,18 @@ def source_failures() -> list[str]:
         failures.append("request-execution CLI cannot consume its recovery boundary")
     if "consume_recovery_decision" not in cli:
         failures.append("request-execution CLI bypasses owner-aware recovery continuation")
+    if '"status": "already-consumed"' not in workflow:
+        failures.append(
+            "request-execution recovery consumer is not idempotent for a consumed fingerprint"
+        )
+    if "request-execution recovery fingerprint already consumed" in workflow:
+        failures.append(
+            "request-execution recovery consumer still rejects an already-consumed repair fingerprint"
+        )
+    if "_idempotent_recovery_consumption_self_test()" not in cli:
+        failures.append(
+            "request-execution idempotent recovery behavior lacks a runtime regression"
+        )
     for marker in (
         "sage-recovery-next-boundary",
         "ACCEPTED_CONTROL_FAILURE_ASSERTION_TYPE",
