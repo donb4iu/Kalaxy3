@@ -247,3 +247,35 @@ slice, but this slice does not alter external-access or privileged-surface
 policy. The counterfactual architecture-convergence review remains triggered
 only after `SAGE-ACTION-20260815-002` completes and must not block its runtime or
 promotion work.
+
+## Completed-child reconciliation after interrupted parent persistence
+
+A request child can self-close successfully through the repository-owned routine
+Git lifecycle while a recovery interruption prevents the parent intent state from
+persisting the request-child pointer and refreshed planning lineage. In that
+specific stale-parent condition, SAGE must not replay planning, request execution,
+or Git mutation, and it must not create a second intent lineage merely to make the
+state machine advance.
+
+`continue-request` therefore has an explicit **completed-child reconciliation**
+mode. It is valid only when the existing parent is still
+`planning-source-ready`, has no planning proposal or request-child pointer, and
+its current iteration still represents the untouched planning boundary. The
+caller must supply the exact completed request state, its canonical routine Git
+receipt, and the exact **refreshed planning lineage** source used to produce the
+child proposal.
+
+SAGE validates the child against the parent's literal request, validates the
+proposal package and digest recorded by request execution, reuses
+`validate_reusable_plan_lineage` to prove the supplied planning source and child
+proposal belong together, and reuses `reconcile_completed_request_child` to
+validate the completed routine-Git receipt and its verification, metrics, and
+closeout evidence. Only after those checks pass does the parent persist the
+actual planning source, planning proposal, request-execution state, and candidate
+commit and advance to `source-git-complete` with `runtime-validation` as the next
+boundary.
+
+This is a recovery of missing lineage persistence, not an alternate adoption or
+planning path. Ordinary `continue-request` retains its existing
+`request-operator-review-required` gate, and incomplete or active children cannot
+use the stale-parent reconciliation mode.

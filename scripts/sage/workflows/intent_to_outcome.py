@@ -33,7 +33,7 @@ from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap, re
 from semantic_understanding import load_engineering_contribution
 
 WORKFLOW_ID = "sage.intent-to-outcome"
-WORKFLOW_VERSION = "0.3.0"
+WORKFLOW_VERSION = "0.3.1"
 PRIMITIVES_USED = (
     "catalog.registry",
     "file.atomic-preserve-mode",
@@ -1020,6 +1020,124 @@ def reconcile_completed_request_child(
         "routine_receipt_sha256": receipt_sha256,
         **evidence,
     }
+
+
+def reconcile_stale_parent_completed_request_child(
+    repo: Path,
+    state_path: Path,
+    child_state_path: Path,
+    planning_source: Path,
+    routine_receipt: Path,
+) -> Mapping[str, Any]:
+    # Bounded recovery for a completed request child whose parent persistence
+    # was interrupted before request lineage was recorded.
+    resolved = repo.expanduser().resolve()
+    state_path = state_path.expanduser().resolve()
+    child_state_path = child_state_path.expanduser().resolve()
+    planning_source = planning_source.expanduser().resolve()
+    routine_receipt = routine_receipt.expanduser().resolve()
+
+    state = _load_parent(state_path)
+    if state.get("status") != "planning-source-ready":
+        raise WorkflowError(
+            "stale-parent completed-child reconciliation requires planning-source-ready parent"
+        )
+    if state.get("request_execution_state") is not None:
+        raise WorkflowError(
+            "stale-parent completed-child reconciliation refuses an existing request child pointer"
+        )
+    if state.get("planning_proposal") is not None:
+        raise WorkflowError(
+            "stale-parent completed-child reconciliation refuses an existing planning proposal"
+        )
+
+    iteration = _current_iteration(state)
+    if (
+        iteration.get("status") != "planning"
+        or iteration.get("validation_state") != "pending"
+        or iteration.get("next_boundary") != "planning"
+    ):
+        raise WorkflowError(
+            "stale-parent completed-child reconciliation requires untouched planning iteration"
+        )
+
+    child = _load_json_object(child_state_path, "completed request child state")
+    if child.get("record_type") != "sage-request-execution-state":
+        raise WorkflowError("completed request child state type is invalid")
+    if child.get("request_sha256") != state.get("request_sha256"):
+        raise WorkflowError("completed request child does not match parent literal request")
+
+    proposal_value = child.get("proposal_package")
+    proposal_sha256 = child.get("proposal_package_sha256")
+    if not isinstance(proposal_value, str) or not proposal_value:
+        raise WorkflowError("completed request child has no planning proposal lineage")
+    if not isinstance(proposal_sha256, str) or not proposal_sha256:
+        raise WorkflowError("completed request child has no planning proposal digest")
+    proposal_path = Path(proposal_value).expanduser().resolve()
+    if not proposal_path.is_file():
+        raise WorkflowError(f"completed child planning proposal is missing: {proposal_path}")
+    observed_proposal_sha256 = hashlib.sha256(proposal_path.read_bytes()).hexdigest()
+    if observed_proposal_sha256 != proposal_sha256:
+        raise WorkflowError(
+            "completed child planning proposal digest no longer matches request state"
+        )
+
+    request = state.get("request")
+    if not isinstance(request, str) or not request:
+        raise WorkflowError("intent parent literal request is missing")
+    lineage = validate_reusable_plan_lineage(request, planning_source, proposal_path)
+
+    result = reconcile_completed_request_child(
+        state,
+        child_state_path,
+        routine_receipt=routine_receipt,
+    )
+
+    receipt = _load_json_object(
+        Path(str(result["routine_receipt"])).expanduser().resolve(),
+        "completed child routine receipt",
+    )
+    candidate_head = receipt.get("commit")
+    if not isinstance(candidate_head, str) or not candidate_head:
+        raise WorkflowError("completed child routine receipt has no candidate commit")
+
+    prior_planning_source = state.get("planning_source")
+    state["planning_source"] = lineage["planning_source"]
+    state["planning_proposal"] = lineage["planning_proposal"]
+    state["request_execution_state"] = str(child_state_path)
+    state["status"] = "source-git-complete"
+
+    iteration["candidate_head"] = candidate_head
+    iteration["status"] = "checkpoint-non-promotable"
+    iteration["validation_state"] = "source-validations-passed"
+    iteration["next_boundary"] = "runtime-validation"
+    iteration["promotion_eligible"] = False
+
+    state["history"].append(
+        {
+            "stage": "completed-request-child-reconciliation",
+            "iteration": state["current_iteration"],
+            "request_execution_state": str(child_state_path),
+            "prior_planning_source": prior_planning_source,
+            "planning_source": lineage["planning_source"],
+            "planning_proposal": lineage["planning_proposal"],
+            "candidate_head": candidate_head,
+            "verified_boundary": result.get("verified_boundary"),
+            "reconciled_from_completed_child": True,
+            "routine_receipt_sha256": result.get("routine_receipt_sha256"),
+        }
+    )
+    _refresh_objective_route(resolved, state)
+    _persist(state_path, state)
+    return {
+        "status": state["status"],
+        "state": str(state_path),
+        "child": result,
+        "planning_source": lineage["planning_source"],
+        "planning_proposal": lineage["planning_proposal"],
+        "candidate_head": candidate_head,
+    }
+
 
 def continue_intent_request(
     repo: Path,

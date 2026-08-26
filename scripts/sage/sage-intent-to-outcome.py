@@ -30,6 +30,7 @@ from workflows.intent_to_outcome import (  # noqa: E402
     continue_intent_request,
     record_runtime,
     reconcile_completed_request_child,
+    reconcile_stale_parent_completed_request_child,
     reconcile_completed_semantic_child,
     objective_route_snapshot,
     validate_runtime_receipt,
@@ -380,6 +381,8 @@ def parse_args() -> argparse.Namespace:
     continuation.add_argument("--state", type=Path, required=True)
     continuation.add_argument("--operator-result", type=Path)
     continuation.add_argument("--routine-receipt", type=Path)
+    continuation.add_argument("--completed-child-state", type=Path)
+    continuation.add_argument("--planning-source", type=Path)
 
     runtime = sub.add_parser("record-runtime")
     runtime.add_argument("--state", type=Path, required=True)
@@ -398,6 +401,7 @@ def parse_args() -> argparse.Namespace:
     route = sub.add_parser("route")
     route.add_argument("--state", type=Path, required=True)
     return parser.parse_args()
+
 
 
 def main() -> int:
@@ -434,12 +438,35 @@ def main() -> int:
             approved_gap_set=args.approved_gap_set,
         )
     elif args.command == "continue-request":
-        result = continue_intent_request(
-            args.repo,
-            args.state,
-            operator_result=args.operator_result,
-            routine_receipt=args.routine_receipt,
+        stale_parent_mode = (
+            args.completed_child_state is not None
+            or args.planning_source is not None
         )
+        if stale_parent_mode:
+            if (
+                args.completed_child_state is None
+                or args.planning_source is None
+                or args.routine_receipt is None
+                or args.operator_result is not None
+            ):
+                raise WorkflowError(
+                    "stale-parent completed-child reconciliation requires "
+                    "--completed-child-state, --planning-source, and --routine-receipt only"
+                )
+            result = reconcile_stale_parent_completed_request_child(
+                args.repo,
+                args.state,
+                args.completed_child_state,
+                args.planning_source,
+                args.routine_receipt,
+            )
+        else:
+            result = continue_intent_request(
+                args.repo,
+                args.state,
+                operator_result=args.operator_result,
+                routine_receipt=args.routine_receipt,
+            )
     elif args.command == "record-runtime":
         result = record_runtime(args.repo, args.state, args.runtime_receipt)
     elif args.command == "promote":
@@ -457,6 +484,7 @@ def main() -> int:
     print("Kalaxy3 SAGE intent-to-outcome: PASS")
     print(json.dumps(result, indent=2, sort_keys=False))
     return 0
+
 
 
 if __name__ == "__main__":
