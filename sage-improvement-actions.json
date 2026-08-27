@@ -1347,7 +1347,7 @@
                     "sha256": "210adedc2f6283f76e74554368a9920fe8a7edb162e7919229719e1af52938b5"
                 }
             ],
-            "current_status": "accepted",
+            "current_status": "implemented",
             "owner": "Architect",
             "priority": "high",
             "target_control_type": "automation",
@@ -1398,6 +1398,20 @@
                     "evidence_references": [
                         "markdown/evidence-artifacts/SAGE-ACTION-20260815-002-PROVENANCE/post-pr21-delivery-capability-gap.json",
                         "commit:3e79c0d5e1547ed33d07165ca4077496a8e5eb93"
+                    ]
+                },
+                {
+                    "sequence": 3,
+                    "from_status": "accepted",
+                    "to_status": "implemented",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-26T23:37:59-05:00",
+                    "actor": "Architect",
+                    "reason": "Core Action-002 delivery is operationally demonstrated end to end. The exact immutable artifact was promoted without rebuild and the deployed digest passed zero-trust runtime validation. The Makefile receipt-transport and stale iteration-10 reconciliation defects are explicitly deferred as non-blocking technical debt under Architect authority.",
+                    "evidence_references": [
+                        "promotion-receipt:/Users/donbuddenbaum/.local/state/kalaxy3/sage-artifact-promotion/github-run-32449512923/promotion-receipt.json",
+                        "runtime-receipt:/Users/donbuddenbaum/.local/state/kalaxy3/sage-e2e-zero-trust/runtime-final.json",
+                        "runtime-receipt-sha256:e2dd55135e351ef4e4b3ca4fc249c44b79b85170cb1706870e7a9927a1536339"
                     ]
                 }
             ]
