@@ -155,3 +155,41 @@ a valid 40-hex `base_main_head`. Missing or malformed main authority fails
 closed. This compatibility exception does not authorize new legacy states and
 does not relax frozen-main verification for the one-approval routine Git
 lifecycle controller.
+
+## Architect objective-path decision gate
+
+SAGE request execution treats the active Architect-owned objective as the reason
+for work. An LLM-proposed tactical SAGE boundary is not itself mutation authority.
+
+Before the existing request-execution authority step can authorize repository
+mutation, the operator supplies a checksum-bound `sage-objective-path-decision`
+record through `SAGE_OBJECTIVE_PATH_DECISION`. The decision is bound to the exact
+literal request and exact proposal package.
+
+The Architect-facing decision surface uses **5W1H**:
+
+- **Who** owns, decides, or performs the work.
+- **What** changes and what outcome is produced.
+- **Why** the path has value to the active objective now.
+- **When** it must happen rather than be deferred.
+- **Where** it applies in the objective, architecture, or lifecycle.
+- **How** it advances value, removes a blocker, controls material risk, and will be verified.
+
+The record also states the deferral consequence and the **next value-producing milestone**. SAGE accepts three classifications:
+
+1. `direct-objective-value`
+2. `necessary-blocker-material-risk`
+3. `deferrable-sage-internal-improvement`
+
+A `deferrable-sage-internal-improvement` is a deferrable SAGE/internal improvement
+and cannot authorize mutation for the active delivery objective. Discovering an internal SAGE imperfection therefore does not
+silently make it the next objective.
+
+The LLM may propose the 5W1H and classification, but decision authority remains
+the Architect. Mutation requires an Architect-approved decision whose basis is
+`operator-supplied-to-governed-execution`. SAGE copies the validated decision
+into the request-execution state directory as `objective-path-decision.json`
+before mutation, preserving provenance and audit evidence.
+
+This gate reuses the existing federated authority reconciliation path; it does
+not introduce another planner, mutation engine, or lifecycle.

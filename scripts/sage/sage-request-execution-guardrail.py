@@ -481,10 +481,63 @@ def validate() -> list[str]:
     return failures
 
 
+
+def objective_path_decision_guardrail() -> list[str]:
+    failures: list[str] = []
+    workflow = (
+        ROOT / "scripts/sage/workflows/request_execution.py"
+    ).read_text(encoding="utf-8")
+    policy = json.loads(
+        (ROOT / "sage-operating-contract-policy.json").read_text(encoding="utf-8")
+    )
+    standard = (
+        ROOT / "markdown/standards/kalaxy3-sage-request-execution-process.md"
+    ).read_text(encoding="utf-8")
+
+    for marker in (
+        "SAGE_OBJECTIVE_PATH_DECISION",
+        "_validate_objective_path_decision",
+        "_objective_path_decision_action",
+        "direct-objective-value",
+        "necessary-blocker-material-risk",
+        "deferrable-sage-internal-improvement",
+        "objective-path-decision.json",
+        "deferrable SAGE/internal improvement cannot authorize mutation",
+    ):
+        if marker not in workflow:
+            failures.append(f"request execution objective-path marker missing: {marker}")
+
+    gate = policy.get("objective_path_decision_policy")
+    if not isinstance(gate, dict) or gate.get("enabled") is not True:
+        failures.append("objective path decision policy is absent or disabled")
+    else:
+        if gate.get("decision_authority") != "architect":
+            failures.append("objective path decision authority is not Architect")
+        if gate.get("deferrable_internal_improvement_may_mutate") is not False:
+            failures.append("deferrable internal SAGE work can authorize mutation")
+        if set(gate.get("mutation_allowed_classifications", [])) != {
+            "direct-objective-value",
+            "necessary-blocker-material-risk",
+        }:
+            failures.append("objective path mutation classifications drifted")
+
+    for marker in (
+        "5W1H",
+        "active Architect-owned objective",
+        "deferrable SAGE/internal improvement",
+        "next value-producing milestone",
+        "operator-supplied-to-governed-execution",
+    ):
+        if marker not in standard:
+            failures.append(f"objective-path documentation marker missing: {marker}")
+    return failures
+
+
 def main() -> int:
     """Fail closed on any request execution integration defect."""
 
     failures = validate()
+    failures.extend(objective_path_decision_guardrail())
     if failures:
         print("Kalaxy3 SAGE request execution guardrail: FAIL CLOSED")
         for failure in failures:
@@ -500,6 +553,7 @@ def main() -> int:
     print("PASS Make, authority, process, schema, and negative-test integration")
     print("Kalaxy3 SAGE request execution guardrail: PASS")
     return 0
+
 
 
 if __name__ == "__main__":

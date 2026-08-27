@@ -264,4 +264,36 @@
         "helper_execution_allowed": false,
         "read_only_post_verification_required": true
     }
+,
+  "objective_path_decision_policy": {
+    "enabled": true,
+    "decision_authority": "architect",
+    "environment_variable": "SAGE_OBJECTIVE_PATH_DECISION",
+    "required_decision_dimensions": [
+      "who",
+      "what",
+      "why",
+      "when",
+      "where",
+      "how",
+      "classification",
+      "deferral_consequence",
+      "next_value_milestone"
+    ],
+    "allowed_classifications": [
+      "direct-objective-value",
+      "necessary-blocker-material-risk",
+      "deferrable-sage-internal-improvement"
+    ],
+    "mutation_allowed_classifications": [
+      "direct-objective-value",
+      "necessary-blocker-material-risk"
+    ],
+    "deferrable_internal_improvement_may_mutate": false,
+    "binding": [
+      "exact-literal-request-sha256",
+      "exact-proposal-package-sha256"
+    ],
+    "approval_basis": "operator-supplied-to-governed-execution"
+  }
 }

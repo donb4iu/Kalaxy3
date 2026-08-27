@@ -7,6 +7,7 @@ from collections import Counter
 
 import hashlib
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -342,10 +343,168 @@ def authority_assertions(context: ExecutionContext, captured: str) -> tuple[Auth
     )
 
 
-def authority_action(context: ExecutionContext) -> Mapping[str, Any]:
-    """Reconcile required federated authority through the registered primitive."""
 
-    policy = json.loads((context.repo / "sage-operating-contract-policy.json").read_text(encoding="utf-8"))
+OBJECTIVE_PATH_DECISION_ENV = "SAGE_OBJECTIVE_PATH_DECISION"
+OBJECTIVE_PATH_CLASSIFICATIONS = frozenset({
+    "direct-objective-value",
+    "necessary-blocker-material-risk",
+    "deferrable-sage-internal-improvement",
+})
+
+
+def _objective_path_text(value: Any, field: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise WorkflowError(f"objective path decision {field} must be non-empty")
+    return value.strip()
+
+
+def _validate_objective_path_decision(
+    value: Mapping[str, Any],
+    *,
+    request: str,
+    proposal_path: Path,
+) -> dict[str, Any]:
+    required = {
+        "schema_version",
+        "record_type",
+        "active_objective_id",
+        "request_sha256",
+        "proposal_sha256",
+        "who",
+        "what",
+        "why",
+        "when",
+        "where",
+        "how",
+        "classification",
+        "deferral_consequence",
+        "next_value_milestone",
+        "architect_disposition",
+    }
+    if set(value) != required:
+        missing = sorted(required - set(value))
+        extra = sorted(set(value) - required)
+        raise WorkflowError(
+            "objective path decision fields mismatch: "
+            f"missing={missing}, extra={extra}"
+        )
+    if value.get("schema_version") != "1.0":
+        raise WorkflowError("objective path decision schema_version must be 1.0")
+    if value.get("record_type") != "sage-objective-path-decision":
+        raise WorkflowError("objective path decision record_type is invalid")
+
+    request_sha = hashlib.sha256(request.encode("utf-8")).hexdigest()
+    if value.get("request_sha256") != request_sha:
+        raise WorkflowError(
+            "objective path decision is not bound to the exact literal request"
+        )
+    proposal_sha = sha256_file(proposal_path.expanduser().resolve())
+    if value.get("proposal_sha256") != proposal_sha:
+        raise WorkflowError(
+            "objective path decision is not bound to the exact proposal package"
+        )
+
+    for field in (
+        "active_objective_id",
+        "who",
+        "what",
+        "why",
+        "when",
+        "where",
+        "how",
+        "deferral_consequence",
+        "next_value_milestone",
+    ):
+        _objective_path_text(value.get(field), field)
+
+    classification = value.get("classification")
+    if classification not in OBJECTIVE_PATH_CLASSIFICATIONS:
+        raise WorkflowError("objective path decision classification is invalid")
+    if classification == "deferrable-sage-internal-improvement":
+        raise WorkflowError(
+            "deferrable SAGE/internal improvement cannot authorize mutation"
+        )
+
+    disposition = value.get("architect_disposition")
+    if not isinstance(disposition, Mapping):
+        raise WorkflowError(
+            "objective path decision architect_disposition must be an object"
+        )
+    if set(disposition) != {"status", "authority", "basis", "rationale"}:
+        raise WorkflowError(
+            "objective path decision architect_disposition fields are invalid"
+        )
+    if disposition.get("status") != "approved":
+        raise WorkflowError("objective path decision lacks Architect approval")
+    if str(disposition.get("authority", "")).strip().lower() != "architect":
+        raise WorkflowError("objective path decision authority must be Architect")
+    if disposition.get("basis") != "operator-supplied-to-governed-execution":
+        raise WorkflowError("objective path decision approval basis is invalid")
+    _objective_path_text(
+        disposition.get("rationale"),
+        "architect_disposition.rationale",
+    )
+    return json.loads(json.dumps(value))
+
+
+def _objective_path_decision_action(
+    context: ExecutionContext,
+    policy: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    gate = policy.get("objective_path_decision_policy")
+    if not isinstance(gate, Mapping) or gate.get("enabled") is not True:
+        raise WorkflowError("objective path decision policy is missing or disabled")
+    if gate.get("decision_authority") != "architect":
+        raise WorkflowError("objective path decision policy lost Architect authority")
+    if gate.get("environment_variable") != OBJECTIVE_PATH_DECISION_ENV:
+        raise WorkflowError("objective path decision environment binding drifted")
+
+    raw_path = os.environ.get(OBJECTIVE_PATH_DECISION_ENV, "").strip()
+    if not raw_path:
+        raise WorkflowError(
+            f"{OBJECTIVE_PATH_DECISION_ENV} is required before request mutation"
+        )
+    source = Path(raw_path).expanduser().resolve()
+    if not source.is_file():
+        raise WorkflowError(f"objective path decision file is missing: {source}")
+
+    try:
+        raw = json.loads(source.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise WorkflowError(
+            f"objective path decision is not valid JSON: {source}"
+        ) from error
+    if not isinstance(raw, Mapping):
+        raise WorkflowError("objective path decision must be a JSON object")
+
+    decision = _validate_objective_path_decision(
+        raw,
+        request=context.request,
+        proposal_path=context.bundle.package_path,
+    )
+    receipt = {
+        **decision,
+        "decision_source": str(source),
+        "decision_source_sha256": sha256_file(source),
+        "enforcement": {
+            "status": "accepted-for-mutation",
+            "gate": "request-execution-authority",
+            "deferrable_internal_work_blocked": True,
+        },
+    }
+    write_state(context, "objective-path-decision.json", receipt)
+    return receipt
+
+
+
+def authority_action(context: ExecutionContext) -> Mapping[str, Any]:
+    # Reconcile federated authority only after objective-path authority is proven.
+    policy = json.loads(
+        (context.repo / "sage-operating-contract-policy.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    objective_path_decision = _objective_path_decision_action(context, policy)
     required = policy["authority_policy"]["required_authority_types"]
     captured = datetime.now().astimezone().isoformat(timespec="seconds")
     receipt = AuthorityReconciler(required).reconcile(
@@ -358,8 +517,15 @@ def authority_action(context: ExecutionContext) -> Mapping[str, Any]:
     )
     if receipt.reconciliation["disposition"] != "complete":
         raise WorkflowError(receipt.reconciliation["summary"])
-    context.authority_path = write_state(context, "authority-reconciliation.json", receipt.to_dict())
-    return receipt.to_dict()
+    context.authority_path = write_state(
+        context,
+        "authority-reconciliation.json",
+        receipt.to_dict(),
+    )
+    result = receipt.to_dict()
+    result["objective_path_decision"] = dict(objective_path_decision)
+    return result
+
 
 
 def candidate_from_mapping(context: ExecutionContext, item: Mapping[str, Any]) -> ComponentCandidate:
