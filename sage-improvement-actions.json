@@ -1688,6 +1688,60 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260827-001",
+            "title": "Establish SAGE causal evidence graph",
+            "source_lessons": [],
+            "source_sessions": [],
+            "source_records": [
+                {
+                    "record_type": "capability-gap",
+                    "record_id": "SAGE-GAP-20260827-CAUSAL-EVIDENCE-GRAPH",
+                    "schema_version": "1.1",
+                    "sha256": "e92545563dc3dbfe25d7cd850aef43ae3b0ffe6b67fd2587cddccabaca224048"
+                }
+            ],
+            "current_status": "identified",
+            "owner": "Architect",
+            "priority": "high",
+            "target_control_type": "automation",
+            "desired_outcome": "Implement the Architect-approved post-Action-002 convergence objective: one authoritative causal evidence graph supplies SAGE objective truth while independent actors/workflows may advance concurrently and through multiple valid paths. Current readiness and objective status are derived projections of evidence-backed facts and causal relationships, not competing workflow-owned truth. Preserve sufficient historical decision/evidence lineage for recreation, audit, and later Architect-owned counterfactual analysis. Deliver a bounded MVP happy-path vertical slice first, then the minimum MRP resilience needed to trust the model under correction/change. Existing SAGE architecture, roles, guardrails, authority boundaries, evidence obligations, recovery rules, and capability contracts are inherited unchanged.",
+            "acceptance_criteria": [
+                "The implementation inherits existing SAGE roles, guardrails, authority, evidence, recovery, and capability contracts; it introduces no alternate governance or LLM authority model.",
+                "MVP demonstrates one real objective in which at least two independent evidence/fact branches can advance without an artificial global serial transition and converge into one derived readiness/outcome view.",
+                "MVP can recreate the happy-path objective result and causal lineage from persisted authoritative facts/evidence without consulting a competing workflow-owned version of objective truth.",
+                "MRP preserves correction, supersession, and invalidation history rather than destructively rewriting prior authoritative facts, and can reconstruct what was legitimately knowable before and after the change.",
+                "MRP provides collision-safe stable evidence identity: two distinct evidence records cannot silently overwrite or collapse merely because their source filenames or basenames match.",
+                "MRP can assemble the preserved actual-path decision/evidence context needed for Architect-owned counterfactual review without SAGE assessing or dispositioning architecture on the Architect's behalf.",
+                "Existing workflow-specific state migrates incrementally toward projection/compatibility status; this objective does not require a big-bang rewrite of otherwise useful workflows or execution engines.",
+                "For this objective's own operator path, deterministic SAGE prerequisite validation occurs before an LLM-authored execution instruction reaches the operator. If SAGE genuinely cannot determine a compliant continuation, it surfaces an explicit Architect decision boundary rather than forcing either the LLM or operator to fabricate SAGE-internal semantics."
+            ],
+            "measurement_plan": [
+                "Record the MVP causal branches, convergence conditions, derived outcome, operator boundaries, and elapsed/rework events.",
+                "Recreate the MVP result from persisted facts/evidence and compare the derived outcome and lineage with the original live view.",
+                "Exercise one MRP supersession/invalidation and prove historical before-state and current after-state are both reconstructable.",
+                "Exercise two distinct same-basename evidence inputs and prove both retain independent stable identity and provenance.",
+                "Generate one evidence package for an Architect-owned actual-path versus counterfactual-path review from preserved lineage without rewriting history.",
+                "Classify operator-visible rework during delivery as: LLM bypassed/contradicted available deterministic SAGE guidance; SAGE possessed enough information but failed to surface actionable guidance; or legitimate Architect intervention because the problem exceeded current SAGE capability.",
+                "Treat the first two rework classes as preventable delivery defects and preserve the third as a capability-frontier/Architect-boundary event with traceable remediation for future recurrence."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-27T21:22:47-05:00",
+                    "actor": "Architect",
+                    "reason": "Register the Architect-approved post-Action-002 causal evidence graph objective through the narrowly scoped action-origin bootstrap permitted by the continuous-improvement contract.",
+                    "evidence_references": [
+                        "action:SAGE-ACTION-20260815-002",
+                        "commit:36df7fe1830412521d8e46a9a49eaed4060eb1ea",
+                        "architect-directive:2026-08-27:adopt-causal-evidence-graph-mvp-mrp"
+                    ]
+                }
+            ]
         }
     ]
 }
