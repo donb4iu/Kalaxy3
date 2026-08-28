@@ -281,6 +281,47 @@ def validate_request_planning_changed_path_mapping_mutation(
     return []
 
 
+def validate_causal_evidence_context_mutation(module) -> list[str]:
+    "Prove the causal-evidence specialized mapping is materially required."
+    import copy
+
+    payload = module.load_authority_map(ROOT / "sage-change-authority.json")
+    candidate = copy.deepcopy(payload)
+    candidate["contexts"] = [
+        item
+        for item in candidate["contexts"]
+        if item.get("id") != "causal-evidence"
+    ]
+
+    always = set(candidate.get("always_contexts", []))
+    failures: list[str] = []
+
+    request_contexts = module.infer_for_request(
+        candidate,
+        "Create a causal fact graph with immutable predecessor links and derived readiness projections",
+    )
+    request_specialized = set(request_contexts) - always
+    if request_specialized:
+        failures.append(
+            "causal-evidence request remained specialized after removing "
+            f"its context mapping: {sorted(request_specialized)}"
+        )
+
+    initial = module.infer_context_ids(
+        candidate,
+        "",
+        ["scripts/sage/causal_evidence.py"],
+    )
+    path_contexts = module.expand_dependencies(candidate, initial)
+    path_specialized = set(path_contexts) - always
+    if path_specialized:
+        failures.append(
+            "causal-evidence implementation path remained specialized after "
+            f"removing its context mapping: {sorted(path_specialized)}"
+        )
+
+    return failures
+
 def main() -> int:
     """Run the discovery-path guardrail."""
     try:
@@ -289,6 +330,7 @@ def main() -> int:
         failures.extend(validate_entrypoint_markers())
         failures.extend(validate_make_request_transport())
         failures.extend(run_negative_tests(module))
+        failures.extend(validate_causal_evidence_context_mutation(module))
         failures.extend(
             validate_request_vocabulary_normalization_mutation(
                 module
@@ -339,6 +381,7 @@ def main() -> int:
     print(
         "PASS authority-map mutation negative tests"
     )
+    print("PASS causal-evidence request/path mutation negative")
     print("PASS request-vocabulary normalization mutation negatives")
     print("PASS request-planning changed-path mapping mutation negative")
     print("Kalaxy3 SAGE discovery guardrail: PASS")

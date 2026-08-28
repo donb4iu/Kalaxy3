@@ -1188,6 +1188,68 @@
       ]
     },
     {
+      "id": "causal-evidence",
+      "priority": 110,
+      "match_terms": [
+        "causal evidence",
+        "causal-evidence",
+        "causal evidence graph",
+        "causal graph",
+        "causal fact",
+        "evidence-backed fact",
+        "derived objective state",
+        "derived readiness",
+        "causal lineage",
+        "fact lineage",
+        "authoritative causal record"
+      ],
+      "path_prefixes": [
+        "scripts/sage/causal_evidence.py",
+        "scripts/sage/sage-causal-evidence",
+        "markdown/standards/kalaxy3-sage-causal-evidence",
+        "markdown/standards/sage-causal-evidence",
+        "sage-causal-evidence-"
+      ],
+      "requires": [
+        "repository-governance",
+        "evidence",
+        "continuous-improvement",
+        "workflow-primitives"
+      ],
+      "working_directory": ".",
+      "authoritative_files": [
+        "AGENTS.md",
+        "SAGE.md",
+        "sage-change-authority.json",
+        "markdown/standards/kalaxy3-sage-change-discovery-process.md",
+        "markdown/standards/kalaxy3-sage-evidence-record-standard.md",
+        "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
+        "markdown/standards/kalaxy3-sage-workflow-primitives-process.md",
+        "scripts/sage/sage-change-preflight.py",
+        "scripts/sage/sage-change-discovery-guardrail.py"
+      ],
+      "baseline_checks": [
+        "make sage-discovery-guardrail",
+        "make sage-index-check",
+        "make sage-workflow-support-self-test",
+        "make sage-operating-contract-check"
+      ],
+      "required_validation": [
+        "make sage-discovery-guardrail",
+        "make sage-evidence-guardrail",
+        "make sage-self-test",
+        "make sage-guardrails",
+        "make sage-index-check",
+        "make sage-operating-contract-check"
+      ],
+      "evidence_process": [
+        "Preserve fact identity, producer, scoped authority reference, causal predecessors, and bound evidence identity.",
+        "Preserve independent causal branches without imposing a total global execution order.",
+        "Treat readiness and lineage as derived views over authoritative facts rather than a second mutable objective truth.",
+        "Preserve the existing Architect authority boundary for architectural and counterfactual judgment."
+      ]
+    },
+    {
       "id": "security",
       "priority": 115,
       "match_terms": [

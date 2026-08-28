@@ -342,6 +342,13 @@ def run_self_tests(
             "repository-governance",
             "evidence",
         },
+        "Create a causal fact graph with immutable predecessor links and derived readiness projections": {
+            "causal-evidence",
+            "workflow-primitives",
+            "continuous-improvement",
+            "repository-governance",
+            "evidence",
+        },
     }
     failures: list[str] = []
 
@@ -429,6 +436,21 @@ def run_self_tests(
                 "repository-governance",
                 "evidence",
                 "continuous-improvement",
+            },
+        ),
+        "causal-evidence discovery paths": (
+            [
+                "scripts/sage/causal_evidence.py",
+                "scripts/sage/sage-causal-evidence.py",
+                "markdown/standards/sage-causal-evidence-fact-schema-v1.0.json",
+                "markdown/standards/kalaxy3-sage-causal-evidence-process.md",
+            ],
+            {
+                "causal-evidence",
+                "workflow-primitives",
+                "continuous-improvement",
+                "repository-governance",
+                "evidence",
             },
         ),
     }
