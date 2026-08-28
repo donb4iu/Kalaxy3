@@ -1702,7 +1702,7 @@
                     "sha256": "e92545563dc3dbfe25d7cd850aef43ae3b0ffe6b67fd2587cddccabaca224048"
                 }
             ],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "Architect",
             "priority": "high",
             "target_control_type": "automation",
@@ -1739,6 +1739,18 @@
                         "action:SAGE-ACTION-20260815-002",
                         "commit:36df7fe1830412521d8e46a9a49eaed4060eb1ea",
                         "architect-directive:2026-08-27:adopt-causal-evidence-graph-mvp-mrp"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-27T21:29:58-05:00",
+                    "actor": "Architect",
+                    "reason": "Architect accepts the post-Action-002 causal-evidence-graph objective as registered: deliver the bounded MVP happy-path vertical slice first, then the minimum MRP resilience, while inheriting the existing SAGE roles, guardrails, authority boundaries, evidence obligations, recovery rules, and capability contracts.",
+                    "evidence_references": [
+                        "commit:be5f46fe1700e2de36a66b987530105feb764777"
                     ]
                 }
             ]
