@@ -38,7 +38,7 @@ Automated runtime validation must not fabricate a human MFA success or Cloudflar
 
 After runtime acceptance, the front door delegates promotion to the existing checkpoint-promotion composition. Browser approval boundaries and exact merge verification remain unchanged.
 
-Safe local-main reconciliation and source-branch retirement remain part of this E2E Definition of Done. The current checkpoint-promotion controller has already demonstrated that it stops before those final actions; this slice must treat that as a remaining composition gap to close without bypassing existing Git safety primitives.
+Safe local-main reconciliation and source-branch retirement remain part of this E2E Definition of Done. The checkpoint-promotion composition now closes the bounded pre-promotion reconciliation case in which both the source branch and current `main` have unique, disjoint-path changes: it emits operator-executed merge and push boundaries, proves exact merge-parent topology, and immediately re-enters full checkpoint promotion against current target authority. Overlapping-path reconciliation still fails closed for Architect disposition. Source-branch retirement remains a separate post-promotion obligation and is not pulled into a blocker-remediation detour.
 
 
 ## Governed candidate iteration

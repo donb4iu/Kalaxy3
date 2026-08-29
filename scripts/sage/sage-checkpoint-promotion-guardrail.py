@@ -44,6 +44,14 @@ def main() -> int:
         == ["pull-request-create", "pull-request-merge", "post-merge-fetch"],
         "promotion operator boundaries changed",
     )
+    reconciliation = policy.get("source_reconciliation_policy")
+    require(isinstance(reconciliation, dict), "source reconciliation policy missing")
+    require(reconciliation.get("enabled") is True, "source reconciliation disabled")
+    require(reconciliation.get("require_disjoint_changed_paths") is True, "disjoint-path reconciliation gate disabled")
+    require(reconciliation.get("autonomous_git_mutation") is False, "source reconciliation autonomous mutation enabled")
+    require(reconciliation.get("require_exact_merge_parent_topology") is True, "source reconciliation exact merge topology disabled")
+    require(reconciliation.get("restart_checkpoint_promotion_after_reconciliation") is True, "source reconciliation does not re-enter promotion")
+    require(reconciliation.get("source_branch_retirement_in_scope") is False, "source retirement was pulled into the blocker-remediation slice")
     required_checks = promotion.get("required_github_checks")
     require(isinstance(required_checks, list) and len(required_checks) == 3, "required GitHub check policy is incomplete")
     require(
@@ -97,6 +105,24 @@ def main() -> int:
         "explicit post-merge Git refresh proposal missing",
     )
     require(
+        '"merge",' in workflow
+        and '"--no-edit",' in workflow
+        and '"--no-ff",' in workflow
+        and "reconciliation_overlap_paths" in workflow
+        and "start_source_reconciliation" in workflow,
+        "bounded pre-promotion source reconciliation composition missing",
+    )
+    require(
+        'boundary="push"' in workflow
+        and 'command_argv=("git", "push", "origin", source_branch)' in workflow,
+        "source reconciliation push proposal missing",
+    )
+    require(
+        '"return_to_parent_objective": "checkpoint-promotion"' in workflow
+        and "start_promotion(" in workflow,
+        "source reconciliation re-entry contract missing",
+    )
+    require(
         'if boundary == "pull-request-create":' in workflow
         and "Frozen promotion source is not an ancestor of current source branch" in workflow,
         "post-merge synchronized source-descendant recovery contract missing",
@@ -140,6 +166,7 @@ def main() -> int:
     print("PASS complete applicable gate and frozen-target requirements")
     print("PASS git.inspect + github.inspect least-authority composition")
     print("PASS exact frozen-source GitHub Actions checks are required before merge proposal")
+    print("PASS disjoint-path pre-promotion source reconciliation is operator-executed and re-enters promotion")
     print("PASS PR mutation uses prepared browser-review operator proposals")
     print("PASS exact already-open PR may satisfy the create boundary without duplicate mutation")
     print("PASS post-merge refresh remains an exact operator Git proposal")

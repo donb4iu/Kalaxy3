@@ -80,6 +80,10 @@ class PromotionContext:
     frozen_target_head: str | None = None
     remote_source_head: str | None = None
     changed_paths: tuple[str, ...] = ()
+    reconciliation_required: bool = False
+    reconciliation_source_paths: tuple[str, ...] = ()
+    reconciliation_target_paths: tuple[str, ...] = ()
+    reconciliation_overlap_paths: tuple[str, ...] = ()
     authority_path: Path | None = None
     component_path: Path | None = None
     gap_path: Path | None = None
@@ -322,16 +326,42 @@ def git_authority_action(context: PromotionContext) -> None:
             "Use an explicit operator Git refresh and restart promotion: "
             f"local={local_target}, remote={remote_target}"
         )
-    if not context.inspector.is_ancestor(local_target, local_source):
-        raise WorkflowError("Source does not descend from frozen target")
-    changed = context.inspector.diff_paths(local_target, local_source, three_dot=True)
-    if not changed:
+
+    source_paths = context.inspector.diff_paths(
+        local_target, local_source, three_dot=True
+    )
+    if not source_paths:
         raise WorkflowError("Promotion delta is empty")
 
     context.snapshot = context.inspector.snapshot()
     context.frozen_target_head = local_target
     context.remote_source_head = remote_source
-    context.changed_paths = tuple(sorted(changed))
+    context.changed_paths = tuple(sorted(source_paths))
+
+    if context.inspector.is_ancestor(local_target, local_source):
+        return
+
+    reconciliation = context.policy.get("source_reconciliation_policy", {})
+    if not isinstance(reconciliation, Mapping) or reconciliation.get("enabled") is not True:
+        raise WorkflowError("Source does not descend from frozen target")
+
+    target_paths = context.inspector.diff_paths(
+        local_source, local_target, three_dot=True
+    )
+    if not target_paths:
+        raise WorkflowError(
+            "Source does not descend from frozen target and target has no unique delta"
+        )
+    overlap = source_paths & target_paths
+    context.reconciliation_required = True
+    context.reconciliation_source_paths = tuple(sorted(source_paths))
+    context.reconciliation_target_paths = tuple(sorted(target_paths))
+    context.reconciliation_overlap_paths = tuple(sorted(overlap))
+    if overlap:
+        raise WorkflowError(
+            "Source/target reconciliation requires Architect review because both sides "
+            f"changed the same paths: {sorted(overlap)}"
+        )
 
 
 def authority_action(context: PromotionContext) -> None:
@@ -473,6 +503,202 @@ def authority_action(context: PromotionContext) -> None:
             ),
         },
     )
+
+
+
+def reconciliation_validation(context: PromotionContext) -> tuple[dict[str, Any], ...]:
+    if (
+        context.frozen_target_head is None
+        or context.remote_source_head is None
+        or context.authority_path is None
+        or context.component_path is None
+    ):
+        raise WorkflowError("Source reconciliation prerequisites missing")
+    facts = {
+        "schema_version": "1.0",
+        "record_type": "sage-checkpoint-source-reconciliation-facts",
+        "request": context.request,
+        "source_branch": context.source_branch,
+        "source_head": context.expected_head,
+        "remote_source_head": context.remote_source_head,
+        "target_branch": context.target_branch,
+        "frozen_target_head": context.frozen_target_head,
+        "source_changed_paths": list(context.reconciliation_source_paths),
+        "target_changed_paths": list(context.reconciliation_target_paths),
+        "overlapping_changed_paths": list(context.reconciliation_overlap_paths),
+        "source_descends_from_target": False,
+        "reconciliation_required": True,
+    }
+    facts_path = write_json(context, "source-reconciliation-facts.json", facts)
+    digest = sha256_file(facts_path)
+    return (
+        {
+            "label": "Frozen source and target authority",
+            "reference": str(facts_path),
+            "status": "pass",
+            "sha256": digest,
+        },
+        {
+            "label": "Disjoint source/target changed paths",
+            "reference": str(facts_path),
+            "status": "pass",
+            "sha256": digest,
+        },
+        {
+            "label": "Governed reconciliation component reuse",
+            "reference": str(context.component_path),
+            "status": "pass",
+            "sha256": sha256_file(context.component_path),
+        },
+    )
+
+
+def create_source_reconciliation_proposal(
+    context: PromotionContext,
+) -> tuple[dict[str, Any], tuple[dict[str, Any], ...]]:
+    if (
+        context.snapshot is None
+        or context.frozen_target_head is None
+        or context.authority_path is None
+        or context.component_path is None
+    ):
+        raise WorkflowError("Source reconciliation receipts missing")
+    if context.reconciliation_overlap_paths:
+        raise WorkflowError("Source reconciliation path overlap is not eligible")
+    validation = reconciliation_validation(context)
+    scope = tuple(
+        sorted(
+            set(context.reconciliation_target_paths)
+            | {f"refs/heads/{context.source_branch}"}
+        )
+    )
+    proposal = OperatorGitProposal.build(
+        proposal_id=proposal_id(context.expected_head, "source-reconciliation-merge"),
+        controller=WORKFLOW_ID,
+        repository=context.snapshot,
+        authority_receipt=str(context.authority_path),
+        component_manifest=str(context.component_path),
+        boundary="other-git-mutation",
+        change_scope=scope,
+        validation=validation,
+        command_argv=(
+            "git",
+            "merge",
+            "--no-edit",
+            "--no-ff",
+            context.frozen_target_head,
+        ),
+        expected_result=(
+            "Create exactly one local merge commit on the synchronized source branch "
+            "whose first parent is the frozen source and whose second parent is the "
+            "exact frozen target; no push or promotion occurs."
+        ),
+        risk=(
+            "Mutates only the local source branch. Reconciliation is offered only after "
+            "git.inspect proves the source-side and target-side changed-path sets are "
+            "disjoint; any unexpected merge conflict or topology mismatch fails closed."
+        ),
+        rollback=(
+            "Do not execute the proposal. After execution, any rollback requires a "
+            "separately governed recovery boundary; no reset or rebase is authorized."
+        ),
+        post_command_verification=(
+            "git.inspect verifies the working tree is clean",
+            "git.inspect verifies the exact ordered merge-parent topology",
+            "git.inspect verifies the remote source still equals the frozen pre-merge source",
+        ),
+    )
+    context.proposal_path = (
+        context.state_dir / "operator-git-proposal-source-reconciliation-merge.json"
+    )
+    OperatorGitProposal.write(context.proposal_path, proposal, context.writer)
+    return proposal, validation
+
+
+def save_source_reconciliation_state(
+    context: PromotionContext,
+    proposal: Mapping[str, Any],
+    validation: tuple[dict[str, Any], ...],
+) -> Path:
+    if (
+        context.proposal_path is None
+        or context.frozen_target_head is None
+        or context.authority_path is None
+        or context.component_path is None
+    ):
+        raise WorkflowError("Source reconciliation state prerequisites missing")
+    value = {
+        "schema_version": "1.0",
+        "record_type": "sage-checkpoint-promotion-state",
+        "mode": "source-reconciliation",
+        "request": context.request,
+        "request_sha256": hashlib.sha256(
+            context.request.encode("utf-8")
+        ).hexdigest(),
+        "source_branch": context.source_branch,
+        "source_head": context.expected_head,
+        "target_branch": context.target_branch,
+        "frozen_target_head": context.frozen_target_head,
+        "changed_paths": list(context.changed_paths),
+        "source_changed_paths": list(context.reconciliation_source_paths),
+        "target_changed_paths": list(context.reconciliation_target_paths),
+        "overlapping_changed_paths": [],
+        "authority_receipt": str(context.authority_path),
+        "component_manifest": str(context.component_path),
+        "reconciliation_validation": [dict(item) for item in validation],
+        "title": context.title,
+        "body": context.body,
+        "current_boundary": str(proposal["boundary"]),
+        "current_proposal": str(context.proposal_path),
+        "reconciliation_phase": "merge-frozen-target-into-source",
+        "reconciled_head": None,
+        "history": [],
+    }
+    context.state_path = context.state_dir / "checkpoint-promotion-state.json"
+    context.writer.write_text(
+        context.state_path, stable_json(value), new_mode=0o600
+    )
+    return context.state_path
+
+
+def start_source_reconciliation(context: PromotionContext) -> Mapping[str, Any]:
+    proposal, validation = create_source_reconciliation_proposal(context)
+    state = save_source_reconciliation_state(context, proposal, validation)
+    closeout = write_closeout(
+        context,
+        "operator-review-required",
+        {
+            "state": str(state),
+            "proposal": str(context.proposal_path),
+            "source_reconciliation": True,
+            "frozen_source": context.expected_head,
+            "frozen_target": context.frozen_target_head,
+            "source_changed_paths": list(context.reconciliation_source_paths),
+            "target_changed_paths": list(context.reconciliation_target_paths),
+            "overlapping_changed_paths": [],
+            "git_mutation": False,
+            "github_mutation": False,
+        },
+    )
+    return {
+        "status": "operator-review-required",
+        "state": str(state),
+        "proposal_path": str(context.proposal_path),
+        "closeout": str(closeout),
+        "event_log": str(context.state_dir / "events.jsonl"),
+        "source_reconciliation": True,
+        "proposal": proposal,
+    }
+
+
+def source_reconciliation_continuation_validation(
+    state: Mapping[str, Any],
+) -> tuple[dict[str, Any], ...]:
+    values = state.get("reconciliation_validation")
+    if not isinstance(values, list) or not values:
+        raise WorkflowError("Source reconciliation validation evidence missing")
+    return tuple(dict(item) for item in values)
+
 
 
 def validation_action(context: PromotionContext) -> None:
@@ -743,6 +969,8 @@ def start_promotion(
     discovery_action(context)
     git_authority_action(context)
     authority_action(context)
+    if context.reconciliation_required:
+        return start_source_reconciliation(context)
     validation_action(context)
     eligibility_action(context)
     existing = existing_pr_merge_proposal(context)
@@ -841,6 +1069,242 @@ def continuation_validation(state: Mapping[str, Any]) -> tuple[dict[str, Any], .
     )
 
 
+
+def continue_source_reconciliation(
+    *,
+    repo: Path,
+    state_path: Path,
+    operator_result_path: Path,
+) -> Mapping[str, Any]:
+    resolved_repo = repo.expanduser().resolve()
+    resolved_state = state_path.expanduser().resolve()
+    state = load_state(resolved_state)
+    if state.get("mode") != "source-reconciliation":
+        raise WorkflowError("Checkpoint state is not a source-reconciliation state")
+    proposal_path = Path(str(state["current_proposal"])).expanduser().resolve()
+    proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+    operator_payload = json.loads(
+        operator_result_path.expanduser().resolve().read_text(encoding="utf-8")
+    )
+    result = validate_operator_result(operator_payload, proposal)
+    runner, inspector, _github, writer, run_dir = continuation_runtime(
+        resolved_repo, resolved_state
+    )
+
+    inspector.require_clean()
+    source_branch = str(state["source_branch"])
+    inspector.require_branch(source_branch)
+    current_source = inspector.head()
+    remote_source = inspector.remote_head("origin", source_branch)
+    frozen_source = str(state["source_head"])
+    frozen_target = str(state["frozen_target_head"])
+    phase = str(state.get("reconciliation_phase", ""))
+    validation = source_reconciliation_continuation_validation(state)
+
+    next_proposal: dict[str, Any] | None = None
+    verification: dict[str, Any]
+
+    if phase == "merge-frozen-target-into-source":
+        if str(proposal.get("boundary")) != "other-git-mutation":
+            raise WorkflowError("Source reconciliation merge boundary is invalid")
+        expected_command = (
+            "git",
+            "merge",
+            "--no-edit",
+            "--no-ff",
+            frozen_target,
+        )
+        command = tuple(str(item) for item in proposal["command"]["argv"])
+        if command != expected_command:
+            raise WorkflowError(
+                "Source reconciliation permits only the exact frozen-target merge: "
+                f"expected={expected_command}, observed={command}"
+            )
+        upstream_before_push = inspector.head("@{upstream}")
+        if upstream_before_push != frozen_source or remote_source != frozen_source:
+            raise WorkflowError(
+                "Remote source changed before reconciliation push: "
+                f"frozen={frozen_source}, upstream={upstream_before_push}, "
+                f"remote={remote_source}"
+            )
+        if current_source == frozen_source:
+            raise WorkflowError("Source reconciliation merge produced no new commit")
+        if not inspector.is_ancestor(frozen_source, current_source):
+            raise WorkflowError("Frozen source is not an ancestor of reconciled source")
+        if not inspector.is_ancestor(frozen_target, current_source):
+            raise WorkflowError("Frozen target is not an ancestor of reconciled source")
+        merge_commit = inspector.find_merge_commit(
+            base_parent=frozen_source,
+            merged_parent=frozen_target,
+            descendant=current_source,
+        )
+        if merge_commit != current_source:
+            raise WorkflowError(
+                "Source reconciliation head is not the exact merge commit: "
+                f"head={current_source}, merge={merge_commit}"
+            )
+
+        next_proposal = OperatorGitProposal.build(
+            proposal_id=proposal_id(current_source, "source-reconciliation-push"),
+            controller=WORKFLOW_ID,
+            repository=inspector.snapshot(),
+            authority_receipt=str(state["authority_receipt"]),
+            component_manifest=str(state["component_manifest"]),
+            boundary="push",
+            change_scope=(f"refs/heads/{source_branch}",),
+            validation=validation,
+            command_argv=("git", "push", "origin", source_branch),
+            expected_result=(
+                "Publish exactly the verified reconciliation merge commit to the "
+                "existing source branch; no PR or main-branch mutation occurs."
+            ),
+            risk=(
+                "Mutates only the declared remote source branch. Promotion remains "
+                "blocked until checkpoint promotion restarts and reruns every "
+                "applicable validation gate against current main."
+            ),
+            rollback=(
+                "Do not execute the proposal; after execution, any remote rollback "
+                "requires a separately governed boundary."
+            ),
+            post_command_verification=(
+                "git.inspect verifies local source equals its upstream and live remote source",
+                "git.inspect verifies frozen source and frozen target remain ancestors",
+                "checkpoint promotion restarts against current target authority",
+            ),
+        )
+        next_path = run_dir / "operator-git-proposal-source-reconciliation-push.json"
+        OperatorGitProposal.write(next_path, next_proposal, writer)
+        state["reconciled_head"] = current_source
+        state["reconciliation_phase"] = "push-reconciled-source"
+        state["current_boundary"] = "push"
+        state["current_proposal"] = str(next_path)
+        verification = {
+            "status": "pass",
+            "boundary": "source-reconciliation-merge",
+            "frozen_source": frozen_source,
+            "frozen_target": frozen_target,
+            "reconciled_head": current_source,
+            "exact_merge_parent_topology": True,
+            "next_boundary": "push-reconciled-source",
+        }
+
+    elif phase == "push-reconciled-source":
+        if str(proposal.get("boundary")) != "push":
+            raise WorkflowError("Source reconciliation push boundary is invalid")
+        expected_command = ("git", "push", "origin", source_branch)
+        command = tuple(str(item) for item in proposal["command"]["argv"])
+        if command != expected_command:
+            raise WorkflowError(
+                "Source reconciliation permits only the exact source push: "
+                f"expected={expected_command}, observed={command}"
+            )
+        reconciled_head = str(state.get("reconciled_head") or "")
+        if current_source != reconciled_head:
+            raise WorkflowError(
+                "Reconciled source HEAD changed before push verification: "
+                f"expected={reconciled_head}, observed={current_source}"
+            )
+        upstream = inspector.require_upstream_equal()
+        remote_source = inspector.remote_head("origin", source_branch)
+        if upstream != current_source or remote_source != current_source:
+            raise WorkflowError(
+                "Reconciled source is not synchronized after push: "
+                f"head={current_source}, upstream={upstream}, remote={remote_source}"
+            )
+        if not inspector.is_ancestor(frozen_source, current_source):
+            raise WorkflowError("Frozen source ancestry was lost after reconciliation")
+        if not inspector.is_ancestor(frozen_target, current_source):
+            raise WorkflowError("Frozen target ancestry was lost after reconciliation")
+        merge_commit = inspector.find_merge_commit(
+            base_parent=frozen_source,
+            merged_parent=frozen_target,
+            descendant=current_source,
+        )
+        if merge_commit != current_source:
+            raise WorkflowError(
+                "Reconciled source no longer resolves to the exact merge commit"
+            )
+
+        state["reconciliation_phase"] = "complete"
+        state["current_boundary"] = "complete"
+        state["current_proposal"] = None
+        verification = {
+            "status": "pass",
+            "boundary": "source-reconciliation-push",
+            "frozen_source": frozen_source,
+            "frozen_target": frozen_target,
+            "reconciled_head": current_source,
+            "remote_source": remote_source,
+            "source_synchronized": True,
+            "return_to_parent_objective": "checkpoint-promotion",
+        }
+    else:
+        raise WorkflowError(f"Unsupported source reconciliation phase: {phase}")
+
+    history = list(state["history"])
+    history.append(
+        {
+            "boundary": str(proposal["boundary"]),
+            "phase": phase,
+            "proposal": str(proposal_path),
+            "operator_output_sha256": result["complete_output_sha256"],
+            "verification": verification,
+        }
+    )
+    state["history"] = history
+    writer.write_text(resolved_state, stable_json(state), new_mode=0o600)
+
+    verification_path = run_dir / "post-operator-verification.json"
+    writer.write_text(
+        verification_path, stable_json(verification), new_mode=0o600
+    )
+    closeout = CloseoutWriter(
+        destination_directory=run_dir,
+        primitive_registry=resolved_repo / "sage-workflow-primitives.json",
+        event_log=run_dir / "events.jsonl",
+    ).write(
+        workflow_id=WORKFLOW_ID + ".source-reconciliation.post-operator",
+        status="verified",
+        used_primitives=PRIMITIVES_USED,
+        details={
+            "verification": str(verification_path),
+            "state": str(resolved_state),
+        },
+    )
+
+    if next_proposal is not None:
+        return {
+            "status": "operator-review-required",
+            "verified_boundary": "source-reconciliation-merge",
+            "verification": str(verification_path),
+            "evidence_closeout": str(closeout),
+            "state": str(resolved_state),
+            "proposal": next_proposal,
+            "proposal_path": state["current_proposal"],
+            "event_log": str(run_dir / "events.jsonl"),
+            "source_reconciliation": True,
+        }
+
+    restarted = dict(
+        start_promotion(
+            repo=resolved_repo,
+            request=str(state["request"]),
+            source_branch=source_branch,
+            expected_head=current_source,
+            target_branch=str(state["target_branch"]),
+            title=str(state["title"]),
+            body=str(state["body"]),
+        )
+    )
+    restarted["source_reconciliation_completed"] = True
+    restarted["source_reconciliation_state"] = str(resolved_state)
+    restarted["source_reconciliation_verification"] = str(verification_path)
+    restarted["reconciled_head"] = current_source
+    return restarted
+
+
+
 def continue_promotion(
     *,
     repo: Path,
@@ -850,6 +1314,12 @@ def continue_promotion(
     resolved_repo = repo.expanduser().resolve()
     resolved_state = state_path.expanduser().resolve()
     state = load_state(resolved_state)
+    if state.get("mode") == "source-reconciliation":
+        return continue_source_reconciliation(
+            repo=resolved_repo,
+            state_path=resolved_state,
+            operator_result_path=operator_result_path,
+        )
     proposal_path = Path(str(state["current_proposal"])).expanduser().resolve()
     proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
     operator_payload = json.loads(
@@ -1200,13 +1670,50 @@ def self_test() -> int:
         post_command_verification=("x",),
         created_at="2026-08-11T18:00:02-05:00",
     )
+    reconcile = OperatorGitProposal.build(
+        proposal_id="SAGE-GIT-20260811-104",
+        controller="self-test",
+        repository=snapshot,
+        authority_receipt="fixture:a",
+        component_manifest="fixture:c",
+        boundary="other-git-mutation",
+        change_scope=("docs/sitemap.xml", "refs/heads/staged/x"),
+        validation=validation,
+        command_argv=("git", "merge", "--no-edit", "--no-ff", "0" * 40),
+        expected_result="x",
+        risk="x",
+        rollback="x",
+        post_command_verification=("x",),
+        created_at="2026-08-11T18:00:03-05:00",
+    )
+    reconcile_push = OperatorGitProposal.build(
+        proposal_id="SAGE-GIT-20260811-105",
+        controller="self-test",
+        repository=snapshot,
+        authority_receipt="fixture:a",
+        component_manifest="fixture:c",
+        boundary="push",
+        change_scope=("refs/heads/staged/x",),
+        validation=validation,
+        command_argv=("git", "push", "origin", "staged/x"),
+        expected_result="x",
+        risk="x",
+        rollback="x",
+        post_command_verification=("x",),
+        created_at="2026-08-11T18:00:04-05:00",
+    )
     assert create["browser"]["opened_by_helper"] is False
     assert merge["browser"]["mutation_performed_by_helper"] is False
     assert refresh["command"]["executed_by_helper"] is False
+    assert reconcile["command"]["executed_by_helper"] is False
+    assert reconcile_push["command"]["executed_by_helper"] is False
+    assert reconcile["command"]["argv"][:4] == ["git", "merge", "--no-edit", "--no-ff"]
+    assert reconcile_push["command"]["argv"] == ["git", "push", "origin", "staged/x"]
     assert "quick_pull=1" in create["browser"]["url"]
     assert create["operator_contract"]["execution_mode"] == "browser-review"
     assert merge["operator_contract"]["pasted_output_required"] is False
     print("PASS PR-create and PR-merge use browser-backed operator approval")
+    print("PASS pre-promotion source reconciliation uses explicit merge and push proposals")
     print("PASS post-merge Git graph refresh remains an explicit operator boundary")
     print("PASS workflow has no autonomous Git or GitHub mutation")
     print("Kalaxy3 checkpoint promotion workflow self-test: PASS")
