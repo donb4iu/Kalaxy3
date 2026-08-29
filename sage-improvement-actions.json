@@ -1766,6 +1766,61 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260829-001",
+            "title": "Make causal idea acceptance revisitable and evidence-projected",
+            "source_lessons": [],
+            "source_sessions": [],
+            "source_records": [
+                {
+                    "record_type": "capability-gap",
+                    "record_id": "SAGE-GAP-20260829-REVISITABLE-CAUSAL-ACCEPTANCE",
+                    "schema_version": "1.1",
+                    "sha256": "7404ca3705b7c876a15df6ac72255d2bbc9cfb3bc0b8f43b5e048cc1b249c62c"
+                }
+            ],
+            "current_status": "identified",
+            "owner": "Architect",
+            "priority": "high",
+            "target_control_type": "automation",
+            "desired_outcome": "Extend the causal evidence graph so a causal idea is a persistent object whose identity is independent of its current evidentiary acceptance. Legitimate provenanced ideas may enter and participate while partially supported. Acceptance or maturity is a derived, revisitable projection over applicable criteria and evidence rather than an admission gate. Later evidence can strengthen, weaken, refine, invalidate, or supersede the projection without rewriting the idea, its evidence, or prior knowable states. Stronger claims such as validated, ready, or promotable remain separately governed and may require explicit Architect-owned thresholds.",
+            "acceptance_criteria": [
+                "A validly identified and provenanced causal idea can be persisted and participate in the graph without satisfying every acceptance criterion.",
+                "Idea identity is stable and independent of its current acceptance or maturity projection.",
+                "SAGE derives a criterion/evidence-level acceptance projection that can distinguish demonstrated, partial, untested, contradicted, or otherwise evidence-qualified states without collapsing them into admission pass/fail.",
+                "Later evidence can strengthen, weaken, refine, invalidate, or supersede the current acceptance projection while preserving immutable prior evidence and reconstructable historical projections.",
+                "Hard thresholds are applied only when making a stronger governed claim such as validated, ready, or promotable; those thresholds and authority remain explicit rather than being inferred from idea admission.",
+                "Architect authority over architectural judgment and disposition is preserved; SAGE reports evidence and projection state without deciding architectural fitness on the Architect's behalf.",
+                "The capability extends the existing causal-evidence model incrementally and does not require a big-bang migration of existing workflow state.",
+                "A real persisted idea is demonstrated first with incomplete acceptance, then revisited with later evidence that materially changes its projection while both before and after states remain reconstructable."
+            ],
+            "measurement_plan": [
+                "Persist one real causal idea while at least one applicable criterion remains incomplete.",
+                "Show that the incomplete idea remains queryable and causally usable rather than rejected.",
+                "Record the criterion/evidence acceptance projection before additional evidence.",
+                "Add later evidence and recompute the projection without rewriting the original idea or evidence.",
+                "Reconstruct the before and after acceptance projections from persisted history.",
+                "Exercise at least one strengthening path and one weakening, invalidation, or supersession path.",
+                "Demonstrate that a stronger claim gate is evaluated separately from causal-idea admission.",
+                "Measure operator rework and identify any case where SAGE incorrectly turns incomplete acceptance into an admission gate."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-29T03:29:10-05:00",
+                    "actor": "Architect",
+                    "reason": "Register the Architect-approved successor causal-evidence refinement: admission and evolving acceptance are separate, and causal ideas remain revisitable as evidence changes.",
+                    "evidence_references": [
+                        "action:SAGE-ACTION-20260827-001",
+                        "commit:aa52634cf99240812ca2317319a9aed24750ded3",
+                        "architect-directive:2026-08-29:causal-ideas-use-revisitable-acceptance-projections"
+                    ]
+                }
+            ]
         }
     ]
 }
