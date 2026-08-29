@@ -87,8 +87,10 @@ def _authority_validation(
     path: Path | None,
     *,
     objective_id: str,
+    authority_reference: str,
+    evidence_files: Sequence[Mapping[str, str]],
 ) -> dict[str, Any]:
-    """Validate an existing SAGE authority receipt for the asserted objective."""
+    """Validate existing SAGE authority for the exact asserted claim and evidence."""
     if path is None:
         return {
             "validated": False,
@@ -179,6 +181,30 @@ def _authority_validation(
             "authority receipt is not applicable to objective: "
             f"{authority_objective}"
         )
+
+    expected_authority_reference = _require_string(
+        authority_reference,
+        "authority_reference",
+    )
+    if expected_authority_reference not in raw_evidence_references:
+        raise CausalEvidenceError(
+            "authority receipt is not applicable to claim: "
+            f"{expected_authority_reference}"
+        )
+
+    for descriptor in evidence_files:
+        if not isinstance(descriptor, Mapping):
+            raise CausalEvidenceError("evidence descriptor is malformed")
+        digest = _require_string(
+            descriptor.get("sha256"),
+            "evidence_files[].sha256",
+        )
+        expected_evidence_reference = f"evidence-sha256:{digest}"
+        if expected_evidence_reference not in raw_evidence_references:
+            raise CausalEvidenceError(
+                "authority receipt is not bound to evidence: "
+                f"{expected_evidence_reference}"
+            )
 
     original_reconciliation = value.get("reconciliation")
     original_gate = value.get("mutation_gate")
@@ -327,6 +353,8 @@ class CausalEvidenceStore:
         authority = _authority_validation(
             authority_receipt,
             objective_id=objective_id,
+            authority_reference=authority_reference,
+            evidence_files=descriptors,
         )
         identity = self._identity_payload(
             objective_id=objective_id,
@@ -563,7 +591,15 @@ def _fixture_authority_receipt(
         request="fixture",
         repository={"branch": "feature/fixture", "head": "fixture-head"},
         assertions=assertions,
-        evidence_references=(f"action:{objective_id}", "fixture"),
+        evidence_references=(
+            f"action:{objective_id}",
+            "fixture:artifact-authority",
+            "fixture:environment-authority",
+            "fixture:runtime-authority",
+            "evidence-sha256:fc07a0012f223cb76e054831d5025e9a9bfaa59b431114802ef1ea2ed2de3a41",
+            "evidence-sha256:3614beeafe26a0defbdf039ab8a91d4f63ddc5467e692e47defc05dbae5c25a1",
+            "fixture",
+        ),
         captured_at="2026-08-27T22:00:00-05:00",
     )
     path.write_text(
@@ -616,7 +652,7 @@ def self_test() -> None:
                 objective_id="SAGE-ACTION-FIXTURE-VALIDATED",
                 fact_type="wrong-scope-authority",
                 producer=producer,
-                authority_reference="fixture:wrong-objective-authority",
+                authority_reference="fixture:artifact-authority",
                 authority_receipt=wrong_authority_receipt,
                 evidence_paths=(left_evidence,),
             )
@@ -625,6 +661,41 @@ def self_test() -> None:
         else:
             raise RuntimeError(
                 "complete authority receipt for another objective was accepted"
+            )
+
+        try:
+            store.record(
+                objective_id="SAGE-ACTION-FIXTURE-VALIDATED",
+                fact_type="unrelated-same-objective-claim",
+                producer=producer,
+                authority_reference="fixture:unrelated-authority",
+                authority_receipt=authority_receipt,
+                evidence_paths=(left_evidence,),
+            )
+        except CausalEvidenceError:
+            pass
+        else:
+            raise RuntimeError(
+                "same-objective receipt authorized an unbound claim"
+            )
+
+        unbound_evidence = root / "branch-c" / "receipt.json"
+        unbound_evidence.parent.mkdir()
+        unbound_evidence.write_text('{"branch":"c"}\\n', encoding="utf-8")
+        try:
+            store.record(
+                objective_id="SAGE-ACTION-FIXTURE-VALIDATED",
+                fact_type="artifact-proven",
+                producer=producer,
+                authority_reference="fixture:artifact-authority",
+                authority_receipt=authority_receipt,
+                evidence_paths=(unbound_evidence,),
+            )
+        except CausalEvidenceError:
+            pass
+        else:
+            raise RuntimeError(
+                "claim-scoped receipt authorized unbound evidence"
             )
 
         left = store.record(
@@ -702,6 +773,8 @@ def self_test() -> None:
     print("PASS mere authority_reference cannot satisfy derived readiness")
     print("PASS existing authority.reconcile receipt validation gates objective truth")
     print("PASS complete authority receipt for another objective fails closed")
+    print("PASS same-objective receipt cannot authorize an unbound claim")
+    print("PASS claim-scoped receipt cannot authorize unbound evidence")
     print("PASS independent causal branches record without a global mutable state")
     print("PASS dependent convergence derives objective readiness")
     print("PASS immutable fact identity is content-addressed and idempotent")
