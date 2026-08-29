@@ -1780,7 +1780,7 @@
                     "sha256": "7404ca3705b7c876a15df6ac72255d2bbc9cfb3bc0b8f43b5e048cc1b249c62c"
                 }
             ],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "Architect",
             "priority": "high",
             "target_control_type": "automation",
@@ -1818,6 +1818,18 @@
                         "action:SAGE-ACTION-20260827-001",
                         "commit:aa52634cf99240812ca2317319a9aed24750ded3",
                         "architect-directive:2026-08-29:causal-ideas-use-revisitable-acceptance-projections"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-29T03:33:51-05:00",
+                    "actor": "Architect",
+                    "reason": "Architect accepts the registered revisitable causal-idea acceptance objective. Admission and evidentiary acceptance are distinct: incomplete acceptance is measurable state rather than an admission failure, ideas remain revisitable as evidence changes, and stronger claims retain separate governed thresholds.",
+                    "evidence_references": [
+                        "commit:a8387d336f39faec3a71eb44877a435bb5954b30"
                     ]
                 }
             ]
