@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +16,7 @@ from workflow.authority import AuthorityAssertion, AuthorityReconciler
 
 SCHEMA_VERSION = "1.0"
 FACT_ID_PREFIX = "sha256:"
+RELATION_FACT_TYPES = frozenset({"fact-invalidated", "fact-superseded"})
 
 
 class CausalEvidenceError(RuntimeError):
@@ -23,6 +25,17 @@ class CausalEvidenceError(RuntimeError):
 
 def _now() -> str:
     return datetime.now().astimezone().isoformat(timespec="milliseconds")
+
+
+def _timestamp(value: object, label: str) -> datetime:
+    text = _require_string(value, label)
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise CausalEvidenceError(f"{label} must be an ISO-8601 timestamp") from error
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise CausalEvidenceError(f"{label} must include a timezone offset")
+    return parsed
 
 
 def _stable_json(value: object) -> bytes:
@@ -69,6 +82,58 @@ def _normalize_strings(values: Iterable[str], label: str) -> tuple[str, ...]:
         if value not in result:
             result.append(value)
     return tuple(result)
+
+
+def _validate_relation_shape(
+    fact_type: str,
+    dependencies: Sequence[str],
+    attributes: Mapping[str, Any],
+) -> None:
+    """Validate immutable lifecycle-relation facts without creating mutable status."""
+    if fact_type not in RELATION_FACT_TYPES:
+        return
+
+    target = _require_fact_id(attributes.get("target_fact_id"), "attributes.target_fact_id")
+    _require_string(attributes.get("reason"), "attributes.reason")
+
+    actual_path_reference = attributes.get("actual_path_reference")
+    if actual_path_reference is not None:
+        _require_string(actual_path_reference, "attributes.actual_path_reference")
+    correction_reference = attributes.get("correction_reference")
+    if correction_reference is not None:
+        _require_string(correction_reference, "attributes.correction_reference")
+
+    if fact_type == "fact-invalidated":
+        if attributes.get("relation_kind") != "invalidation":
+            raise CausalEvidenceError(
+                "fact-invalidated requires attributes.relation_kind=invalidation"
+            )
+        if tuple(dependencies) != (target,):
+            raise CausalEvidenceError(
+                "fact-invalidated dependencies must contain only target_fact_id"
+            )
+        if attributes.get("replacement_fact_id") is not None:
+            raise CausalEvidenceError(
+                "fact-invalidated must not declare replacement_fact_id"
+            )
+        return
+
+    if attributes.get("relation_kind") != "supersession":
+        raise CausalEvidenceError(
+            "fact-superseded requires attributes.relation_kind=supersession"
+        )
+    replacement = _require_fact_id(
+        attributes.get("replacement_fact_id"),
+        "attributes.replacement_fact_id",
+    )
+    if replacement == target:
+        raise CausalEvidenceError(
+            "fact-superseded replacement_fact_id must differ from target_fact_id"
+        )
+    if tuple(dependencies) != (target, replacement):
+        raise CausalEvidenceError(
+            "fact-superseded dependencies must be target_fact_id then replacement_fact_id"
+        )
 
 
 def evidence_descriptor(path: Path) -> dict[str, str]:
@@ -289,10 +354,18 @@ class CausalEvidenceStore:
             raise CausalEvidenceError(
                 "authority_validation.receipt must be an object or null"
             )
+        normalized_fact_type = _require_string(fact_type, "fact_type")
+        normalized_dependencies = _normalize_strings(dependencies, "dependencies[]")
+        normalized_attributes = dict(attributes)
+        _validate_relation_shape(
+            normalized_fact_type,
+            normalized_dependencies,
+            normalized_attributes,
+        )
         return {
             "schema_version": SCHEMA_VERSION,
             "objective_id": _require_string(objective_id, "objective_id"),
-            "fact_type": _require_string(fact_type, "fact_type"),
+            "fact_type": normalized_fact_type,
             "producer": {
                 "participant_class": _require_string(
                     producer.get("participant_class"),
@@ -316,14 +389,12 @@ class CausalEvidenceStore:
                     "authority_validation.disposition",
                 ),
             },
-            "dependencies": list(
-                _normalize_strings(dependencies, "dependencies[]")
-            ),
+            "dependencies": list(normalized_dependencies),
             "evidence_references": list(
                 _normalize_strings(evidence_references, "evidence_references[]")
             ),
             "evidence_files": [dict(item) for item in evidence_files],
-            "attributes": dict(attributes),
+            "attributes": normalized_attributes,
         }
 
     def record(
@@ -439,7 +510,7 @@ class CausalEvidenceStore:
         fact_id = _require_fact_id(value.get("fact_id"), "fact_id")
         if expected_id is not None and fact_id != expected_id:
             raise CausalEvidenceError("causal fact path/identity mismatch")
-        _require_string(value.get("recorded_at"), "recorded_at")
+        _timestamp(value.get("recorded_at"), "recorded_at")
         identity = value.get("identity")
         if not isinstance(identity, dict):
             raise CausalEvidenceError("causal fact identity must be an object")
@@ -459,12 +530,62 @@ class CausalEvidenceStore:
         )
         return value
 
+    def _validate_relation_bindings(self, fact: Mapping[str, Any]) -> None:
+        identity = fact["identity"]
+        fact_type = identity["fact_type"]
+        if fact_type not in RELATION_FACT_TYPES:
+            return
+
+        objective_id = identity["objective_id"]
+        attributes = identity["attributes"]
+        target_id = attributes["target_fact_id"]
+        target = self.load(target_id)
+        if _timestamp(target["recorded_at"], "target.recorded_at") > _timestamp(
+            fact["recorded_at"],
+            "relation.recorded_at",
+        ):
+            raise CausalEvidenceError(
+                "relation cannot precede the fact it affects"
+            )
+        if target["identity"]["objective_id"] != objective_id:
+            raise CausalEvidenceError(
+                "relation target must belong to the same objective"
+            )
+        if target["identity"]["fact_type"] in RELATION_FACT_TYPES:
+            raise CausalEvidenceError(
+                "MRP relation facts cannot target another relation fact"
+            )
+
+        if fact_type == "fact-superseded":
+            replacement_id = attributes["replacement_fact_id"]
+            replacement = self.load(replacement_id)
+            if _timestamp(replacement["recorded_at"], "replacement.recorded_at") > _timestamp(
+                fact["recorded_at"],
+                "relation.recorded_at",
+            ):
+                raise CausalEvidenceError(
+                    "supersession cannot precede its replacement fact"
+                )
+            if replacement["identity"]["objective_id"] != objective_id:
+                raise CausalEvidenceError(
+                    "supersession replacement must belong to the same objective"
+                )
+            if replacement["identity"]["fact_type"] in RELATION_FACT_TYPES:
+                raise CausalEvidenceError(
+                    "supersession replacement cannot be a relation fact"
+                )
+            if replacement["identity"]["fact_type"] != target["identity"]["fact_type"]:
+                raise CausalEvidenceError(
+                    "supersession replacement must preserve the target semantic fact type"
+                )
+
     def facts(
         self,
         *,
         objective_id: str | None = None,
         as_of: str | None = None,
     ) -> tuple[dict[str, Any], ...]:
+        cutoff = _timestamp(as_of, "as_of") if as_of is not None else None
         result: list[dict[str, Any]] = []
         for path in sorted(self.objects.glob("*.json")):
             value = json.loads(path.read_text(encoding="utf-8"))
@@ -475,7 +596,7 @@ class CausalEvidenceStore:
             identity = value["identity"]
             if objective_id is not None and identity["objective_id"] != objective_id:
                 continue
-            if as_of is not None and str(value["recorded_at"]) > as_of:
+            if cutoff is not None and _timestamp(value["recorded_at"], "recorded_at") > cutoff:
                 continue
             result.append(value)
         return tuple(result)
@@ -490,6 +611,7 @@ class CausalEvidenceStore:
                     dangling.append(
                         {"fact_id": fact["fact_id"], "dependency": dependency}
                     )
+            self._validate_relation_bindings(fact)
         if dangling:
             raise CausalEvidenceError(
                 f"dangling causal dependencies: {dangling}"
@@ -512,17 +634,79 @@ class CausalEvidenceStore:
             "required_fact_types[]",
         )
         facts = self.facts(objective_id=objective_id, as_of=as_of)
+        fact_by_id = {item["fact_id"]: item for item in facts}
+        validated = {
+            item["fact_id"]: item
+            for item in facts
+            if item["identity"]["authority_validation"].get("validated") is True
+        }
+        ignored_unvalidated = sorted(set(fact_by_id) - set(validated))
+
+        relation_effects: list[dict[str, Any]] = []
+        inactive: dict[str, dict[str, Any]] = {}
+        for fact in sorted(
+            validated.values(),
+            key=lambda item: (str(item["recorded_at"]), item["fact_id"]),
+        ):
+            identity = fact["identity"]
+            fact_type = identity["fact_type"]
+            if fact_type not in RELATION_FACT_TYPES:
+                continue
+            self._validate_relation_bindings(fact)
+            attributes = identity["attributes"]
+            target_id = attributes["target_fact_id"]
+            effect = {
+                "relation_fact_id": fact["fact_id"],
+                "relation_kind": attributes["relation_kind"],
+                "target_fact_id": target_id,
+                "recorded_at": fact["recorded_at"],
+                "reason": attributes["reason"],
+            }
+            if attributes.get("replacement_fact_id") is not None:
+                effect["replacement_fact_id"] = attributes["replacement_fact_id"]
+            if attributes.get("actual_path_reference") is not None:
+                effect["actual_path_reference"] = attributes["actual_path_reference"]
+            if attributes.get("correction_reference") is not None:
+                effect["correction_reference"] = attributes["correction_reference"]
+            relation_effects.append(effect)
+            inactive[target_id] = {
+                "reason": attributes["relation_kind"],
+                "relation_fact_id": fact["fact_id"],
+                **({
+                    "replacement_fact_id": attributes["replacement_fact_id"]
+                } if attributes.get("replacement_fact_id") is not None else {}),
+            }
+
+        changed = True
+        while changed:
+            changed = False
+            for fact_id, fact in validated.items():
+                if fact_id in inactive:
+                    continue
+                identity = fact["identity"]
+                if identity["fact_type"] in RELATION_FACT_TYPES:
+                    continue
+                blocked = [
+                    dependency
+                    for dependency in identity["dependencies"]
+                    if dependency in inactive
+                ]
+                if blocked:
+                    inactive[fact_id] = {
+                        "reason": "dependency-inactive",
+                        "inactive_dependencies": sorted(blocked),
+                    }
+                    changed = True
+
         by_type: dict[str, list[str]] = {}
-        ignored_unvalidated: list[str] = []
-        for fact in facts:
-            validation = fact["identity"]["authority_validation"]
-            if validation.get("validated") is not True:
-                ignored_unvalidated.append(fact["fact_id"])
+        for fact_id, fact in validated.items():
+            if fact_id in inactive:
                 continue
             by_type.setdefault(
                 fact["identity"]["fact_type"],
                 [],
-            ).append(fact["fact_id"])
+            ).append(fact_id)
+
         missing = [item for item in requirements if not by_type.get(item)]
         return {
             "schema_version": SCHEMA_VERSION,
@@ -536,7 +720,13 @@ class CausalEvidenceStore:
                 if by_type.get(item)
             },
             "missing_fact_types": missing,
-            "ignored_unvalidated_fact_ids": sorted(ignored_unvalidated),
+            "ignored_unvalidated_fact_ids": ignored_unvalidated,
+            "inactive_fact_ids": sorted(inactive),
+            "inactivity": {
+                fact_id: inactive[fact_id]
+                for fact_id in sorted(inactive)
+            },
+            "relation_effects": relation_effects,
             "ready": not missing,
             "fact_count": len(facts),
             "validated_fact_count": sum(len(value) for value in by_type.values()),
@@ -596,6 +786,8 @@ def _fixture_authority_receipt(
             "fixture:artifact-authority",
             "fixture:environment-authority",
             "fixture:runtime-authority",
+            "fixture:invalidation-authority",
+            "fixture:supersession-authority",
             "evidence-sha256:fc07a0012f223cb76e054831d5025e9a9bfaa59b431114802ef1ea2ed2de3a41",
             "evidence-sha256:3614beeafe26a0defbdf039ab8a91d4f63ddc5467e692e47defc05dbae5c25a1",
             "fixture",
@@ -757,6 +949,115 @@ def self_test() -> None:
         ):
             raise RuntimeError("causal lineage reconstruction failed")
 
+        before_relation = _now()
+        time.sleep(0.005)
+        invalidation = store.record(
+            objective_id="SAGE-ACTION-FIXTURE-VALIDATED",
+            fact_type="fact-invalidated",
+            producer=producer,
+            authority_reference="fixture:invalidation-authority",
+            authority_receipt=authority_receipt,
+            dependencies=(left.fact_id,),
+            attributes={
+                "relation_kind": "invalidation",
+                "target_fact_id": left.fact_id,
+                "reason": "fixture evidence invalidated the artifact proof",
+                "actual_path_reference": "failure-diagnosis:SAGE-DIAG-FIXTURE",
+                "correction_reference": "action:SAGE-ACTION-FIXTURE-CORRECTION",
+            },
+        )
+        historical = store.project(
+            objective_id="SAGE-ACTION-FIXTURE-VALIDATED",
+            required_fact_types=(
+                "artifact-proven",
+                "environment-qualified",
+                "runtime-validated",
+            ),
+            as_of=before_relation,
+        )
+        if historical["ready"] is not True:
+            raise RuntimeError("as-of projection did not reconstruct pre-invalidation readiness")
+        after_invalidation = store.project(
+            objective_id="SAGE-ACTION-FIXTURE-VALIDATED",
+            required_fact_types=(
+                "artifact-proven",
+                "environment-qualified",
+                "runtime-validated",
+            ),
+        )
+        if after_invalidation["ready"] is not False:
+            raise RuntimeError("validated invalidation did not remove current readiness")
+        if left.fact_id not in after_invalidation["inactive_fact_ids"]:
+            raise RuntimeError("invalidated root fact remained active")
+        if convergence.fact_id not in after_invalidation["inactive_fact_ids"]:
+            raise RuntimeError("downstream fact remained active after predecessor invalidation")
+        effects = {
+            item["relation_fact_id"]: item
+            for item in after_invalidation["relation_effects"]
+        }
+        if effects[invalidation.fact_id].get("actual_path_reference") != "failure-diagnosis:SAGE-DIAG-FIXTURE":
+            raise RuntimeError("invalidation lost actual-path context")
+
+        supersession_root = root / "supersession"
+        supersession_store = CausalEvidenceStore(supersession_root)
+        supersession_authority = root / "supersession-authority.json"
+        _fixture_authority_receipt(
+            supersession_authority,
+            "SAGE-ACTION-FIXTURE-SUPERSESSION",
+        )
+        old = supersession_store.record(
+            objective_id="SAGE-ACTION-FIXTURE-SUPERSESSION",
+            fact_type="artifact-proven",
+            producer=producer,
+            authority_reference="fixture:artifact-authority",
+            authority_receipt=supersession_authority,
+            evidence_paths=(left_evidence,),
+        )
+        replacement = supersession_store.record(
+            objective_id="SAGE-ACTION-FIXTURE-SUPERSESSION",
+            fact_type="artifact-proven",
+            producer=producer,
+            authority_reference="fixture:artifact-authority",
+            authority_receipt=supersession_authority,
+            evidence_paths=(right_evidence,),
+        )
+        before_supersession = _now()
+        time.sleep(0.005)
+        supersession = supersession_store.record(
+            objective_id="SAGE-ACTION-FIXTURE-SUPERSESSION",
+            fact_type="fact-superseded",
+            producer=producer,
+            authority_reference="fixture:supersession-authority",
+            authority_receipt=supersession_authority,
+            dependencies=(old.fact_id, replacement.fact_id),
+            attributes={
+                "relation_kind": "supersession",
+                "target_fact_id": old.fact_id,
+                "replacement_fact_id": replacement.fact_id,
+                "reason": "fixture replacement is the corrected artifact proof",
+                "actual_path_reference": "failure-diagnosis:SAGE-DIAG-FIXTURE-SUPERSESSION",
+                "correction_reference": "action:SAGE-ACTION-FIXTURE-SUPERSESSION-CORRECTION",
+            },
+        )
+        before_supersession_view = supersession_store.project(
+            objective_id="SAGE-ACTION-FIXTURE-SUPERSESSION",
+            required_fact_types=("artifact-proven",),
+            as_of=before_supersession,
+        )
+        if sorted(before_supersession_view["satisfied"]["artifact-proven"]) != sorted((old.fact_id, replacement.fact_id)):
+            raise RuntimeError("as-of projection did not reconstruct pre-supersession facts")
+        after_supersession_view = supersession_store.project(
+            objective_id="SAGE-ACTION-FIXTURE-SUPERSESSION",
+            required_fact_types=("artifact-proven",),
+        )
+        if after_supersession_view["satisfied"].get("artifact-proven") != [replacement.fact_id]:
+            raise RuntimeError("supersession did not leave only the replacement active")
+        if old.fact_id not in after_supersession_view["inactive_fact_ids"]:
+            raise RuntimeError("superseded fact remained active")
+        if supersession.fact_id in after_supersession_view["inactive_fact_ids"]:
+            raise RuntimeError("supersession relation incorrectly invalidated itself")
+        supersession_store.verify()
+
         duplicate = store.record(
             objective_id="SAGE-ACTION-FIXTURE-VALIDATED",
             fact_type="artifact-proven",
@@ -779,5 +1080,9 @@ def self_test() -> None:
     print("PASS dependent convergence derives objective readiness")
     print("PASS immutable fact identity is content-addressed and idempotent")
     print("PASS lineage reconstructs the evidence path")
-    print("PASS full fact-store replay verifies causal dependencies")
-    print("Kalaxy3 SAGE causal evidence MVP self-test: PASS")
+    print("PASS validated invalidation preserves history and removes current truth")
+    print("PASS downstream facts become inactive when a causal predecessor is invalidated")
+    print("PASS validated supersession preserves before/after views and activates only the replacement")
+    print("PASS relation facts preserve existing actual-path and correction references")
+    print("PASS full fact-store replay verifies causal dependencies and relation bindings")
+    print("Kalaxy3 SAGE causal evidence MVP+MRP self-test: PASS")
