@@ -38,6 +38,7 @@ INTENT_WORKFLOW_PATH = "scripts/sage/workflows/intent_to_outcome.py"
 RECOVERY_POLICY_PATH = "sage-recovery-policy.json"
 ROUTINE_OPERATOR_SCHEMA_PATH = "markdown/standards/sage-operator-git-proposal-schema-v1.2.json"
 PROCESS_PATH = "markdown/standards/kalaxy3-sage-request-execution-process.md"
+CHANGE_PREFLIGHT_PATH = "scripts/sage/sage-change-preflight.py"
 SCHEMA_PATH = "markdown/standards/sage-request-execution-proposal-schema-v1.0.json"
 REQUIRED_PATHS = {
     WORKFLOW_PATH,
@@ -45,6 +46,7 @@ REQUIRED_PATHS = {
     CLI_PATH,
     GUARDRAIL_PATH,
     PROCESS_PATH,
+    CHANGE_PREFLIGHT_PATH,
     SCHEMA_PATH,
     ROUTINE_CONTROLLER_PATH,
     ROUTINE_CLI_PATH,
@@ -75,6 +77,9 @@ WORKFLOW_MARKERS = (
     "ComponentSelector",
     "SageDiscovery(context.repo, context.runner).changed()",
     "capture_python_safety_baseline(context)",
+    "context_policy_validation",
+    "--run-baseline-validation",
+    "--run-required-validation",
     "introduced_safety_violations",
     "GitSafetyGuardrail.scan_source",
     "OperatorGitProposal.build",
@@ -133,6 +138,8 @@ PROCESS_MARKERS = (
     "no GitHub",
     "no deployment",
     "proposal-bound baseline",
+    "context-derived baseline validation",
+    "context-derived required validation",
     "newly introduced safety findings",
     "new Python files",
     "rollback is not inferred",
@@ -212,6 +219,7 @@ def source_failures() -> list[str]:
 
     failures: list[str] = []
     workflow = (ROOT / WORKFLOW_PATH).read_text(encoding="utf-8")
+    preflight = (ROOT / CHANGE_PREFLIGHT_PATH).read_text(encoding="utf-8")
     recovery = (ROOT / RECOVERY_PATH).read_text(encoding="utf-8")
     recovery_process = (ROOT / RECOVERY_PROCESS_PATH).read_text(encoding="utf-8")
     recovery_policy = load_object(ROOT / RECOVERY_POLICY_PATH)
@@ -221,6 +229,16 @@ def source_failures() -> list[str]:
     for marker in WORKFLOW_MARKERS:
         if marker not in workflow:
             failures.append(f"request-execution workflow marker missing: {marker}")
+    for marker in (
+        "ValidationPlan",
+        "baseline_checks",
+        "required_validation",
+        "--run-baseline-validation",
+        "--run-required-validation",
+        "parse_repository_validation_command",
+    ):
+        if marker not in preflight:
+            failures.append(f"context validation propagation marker missing: {marker}")
     if "subprocess" in workflow:
         failures.append("request-execution workflow imports or references subprocess")
     if "SAGE request execution failed and rolled back:" in workflow:

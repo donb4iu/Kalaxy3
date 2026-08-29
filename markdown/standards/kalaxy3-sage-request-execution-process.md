@@ -118,6 +118,33 @@ before repository mutation.
 
 This is a repository-owned reusable composition rather than a task-specific downloaded helper. The first intended consumer is the centralized-logging end-to-end SAGE thin slice. Future request classes can reuse the same request-to-operator contract by supplying a checksum-bound proposal package that passes the same authority, component, validation, safety, and exact-scope gates.
 
+
+## Context-derived baseline and required validation
+
+Proposal-declared `validation_commands` are supplemental validation inputs; they
+are not allowed to replace repository-owned context policy. Before repository
+mutation, request execution derives the implementation context from the exact
+declared proposal paths and runs every deduplicated `baseline_checks` command
+owned by those contexts. This is **context-derived baseline validation** and is
+performed before the atomic write begins.
+
+After the atomic write and before any operator Git proposal is emitted, request
+execution reruns changed-path SAGE discovery and executes every deduplicated
+`required_validation` command for the resulting contexts. This is
+**context-derived required validation**. Commands come only from the current
+`sage-change-authority.json`, retain each context's declared working directory,
+and execute shell-free through the existing `validation.plan` primitive.
+Repository authority may currently declare a single Make target or a
+repository-relative Python validator; unsupported command shapes fail closed
+rather than falling back to shell interpretation.
+
+Proposal-supplied safe `make sage-*` validations still run afterward as
+additional checks. A failure in either context-derived phase is a request
+execution failure; after a transaction has opened, the normal verified rollback
+and recovery path applies. This prevents a planning source from weakening the
+validation contract merely by omitting checks that discovery already knows are
+required.
+
 ## Proposal-bound Python safety baseline
 
 Request execution captures whole-source safety findings for each existing Python

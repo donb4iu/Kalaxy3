@@ -104,6 +104,7 @@ class ExecutionContext:
     proposal_path: Path | None = None
     transaction: AtomicFileTransaction | None = None
     baseline_safety: dict[str, tuple[tuple[str, str, str], ...]] | None = None
+    context_baseline_validation: dict[str, Any] | None = None
     validation: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -259,6 +260,50 @@ def build_context(repo: Path, request: str, proposal: Path) -> ExecutionContext:
     inspector = GitInspector(repo, runner)
     writer = AtomicFileWriter((repo, state_dir))
     return ExecutionContext(repo, request, bundle, state_dir, catalog, logger, runner, inspector, writer)
+
+
+
+def context_policy_validation(
+    context: ExecutionContext,
+    *,
+    field: str,
+    changed: bool = False,
+) -> dict[str, Any]:
+    """Run repository-owned context validation without trusting proposal-authored commands."""
+
+    if field not in {"baseline", "required"}:
+        raise WorkflowError(f"unsupported context validation phase: {field}")
+    argv: list[str] = [
+        "python3",
+        "scripts/sage/sage-change-preflight.py",
+    ]
+    if changed:
+        argv.append("--changed")
+    else:
+        for relative in context.bundle.declared_paths:
+            argv.extend(("--path", relative))
+    argv.append(
+        "--run-baseline-validation"
+        if field == "baseline"
+        else "--run-required-validation"
+    )
+    result = context.runner.run(
+        CommandSpec(
+            primitive_id="validation.plan",
+            label=f"Run context-derived {field} validation",
+            argv=tuple(argv),
+            cwd=context.repo,
+            timeout_seconds=3600,
+        ),
+        step_id=f"context-{field}-validation",
+    )
+    return {
+        "label": f"Context-derived {field} validation",
+        "reference": "sage-change-authority.json",
+        "status": "pass",
+        "sha256": result.output_sha256,
+    }
+
 
 
 def discovery_action(context: ExecutionContext) -> Mapping[str, Any]:
@@ -798,6 +843,10 @@ def mutation_action(context: ExecutionContext) -> Mapping[str, str]:
 
     capture_python_safety_baseline(context)
     validate_python_payloads(context)
+    context.context_baseline_validation = context_policy_validation(
+        context,
+        field="baseline",
+    )
     paths = tuple(context.repo / relative for relative in context.bundle.declared_paths)
     context.transaction = AtomicFileTransaction(context.writer, paths)
     digests: dict[str, str] = {}
@@ -830,16 +879,31 @@ def proposal_validation_commands(context: ExecutionContext) -> tuple[ValidationC
 
 
 def validation_action(context: ExecutionContext) -> tuple[Any, ...]:
-    """Classify the exact changed scope and execute declared SAGE validations."""
+    """Execute repository-required context validation plus proposal-supplied checks."""
 
     changed = SageDiscovery(context.repo, context.runner).changed()
-    results = ValidationPlan(context.repo, context.runner, proposal_validation_commands(context)).run()
+    context_required = context_policy_validation(
+        context,
+        field="required",
+        changed=True,
+    )
+    commands = proposal_validation_commands(context)
+    results = ValidationPlan(context.repo, context.runner, commands).run()
     context.inspector.run_read_only(("diff", "--check"), label="Validate repository diff whitespace")
     context.inspector.require_exact_paths(context.bundle.declared_paths)
-    context.validation = [
-        {"label": command.label, "reference": "runtime-command", "status": "pass", "sha256": result.output_sha256}
-        for command, result in zip(proposal_validation_commands(context), results)
-    ]
+    context.validation = []
+    if context.context_baseline_validation is not None:
+        context.validation.append(dict(context.context_baseline_validation))
+    context.validation.append(context_required)
+    context.validation.extend(
+        {
+            "label": command.label,
+            "reference": "proposal-supplemental-validation",
+            "status": "pass",
+            "sha256": result.output_sha256,
+        }
+        for command, result in zip(commands, results)
+    )
     context.validation.append({
         "label": "Changed-path SAGE discovery",
         "reference": "sage.discovery",

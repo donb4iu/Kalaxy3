@@ -5,9 +5,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import shlex
 import subprocess
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Final, Sequence
+
+from workflow import (
+    CommandRunner,
+    JsonlEventLogger,
+    PrimitiveCatalog,
+    ValidationCommand,
+    ValidationPlan,
+)
 
 
 ROOT: Final = Path(__file__).resolve().parents[2]
@@ -293,6 +304,135 @@ def infer_for_request(
     return expand_dependencies(payload, initial)
 
 
+
+VALIDATION_PRIMITIVES: Final = (
+    "logging.events",
+    "validation.plan",
+)
+SAFE_MAKE_TARGET: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+SHELL_CONTROL_TOKENS: Final = frozenset({
+    ";", "&&", "||", "|", ">", ">>", "<", "<<", "&",
+})
+
+
+def parse_repository_validation_command(command: str) -> tuple[str, ...]:
+    """Parse one repository-owned validation command without shell semantics."""
+
+    if not isinstance(command, str) or not command.strip():
+        raise ValueError("validation command must be a non-empty string")
+    argv = tuple(shlex.split(command, posix=True))
+    if not argv or any(token in SHELL_CONTROL_TOKENS for token in argv):
+        raise ValueError(f"validation command contains unsupported shell syntax: {command!r}")
+    if argv[0] == "make":
+        if len(argv) != 2 or SAFE_MAKE_TARGET.fullmatch(argv[1]) is None:
+            raise ValueError(f"validation make command is not a single target: {command!r}")
+        return argv
+    if argv[0] == "python3":
+        if len(argv) < 2:
+            raise ValueError(f"validation python command lacks a script path: {command!r}")
+        script = Path(argv[1])
+        if (
+            script.is_absolute()
+            or ".." in script.parts
+            or "." in script.parts
+            or not script.parts
+            or script.parts[0] != "scripts"
+            or script.suffix != ".py"
+        ):
+            raise ValueError(f"validation python script is not repository-scoped: {command!r}")
+        return argv
+    raise ValueError(
+        f"validation command executable is unsupported: {argv[0]!r}"
+    )
+
+
+def context_validation_entries(
+    contexts: Sequence[dict[str, Any]],
+    field: str,
+) -> list[tuple[str, Path, str, tuple[str, ...]]]:
+    """Return deduplicated context-owned validation commands and working directories."""
+
+    if field not in {"baseline_checks", "required_validation"}:
+        raise ValueError(f"unsupported validation field: {field}")
+    entries: list[tuple[str, Path, str, tuple[str, ...]]] = []
+    seen: set[tuple[str, tuple[str, ...]]] = set()
+    for context in contexts:
+        context_id = str(context["id"])
+        working_directory = str(context["working_directory"])
+        cwd = (ROOT / working_directory).resolve()
+        try:
+            cwd.relative_to(ROOT)
+        except ValueError as error:
+            raise ValueError(
+                f"{context_id}: validation working directory escapes repository"
+            ) from error
+        if not cwd.is_dir():
+            raise ValueError(
+                f"{context_id}: validation working directory is missing: {working_directory}"
+            )
+        for command in context[field]:
+            command_text = str(command)
+            argv = parse_repository_validation_command(command_text)
+            if argv[0] == "python3" and not (cwd / argv[1]).is_file():
+                raise ValueError(
+                    f"{context_id}: validation script is missing from working directory: {argv[1]}"
+                )
+            key = (str(cwd), argv)
+            if key in seen:
+                continue
+            seen.add(key)
+            entries.append((context_id, cwd, command_text, argv))
+    return entries
+
+
+def run_context_validation(
+    contexts: Sequence[dict[str, Any]],
+    field: str,
+) -> Path:
+    """Run one repository-owned context validation phase through validation.plan."""
+
+    entries = context_validation_entries(contexts, field)
+    if not entries:
+        raise ValueError(f"{field} produced no validation commands")
+    state_dir = (
+        Path("~/.local/state/kalaxy3/sage-context-validation").expanduser()
+        / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    )
+    state_dir.mkdir(parents=True, exist_ok=False)
+    catalog = PrimitiveCatalog.load(ROOT / "sage-workflow-primitives.json")
+    catalog.require(VALIDATION_PRIMITIVES)
+    event_log = state_dir / "events.jsonl"
+    logger = JsonlEventLogger(
+        event_log,
+        "sage.context-validation",
+        primitive_versions=catalog.versions_for(VALIDATION_PRIMITIVES),
+    )
+    runner = CommandRunner(
+        logger,
+        allowed_roots=(ROOT, state_dir),
+    )
+    phase = "baseline" if field == "baseline_checks" else "required"
+    for context_id, cwd, command_text, argv in entries:
+        ValidationPlan(
+            cwd,
+            runner,
+            (
+                ValidationCommand(
+                    f"{phase} validation [{context_id}]: {command_text}",
+                    argv,
+                    3600.0,
+                ),
+            ),
+        ).run()
+    print(
+        f"Kalaxy3 SAGE context {phase} validation: PASS "
+        f"({len(entries)} commands)"
+    )
+    print(f"Context validation event log: {event_log}")
+    return event_log
+
+
+
 def run_self_tests(
     payload: dict[str, Any],
 ) -> list[str]:
@@ -464,6 +604,31 @@ def run_self_tests(
                 f"{label} did not infer {missing}"
             )
 
+    for context in payload["contexts"]:
+        for field in ("baseline_checks", "required_validation"):
+            for command in context[field]:
+                try:
+                    parse_repository_validation_command(str(command))
+                except ValueError as error:
+                    failures.append(
+                        f"{context['id']} {field} command is not shell-free repository validation: {error}"
+                    )
+
+    unsafe_commands = (
+        "sh -c 'echo unsafe'",
+        "make sage-index-check && echo unsafe",
+        "python3 ../outside.py",
+    )
+    for command in unsafe_commands:
+        try:
+            parse_repository_validation_command(command)
+        except ValueError:
+            pass
+        else:
+            failures.append(
+                f"unsafe validation command was accepted: {command!r}"
+            )
+
     return failures
 
 
@@ -474,6 +639,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--request", default="")
     parser.add_argument("--changed", action="store_true")
+    parser.add_argument("--path", action="append", default=[])
+    parser.add_argument("--run-baseline-validation", action="store_true")
+    parser.add_argument("--run-required-validation", action="store_true")
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument(
         "--authority-map",
@@ -517,9 +685,18 @@ def main() -> int:
         )
         return 0
 
-    paths = changed_paths() if args.changed else []
+    if args.changed and args.path:
+        print("Use either --changed or explicit --path values, not both.")
+        return 2
+    if args.run_baseline_validation and args.run_required_validation:
+        print("Choose only one context validation phase.")
+        return 2
+    if (args.run_baseline_validation or args.run_required_validation) and not (args.changed or args.path):
+        print("Context validation requires --changed or at least one --path.")
+        return 2
+    paths = changed_paths() if args.changed else list(dict.fromkeys(args.path))
     if not args.request and not paths:
-        print("Provide --request TEXT or use --changed.")
+        print("Provide --request TEXT, --path PATH, or use --changed.")
         return 2
 
     initial = infer_context_ids(
@@ -538,11 +715,20 @@ def main() -> int:
         return 2
 
     selected = expand_dependencies(payload, initial)
+    contexts = ordered_contexts(payload, selected)
     render_report(
         args.request,
         paths,
-        ordered_contexts(payload, selected),
+        contexts,
     )
+    try:
+        if args.run_baseline_validation:
+            run_context_validation(contexts, "baseline_checks")
+        elif args.run_required_validation:
+            run_context_validation(contexts, "required_validation")
+    except (OSError, ValueError, RuntimeError) as error:
+        print(f"Kalaxy3 SAGE context validation: FAIL CLOSED\n  - {error}")
+        return 1
     return 0
 
 
