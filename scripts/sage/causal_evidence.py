@@ -83,8 +83,12 @@ def evidence_descriptor(path: Path) -> dict[str, str]:
     }
 
 
-def _authority_validation(path: Path | None) -> dict[str, Any]:
-    """Validate an existing SAGE authority receipt without creating authority."""
+def _authority_validation(
+    path: Path | None,
+    *,
+    objective_id: str,
+) -> dict[str, Any]:
+    """Validate an existing SAGE authority receipt for the asserted objective."""
     if path is None:
         return {
             "validated": False,
@@ -164,6 +168,17 @@ def _authority_validation(path: Path | None) -> dict[str, Any]:
             "authority.captured_at",
         ),
     )
+
+    authority_objective = _require_string(objective_id, "objective_id")
+    expected_action_reference = f"action:{authority_objective}"
+    raw_evidence_references = value.get("evidence_references")
+    if not isinstance(raw_evidence_references, list):
+        raise CausalEvidenceError("authority receipt evidence_references are invalid")
+    if expected_action_reference not in raw_evidence_references:
+        raise CausalEvidenceError(
+            "authority receipt is not applicable to objective: "
+            f"{authority_objective}"
+        )
 
     original_reconciliation = value.get("reconciliation")
     original_gate = value.get("mutation_gate")
@@ -309,7 +324,10 @@ class CausalEvidenceStore:
                 )
 
         descriptors = tuple(evidence_descriptor(path) for path in evidence_paths)
-        authority = _authority_validation(authority_receipt)
+        authority = _authority_validation(
+            authority_receipt,
+            objective_id=objective_id,
+        )
         identity = self._identity_payload(
             objective_id=objective_id,
             fact_type=fact_type,
@@ -520,7 +538,10 @@ class CausalEvidenceStore:
         }
 
 
-def _fixture_authority_receipt(path: Path) -> None:
+def _fixture_authority_receipt(
+    path: Path,
+    objective_id: str = "SAGE-ACTION-FIXTURE-VALIDATED",
+) -> None:
     assertions = (
         AuthorityAssertion(
             "AUTH-001",
@@ -542,7 +563,7 @@ def _fixture_authority_receipt(path: Path) -> None:
         request="fixture",
         repository={"branch": "feature/fixture", "head": "fixture-head"},
         assertions=assertions,
-        evidence_references=("fixture",),
+        evidence_references=(f"action:{objective_id}", "fixture"),
         captured_at="2026-08-27T22:00:00-05:00",
     )
     path.write_text(
@@ -584,6 +605,27 @@ def self_test() -> None:
             )
         if unvalidated.fact_id not in unvalidated_view["ignored_unvalidated_fact_ids"]:
             raise RuntimeError("unvalidated fact was not surfaced by projection")
+
+        wrong_authority_receipt = root / "wrong-authority.json"
+        _fixture_authority_receipt(
+            wrong_authority_receipt,
+            "SAGE-ACTION-FIXTURE-OTHER",
+        )
+        try:
+            store.record(
+                objective_id="SAGE-ACTION-FIXTURE-VALIDATED",
+                fact_type="wrong-scope-authority",
+                producer=producer,
+                authority_reference="fixture:wrong-objective-authority",
+                authority_receipt=wrong_authority_receipt,
+                evidence_paths=(left_evidence,),
+            )
+        except CausalEvidenceError:
+            pass
+        else:
+            raise RuntimeError(
+                "complete authority receipt for another objective was accepted"
+            )
 
         left = store.record(
             objective_id="SAGE-ACTION-FIXTURE-VALIDATED",
@@ -659,6 +701,7 @@ def self_test() -> None:
 
     print("PASS mere authority_reference cannot satisfy derived readiness")
     print("PASS existing authority.reconcile receipt validation gates objective truth")
+    print("PASS complete authority receipt for another objective fails closed")
     print("PASS independent causal branches record without a global mutable state")
     print("PASS dependent convergence derives objective readiness")
     print("PASS immutable fact identity is content-addressed and idempotent")
