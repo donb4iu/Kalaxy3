@@ -22,6 +22,8 @@ A feature-branch `push` is intentionally used for the authoritative source-stage
 
 The source branch and its generated candidate are not permitted to receive production or external-registry credentials merely to create stage evidence. The first stage implementation exports the multi-architecture result locally as an OCI image-layout tar and persists it through an immutable GitHub Actions artifact. The job has read-only repository permission and no Docker Hub login or other external registry credential. This keeps artifact construction separate from later publication/promotion authority.
 
+The later publication boundary must evaluate predecessor workflow lineage before introducing credentials. In the current repository, the historical main-branch Docker publication job already establishes Docker Hub authority through GitHub-managed `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets. The Action-002 promotion composition therefore reuses that existing GitHub secret boundary in an explicitly dispatched promotion job instead of creating an operator-local login or another token. HashiCorp Vault remains the governed credential source when the same promotion contract is executed outside GitHub Actions.
+
 GitHub Actions artifact retention is finite. Therefore a stage artifact is eligible for later promotion only while the immutable stored artifact and its bound receipt remain available and verify successfully. Expiration or loss is not permission to rebuild during promotion; it invalidates that stage artifact and requires governed re-entry to stage.
 
 ## Promotion convergence
@@ -67,3 +69,7 @@ This first slice does not close all of SAGE-ACTION-20260815-002. The following r
 - reconcile a separately completed promotion child into parent intent state without historical rewriting;
 - codify constraint-aware governed phasing as a reusable lifecycle contract;
 - expose the PR #21 lineage, decision, prevented defect, stage evidence, learning, and delivered value in the external SAGE thin-slice experience.
+
+## Subsequent artifact-promotion clarification
+
+The follow-on immutable-artifact-promotion slice preserves this first-slice history but refines the target boundary. The inherited `doc` job is historical documentation-publication plumbing rather than the desired SAGE application promotion architecture. The `mynginx_docs`/Nginx runtime pattern itself remains fit for purpose. Current SAGE promotion therefore consumes the proven portable-stage artifact, publishes the exact OCI content by digest, and binds that digest into the existing Ansible/Kubernetes SAGE experience path. See `kalaxy3-sage-artifact-promotion-process.md`.

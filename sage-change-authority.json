@@ -94,12 +94,14 @@
         "scripts/sage/workflows/request_execution.py",
         "scripts/sage/sage-request-execute.py",
         "scripts/sage/sage-request-execution-guardrail.py",
+        "scripts/sage/sage-change-preflight.py",
         "markdown/standards/kalaxy3-sage-request-execution-process.md",
         "markdown/standards/sage-request-execution-proposal-schema-v1.0.json",
         "scripts/sage/request_planning.py",
         "scripts/sage/workflows/request_planning.py",
         "scripts/sage/sage-request-plan.py",
         "scripts/sage/sage-request-planning-guardrail.py",
+        "scripts/sage/sage-domain-capability-gap-approve.py",
         "markdown/standards/kalaxy3-sage-request-planning-process.md",
         "markdown/standards/sage-request-planning-source-schema-v1.0.json",
         "markdown/standards/sage-request-planning-source-schema-v1.1.json",
@@ -116,7 +118,13 @@
         "scripts/sage/sage-semantic-bootstrap-guardrail.py",
         "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
         "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
-        "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
+        "markdown/standards/sage-semantic-understanding-schema-v1.0.json",
+        "sage-recovery-policy.json",
+        "markdown/standards/kalaxy3-sage-recovery-process.md",
+        "markdown/standards/sage-recovery-next-boundary-schema-v1.0.json",
+        "markdown/standards/sage-recovery-consumption-schema-v1.0.json",
+        "scripts/sage/workflow/recovery.py",
+        "scripts/sage/workflows/intent_to_outcome.py"
       ],
       "baseline_checks": [
         "make sage-discovery-guardrail"
@@ -272,7 +280,10 @@
         "applied evidence",
         "rejected evidence",
         "reviewed-not-applicable",
-        "engineering experience"
+        "engineering experience",
+        "recovery identity",
+        "governing fingerprint",
+        "fail-closed recovery"
       ],
       "path_prefixes": [
         "sage-evidence-retrieval-",
@@ -300,7 +311,12 @@
         "sage-improvement-actions.json",
         "sage-post-session-review-registry.json",
         "scripts/sage/sage-failure-retrieval-gate.py",
-        "scripts/sage/sage-validator-runner.py"
+        "scripts/sage/sage-validator-runner.py",
+        "sage-recovery-policy.json",
+        "markdown/standards/kalaxy3-sage-recovery-process.md",
+        "markdown/standards/sage-recovery-next-boundary-schema-v1.0.json",
+        "markdown/standards/sage-recovery-consumption-schema-v1.0.json",
+        "scripts/sage/workflow/recovery.py"
       ],
       "baseline_checks": [
         "make sage-failure-retrieval-self-test",
@@ -370,7 +386,12 @@
         "companion artifact validation",
         "checkpoint persistence",
         "checkpoint promotion",
-        "promotion eligibility"
+        "promotion eligibility",
+        "self-directing recovery",
+        "recovery identity",
+        "governing fingerprint",
+        "recurrence-aware recovery",
+        "successor action"
       ],
       "path_prefixes": [
         "sage-continuous-improvement-",
@@ -402,7 +423,11 @@
         "scripts/sage/sage-post-session-review",
         "sage-active-session-",
         "markdown/standards/sage-active-session-",
-        "scripts/sage/sage-active-session"
+        "scripts/sage/sage-active-session",
+        "sage-recovery-",
+        "markdown/standards/kalaxy3-sage-recovery",
+        "markdown/standards/sage-recovery-",
+        "scripts/sage/workflow/recovery.py"
       ],
       "requires": [
         "repository-governance",
@@ -496,7 +521,12 @@
         "scripts/sage/sage-semantic-bootstrap-guardrail.py",
         "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
         "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
-        "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
+        "markdown/standards/sage-semantic-understanding-schema-v1.0.json",
+        "sage-recovery-policy.json",
+        "markdown/standards/kalaxy3-sage-recovery-process.md",
+        "markdown/standards/sage-recovery-next-boundary-schema-v1.0.json",
+        "markdown/standards/sage-recovery-consumption-schema-v1.0.json",
+        "scripts/sage/workflow/recovery.py"
       ],
       "baseline_checks": [
         "make sage-active-session-self-test",
@@ -913,6 +943,7 @@
         "capability-gap receipt",
         "authority reconciliation",
         "failure diagnosis",
+        "fail-closed recovery",
         "what should have been done",
         "operator-executed",
         "git mutation gate",
@@ -938,7 +969,10 @@
         "promotion eligibility",
         "routine git lifecycle",
         "one-approval git lifecycle",
-        "routine-git-lifecycle"
+        "routine-git-lifecycle",
+        "recovery identity",
+        "governing-condition fingerprint",
+        "next-boundary recovery"
       ],
       "path_prefixes": [
         "sage-workflow-primitives.json",
@@ -951,7 +985,11 @@
         "scripts/sage/workflows/operating_contract.py",
         "scripts/sage/sage-change-preflight.py",
         "scripts/sage/sage-change-discovery-guardrail.py",
-        "scripts/sage/sage-routine-git-lifecycle.py"
+        "scripts/sage/sage-routine-git-lifecycle.py",
+        "scripts/sage/sage-request-plan.py",
+        "sage-recovery-policy.json",
+        "markdown/standards/kalaxy3-sage-recovery",
+        "markdown/standards/sage-recovery-"
       ],
       "requires": [
         "repository-governance",
@@ -1022,12 +1060,14 @@
         "scripts/sage/workflows/request_execution.py",
         "scripts/sage/sage-request-execute.py",
         "scripts/sage/sage-request-execution-guardrail.py",
+        "scripts/sage/sage-change-preflight.py",
         "markdown/standards/kalaxy3-sage-request-execution-process.md",
         "markdown/standards/sage-request-execution-proposal-schema-v1.0.json",
         "scripts/sage/request_planning.py",
         "scripts/sage/workflows/request_planning.py",
         "scripts/sage/sage-request-plan.py",
         "scripts/sage/sage-request-planning-guardrail.py",
+        "scripts/sage/sage-domain-capability-gap-approve.py",
         "markdown/standards/kalaxy3-sage-request-planning-process.md",
         "markdown/standards/sage-request-planning-source-schema-v1.0.json",
         "markdown/standards/sage-request-planning-source-schema-v1.1.json",
@@ -1052,7 +1092,13 @@
         "scripts/sage/sage-semantic-bootstrap-guardrail.py",
         "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
         "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
-        "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
+        "markdown/standards/sage-semantic-understanding-schema-v1.0.json",
+        "sage-recovery-policy.json",
+        "markdown/standards/kalaxy3-sage-recovery-process.md",
+        "markdown/standards/sage-recovery-next-boundary-schema-v1.0.json",
+        "markdown/standards/sage-recovery-consumption-schema-v1.0.json",
+        "scripts/sage/workflow/recovery.py",
+        "scripts/sage/workflows/intent_to_outcome.py"
       ],
       "baseline_checks": [
         "make sage-discovery-guardrail",
@@ -1141,6 +1187,68 @@
         "Record interpretation provenance and context dispositions.",
         "Preserve Architect semantic-confirmation digest separately from feasibility and authorization.",
         "Measure clarification, scope churn, capability gaps, and avoidable rework."
+      ]
+    },
+    {
+      "id": "causal-evidence",
+      "priority": 110,
+      "match_terms": [
+        "causal evidence",
+        "causal-evidence",
+        "causal evidence graph",
+        "causal graph",
+        "causal fact",
+        "evidence-backed fact",
+        "derived objective state",
+        "derived readiness",
+        "causal lineage",
+        "fact lineage",
+        "authoritative causal record"
+      ],
+      "path_prefixes": [
+        "scripts/sage/causal_evidence.py",
+        "scripts/sage/sage-causal-evidence",
+        "markdown/standards/kalaxy3-sage-causal-evidence",
+        "markdown/standards/sage-causal-evidence",
+        "sage-causal-evidence-"
+      ],
+      "requires": [
+        "repository-governance",
+        "evidence",
+        "continuous-improvement",
+        "workflow-primitives"
+      ],
+      "working_directory": ".",
+      "authoritative_files": [
+        "AGENTS.md",
+        "SAGE.md",
+        "sage-change-authority.json",
+        "markdown/standards/kalaxy3-sage-change-discovery-process.md",
+        "markdown/standards/kalaxy3-sage-evidence-record-standard.md",
+        "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
+        "markdown/standards/kalaxy3-sage-workflow-primitives-process.md",
+        "scripts/sage/sage-change-preflight.py",
+        "scripts/sage/sage-change-discovery-guardrail.py"
+      ],
+      "baseline_checks": [
+        "make sage-discovery-guardrail",
+        "make sage-index-check",
+        "make sage-workflow-support-self-test",
+        "make sage-operating-contract-check"
+      ],
+      "required_validation": [
+        "make sage-discovery-guardrail",
+        "make sage-evidence-guardrail",
+        "make sage-self-test",
+        "make sage-guardrails",
+        "make sage-index-check",
+        "make sage-operating-contract-check"
+      ],
+      "evidence_process": [
+        "Preserve fact identity, producer, scoped authority reference, causal predecessors, and bound evidence identity.",
+        "Preserve independent causal branches without imposing a total global execution order.",
+        "Treat readiness and lineage as derived views over authoritative facts rather than a second mutable objective truth.",
+        "Preserve the existing Architect authority boundary for architectural and counterfactual judgment."
       ]
     },
     {

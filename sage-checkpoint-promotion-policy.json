@@ -106,5 +106,21 @@
             ],
             "path_exact": []
         }
-    ]
+    ],
+    "source_reconciliation_policy": {
+        "enabled": true,
+        "trigger": "source-not-descendant-of-frozen-target",
+        "require_unique_source_delta": true,
+        "require_unique_target_delta": true,
+        "require_disjoint_changed_paths": true,
+        "merge_strategy": "merge-commit",
+        "operator_boundaries": [
+            "merge-frozen-target-into-source",
+            "push-reconciled-source"
+        ],
+        "autonomous_git_mutation": false,
+        "require_exact_merge_parent_topology": true,
+        "restart_checkpoint_promotion_after_reconciliation": true,
+        "source_branch_retirement_in_scope": false
+    }
 }

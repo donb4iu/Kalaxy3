@@ -17,6 +17,7 @@ SAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SAGE_DIR))
 
 from workflow import AtomicFileWriter, WorkflowError  # noqa: E402
+from workflow.oci import inspect_oci_archive  # noqa: E402
 
 _SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -162,17 +163,10 @@ def build_receipt(
     if not artifact_id.isdigit() or int(artifact_id) <= 0:
         raise WorkflowError("storage artifact ID must be a positive integer string")
 
-    try:
-        with tarfile.open(archive_path, mode="r:*") as archive:
-            layout = json.loads(_read_member(archive, "oci-layout").decode("utf-8"))
-            if not isinstance(layout, Mapping) or layout.get("imageLayoutVersion") != "1.0.0":
-                raise WorkflowError("OCI archive has an invalid oci-layout marker")
-            index_payload, index_location = _index_payload_for_digest(archive, expected_index)
-            index = _parse_index(index_payload, "OCI image index")
-    except tarfile.TarError as error:
-        raise WorkflowError("OCI stage artifact is not a readable OCI tar archive") from error
-
-    platforms, additional = _platform_inventory(index)
+    identity = inspect_oci_archive(archive_path, expected_index)
+    index_location = str(identity["index_location"])
+    platforms = list(identity["platforms"])
+    additional = list(identity["additional_manifests"])
     timestamp = generated_at or datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     return {
         "schema_version": "1.0",
@@ -186,7 +180,7 @@ def build_receipt(
             "archive_sha256": archive_sha,
             "index_digest": expected_index,
             "index_location": index_location,
-            "media_type": str(index["mediaType"]),
+            "media_type": str(identity["media_type"]),
             "platforms": platforms,
             "additional_manifests": additional,
             "storage": {

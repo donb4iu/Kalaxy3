@@ -5,12 +5,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
-from request_planning import load_source_bundle, resolve_planning_authority, write_proposal_package
+from sage_actionable_failure import ActionableFailure, RecoveryStep
+from request_execution import ProposalError
+from semantic_understanding import load_engineering_contribution
+from request_planning import PlanningSourceBundle, load_source_bundle, resolve_planning_authority, write_proposal_package
 from request_execution import load_proposal
 from workflow import (
     AtomicFileWriter,
@@ -28,11 +33,12 @@ from workflow import (
     Step,
     Workflow,
     WorkflowError,
+    render_operator_command,
 )
 from workflows.request_execution import PRIMITIVES_USED as EXECUTION_PRIMITIVES
 
 WORKFLOW_ID = "sage.request-planning"
-WORKFLOW_VERSION = "1.2.0"
+WORKFLOW_VERSION = "1.3.3"
 SECRET_ENVIRONMENT_NAMES = (
     "GH_TOKEN",
     "GITHUB_TOKEN",
@@ -111,6 +117,298 @@ def _candidate_payload(candidate: ComponentCandidate) -> dict[str, Any]:
         "evidence_references": list(candidate.evidence_references),
         "rationale": candidate.rationale,
     }
+
+
+WORKFLOW_CAPABILITY_BASELINE_PATH = (
+    "markdown/standards/"
+    "sage-capability-intelligence-workflow-capability-baseline-v1.0.json"
+)
+
+
+def _safe_repository_path(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise WorkflowError(f"{label} must be a non-empty repository-relative path")
+    candidate = Path(value)
+    if candidate.is_absolute() or ".." in candidate.parts or value.startswith("/"):
+        raise WorkflowError(f"{label} must remain repository-relative")
+    return value
+
+
+def _workflow_capability_entries(payload: bytes, label: str) -> tuple[str, dict[str, Mapping[str, Any]]]:
+    try:
+        value = json.loads(payload)
+    except json.JSONDecodeError as error:
+        raise WorkflowError(f"{label} is not readable JSON: {error}") from error
+    if not isinstance(value, Mapping):
+        raise WorkflowError(f"{label} must be a JSON object")
+    if value.get("schema_version") != "1.0" or value.get("record_type") != "sage-workflow-capability-completeness-baseline":
+        raise WorkflowError(f"{label} workflow capability baseline version/type is invalid")
+    baseline_id = value.get("baseline_id")
+    if not isinstance(baseline_id, str) or not baseline_id:
+        raise WorkflowError(f"{label} workflow capability baseline id is missing")
+    families = value.get("families")
+    if not isinstance(families, list):
+        raise WorkflowError(f"{label} workflow capability families are invalid")
+    result: dict[str, Mapping[str, Any]] = {}
+    for family in families:
+        if not isinstance(family, Mapping):
+            raise WorkflowError(f"{label} workflow capability family is invalid")
+        capabilities = family.get("capabilities")
+        if not isinstance(capabilities, list):
+            raise WorkflowError(f"{label} workflow capability family entries are invalid")
+        for capability in capabilities:
+            if not isinstance(capability, Mapping):
+                raise WorkflowError(f"{label} workflow capability entry is invalid")
+            capability_id = capability.get("capability_id")
+            if not isinstance(capability_id, str) or not capability_id or capability_id in result:
+                raise WorkflowError(f"{label} workflow capability id is invalid or duplicated: {capability_id!r}")
+            implementation = capability.get("implementation")
+            if not isinstance(implementation, list):
+                raise WorkflowError(f"{label} {capability_id} implementation mapping is invalid")
+            for index, relative in enumerate(implementation):
+                _safe_repository_path(relative, f"{label} {capability_id} implementation[{index}]")
+            result[capability_id] = capability
+    return baseline_id, result
+
+
+def _source_payload(source: PlanningSourceBundle | None, relative: str) -> bytes | None:
+    if source is None:
+        return None
+    for item in source.source_files:
+        if item.path == relative:
+            return item.payload
+    return None
+
+
+def _domain_selection_factors(*, interface_verified: bool) -> dict[str, Any]:
+    return {
+        "applicability": "direct",
+        "authority_compatibility": "compatible",
+        "mutation_scope_fit": "least-authority",
+        "published_interface_verified": interface_verified,
+        "successful_production_executions": None,
+        "failed_production_executions": None,
+        "open_recurrence": "unknown",
+        "runtime_test_coverage": "positive-only",
+    }
+
+
+def _effective_source_contribution_sha(source: PlanningSourceBundle) -> str:
+    refs = source.manifest.get("evidence_references")
+    if not isinstance(refs, list):
+        raise WorkflowError("planning source evidence references are invalid")
+    local_prefix = "implementation-local-contribution-sha256:"
+    initial_prefix = "engineering-contribution-sha256:"
+    local = [
+        str(item)[len(local_prefix):]
+        for item in refs
+        if isinstance(item, str) and item.startswith(local_prefix)
+    ]
+    initial = [
+        str(item)[len(initial_prefix):]
+        for item in refs
+        if isinstance(item, str) and item.startswith(initial_prefix)
+    ]
+    candidates = local if local else initial
+    if not candidates:
+        raise WorkflowError("planning source lacks engineering contribution provenance")
+    candidate = candidates[-1]
+    if len(candidate) != 64 or any(character not in "0123456789abcdef" for character in candidate):
+        raise WorkflowError("planning source engineering contribution digest is invalid")
+    return candidate
+
+
+def _approved_domain_gap_capabilities(path: Path | None, request: str, source: PlanningSourceBundle) -> frozenset[str]:
+    if path is None:
+        return frozenset()
+    resolved = path.expanduser().resolve()
+    try:
+        gap_set = json.loads(resolved.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise WorkflowError(f"approved domain capability gap set is unreadable: {resolved}: {error}") from error
+    if not isinstance(gap_set, Mapping) or gap_set.get("record_type") != "sage-domain-capability-gap-set" or gap_set.get("schema_version") != "1.0":
+        raise WorkflowError("approved domain capability gap set version/type is invalid")
+    if gap_set.get("request") != request:
+        raise WorkflowError("approved domain capability gap set does not match the literal request")
+    approval = gap_set.get("approval")
+    if (
+        not isinstance(approval, Mapping)
+        or approval.get("status") != "approved"
+        or approval.get("reviewed_by") != "architect"
+        or not approval.get("reviewed_at")
+    ):
+        raise WorkflowError("domain capability gap set must be explicitly Architect-approved")
+    expected_request_sha = hashlib.sha256(request.encode("utf-8")).hexdigest()
+    semantic = source.semantic_authority
+    if not isinstance(semantic, Mapping):
+        raise WorkflowError("approved staged domain capability requires confirmed semantic authority")
+    expected_binding_evidence = {
+        f"candidate-request-sha256:{expected_request_sha}",
+        f"candidate-contribution-sha256:{_effective_source_contribution_sha(source)}",
+        f"semantic-understanding-sha256:{semantic.get('semantic_understanding_sha256')}",
+        f"semantic-confirmation-sha256:{semantic.get('semantic_confirmation_sha256')}",
+    }
+    gaps = gap_set.get("gaps")
+    if not isinstance(gaps, list) or not gaps:
+        raise WorkflowError("approved domain capability gap set contains no gaps")
+    capabilities: list[str] = []
+    for index, item in enumerate(gaps):
+        if not isinstance(item, Mapping):
+            raise WorkflowError(f"approved domain capability gap set item {index} is invalid")
+        capability_id = item.get("required_capability")
+        receipt_value = item.get("gap_receipt")
+        expected_sha = item.get("gap_receipt_sha256")
+        if not isinstance(capability_id, str) or not capability_id or not isinstance(receipt_value, str) or not receipt_value or not isinstance(expected_sha, str) or len(expected_sha) != 64:
+            raise WorkflowError(f"approved domain capability gap set item {index} is incomplete")
+        receipt_path = Path(receipt_value).expanduser().resolve()
+        try:
+            receipt_bytes = receipt_path.read_bytes()
+            receipt = json.loads(receipt_bytes)
+        except (OSError, json.JSONDecodeError) as error:
+            raise WorkflowError(f"approved domain capability gap receipt is unreadable: {receipt_path}: {error}") from error
+        if hashlib.sha256(receipt_bytes).hexdigest() != expected_sha:
+            raise WorkflowError(f"approved domain capability gap receipt digest changed: {receipt_path}")
+        if not isinstance(receipt, Mapping) or receipt.get("schema_version") != "1.1" or receipt.get("gap_kind") != "domain-capability":
+            raise WorkflowError(f"approved domain capability gap receipt type is invalid: {receipt_path}")
+        if receipt.get("request") != request or receipt.get("required_capability") != capability_id:
+            raise WorkflowError(f"approved domain capability gap receipt binding is invalid: {receipt_path}")
+        gap = receipt.get("gap")
+        receipt_approval = receipt.get("approval")
+        if not isinstance(gap, Mapping) or gap.get("new_primitive_required") is not False or gap.get("new_domain_capability_required") is not True or receipt.get("proposed_primitive") is not None:
+            raise WorkflowError(f"approved domain capability gap receipt semantics are invalid: {receipt_path}")
+        if (
+            not isinstance(receipt_approval, Mapping)
+            or receipt_approval.get("status") != "approved"
+            or receipt_approval.get("reviewed_by") != "architect"
+            or not receipt_approval.get("reviewed_at")
+        ):
+            raise WorkflowError(f"domain capability gap receipt is not Architect-approved: {receipt_path}")
+        evidence = receipt.get("evidence_references")
+        if not isinstance(evidence, list):
+            raise WorkflowError(f"approved domain capability gap receipt evidence is invalid: {receipt_path}")
+        evidence_set = {str(value) for value in evidence if isinstance(value, str)}
+        if not expected_binding_evidence.issubset(evidence_set):
+            raise WorkflowError(
+                f"approved domain capability gap receipt candidate binding does not match current planning source: {receipt_path}"
+            )
+        authority_binding = [
+            value for value in evidence_set
+            if value.startswith("authority-receipt-sha256:")
+        ]
+        if len(authority_binding) != 1:
+            raise WorkflowError(
+                f"approved domain capability gap receipt authority binding is invalid: {receipt_path}"
+            )
+        capabilities.append(capability_id)
+    if len(capabilities) != len(set(capabilities)):
+        raise WorkflowError("approved domain capability gap set contains duplicate capabilities")
+    return frozenset(capabilities)
+
+
+def _domain_component_candidates(
+    *,
+    repo: Path,
+    source: PlanningSourceBundle | None,
+    domain_capabilities: tuple[RequiredCapability, ...],
+    approved_domain_capabilities: frozenset[str],
+    start_index: int,
+) -> list[ComponentCandidate]:
+    if not domain_capabilities:
+        return []
+    live_path = repo / WORKFLOW_CAPABILITY_BASELINE_PATH
+    if not live_path.is_file():
+        raise WorkflowError(f"workflow capability baseline is missing: {WORKFLOW_CAPABILITY_BASELINE_PATH}")
+    live_id, live_entries = _workflow_capability_entries(
+        live_path.read_bytes(),
+        "live",
+    )
+    proposed_payload = _source_payload(source, WORKFLOW_CAPABILITY_BASELINE_PATH)
+    proposed_id: str | None = None
+    proposed_entries: dict[str, Mapping[str, Any]] = {}
+    if proposed_payload is not None:
+        proposed_id, proposed_entries = _workflow_capability_entries(
+            proposed_payload,
+            "proposed",
+        )
+    source_paths = set(source.declared_paths) if source is not None else set()
+    source_sha = (
+        hashlib.sha256(source.package_path.read_bytes()).hexdigest()
+        if source is not None
+        else ""
+    )
+    candidates: list[ComponentCandidate] = []
+    sequence = start_index
+    for capability in domain_capabilities:
+        capability_id = capability.capability_id
+        live = live_entries.get(capability_id)
+        if isinstance(live, Mapping) and live.get("disposition") == "implemented":
+            implementation = tuple(str(item) for item in live.get("implementation", []))
+            if implementation and all((repo / relative).exists() for relative in implementation):
+                candidates.append(
+                    ComponentCandidate(
+                        f"CAND-{sequence:03d}",
+                        (capability_id,),
+                        f"domain-capability:{capability_id}",
+                        live_id,
+                        implementation[0],
+                        "repository-proven",
+                        _domain_selection_factors(interface_verified=True),
+                        tuple([
+                            f"baseline:{WORKFLOW_CAPABILITY_BASELINE_PATH}#{capability_id}",
+                            *(f"implementation:{relative}" for relative in implementation),
+                        ]),
+                        (
+                            "The governed workflow capability baseline marks this domain "
+                            "capability implemented and every mapped repository path exists. "
+                            "The live candidate therefore satisfies planning without caller-authored semantics."
+                        ),
+                    )
+                )
+                sequence += 1
+                continue
+        proposed = proposed_entries.get(capability_id)
+        if capability_id not in approved_domain_capabilities or not isinstance(proposed, Mapping):
+            continue
+        if proposed.get("disposition") != "implemented":
+            continue
+        if not isinstance(live, Mapping) or live.get("disposition") not in {"required-gap", "deferred-gap", "partial"}:
+            continue
+        implementation = tuple(str(item) for item in proposed.get("implementation", []))
+        if not implementation:
+            raise WorkflowError(f"approved staged domain capability {capability_id} has no implementation mapping")
+        missing = [
+            relative
+            for relative in implementation
+            if relative not in source_paths and not (repo / relative).exists()
+        ]
+        if missing:
+            raise WorkflowError(
+                f"approved staged domain capability {capability_id} references implementation paths absent from both the checksum-bound source and repository: {missing}"
+            )
+        candidates.append(
+            ComponentCandidate(
+                f"CAND-{sequence:03d}",
+                (capability_id,),
+                f"staged-domain-capability:{capability_id}",
+                f"{proposed_id or 'proposed'}@{source_sha[:12]}",
+                implementation[0],
+                "staged-implementation",
+                _domain_selection_factors(interface_verified=True),
+                (
+                    f"approved-domain-gap:{capability_id}",
+                    f"planning-source-sha256:{source_sha}",
+                    f"proposed-baseline:{WORKFLOW_CAPABILITY_BASELINE_PATH}#{capability_id}",
+                ),
+                (
+                    "The Architect-approved domain gap authorizes this checksum-bound staged "
+                    "implementation candidate. Selection authorizes implementation and validation "
+                    "only; it does not claim the domain capability is proven before request-execution "
+                    "guardrails succeed and the governed baseline is subsequently validated."
+                ),
+            )
+        )
+        sequence += 1
+    return candidates
 
 
 def _gap_receipt(
@@ -291,6 +589,8 @@ def derive_component_plan(
     authority_reference: str,
     required_primitives: tuple[str, ...] = EXECUTION_PRIMITIVES,
     planning_obligations: tuple[Mapping[str, Any], ...] = (),
+    source: PlanningSourceBundle | None = None,
+    approved_domain_capabilities: frozenset[str] = frozenset(),
 ) -> DerivedPlan:
     """Derive capabilities and candidates only from repository-owned contracts."""
 
@@ -339,6 +639,16 @@ def derive_component_plan(
                 ),
             )
         )
+
+    candidates.extend(
+        _domain_component_candidates(
+            repo=repo,
+            source=source,
+            domain_capabilities=domain_capabilities,
+            approved_domain_capabilities=approved_domain_capabilities,
+            start_index=len(candidates) + 1,
+        )
+    )
 
     manifest = ComponentSelector().build_manifest(
         manifest_id=(
@@ -408,6 +718,301 @@ def derive_component_plan(
 
 
 
+
+class RequestPlanningActionableFailure(WorkflowError):
+    # Carry an actionable planning boundary plus its local observation.
+    def __init__(self, failure: ActionableFailure, observation_path: Path) -> None:
+        self.failure = failure
+        self.observation_path = observation_path
+        super().__init__(failure.why_invalid)
+
+
+IMPLEMENTATION_LOCAL_CONTRIBUTION_SHA256_PREFIX = "implementation-local-contribution-sha256:"
+IMPLEMENTATION_LOCAL_CONTRIBUTION_PACKAGE_PREFIX = "implementation-local-contribution-package:"
+
+
+def _unique_evidence_value(
+    evidence: tuple[str, ...],
+    prefix: str,
+    label: str,
+) -> tuple[str | None, str]:
+    values = tuple(item[len(prefix):] for item in evidence if item.startswith(prefix))
+    if not values:
+        return None, ""
+    if len(values) != 1 or not values[0]:
+        return None, f"planning source carries ambiguous {label} provenance"
+    return values[0], ""
+
+
+def _implementation_local_candidate_from_source(
+    source: PlanningSourceBundle,
+) -> tuple[Path | None, str, bool]:
+    evidence = tuple(str(item) for item in source.manifest.get("evidence_references", []))
+    raw_sha, sha_issue = _unique_evidence_value(
+        evidence,
+        IMPLEMENTATION_LOCAL_CONTRIBUTION_SHA256_PREFIX,
+        "implementation-local contribution digest",
+    )
+    raw_package, package_issue = _unique_evidence_value(
+        evidence,
+        IMPLEMENTATION_LOCAL_CONTRIBUTION_PACKAGE_PREFIX,
+        "implementation-local contribution package",
+    )
+    claimed = raw_sha is not None or raw_package is not None or bool(sha_issue or package_issue)
+    if not claimed:
+        return None, "", False
+    if sha_issue:
+        return None, sha_issue, True
+    if package_issue:
+        return None, package_issue, True
+    if raw_sha is None or raw_package is None:
+        return None, (
+            "implementation-local planning source must bind both contribution package "
+            "and SHA-256 provenance"
+        ), True
+    if re.fullmatch(r"[0-9a-f]{64}", raw_sha) is None:
+        return None, "implementation-local contribution SHA-256 is invalid", True
+    candidate = Path(raw_package).expanduser().resolve()
+    if not candidate.is_file():
+        return None, f"implementation-local staged contribution is missing: {candidate}", True
+    observed_sha = hashlib.sha256(candidate.read_bytes()).hexdigest()
+    if observed_sha != raw_sha:
+        return None, (
+            "implementation-local staged contribution checksum mismatch: "
+            f"expected={raw_sha}, observed={observed_sha}"
+        ), True
+    try:
+        staged = load_engineering_contribution(candidate)
+    except ProposalError as error:
+        return None, f"implementation-local staged contribution is invalid: {error}", True
+    source_signature = tuple((item.path, item.sha256, item.mode) for item in source.source_files)
+    staged_signature = tuple((item.path, item.sha256, item.mode) for item in staged.source_files)
+    if source_signature != staged_signature:
+        return None, (
+            "implementation-local planning source payloads do not exactly match "
+            "the bound staged engineering contribution"
+        ), True
+    return candidate, "", True
+
+
+def _candidate_contribution_from_source(
+    source: PlanningSourceBundle,
+) -> tuple[Path | None, str]:
+    # Prefer the exact implementation-local candidate while preserving immutable
+    # Architect-confirmed semantic artifacts as semantic authority only.
+    implementation_local, implementation_issue, implementation_claimed = (
+        _implementation_local_candidate_from_source(source)
+    )
+    if implementation_claimed:
+        return implementation_local, implementation_issue
+
+    # Initial/historical semantic-bound sources retain original candidate provenance.
+    try:
+        with zipfile.ZipFile(source.package_path) as archive:
+            understanding = json.loads(
+                archive.read("semantic/semantic-understanding.json")
+            )
+    except (KeyError, OSError, ValueError, TypeError, zipfile.BadZipFile, json.JSONDecodeError) as error:
+        return None, (
+            "confirmed planning source does not expose readable staged-contribution "
+            f"provenance: {error}"
+        )
+
+    if not isinstance(understanding, dict):
+        return None, "semantic-understanding artifact is not a JSON object"
+    contribution = understanding.get("contribution")
+    if not isinstance(contribution, dict):
+        return None, "semantic-understanding artifact has no contribution provenance object"
+
+    raw_path = contribution.get("package")
+    expected_sha = contribution.get("package_sha256")
+    if not isinstance(raw_path, str) or not raw_path:
+        return None, "semantic-understanding contribution.package is unavailable"
+    if not isinstance(expected_sha, str) or re.fullmatch(r"[0-9a-f]{64}", expected_sha) is None:
+        return None, "semantic-understanding contribution.package_sha256 is unavailable or invalid"
+
+    candidate = Path(raw_path).expanduser().resolve()
+    if not candidate.is_file():
+        return None, f"staged contribution from semantic provenance is missing: {candidate}"
+    observed_sha = hashlib.sha256(candidate.read_bytes()).hexdigest()
+    if observed_sha != expected_sha:
+        return None, (
+            "staged contribution no longer matches confirmed semantic provenance: "
+            f"expected={expected_sha}, observed={observed_sha}"
+        )
+
+    evidence = tuple(str(item) for item in source.manifest.get("evidence_references", []))
+    evidence_marker = f"engineering-contribution-sha256:{expected_sha}"
+    if evidence_marker not in evidence:
+        return None, (
+            "planning source does not carry the confirmed staged-contribution digest "
+            f"marker {evidence_marker}"
+        )
+    return candidate, ""
+
+
+def domain_gap_actionable_failure(
+    *,
+    request: str,
+    source_path: Path,
+    gap_items: list[dict[str, Any]],
+    gap_set_path: Path,
+    candidate_contribution: Path | None,
+    candidate_issue: str,
+) -> tuple[ActionableFailure, Path]:
+    # Render the known review-required boundary without making the Architect decision.
+    capabilities = tuple(str(item["required_capability"]) for item in gap_items)
+    approved_gap_set = gap_set_path.with_name(
+        "request-planning-capability-gap-set-approved.json"
+    )
+
+    recovery_steps: list[RecoveryStep] = []
+    if candidate_contribution is not None:
+        approval = render_operator_command(
+            (
+                "sh",
+                "-c",
+                (
+                    'test -n "$SAGE_ARCHITECT_RATIONALE" && '
+                    'exec python3 "$1" --gap-set "$2" --actor architect '
+                    '--rationale "$SAGE_ARCHITECT_RATIONALE" '
+                    '--candidate-contribution "$3" --output "$4"'
+                ),
+                "sage-domain-capability-gap-approve",
+                "scripts/sage/sage-domain-capability-gap-approve.py",
+                str(gap_set_path),
+                str(candidate_contribution),
+                str(approved_gap_set),
+            )
+        )["display"]
+        retry = render_operator_command(
+            (
+                "env",
+                f"SAGE_REQUEST={request}",
+                f"SAGE_SOURCE={source_path}",
+                f"SAGE_APPROVED_GAP_SET={approved_gap_set}",
+                "make",
+                "sage-request-plan",
+            )
+        )["display"]
+        recovery_steps.extend(
+            (
+                RecoveryStep(
+                    working_directory=".",
+                    command=approval,
+                    required_paths=(
+                        "scripts/sage/sage-domain-capability-gap-approve.py",
+                        "scripts/sage/workflows/request_planning.py",
+                        "markdown/standards/kalaxy3-sage-request-planning-process.md",
+                    ),
+                ),
+                RecoveryStep(
+                    working_directory=".",
+                    command=retry,
+                    required_paths=(
+                        "Makefile",
+                        "scripts/sage/sage-request-plan.py",
+                        "scripts/sage/workflows/request_planning.py",
+                    ),
+                ),
+            )
+        )
+        recovery_status = (
+            "The planner recovered and checksum-verified the exact staged contribution. "
+            "All deterministic approval arguments are known. The only unresolved input is "
+            "the Architect-owned rationale in SAGE_ARCHITECT_RATIONALE."
+        )
+    else:
+        recovery_steps.append(
+            RecoveryStep(
+                working_directory=".",
+                command="python3 scripts/sage/sage-domain-capability-gap-approve.py --help",
+                required_paths=(
+                    "scripts/sage/sage-domain-capability-gap-approve.py",
+                    "scripts/sage/workflows/request_planning.py",
+                ),
+            )
+        )
+        recovery_status = (
+            "SAGE knows the review boundary and gap set, but it cannot construct a "
+            "checksum-bound approval command because staged-candidate provenance is "
+            f"not currently available: {candidate_issue}"
+        )
+
+    failure = ActionableFailure(
+        attempted_action=(
+            "Plan the exact request into an executable proposal using the confirmed "
+            "semantic authority and current repository capability evidence."
+        ),
+        detected_state=(
+            f"Request planning found {len(gap_items)} unresolved Architect-confirmed "
+            f"domain-capability gaps: {', '.join(capabilities)}. "
+            f"gap_set={gap_set_path}; decision_authority=architect; "
+            f"retry_boundary=request-planning. {recovery_status}"
+        ),
+        why_invalid=(
+            "Proposal generation cannot continue until the exact checksum-bound domain "
+            "gap set is reviewed for the exact staged candidate. This is a governed "
+            "Architect decision boundary, not an implementation success or failure claim."
+        ),
+        likely_intended_outcome=(
+            "Review the already-known capability gaps as one coherent set, preserve the "
+            "staged candidate and semantic lineage, and resume request planning only after "
+            "an explicit Architect approval or rejection."
+        ),
+        confirm_correct_approach=(
+            f"Review the exact gap set at {gap_set_path}.",
+            f"Capabilities requiring review: {', '.join(capabilities)}.",
+            (
+                "If approving evaluation, the Architect must provide an explicit rationale; "
+                "SAGE supplies no approval decision and no rationale."
+            ),
+            recovery_status,
+            (
+                f"After approval, retry request planning with the approved gap set at "
+                f"{approved_gap_set}."
+            ),
+        ),
+        allowed_actions=(
+            "Review the exact checksum-bound gap-set and underlying gap receipts.",
+            "Set SAGE_ARCHITECT_RATIONALE to the Architect's actual rationale before running the approval recovery step.",
+            "Approve or reject only the exact staged candidate bound to the confirmed semantic lineage.",
+            "After approval, rerun request planning with SAGE_APPROVED_GAP_SET bound to the approved copy.",
+            "Preserve this blocked boundary and its failure-quality observation as workflow-friction evidence.",
+        ),
+        prohibited_actions=(
+            "Do not infer approval from a prior gap set with different receipt hashes.",
+            "Do not let SAGE synthesize the Architect rationale or approval decision.",
+            "Do not treat approval as proof that the staged capabilities are implemented or validated.",
+            "Do not edit review-required gap receipts in place or substitute a different candidate contribution.",
+            "Do not create a new low-level primitive or bypass the request-planning retry boundary.",
+        ),
+        canonical_recovery=tuple(recovery_steps),
+        integrity_requirements=(
+            "Preserve immutable review-required gap evidence.",
+            "Preserve exact staged-contribution, semantic-understanding, and semantic-confirmation binding.",
+            "Preserve Architect authority over approval/rejection and rationale.",
+            "Retry only request planning after the exact approved gap-set exists.",
+            "Preserve fail-closed behavior and no GitHub or deployment mutation at this boundary.",
+        ),
+        authoritative_paths=(
+            "scripts/sage/sage-domain-capability-gap-approve.py",
+            "scripts/sage/workflows/request_planning.py",
+            "scripts/sage/sage-request-plan.py",
+            "markdown/standards/kalaxy3-sage-request-planning-process.md",
+            str(gap_set_path),
+            *((str(candidate_contribution),) if candidate_contribution is not None else ()),
+        ),
+        repository_gap=(
+            "If request planning has already materialized an Architect-reviewable domain "
+            "gap set but reports only a generic WorkflowError, SAGE is imposing avoidable "
+            "interpretation burden. The actionable boundary must surface every deterministic "
+            "fact it already has and identify any genuinely human-owned or unavailable input."
+        ),
+    )
+    return failure, approved_gap_set
+
+
 def _write_json(
     writer: AtomicFileWriter,
     path: Path,
@@ -426,10 +1031,17 @@ def plan_request(
     request: str,
     source_path: Path,
     output: Path,
+    *,
+    approved_gap_set: Path | None = None,
 ) -> dict[str, Any]:
     """Plan one source-only package into the existing execution interface."""
 
     source = load_source_bundle(source_path, request)
+    approved_domain_capabilities = _approved_domain_gap_capabilities(
+        approved_gap_set,
+        request,
+        source,
+    )
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     state_dir = (
         Path("~/.local/state/kalaxy3/sage-request-planning").expanduser()
@@ -523,6 +1135,8 @@ def plan_request(
             request=request,
             authority_reference=str(authority_reference),
             planning_obligations=obligations,
+            source=source,
+            approved_domain_capabilities=approved_domain_capabilities,
         )
         component_path = _write_json(
             writer,
@@ -593,11 +1207,49 @@ def plan_request(
                 state_dir / "request-planning-capability-gap-set.json",
                 gap_set,
             )
-            raise WorkflowError(
-                "request planning found "
-                f"{len(gap_items)} unresolved domain-capability gaps in one "
-                f"pass: {gap_set_path}"
+            candidate_contribution, candidate_issue = (
+                _candidate_contribution_from_source(source)
             )
+            failure, approved_gap_set = domain_gap_actionable_failure(
+                request=request,
+                source_path=source.package_path,
+                gap_items=gap_items,
+                gap_set_path=gap_set_path,
+                candidate_contribution=candidate_contribution,
+                candidate_issue=candidate_issue,
+            )
+            observation_path = _write_json(
+                writer,
+                state_dir / "request-planning-actionable-failure-observation.json",
+                {
+                    "schema_version": "1.0",
+                    "record_type": "sage-actionable-failure-observation",
+                    "workflow_id": WORKFLOW_ID,
+                    "workflow_version": WORKFLOW_VERSION,
+                    "failure_class": "domain-capability-review-required",
+                    "failure_quality_class": "known-cause-decision-dependent-recovery",
+                    "known_cause": True,
+                    "gap_count": len(gap_items),
+                    "required_capabilities": [
+                        str(item["required_capability"]) for item in gap_items
+                    ],
+                    "gap_set": str(gap_set_path),
+                    "recovery_hint_available": True,
+                    "recovery_hint_prepared": True,
+                    "invoker_action_required": True,
+                    "decision_authority": "architect",
+                    "missing_architect_input": "rationale",
+                    "candidate_provenance_available": candidate_contribution is not None,
+                    "candidate_contribution": str(candidate_contribution) if candidate_contribution is not None else None,
+                    "candidate_provenance_issue": candidate_issue or None,
+                    "approved_gap_set": str(approved_gap_set),
+                    "retry_boundary": "request-planning",
+                    "repository_mutation": False,
+                    "github_mutation": False,
+                    "deployment_mutation": False,
+                },
+            )
+            raise RequestPlanningActionableFailure(failure, observation_path)
         return {
             "new_primitive_required": False,
             "composition_can_close_gap": True,

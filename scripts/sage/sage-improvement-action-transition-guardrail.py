@@ -85,6 +85,15 @@ def main() -> int:
         failures.append(
             "transition workflow bypasses repository command primitives"
         )
+    if (
+        'current_fingerprint in consumed' in workflow_source
+        and 'control_status in {"accepted", "implemented", "validated"}'
+        in workflow_source
+    ):
+        failures.append(
+            "transition workflow still infers accepted-control failure from "
+            "consumed fingerprint plus lifecycle status"
+        )
     if "ImprovementActionClient(\n        context.inspector," not in workflow_source:
         failures.append(
             "transition workflow does not supply GitInspector to the "
@@ -130,6 +139,35 @@ def main() -> int:
         )
     if "start_amendment" not in amendment_cli_source:
         failures.append("amendment CLI does not call shared amendment entry point")
+    for marker in (
+        "build_successor_action_boundary",
+        "emit_successor_action_boundary",
+        "consume_recovery_decision",
+        "build_consumption_record",
+        "RECOVERY_CONSUMPTION_NAME",
+        "sage-improvement-action-successor-boundary",
+        "architect-decision-required",
+        "build_accepted_control_failure_assertion",
+        "accepted_control_failure_assertion",
+        "evidence-backed failure of an accepted control",
+    ):
+        if marker not in workflow_source:
+            failures.append(f"successor lifecycle marker missing: {marker}")
+    if "--recovery-decision" not in cli_source:
+        failures.append("transition CLI cannot consume recovery boundary")
+    if "consume_recovery_decision" not in cli_source:
+        failures.append("transition CLI bypasses shared recovery continuation")
+    for marker in (
+        "failure_recovery_action(context, error)",
+        "classify_post_retrieval_continuation",
+        "RECOVERY_DECISION_NAME",
+        "recovery_control_action_id",
+        "Next governed boundary:",
+    ):
+        if marker not in workflow_source:
+            failures.append(
+                "fail-closed lifecycle recovery integration missing: " + marker
+            )
     workflows_dir = ROOT / "scripts/sage/workflows"
     parallel = [
         path.name
@@ -166,6 +204,8 @@ def main() -> int:
         "PASS exact action-registry mutation and request continuation"
     )
     print("PASS Make and CLI integration")
+    print("PASS evidence-backed accepted-control failure is owned by action lifecycle")
+    print("PASS lifecycle failures emit one recovery next-boundary contract")
     print(
         "Kalaxy3 SAGE improvement-action transition guardrail: PASS"
     )

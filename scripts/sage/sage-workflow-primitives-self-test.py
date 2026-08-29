@@ -573,6 +573,254 @@ def test_routine_git_lifecycle_controller(root: Path) -> None:
     if remote != commit:
         raise RuntimeError("routine Git lifecycle did not publish the exact commit")
 
+    # Regression: frozen main authority may legitimately advance independently
+    # of an otherwise synchronized feature branch. Protect exact frozen-main
+    # equality and feature authority without inventing ancestry authority.
+    non_ancestor_root = fixture_root.parent / "routine-controller-non-ancestor"
+    non_ancestor_root.mkdir()
+    _, non_ancestor_work = prepare_git_repository(non_ancestor_root)
+
+    (non_ancestor_work / "README.md").write_text(
+        "baseline\n",
+        encoding="utf-8",
+    )
+    (non_ancestor_work / "sage-workflow-primitives.json").write_bytes(
+        (ROOT / "sage-workflow-primitives.json").read_bytes()
+    )
+    fixture_command("git", "add", ".", cwd=non_ancestor_work)
+    fixture_command(
+        "git",
+        "commit",
+        "-m",
+        "baseline",
+        cwd=non_ancestor_work,
+    )
+    fixture_command(
+        "git",
+        "push",
+        "-u",
+        "origin",
+        "main",
+        cwd=non_ancestor_work,
+    )
+    feature_base = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=non_ancestor_work,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    fixture_command(
+        "git",
+        "switch",
+        "-c",
+        "feature/routine-controller-non-ancestor",
+        cwd=non_ancestor_work,
+    )
+    fixture_command(
+        "git",
+        "push",
+        "-u",
+        "origin",
+        "feature/routine-controller-non-ancestor",
+        cwd=non_ancestor_work,
+    )
+
+    fixture_command("git", "switch", "main", cwd=non_ancestor_work)
+    (non_ancestor_work / "MAIN-AUTHORITY.md").write_text(
+        "new frozen main authority\n",
+        encoding="utf-8",
+    )
+    fixture_command(
+        "git",
+        "add",
+        "MAIN-AUTHORITY.md",
+        cwd=non_ancestor_work,
+    )
+    fixture_command(
+        "git",
+        "commit",
+        "-m",
+        "advance frozen main authority",
+        cwd=non_ancestor_work,
+    )
+    fixture_command(
+        "git",
+        "push",
+        "origin",
+        "main",
+        cwd=non_ancestor_work,
+    )
+    frozen_main = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=non_ancestor_work,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    fixture_command(
+        "git",
+        "switch",
+        "feature/routine-controller-non-ancestor",
+        cwd=non_ancestor_work,
+    )
+    readme = non_ancestor_work / "README.md"
+    readme.write_text(
+        readme.read_text(encoding="utf-8") + "non-ancestor routine\n",
+        encoding="utf-8",
+    )
+
+    non_ancestor_state_dir = non_ancestor_root / "state"
+    non_ancestor_state_dir.mkdir()
+    non_ancestor_state = (
+        non_ancestor_state_dir / "request-execution-state.json"
+    )
+    non_ancestor_proposal = (
+        non_ancestor_state_dir / "operator-git-proposal.json"
+    )
+    non_ancestor_validation = [
+        {
+            "label": "Non-ancestor fixture validation",
+            "reference": "fixture",
+            "status": "pass",
+            "sha256": None,
+        }
+    ]
+    non_ancestor_logger = JsonlEventLogger(
+        non_ancestor_root / "proposal-events.jsonl",
+        "routine-controller-non-ancestor-self-test",
+    )
+    non_ancestor_runner = CommandRunner(
+        non_ancestor_logger,
+        allowed_roots=(non_ancestor_root,),
+    )
+    non_ancestor_inspector = GitInspector(
+        non_ancestor_work,
+        non_ancestor_runner,
+    )
+    non_ancestor_snapshot = non_ancestor_inspector.snapshot()
+
+    if non_ancestor_snapshot.head != feature_base:
+        raise RuntimeError(
+            "non-ancestor fixture feature HEAD drifted before controller test"
+        )
+    if non_ancestor_snapshot.upstream_head != feature_base:
+        raise RuntimeError(
+            "non-ancestor fixture feature upstream is not synchronized"
+        )
+    if non_ancestor_inspector.remote_head(
+        "origin",
+        "feature/routine-controller-non-ancestor",
+    ) != feature_base:
+        raise RuntimeError(
+            "non-ancestor fixture remote feature authority is not synchronized"
+        )
+    if non_ancestor_inspector.remote_head("origin", "main") != frozen_main:
+        raise RuntimeError(
+            "non-ancestor fixture frozen main authority is not current"
+        )
+    if non_ancestor_inspector.is_ancestor(frozen_main, feature_base):
+        raise RuntimeError(
+            "non-ancestor fixture failed to create divergent frozen-main authority"
+        )
+
+    non_ancestor_operator_proposal = OperatorGitProposal.build(
+        proposal_id="SAGE-GIT-20260812-902",
+        controller="sage-request-execution",
+        repository=non_ancestor_snapshot,
+        authority_receipt=str(non_ancestor_state_dir / "authority.json"),
+        component_manifest=str(non_ancestor_state_dir / "components.json"),
+        boundary="routine-git-lifecycle",
+        change_scope=("README.md",),
+        validation=non_ancestor_validation,
+        command_argv=(
+            "python3",
+            "scripts/sage/sage-routine-git-lifecycle.py",
+            "--state",
+            str(non_ancestor_state.resolve()),
+            "--proposal",
+            str(non_ancestor_proposal.resolve()),
+            "--apply",
+        ),
+        expected_result=(
+            "Routine lifecycle succeeds with unchanged frozen main authority "
+            "that is not an ancestor of the synchronized feature HEAD."
+        ),
+        risk="Fixture mutation only.",
+        rollback="Discard fixture.",
+        post_command_verification=("git status --porcelain=v1",),
+    )
+    non_ancestor_proposal.write_text(
+        json.dumps(non_ancestor_operator_proposal, indent=4) + "\n",
+        encoding="utf-8",
+    )
+    non_ancestor_state.write_text(
+        json.dumps(
+            {
+                "record_type": "sage-request-execution-state",
+                "current_boundary": "routine-git-lifecycle",
+                "current_proposal": str(non_ancestor_proposal.resolve()),
+                "repository_branch": (
+                    "feature/routine-controller-non-ancestor"
+                ),
+                "base_head": feature_base,
+                "base_main_head": frozen_main,
+                "declared_paths": ["README.md"],
+                "operator_plan": {
+                    "commit_message": (
+                        "exercise non-ancestor routine controller"
+                    ),
+                    "push_remote": "origin",
+                },
+                "validation": non_ancestor_validation,
+                "authority_receipt": str(
+                    non_ancestor_state_dir / "authority.json"
+                ),
+                "component_manifest": str(
+                    non_ancestor_state_dir / "components.json"
+                ),
+            },
+            indent=4,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    non_ancestor_result = run_controller(
+        non_ancestor_work,
+        non_ancestor_state,
+        non_ancestor_proposal,
+        apply=True,
+    )
+    non_ancestor_commit = str(non_ancestor_result["commit"])
+    if (
+        non_ancestor_commit == feature_base
+        or len(non_ancestor_commit) != 40
+    ):
+        raise RuntimeError(
+            "non-ancestor routine Git lifecycle returned an invalid commit"
+        )
+
+    non_ancestor_remote = subprocess.run(
+        [
+            "git",
+            "ls-remote",
+            "--heads",
+            "origin",
+            "refs/heads/feature/routine-controller-non-ancestor",
+        ],
+        cwd=non_ancestor_work,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.split("\t", 1)[0]
+    if non_ancestor_remote != non_ancestor_commit:
+        raise RuntimeError(
+            "non-ancestor routine Git lifecycle did not publish exact commit"
+        )
+
 
 def test_least_authority_foundations(root: Path) -> None:
     inspect_root = root / "inspect-fixture"
@@ -1219,6 +1467,7 @@ def main() -> int:
     print("PASS command execution, timeout, redaction, and version logging")
     print("PASS temporary-remote Git and canonical action lifecycle adapters")
     print("PASS operator-approved bounded routine Git lifecycle controller")
+    print("PASS routine Git lifecycle does not invent frozen-main ancestry authority")
     print("PASS least-authority Git and GitHub inspection, atomic files, operator proposals, and safety")
     print("PASS authority reconciliation, component selection, capability gaps, and failure diagnosis")
     print("PASS semantic outcome metrics, null preservation, and comparable trends")

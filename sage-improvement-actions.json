@@ -813,7 +813,7 @@
                 "SAGE-LESSON-20260801-001"
             ],
             "source_sessions": [],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -847,6 +847,18 @@
                     "evidence_references": [
                         "lesson:SAGE-LESSON-20260801-001",
                         "action:SAGE-ACTION-20260801-001"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-21T19:33:52-05:00",
+                    "actor": "architect",
+                    "reason": "Architect approves the existing post-retrieval retry-versus-governance-reentry action after SAGE-DIAG-20260821-801 demonstrated that request execution failed pre-mutation because the repository-owned composition requires correction and regression before retry.",
+                    "evidence_references": [
+                        "diagnosis:SAGE-DIAG-20260821-801"
                     ]
                 }
             ]
@@ -1335,7 +1347,7 @@
                     "sha256": "210adedc2f6283f76e74554368a9920fe8a7edb162e7919229719e1af52938b5"
                 }
             ],
-            "current_status": "accepted",
+            "current_status": "validated",
             "owner": "Architect",
             "priority": "high",
             "target_control_type": "automation",
@@ -1386,6 +1398,438 @@
                     "evidence_references": [
                         "markdown/evidence-artifacts/SAGE-ACTION-20260815-002-PROVENANCE/post-pr21-delivery-capability-gap.json",
                         "commit:3e79c0d5e1547ed33d07165ca4077496a8e5eb93"
+                    ]
+                },
+                {
+                    "sequence": 3,
+                    "from_status": "accepted",
+                    "to_status": "implemented",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-26T23:37:59-05:00",
+                    "actor": "Architect",
+                    "reason": "Core Action-002 delivery is operationally demonstrated end to end. The exact immutable artifact was promoted without rebuild and the deployed digest passed zero-trust runtime validation. The Makefile receipt-transport and stale iteration-10 reconciliation defects are explicitly deferred as non-blocking technical debt under Architect authority.",
+                    "evidence_references": [
+                        "promotion-receipt:/Users/donbuddenbaum/.local/state/kalaxy3/sage-artifact-promotion/github-run-32449512923/promotion-receipt.json",
+                        "runtime-receipt:/Users/donbuddenbaum/.local/state/kalaxy3/sage-e2e-zero-trust/runtime-final.json",
+                        "runtime-receipt-sha256:e2dd55135e351ef4e4b3ca4fc249c44b79b85170cb1706870e7a9927a1536339"
+                    ]
+                },
+                {
+                    "sequence": 4,
+                    "from_status": "implemented",
+                    "to_status": "validated",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-27T00:00:41-05:00",
+                    "actor": "Architect",
+                    "reason": "Validate Action-002 because the portable multi-architecture stage produced an immutable artifact, promotion consumed that exact artifact without rebuild, the exact promoted digest was deployed to the SAGE experience, and repository-owned zero-trust runtime validation passed. Tangential Makefile receipt-transport and stale iteration-10 reconciliation defects remain explicitly deferred as non-blocking technical debt.",
+                    "evidence_references": [
+                        "commit:07d56c8",
+                        "promotion-receipt:/Users/donbuddenbaum/.local/state/kalaxy3/sage-artifact-promotion/github-run-32449512923/promotion-receipt.json",
+                        "runtime-receipt:/Users/donbuddenbaum/.local/state/kalaxy3/sage-e2e-zero-trust/runtime-final.json",
+                        "runtime-receipt-sha256:e2dd55135e351ef4e4b3ca4fc249c44b79b85170cb1706870e7a9927a1536339"
+                    ]
+                }
+            ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260821-001",
+            "title": "Make fail-closed recovery self-directing and recurrence-aware",
+            "source_lessons": [
+                "SAGE-LESSON-20260801-001"
+            ],
+            "source_sessions": [],
+            "source_records": [
+                {
+                    "record_type": "capability-gap",
+                    "record_id": "SAGE-GAP-20260821-SELF-DIRECTING-RECOVERY",
+                    "schema_version": "1.1",
+                    "sha256": "e900cb4a0dbb9589313b7d5940b3f1f0b1abac73d0f945226fbdf7c75200ed8c"
+                }
+            ],
+            "current_status": "implemented",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "SAGE owns recovery from every fail-closed state. It persists stable failure and governing-condition identities across attempts, distinguishes a genuinely new governance change from one already consumed by an earlier required re-entry, recognizes unchanged recurrence, prevents repeated identical governance loops, and emits exactly one machine-readable governed next boundary. When the current lifecycle has no authorized transition, including live failure of an accepted control, SAGE emits the capability-gap/successor-action route itself instead of requiring the LLM or operator to inspect repository source and invent recovery.",
+            "acceptance_criteria": [
+                "Every fail-closed closeout contains one structured next-boundary decision or an explicit terminal/no-action decision.",
+                "Failure identity persists across attempts using stable request, component, failure-signature, and repository-authority evidence with previous-failure references.",
+                "The second live Action-002 ancestry failure at HEAD 4192551f1df150d06d8ad62235746bc5f29eaa18 is deterministically classified as recurrence rather than classification=new.",
+                "A governing-condition change has a stable fingerprint and is marked consumed by the re-entry it required; the unchanged fingerprint is not reported as newly changed on the next attempt.",
+                "The exact live Action-002 sequence cannot route to planning twice for the same repository-owned-composition fingerprint at unchanged authority.",
+                "An unchanged recurrence routes to the owning repair/regression/revalidation boundary rather than repeating discovery or planning.",
+                "If the owning control is already accepted and cannot be amended under lifecycle policy, SAGE emits a verified successor capability-gap/improvement-action boundary without LLM/operator source-code inspection.",
+                "The emitted boundary identifies owning component, reason, required evidence, mutation authority, and exactly one repository-owned operator command or explicit Architect decision boundary.",
+                "The false origin/main ancestry assertion has a deterministic regression proving request execution does not require current remote main to be an ancestor of an otherwise synchronized governed feature HEAD unless an applicable authority explicitly requires it.",
+                "Request execution, intent-to-outcome, failure diagnosis, post-retrieval continuation, and action lifecycle consume one recovery identity/next-boundary contract instead of divergent local classifiers.",
+                "Repeated discovery, retrieval, semantic confirmation, or planning with no new governing-condition fingerprint fails closed as over-governance before another mutation.",
+                "Positive and negative regressions prove: new governance change -> earliest required re-entry once; unchanged recurrence -> repair; exhausted/unsupported recovery -> successor gap/action.",
+                "Structured events and closeouts make recurrence, consumed changes, prevented loops, operator boundaries, and avoidable rework measurable."
+            ],
+            "measurement_plan": [
+                "Track fail-closed outcomes by next-boundary disposition and owning component.",
+                "Track recurrence detection precision for identical signatures at unchanged authority.",
+                "Track governing-change fingerprints created, consumed, and incorrectly re-emitted; require zero duplicate re-entry for one unchanged consumed fingerprint.",
+                "Track prevented redundant discovery, retrieval, semantic-confirmation, and planning passes.",
+                "Track accepted-control live failures that automatically emit a governed successor gap/action boundary.",
+                "Replay the 2026-08-21 Action-002 ancestry-failure sequence and require one recovery route instead of a planning loop.",
+                "Track operator-visible discrete commands from first failure through validated recovery."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-21T23:45:04-05:00",
+                    "actor": "Architect",
+                    "reason": "Register self-directing recovery after the live Action-002 sequence proved the accepted post-retrieval control can repeatedly emit the same planning re-entry and cannot itself escalate failure of an accepted control.",
+                    "evidence_references": [
+                        "markdown/evidence-artifacts/SAGE-ACTION-20260821-001-PROVENANCE/self-directing-recovery-capability-gap.json",
+                        "action:SAGE-ACTION-20260810-001",
+                        "action:SAGE-ACTION-20260815-002",
+                        "commit:4192551f1df150d06d8ad62235746bc5f29eaa18"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-22T02:13:34-05:00",
+                    "actor": "architect",
+                    "reason": "Architect accepts the registered self-directing recovery capability after its capability-gap source, acceptance criteria, measurement plan, one-path registration commit, remote synchronization, and routine Git lifecycle closeout were verified.",
+                    "evidence_references": [
+                        "commit:ffcf6f992bdf111f57e2f2cbacd5fd83f09c3cbf"
+                    ]
+                },
+                {
+                    "sequence": 3,
+                    "from_status": "accepted",
+                    "to_status": "implemented",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-22T05:19:53-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The governed 15-path self-directing recovery implementation is now persisted and synchronized at commit f76d88f24320721381a6f66ffb7111b6db1bfc7e; request execution, applicable guardrails, exact-scope topology, routine Git lifecycle verification, outcome metrics, and evidence closeout passed.",
+                    "evidence_references": [
+                        "commit:f76d88f24320721381a6f66ffb7111b6db1bfc7e",
+                        "routine-git-receipt-sha256:c3ecb6727e3a1831364f07f5f77246dd78bf838a3fa33e01ee631c32b4e97171"
+                    ]
+                }
+            ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260823-001",
+            "title": "Integrate objective-first routing, assurance, and debt feedback",
+            "source_lessons": [],
+            "source_sessions": [],
+            "source_records": [
+                {
+                    "record_type": "capability-gap",
+                    "record_id": "SAGE-GAP-20260823-OBJECTIVE-FIRST-INTEGRATION",
+                    "schema_version": "1.1",
+                    "sha256": "59d7a743375f0975aee49f9a73453d654751aa1162e21d3449ed6ff6911b76b2"
+                }
+            ],
+            "current_status": "accepted",
+            "owner": "Architect",
+            "priority": "high",
+            "target_control_type": "automation",
+            "desired_outcome": "SAGE calculates and preserves a governed path from the active Architect-owned objective before candidate mutation; evaluates established alternatives and prior art against evidence, risk, guardrails, authority, reversibility, operability, and opportunity cost; treats gaps as subordinate impediments; separates safe canonical integration from capability maturity, runtime promotion, and objective completion; continuously measures BDD-style regression assurance and the effectiveness of guardrails/collaboration; actively reevaluates deferred technical debt; exposes the resulting decision state through the existing Cloudflare-protected SAGE experience; and returns to the parent objective after bounded remediation.",
+            "acceptance_criteria": [
+                "Before a new candidate mutation or gap-remediation branch, the active objective exposes a machine-readable route containing remaining obligations, current evidence, dependencies, viable established alternatives including do-nothing when meaningful, predicted risks, reversibility, expected value/time-to-evidence, selected/promoted candidate or explicit Architect choice, and the intended re-entry point.",
+                "SAGE treats apparent novelty as an exception: viable prior art and repository-owned experience are evaluated first; materially viable alternatives and rejection/defer rationale remain evidence; a genuinely novel direction is explicitly identified, justified, independently validated, and Architect-approved.",
+                "A detected gap is dispositioned in parent-objective context as bounded local remediation, efficient class-level remediation, or deferred/non-blocking debt. Gap closure does not silently replace the active objective.",
+                "Canonical integration eligibility is distinct from capability validation, runtime/production promotion, and objective completion. A candidate may integrate when the known approved functional/nonfunctional envelope is non-regressing and no nondelegable constraint is violated, while known limitations and unearned claims remain explicit.",
+                "Known limitations support three governed objective-context dispositions: integrate with monitoring/protective controls, block dependent activity until fixed, or defer remediation when the opportunity cost of fixing later is better. Each disposition preserves rationale, alternatives, risk, detectability, reversibility, dependencies, recovery cost, and reconsideration triggers.",
+                "Deferred technical debt is an active obligation rather than a passive backlog item. Relevant debt is surfaced before dependent/adjacent planned work and reevaluated against current risk/cost of continued deferral versus remediation cost/opportunity cost; alerts/thresholds indicate when the original deferral decision is becoming stale.",
+                "BDD-style assurance maps known approved functional and nonfunctional requirements/guardrails to executable regression scenarios and, where applicable, runtime evidence. SAGE reports uncovered, weak, stale, or runtime-unmapped obligations rather than assuming the behavioral model is complete.",
+                "Guardrail and collaboration effectiveness are measurable: activations, prevented defects, false positives, overrides/break-glass use, manual corrections, unplanned recovery steps, operator boundaries, interpretation burden when measurable, and stale/uncovered behavioral assurance can drive strengthen/combine/weaken/retire decisions.",
+                "When remediation is warranted, SAGE evaluates adjacent opportunity and may remove nearby objective-relevant impediments or a recurring failure class when the incremental scope improves total lifecycle efficiency; adjacent opportunity may not displace the parent objective.",
+                "The existing Cloudflare Access/MFA protected SAGE experience can show current objective/route, evidence confidence, candidate integration and maturity state, known limitations, deferred-debt rationale and triggers, BDD assurance gaps, guardrail/collaboration metrics, alternatives, and the next governed decision without exposing privileged management surfaces or weakening zero trust.",
+                "Completion of SAGE-ACTION-20260815-002 is recorded as the trigger for a counterfactual architecture-convergence review: compare evolved Kalaxy3/SAGE with the architecture we would intentionally design using then-current knowledge; classify material divergences as retain, converge, simplify/consolidate, retire, defer, or fix-now; perform convergence only when the deviation materially affects near-term objective execution, risk, safety, recoverability, participant/authority semantics, guardrails, feedback loops, or lifecycle efficiency.",
+                "Existing Architect authority, semantic confirmation, earliest-affected-boundary invalidation, repository-owned mutation authority, fail-closed safety, evidence provenance, Vault/governed-secret policy, and Action-002 portable-stage/artifact-promotion contracts remain authoritative.",
+                "The implementation explicitly identifies SAGE-ACTION-20260815-002 as the parent delivery re-entry point and does not require completion of the post-Action-002 convergence review before Action-002 promotion/runtime work proceeds."
+            ],
+            "measurement_plan": [
+                "Track planned objective-route steps versus unplanned recovery/correction steps and the fraction of failures anticipated as route branches.",
+                "Track BDD/regression obligation coverage, stale scenarios, runtime-evidence mapping, and defects discovered outside the modeled behavioral envelope.",
+                "Track candidate integrations with limitations, regressions prevented, blocked integrations, deferred limitations, reconsideration-trigger activations, and debt items fixed earlier/later than their economic threshold indicated.",
+                "Track guardrail activations, prevented defects, false positives, overrides, manual corrections, operator boundaries, recurrence, and avoidable rework without manufacturing unavailable human-effort values.",
+                "Track whether gap remediations return to their declared parent-objective re-entry point and whether class-level remediations reduce repeated work.",
+                "Expose the above objective/debt/assurance/guardrail state through the protected SAGE experience and record user/Architect decisions as evidence.",
+                "After Action-002 completion, execute the counterfactual architecture review once and measure whether identified divergences materially alter the next objective path before authorizing convergence work."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-23T03:11:37-05:00",
+                    "actor": "Architect",
+                    "reason": "Architect authorizes objective-first routing, value-preserving integration, BDD assurance observability, active technical-debt economics, guardrail/collaboration feedback, protected UX projection, and a post-Action-002 counterfactual architecture review as one bounded integration of existing SAGE responsibilities.",
+                    "evidence_references": [
+                        "action:SAGE-ACTION-20260815-002",
+                        "action:SAGE-ACTION-20260821-001",
+                        "commit:e0d07fd00041683c10923263c72f7723575bcc69"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-23T03:28:54-05:00",
+                    "actor": "Architect",
+                    "reason": "Accept the registered objective-first integration action. Its purpose is to compose existing SAGE responsibilities into an objective-driven decision loop, preserve Action-002 as the parent delivery objective, and defer the counterfactual architecture-convergence review until Action-002 completes.",
+                    "evidence_references": [
+                        "commit:2e66695bdb93b8d108525d034e0305cad64c0993"
+                    ]
+                }
+            ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260823-002",
+            "title": "Make accepted-control failure attribution evidence-grounded",
+            "source_lessons": [],
+            "source_sessions": [],
+            "source_records": [
+                {
+                    "record_type": "capability-gap",
+                    "record_id": "SAGE-GAP-20260823-ACCEPTED-CONTROL-FAILURE-ATTRIBUTION",
+                    "schema_version": "1.1",
+                    "sha256": "20375c715c5d7814d39c8297f433a371acfd2c8036912d0386f5ac1cbfb225b0"
+                }
+            ],
+            "current_status": "validated",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "SAGE distinguishes recurrence of an underlying candidate or execution defect from failure of the accepted recovery control governing that defect. A consumed governing fingerprint plus accepted control status is not by itself sufficient evidence that the control failed. When current post-retrieval evidence says authority, scope, required capability, safety, repository-owned composition, and approval/mutation boundaries are unchanged, an unchanged implementation defect remains on the bounded implementation-local repair/regression/revalidation path unless separate evidence demonstrates that the accepted control violated its promised behavior. Genuine accepted-control failure still emits exactly one Architect-owned successor boundary. After correction, the blocked SAGE-ACTION-20260823-001 candidate returns to its declared parent re-entry path and SAGE-ACTION-20260815-002 remains the parent delivery objective.",
+            "acceptance_criteria": [
+                "Accepted-control failure is represented as a distinct evidence-backed assertion and is not inferred solely from a consumed governing-condition fingerprint plus accepted/implemented/validated control status.",
+                "A deterministic regression reproduces recovery identity d173954d83b3ca52666a4380ea3b7ace129c8a5c57182390a3b3a4e31c9eb16e and fingerprint b869f5985a1d5d31b309c481779b2e9a341e6dbe912356cc8d8115a5aeba6ec2: post-retrieval implementation-local-retry remains implementation-local when the same candidate whitespace defect recurs under unchanged governing conditions.",
+                "The regression proves that recurrence of the controlled workload or candidate defect does not by itself mark the owning accepted control as failed.",
+                "A separate negative regression proves a genuinely violated accepted control contract still escalates exactly once to successor-action / architect-decision.",
+                "Recovery identity, consumed-fingerprint loop prevention, owner-aware implementation-local continuation, and fail-closed behavior from SAGE-ACTION-20260821-001 remain intact.",
+                "Request-execution diagnosis, post-retrieval continuation, recovery decision, and intent-to-outcome re-entry agree on the selected boundary or fail closed with explicit contradiction evidence.",
+                "No change broadens Git, GitHub, deployment, secret, or repository mutation authority.",
+                "After validation, SAGE-ACTION-20260823-001 can resume the bounded implementation-local correction of its objective-route contribution without repeating semantic confirmation or planning absent a genuinely new governing-condition change.",
+                "Completion returns to SAGE-ACTION-20260823-001 and subsequently SAGE-ACTION-20260815-002; this remediation does not become a competing parent objective."
+            ],
+            "measurement_plan": [
+                "Track unchanged implementation recurrences that remain implementation-local versus those escalated as accepted-control failures.",
+                "Track accepted-control failure assertions with the concrete violated control obligation/evidence that justified escalation.",
+                "Require zero successor actions caused solely by an already-consumed fingerprint when the owning control's promised behavior remains satisfied.",
+                "Track duplicate governance re-entry prevented and implementation-local repair paths successfully resumed.",
+                "Replay the live Action-001 whitespace-validation sequence and verify the route returns to bounded candidate correction, then parent Action-001/Action-002 continuation."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-23T22:40:26-05:00",
+                    "actor": "Architect",
+                    "reason": "Register the Architect-approved successor control for evidence-grounded accepted-control failure attribution.",
+                    "evidence_references": [
+                        "state:/Users/donbuddenbaum/.local/state/kalaxy3/sage-request-execution/20260823-061708-820813/successor-improvement-action-boundary.json",
+                        "state:/Users/donbuddenbaum/.local/state/kalaxy3/sage-request-execution/20260823-061708-820813/recovery-next-boundary.json",
+                        "action:SAGE-ACTION-20260823-001",
+                        "action:SAGE-ACTION-20260815-002"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-23T23:00:40-05:00",
+                    "actor": "Architect",
+                    "reason": "Architect accepts the bounded successor remediation: accepted-control failure must require evidence that the control itself failed; recurrence of the underlying implementation defect alone must not force successor escalation.",
+                    "evidence_references": [
+                        "commit:e31938aabd1b6070404067dd5abbc80ca0411e74",
+                        "state:/Users/donbuddenbaum/.local/state/kalaxy3/sage-action-transition/20260823-225458-859343/recovery-next-boundary.json",
+                        "state:/Users/donbuddenbaum/.local/state/kalaxy3/sage-action-transition/20260823-225839-755906/recovery-next-boundary.json"
+                    ]
+                },
+                {
+                    "sequence": 3,
+                    "from_status": "accepted",
+                    "to_status": "implemented",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-25T23:34:01-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The governed four-path implementation is durably persisted and synchronized at commit 289d728fcdaa4a89c3b561bd0d5254c2affd8255. Live recurrence remained implementation-local, repeated recovery consumption returned already-consumed without duplicate receipt or repository mutation, the complete candidate validation passed, and the routine Git lifecycle completed successfully.",
+                    "evidence_references": [
+                        "commit:289d728fcdaa4a89c3b561bd0d5254c2affd8255",
+                        "routine-git-receipt-sha256:47b6800baf85360e678f29dfad7578a7266ed690a07988a42b441922ccb5286c",
+                        "post-operator-verification:/Users/donbuddenbaum/.local/state/kalaxy3/sage-request-execution/continue-20260825-233101-182012/post-operator-verification.json",
+                        "request-execution-state:/Users/donbuddenbaum/.local/state/kalaxy3/sage-request-execution/20260825-230411-683136/request-execution-state.json"
+                    ]
+                },
+                {
+                    "sequence": 4,
+                    "from_status": "implemented",
+                    "to_status": "validated",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-25T23:42:41-05:00",
+                    "actor": "repository-workflow",
+                    "reason": "The implemented correction is validated by live recurrence evidence showing unchanged governing conditions remained implementation-local with accepted_control_failure=false; repeated consumption of the identical already-consumed recovery fingerprint returned already-consumed with no duplicate receipt and no repository mutation; the full candidate validation and operating-contract chain passed; implementation commit 289d728fcdaa4a89c3b561bd0d5254c2affd8255 and implemented lifecycle commit 39657d4a224777d2246ee2e5624298a0bb7827de are synchronized to the feature branch.",
+                    "evidence_references": [
+                        "implementation-commit:289d728fcdaa4a89c3b561bd0d5254c2affd8255",
+                        "implemented-lifecycle-commit:39657d4a224777d2246ee2e5624298a0bb7827de",
+                        "recurrence-decision:/Users/donbuddenbaum/.local/state/kalaxy3/sage-request-execution/20260825-231702-453269/recovery-next-boundary.json",
+                        "original-consumption:/Users/donbuddenbaum/.local/state/kalaxy3/sage-request-execution/20260825-230731-966106/recovery-governing-change-consumption.json",
+                        "routine-git-receipt-sha256:47b6800baf85360e678f29dfad7578a7266ed690a07988a42b441922ccb5286c",
+                        "request-execution-state:/Users/donbuddenbaum/.local/state/kalaxy3/sage-request-execution/20260825-230411-683136/request-execution-state.json"
+                    ]
+                }
+            ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260827-001",
+            "title": "Establish SAGE causal evidence graph",
+            "source_lessons": [],
+            "source_sessions": [],
+            "source_records": [
+                {
+                    "record_type": "capability-gap",
+                    "record_id": "SAGE-GAP-20260827-CAUSAL-EVIDENCE-GRAPH",
+                    "schema_version": "1.1",
+                    "sha256": "e92545563dc3dbfe25d7cd850aef43ae3b0ffe6b67fd2587cddccabaca224048"
+                }
+            ],
+            "current_status": "implemented",
+            "owner": "Architect",
+            "priority": "high",
+            "target_control_type": "automation",
+            "desired_outcome": "Implement the Architect-approved post-Action-002 convergence objective: one authoritative causal evidence graph supplies SAGE objective truth while independent actors/workflows may advance concurrently and through multiple valid paths. Current readiness and objective status are derived projections of evidence-backed facts and causal relationships, not competing workflow-owned truth. Preserve sufficient historical decision/evidence lineage for recreation, audit, and later Architect-owned counterfactual analysis. Deliver a bounded MVP happy-path vertical slice first, then the minimum MRP resilience needed to trust the model under correction/change. Existing SAGE architecture, roles, guardrails, authority boundaries, evidence obligations, recovery rules, and capability contracts are inherited unchanged.",
+            "acceptance_criteria": [
+                "The implementation inherits existing SAGE roles, guardrails, authority, evidence, recovery, and capability contracts; it introduces no alternate governance or LLM authority model.",
+                "MVP demonstrates one real objective in which at least two independent evidence/fact branches can advance without an artificial global serial transition and converge into one derived readiness/outcome view.",
+                "MVP can recreate the happy-path objective result and causal lineage from persisted authoritative facts/evidence without consulting a competing workflow-owned version of objective truth.",
+                "MRP preserves correction, supersession, and invalidation history rather than destructively rewriting prior authoritative facts, and can reconstruct what was legitimately knowable before and after the change.",
+                "MRP provides collision-safe stable evidence identity: two distinct evidence records cannot silently overwrite or collapse merely because their source filenames or basenames match.",
+                "MRP can assemble the preserved actual-path decision/evidence context needed for Architect-owned counterfactual review without SAGE assessing or dispositioning architecture on the Architect's behalf.",
+                "Existing workflow-specific state migrates incrementally toward projection/compatibility status; this objective does not require a big-bang rewrite of otherwise useful workflows or execution engines.",
+                "For this objective's own operator path, deterministic SAGE prerequisite validation occurs before an LLM-authored execution instruction reaches the operator. If SAGE genuinely cannot determine a compliant continuation, it surfaces an explicit Architect decision boundary rather than forcing either the LLM or operator to fabricate SAGE-internal semantics."
+            ],
+            "measurement_plan": [
+                "Record the MVP causal branches, convergence conditions, derived outcome, operator boundaries, and elapsed/rework events.",
+                "Recreate the MVP result from persisted facts/evidence and compare the derived outcome and lineage with the original live view.",
+                "Exercise one MRP supersession/invalidation and prove historical before-state and current after-state are both reconstructable.",
+                "Exercise two distinct same-basename evidence inputs and prove both retain independent stable identity and provenance.",
+                "Generate one evidence package for an Architect-owned actual-path versus counterfactual-path review from preserved lineage without rewriting history.",
+                "Classify operator-visible rework during delivery as: LLM bypassed/contradicted available deterministic SAGE guidance; SAGE possessed enough information but failed to surface actionable guidance; or legitimate Architect intervention because the problem exceeded current SAGE capability.",
+                "Treat the first two rework classes as preventable delivery defects and preserve the third as a capability-frontier/Architect-boundary event with traceable remediation for future recurrence."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-27T21:22:47-05:00",
+                    "actor": "Architect",
+                    "reason": "Register the Architect-approved post-Action-002 causal evidence graph objective through the narrowly scoped action-origin bootstrap permitted by the continuous-improvement contract.",
+                    "evidence_references": [
+                        "action:SAGE-ACTION-20260815-002",
+                        "commit:36df7fe1830412521d8e46a9a49eaed4060eb1ea",
+                        "architect-directive:2026-08-27:adopt-causal-evidence-graph-mvp-mrp"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-27T21:29:58-05:00",
+                    "actor": "Architect",
+                    "reason": "Architect accepts the post-Action-002 causal-evidence-graph objective as registered: deliver the bounded MVP happy-path vertical slice first, then the minimum MRP resilience, while inheriting the existing SAGE roles, guardrails, authority boundaries, evidence obligations, recovery rules, and capability contracts.",
+                    "evidence_references": [
+                        "commit:be5f46fe1700e2de36a66b987530105feb764777"
+                    ]
+                },
+                {
+                    "sequence": 3,
+                    "from_status": "accepted",
+                    "to_status": "implemented",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-29T02:53:38-05:00",
+                    "actor": "Architect",
+                    "reason": "The accepted causal-evidence objective now has its bounded MVP happy-path and minimum-resilience implementation integrated at commit 4c12ce964b5973891b304d0fbc32797d316b1574. Persisted MRP proof demonstrates immutable invalidation and supersession, before/after reconstruction, transitive downstream inactivity, preserved actual-path and correction references, and passing full-store verification. This transition records implementation completion only; acceptance-criteria validation, measurement, and closure remain separate governed boundaries.",
+                    "evidence_references": [
+                        "commit:4c12ce964b5973891b304d0fbc32797d316b1574"
+                    ]
+                }
+            ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260829-001",
+            "title": "Make causal idea acceptance revisitable and evidence-projected",
+            "source_lessons": [],
+            "source_sessions": [],
+            "source_records": [
+                {
+                    "record_type": "capability-gap",
+                    "record_id": "SAGE-GAP-20260829-REVISITABLE-CAUSAL-ACCEPTANCE",
+                    "schema_version": "1.1",
+                    "sha256": "7404ca3705b7c876a15df6ac72255d2bbc9cfb3bc0b8f43b5e048cc1b249c62c"
+                }
+            ],
+            "current_status": "accepted",
+            "owner": "Architect",
+            "priority": "high",
+            "target_control_type": "automation",
+            "desired_outcome": "Extend the causal evidence graph so a causal idea is a persistent object whose identity is independent of its current evidentiary acceptance. Legitimate provenanced ideas may enter and participate while partially supported. Acceptance or maturity is a derived, revisitable projection over applicable criteria and evidence rather than an admission gate. Later evidence can strengthen, weaken, refine, invalidate, or supersede the projection without rewriting the idea, its evidence, or prior knowable states. Stronger claims such as validated, ready, or promotable remain separately governed and may require explicit Architect-owned thresholds.",
+            "acceptance_criteria": [
+                "A validly identified and provenanced causal idea can be persisted and participate in the graph without satisfying every acceptance criterion.",
+                "Idea identity is stable and independent of its current acceptance or maturity projection.",
+                "SAGE derives a criterion/evidence-level acceptance projection that can distinguish demonstrated, partial, untested, contradicted, or otherwise evidence-qualified states without collapsing them into admission pass/fail.",
+                "Later evidence can strengthen, weaken, refine, invalidate, or supersede the current acceptance projection while preserving immutable prior evidence and reconstructable historical projections.",
+                "Hard thresholds are applied only when making a stronger governed claim such as validated, ready, or promotable; those thresholds and authority remain explicit rather than being inferred from idea admission.",
+                "Architect authority over architectural judgment and disposition is preserved; SAGE reports evidence and projection state without deciding architectural fitness on the Architect's behalf.",
+                "The capability extends the existing causal-evidence model incrementally and does not require a big-bang migration of existing workflow state.",
+                "A real persisted idea is demonstrated first with incomplete acceptance, then revisited with later evidence that materially changes its projection while both before and after states remain reconstructable."
+            ],
+            "measurement_plan": [
+                "Persist one real causal idea while at least one applicable criterion remains incomplete.",
+                "Show that the incomplete idea remains queryable and causally usable rather than rejected.",
+                "Record the criterion/evidence acceptance projection before additional evidence.",
+                "Add later evidence and recompute the projection without rewriting the original idea or evidence.",
+                "Reconstruct the before and after acceptance projections from persisted history.",
+                "Exercise at least one strengthening path and one weakening, invalidation, or supersession path.",
+                "Demonstrate that a stronger claim gate is evaluated separately from causal-idea admission.",
+                "Measure operator rework and identify any case where SAGE incorrectly turns incomplete acceptance into an admission gate."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-08-29T03:29:10-05:00",
+                    "actor": "Architect",
+                    "reason": "Register the Architect-approved successor causal-evidence refinement: admission and evolving acceptance are separate, and causal ideas remain revisitable as evidence changes.",
+                    "evidence_references": [
+                        "action:SAGE-ACTION-20260827-001",
+                        "commit:aa52634cf99240812ca2317319a9aed24750ded3",
+                        "architect-directive:2026-08-29:causal-ideas-use-revisitable-acceptance-projections"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-08-29T03:33:51-05:00",
+                    "actor": "Architect",
+                    "reason": "Architect accepts the registered revisitable causal-idea acceptance objective. Admission and evidentiary acceptance are distinct: incomplete acceptance is measurable state rather than an admission failure, ideas remain revisitable as evidence changes, and stronger claims retain separate governed thresholds.",
+                    "evidence_references": [
+                        "commit:a8387d336f39faec3a71eb44877a435bb5954b30"
                     ]
                 }
             ]

@@ -70,14 +70,18 @@ def main() -> int:
     print(json.dumps(result, indent=2))
     if result.get("status") == "operator-review-required":
         proposal = result.get("proposal")
-        command = (
-            proposal.get("command", {}).get("display")
-            if isinstance(proposal, dict)
-            else None
-        )
         print("Next operator boundary:")
-        print(f"  {command}")
-        print("Stop after that one operator command and paste its complete output.")
+        if isinstance(proposal, dict) and isinstance(proposal.get("command"), dict):
+            command = proposal["command"].get("display")
+            print(f"  {command}")
+            print("Stop after that one operator command and paste its complete output.")
+        elif isinstance(proposal, dict) and isinstance(proposal.get("browser"), dict):
+            browser = proposal["browser"]
+            print(f"  Browser action: {browser.get('action')}")
+            print(f"  Open: {browser.get('url')}")
+            print("Complete only that browser-reviewed boundary, then continue with its bound operator result.")
+        else:
+            raise WorkflowError("operator-review-required result lacks a command or browser proposal")
     else:
         print("Checkpoint promotion lifecycle: COMPLETE")
     return 0

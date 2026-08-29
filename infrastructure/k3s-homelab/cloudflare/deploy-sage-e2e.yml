@@ -22,6 +22,9 @@
           - sage_external_hostname | length > 3
           - "'.' in sage_external_hostname"
           - "'://' not in sage_external_hostname"
+          - sage_promotion_receipt_file is defined
+          - sage_promotion_receipt_file | length > 3
+          - sage_promotion_receipt_file is match('^/')
           - kalaxy3_secrets_file is defined
           - kalaxy3_secrets_file | length > 3
           - kalaxy3_secrets_file is match('^/')
@@ -32,6 +35,40 @@
         fail_msg: >-
           Provide a DNS hostname and an absolute controller-local Ansible
           Vault secrets file outside the Kalaxy3 repository.
+
+
+    - name: Read controller-local immutable artifact promotion receipt
+      ansible.builtin.slurp:
+        src: "{{ sage_promotion_receipt_file }}"
+      delegate_to: localhost
+      become: false
+      vars:
+        ansible_become: false
+      register: sage_promotion_receipt_source
+      changed_when: false
+
+    - name: Parse immutable artifact promotion receipt
+      ansible.builtin.set_fact:
+        sage_promotion_receipt: >-
+          {{ sage_promotion_receipt_source.content | b64decode | from_json }}
+
+    - name: Require exact promotion receipt and current environment binding
+      ansible.builtin.assert:
+        that:
+          - sage_promotion_receipt.schema_version == '1.0'
+          - sage_promotion_receipt.record_type == 'sage-artifact-promotion-receipt'
+          - sage_promotion_receipt.status == 'pass'
+          - sage_promotion_receipt.environment.environment_id == 'kalaxy3-home-sage-experience'
+          - sage_promotion_receipt.verification.rebuild_performed == false
+          - sage_promotion_receipt.verification.independent_target_raw_digest_match == true
+          - sage_promotion_receipt.target.image_ref is match('^docker\.io/donb4iu/mynginx_docs@sha256:[0-9a-f]{64}$')
+        fail_msg: >-
+          SAGE deployment requires a successful exact-digest promotion receipt for
+          the kalaxy3-home-sage-experience environment.
+
+    - name: Bind verified promoted image identity for rendering
+      ansible.builtin.set_fact:
+        sage_experience_image_ref: "{{ sage_promotion_receipt.target.image_ref }}"
 
     - name: Inspect controller-local encrypted runtime secrets
       ansible.builtin.stat:

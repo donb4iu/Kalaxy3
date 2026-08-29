@@ -54,6 +54,24 @@ def main() -> int:
         "reconcile_completed_request_child",
         "reconciled_from_completed_child",
         "completed request child",
+        "reconcile_completed_semantic_child",
+        "reconciled_from_completed_semantic_child",
+        "planning-source-ready",
+        "approved_gap_set",
+        "build_objective_route",
+        "objective_route_snapshot",
+        "reconcile_stale_parent_completed_request_child",
+        "validate_reusable_plan_lineage",
+        "stale-parent completed-child reconciliation requires planning-source-ready parent",
+        "sage-objective-route",
+        "remaining_obligations",
+        "parent_objective_id",
+        "canonical_integration_eligibility",
+        "bdd_requirement_coverage",
+        "guardrail_collaboration_feedback",
+        "_current_recovery_composition_sha256",
+        "governing_composition_digest",
+        "repository_owned_composition_sha256=current_composition",
     ):
         if marker not in wrapper:
             failures.append(f"front door missing existing-component marker: {marker}")
@@ -64,8 +82,20 @@ def main() -> int:
         failures.append("front door lacks semantic-bootstrap planning-source compatibility resolution")
 
     cli = CLI.read_text(encoding="utf-8")
+    for marker in (
+        "stale consumed recovery decisions do not block changed recovery composition",
+        "current consumed recovery decisions still block duplicate governance re-entry",
+    ):
+        if marker not in cli:
+            failures.append(f"intent recovery-composition regression missing: {marker}")
     if '"--planning-source"' not in cli:
         failures.append("adopt-iteration CLI does not accept historical planning-source lineage")
+    if 'sub.add_parser("route")' not in cli or "objective_route_snapshot" not in cli:
+        failures.append("intent-to-outcome CLI lacks read-only objective route inspection")
+    if '"--completed-child-state"' not in cli or '"--planning-source"' not in cli:
+        failures.append("continue-request lacks explicit stale-parent completed-child reconciliation inputs")
+    if "intent state is not awaiting request continuation" not in wrapper:
+        failures.append("ordinary continue-request status gate was weakened")
     if '"planning_source": inherited_source' not in wrapper or '"planning_proposal": inherited_proposal' not in wrapper:
         failures.append("adopt-iteration does not persist validated planning lineage")
     if "candidate iteration requires a durable prior candidate checkpoint" in wrapper:
@@ -127,6 +157,20 @@ def main() -> int:
         "different subset of already-authorized paths",
         "already self-closed",
         "must not replay",
+        "completed semantic child",
+        "persist the planning source before planning",
+        "planning failure",
+        "approved domain-capability gap set",
+        "Objective-first route",
+        "value-preserving integration",
+        "BDD-style assurance",
+        "active technical debt",
+        "parent delivery re-entry",
+        "read-only route",
+        "completed-child reconciliation",
+        "refreshed planning lineage",
+        "current recovery composition",
+        "historical consumed recovery decision",
     ):
         if marker not in standard:
             failures.append(f"intent-to-outcome standard missing: {marker}")
@@ -141,8 +185,12 @@ def main() -> int:
     print("PASS one-time bootstrap adoption path is explicit")
     print("PASS adopted iterative objectives preserve and validate planning source/proposal lineage")
     print("PASS already-completed self-closing request children reconcile without replaying Git")
+    print("PASS already-completed semantic children reconcile without replay and parent planning lineage persists before planning")
     print("PASS candidate iteration preserves non-promotable checkpoints and earliest-boundary re-entry")
     print("PASS same-class corrections accumulate before promotion and intent-first role separation is explicit")
+    print("PASS objective-first route is a read-only extension of the existing front door, not a parallel orchestrator")
+    print("PASS stale-parent completed-child reconciliation preserves exact child, receipt, and refreshed planning lineage without replay")
+    print("PASS route exposes parent re-entry, limitations, BDD assurance status, integration separation, and collaboration feedback without manufacturing evidence")
     print("Kalaxy3 SAGE intent-to-outcome guardrail: PASS")
     return 0
 

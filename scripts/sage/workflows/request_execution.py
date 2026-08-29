@@ -7,6 +7,7 @@ from collections import Counter
 
 import hashlib
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -36,6 +37,19 @@ from workflow import (
     ValidationCommand,
     ValidationPlan,
     WorkflowError,
+)
+from workflow.diagnosis import classify_post_retrieval_continuation
+from workflow.recovery import (
+    RECOVERY_CONSUMPTION_NAME,
+    RECOVERY_DECISION_NAME,
+    bind_successor_operator_boundary,
+    build_consumption_record,
+    build_recovery_identity,
+    decide_next_boundary,
+    digest_value,
+    governing_composition_digest,
+    load_consumed_fingerprints,
+    load_recovery_decisions,
 )
 from workflows.operating_contract import build_post_operator_workflow, build_pre_mutation_workflow
 
@@ -90,6 +104,7 @@ class ExecutionContext:
     proposal_path: Path | None = None
     transaction: AtomicFileTransaction | None = None
     baseline_safety: dict[str, tuple[tuple[str, str, str], ...]] | None = None
+    context_baseline_validation: dict[str, Any] | None = None
     validation: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -111,6 +126,116 @@ def write_state(context: ExecutionContext, name: str, value: Mapping[str, Any]) 
     path = context.state_dir / name
     context.writer.write_text(path, stable_json(value), new_mode=0o600)
     return path
+
+
+def _request_execution_recovery_state_root(source: Path) -> Path:
+    """Resolve the shared local-state root for a request-execution recovery."""
+
+    for parent in source.parents:
+        if parent.name == "sage-request-execution":
+            return parent.parent
+    raise WorkflowError("recovery decision is outside SAGE request-execution state")
+
+
+def _request_execution_recovery_runtime(
+    repo: Path,
+    state_dir: Path,
+) -> tuple[CommandRunner, Path]:
+    """Build the registered command runtime for request-execution recovery."""
+
+    required = ("command.run", "file.atomic-preserve-mode")
+    catalog = PrimitiveCatalog.load(repo / "sage-workflow-primitives.json")
+    catalog.require(required)
+    event_log = state_dir / "recovery-consumption-events.jsonl"
+    logger = JsonlEventLogger(
+        event_log,
+        WORKFLOW_ID + ".recovery",
+        primitive_versions=catalog.versions_for(required),
+    )
+    runner = CommandRunner(
+        logger,
+        allowed_roots=(repo, state_dir),
+        base_environment={name: "" for name in SECRET_ENVIRONMENT_NAMES},
+    )
+    return runner, event_log
+
+
+def consume_recovery_decision(
+    repo: Path,
+    recovery_decision_path: Path,
+    output: Path | None = None,
+) -> Mapping[str, Any]:
+    """Consume one implementation-local recovery owned by request execution."""
+
+    resolved_repo = repo.expanduser().resolve()
+    source = recovery_decision_path.expanduser().resolve()
+    decision = json.loads(source.read_text(encoding="utf-8"))
+    if decision.get("record_type") != "sage-recovery-next-boundary":
+        raise WorkflowError("request-execution recovery decision type is invalid")
+    if decision.get("owning_component") != WORKFLOW_ID:
+        raise WorkflowError("request-execution recovery owner is invalid")
+    if (
+        decision.get("disposition") != "repair"
+        or decision.get("next_boundary") != "implementation-local"
+    ):
+        raise WorkflowError("request-execution recovery is not implementation-local repair")
+    identity = decision.get("recovery_identity", {})
+    identity_sha = str(identity.get("identity_sha256", ""))
+    fingerprint = str(decision.get("governing_condition_fingerprint", ""))
+    if not identity_sha or not fingerprint:
+        raise WorkflowError("request-execution recovery identity is invalid")
+
+    state_root = _request_execution_recovery_state_root(source)
+    already_consumed = fingerprint in load_consumed_fingerprints(
+        state_root,
+        identity_sha,
+    )
+
+    runner, event_log = _request_execution_recovery_runtime(
+        resolved_repo,
+        source.parent,
+    )
+    result = runner.run(
+        CommandSpec(
+            primitive_id="command.run",
+            label="Validate request-execution implementation-local recovery",
+            argv=("make", "sage-request-execute-self-test"),
+            cwd=resolved_repo,
+            timeout_seconds=600,
+        ),
+        step_id="request-execution-implementation-local-recovery-validation",
+    )
+    if already_consumed:
+        return {
+            "status": "already-consumed",
+            "consumption": None,
+            "validation_output_sha256": result.output_sha256,
+            "source_recovery_decision": str(source),
+            "repository_mutation": False,
+        }
+
+    destination = (
+        output or source.parent / RECOVERY_CONSUMPTION_NAME
+    ).expanduser().resolve()
+    if destination.exists():
+        raise WorkflowError(f"recovery consumption already exists: {destination}")
+    record = build_consumption_record(
+        decision,
+        consumed_boundary="implementation-local",
+        consumer_reference=str(event_log.resolve()),
+    )
+    AtomicFileWriter((source.parent, destination.parent)).write_text(
+        destination,
+        stable_json(record),
+        new_mode=0o600,
+    )
+    return {
+        "status": "consumed",
+        "consumption": str(destination),
+        "validation_output_sha256": result.output_sha256,
+        "source_recovery_decision": str(source),
+        "repository_mutation": False,
+    }
 
 
 def build_context(repo: Path, request: str, proposal: Path) -> ExecutionContext:
@@ -135,6 +260,50 @@ def build_context(repo: Path, request: str, proposal: Path) -> ExecutionContext:
     inspector = GitInspector(repo, runner)
     writer = AtomicFileWriter((repo, state_dir))
     return ExecutionContext(repo, request, bundle, state_dir, catalog, logger, runner, inspector, writer)
+
+
+
+def context_policy_validation(
+    context: ExecutionContext,
+    *,
+    field: str,
+    changed: bool = False,
+) -> dict[str, Any]:
+    """Run repository-owned context validation without trusting proposal-authored commands."""
+
+    if field not in {"baseline", "required"}:
+        raise WorkflowError(f"unsupported context validation phase: {field}")
+    argv: list[str] = [
+        "python3",
+        "scripts/sage/sage-change-preflight.py",
+    ]
+    if changed:
+        argv.append("--changed")
+    else:
+        for relative in context.bundle.declared_paths:
+            argv.extend(("--path", relative))
+    argv.append(
+        "--run-baseline-validation"
+        if field == "baseline"
+        else "--run-required-validation"
+    )
+    result = context.runner.run(
+        CommandSpec(
+            primitive_id="validation.plan",
+            label=f"Run context-derived {field} validation",
+            argv=tuple(argv),
+            cwd=context.repo,
+            timeout_seconds=3600,
+        ),
+        step_id=f"context-{field}-validation",
+    )
+    return {
+        "label": f"Context-derived {field} validation",
+        "reference": "sage-change-authority.json",
+        "status": "pass",
+        "sha256": result.output_sha256,
+    }
+
 
 
 def discovery_action(context: ExecutionContext) -> Mapping[str, Any]:
@@ -166,7 +335,7 @@ def discovery_action(context: ExecutionContext) -> Mapping[str, Any]:
 
 
 def git_action(context: ExecutionContext) -> Mapping[str, Any]:
-    """Require exact clean branch, proposal-bound HEAD, and live main authority."""
+    """Require proposal-bound feature authority and observe current remote main."""
 
     repository = context.bundle.manifest["repository"]
     context.inspector.require_clean()
@@ -174,14 +343,6 @@ def git_action(context: ExecutionContext) -> Mapping[str, Any]:
     context.inspector.require_head(str(repository["head"]))
     context.git_snapshot = context.inspector.snapshot()
     context.remote_main_head = context.inspector.remote_head("origin", "main")
-    if not context.inspector.is_ancestor(
-        context.remote_main_head,
-        context.git_snapshot.head,
-    ):
-        raise WorkflowError(
-            "Feature branch HEAD is not based on current remote main authority: "
-            f"main={context.remote_main_head}, head={context.git_snapshot.head}"
-        )
     return {
         **context.git_snapshot.as_dict(),
         "remote_main_head": context.remote_main_head,
@@ -207,14 +368,188 @@ def authority_assertions(context: ExecutionContext, captured: str) -> tuple[Auth
         AuthorityAssertion("ASSERT-003", "github", "repository-policy", "sage-operating-contract-policy.json#helper_policy", subject="GitHub mutation boundary", statement="SAGE request execution may not mutate GitHub; an operator boundary is required.", measurement_type="declared", evidence_sha256=sha256_file(policy), **common),
         AuthorityAssertion("ASSERT-004", "repository-policy", "repository", "markdown/standards/kalaxy3-sage-operating-contract.md", subject="repository mutation policy", statement="Repository content may be changed atomically and validated before one operator-executed Git proposal.", measurement_type="declared", evidence_sha256=sha256_file(standard), **common),
         AuthorityAssertion("ASSERT-005", "sage", "repository", "sage-change-authority.json", subject="SAGE discovery authority", statement="The literal request was classified through current repository SAGE discovery and its authoritative files were readable.", measurement_type="measured", evidence_sha256=discovery_digest, **common),
-        AuthorityAssertion("ASSERT-006", "git", "git", f"origin/main:{context.remote_main_head}", subject="remote main authority", statement=f"Live origin/main is {context.remote_main_head} and is an ancestor of the active feature HEAD.", measurement_type="measured", evidence_sha256=hashlib.sha256(str(context.remote_main_head).encode()).hexdigest(), **common),
+        AuthorityAssertion(
+            "ASSERT-006",
+            "git",
+            "git",
+            f"origin/main:{context.remote_main_head}",
+            subject="remote main authority",
+            statement=(
+                f"Live origin/main is {context.remote_main_head}; it is frozen "
+                "as observed authority evidence and is not an ancestry "
+                "requirement unless an applicable authority explicitly says so."
+            ),
+            measurement_type="measured",
+            evidence_sha256=hashlib.sha256(
+                str(context.remote_main_head).encode()
+            ).hexdigest(),
+            **common,
+        ),
     )
 
 
-def authority_action(context: ExecutionContext) -> Mapping[str, Any]:
-    """Reconcile required federated authority through the registered primitive."""
 
-    policy = json.loads((context.repo / "sage-operating-contract-policy.json").read_text(encoding="utf-8"))
+OBJECTIVE_PATH_DECISION_ENV = "SAGE_OBJECTIVE_PATH_DECISION"
+OBJECTIVE_PATH_CLASSIFICATIONS = frozenset({
+    "direct-objective-value",
+    "necessary-blocker-material-risk",
+    "deferrable-sage-internal-improvement",
+})
+
+
+def _objective_path_text(value: Any, field: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise WorkflowError(f"objective path decision {field} must be non-empty")
+    return value.strip()
+
+
+def _validate_objective_path_decision(
+    value: Mapping[str, Any],
+    *,
+    request: str,
+    proposal_path: Path,
+) -> dict[str, Any]:
+    required = {
+        "schema_version",
+        "record_type",
+        "active_objective_id",
+        "request_sha256",
+        "proposal_sha256",
+        "who",
+        "what",
+        "why",
+        "when",
+        "where",
+        "how",
+        "classification",
+        "deferral_consequence",
+        "next_value_milestone",
+        "architect_disposition",
+    }
+    if set(value) != required:
+        missing = sorted(required - set(value))
+        extra = sorted(set(value) - required)
+        raise WorkflowError(
+            "objective path decision fields mismatch: "
+            f"missing={missing}, extra={extra}"
+        )
+    if value.get("schema_version") != "1.0":
+        raise WorkflowError("objective path decision schema_version must be 1.0")
+    if value.get("record_type") != "sage-objective-path-decision":
+        raise WorkflowError("objective path decision record_type is invalid")
+
+    request_sha = hashlib.sha256(request.encode("utf-8")).hexdigest()
+    if value.get("request_sha256") != request_sha:
+        raise WorkflowError(
+            "objective path decision is not bound to the exact literal request"
+        )
+    proposal_sha = sha256_file(proposal_path.expanduser().resolve())
+    if value.get("proposal_sha256") != proposal_sha:
+        raise WorkflowError(
+            "objective path decision is not bound to the exact proposal package"
+        )
+
+    for field in (
+        "active_objective_id",
+        "who",
+        "what",
+        "why",
+        "when",
+        "where",
+        "how",
+        "deferral_consequence",
+        "next_value_milestone",
+    ):
+        _objective_path_text(value.get(field), field)
+
+    classification = value.get("classification")
+    if classification not in OBJECTIVE_PATH_CLASSIFICATIONS:
+        raise WorkflowError("objective path decision classification is invalid")
+    if classification == "deferrable-sage-internal-improvement":
+        raise WorkflowError(
+            "deferrable SAGE/internal improvement cannot authorize mutation"
+        )
+
+    disposition = value.get("architect_disposition")
+    if not isinstance(disposition, Mapping):
+        raise WorkflowError(
+            "objective path decision architect_disposition must be an object"
+        )
+    if set(disposition) != {"status", "authority", "basis", "rationale"}:
+        raise WorkflowError(
+            "objective path decision architect_disposition fields are invalid"
+        )
+    if disposition.get("status") != "approved":
+        raise WorkflowError("objective path decision lacks Architect approval")
+    if str(disposition.get("authority", "")).strip().lower() != "architect":
+        raise WorkflowError("objective path decision authority must be Architect")
+    if disposition.get("basis") != "operator-supplied-to-governed-execution":
+        raise WorkflowError("objective path decision approval basis is invalid")
+    _objective_path_text(
+        disposition.get("rationale"),
+        "architect_disposition.rationale",
+    )
+    return json.loads(json.dumps(value))
+
+
+def _objective_path_decision_action(
+    context: ExecutionContext,
+    policy: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    gate = policy.get("objective_path_decision_policy")
+    if not isinstance(gate, Mapping) or gate.get("enabled") is not True:
+        raise WorkflowError("objective path decision policy is missing or disabled")
+    if gate.get("decision_authority") != "architect":
+        raise WorkflowError("objective path decision policy lost Architect authority")
+    if gate.get("environment_variable") != OBJECTIVE_PATH_DECISION_ENV:
+        raise WorkflowError("objective path decision environment binding drifted")
+
+    raw_path = os.environ.get(OBJECTIVE_PATH_DECISION_ENV, "").strip()
+    if not raw_path:
+        raise WorkflowError(
+            f"{OBJECTIVE_PATH_DECISION_ENV} is required before request mutation"
+        )
+    source = Path(raw_path).expanduser().resolve()
+    if not source.is_file():
+        raise WorkflowError(f"objective path decision file is missing: {source}")
+
+    try:
+        raw = json.loads(source.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise WorkflowError(
+            f"objective path decision is not valid JSON: {source}"
+        ) from error
+    if not isinstance(raw, Mapping):
+        raise WorkflowError("objective path decision must be a JSON object")
+
+    decision = _validate_objective_path_decision(
+        raw,
+        request=context.request,
+        proposal_path=context.bundle.package_path,
+    )
+    receipt = {
+        **decision,
+        "decision_source": str(source),
+        "decision_source_sha256": sha256_file(source),
+        "enforcement": {
+            "status": "accepted-for-mutation",
+            "gate": "request-execution-authority",
+            "deferrable_internal_work_blocked": True,
+        },
+    }
+    write_state(context, "objective-path-decision.json", receipt)
+    return receipt
+
+
+
+def authority_action(context: ExecutionContext) -> Mapping[str, Any]:
+    # Reconcile federated authority only after objective-path authority is proven.
+    policy = json.loads(
+        (context.repo / "sage-operating-contract-policy.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    objective_path_decision = _objective_path_decision_action(context, policy)
     required = policy["authority_policy"]["required_authority_types"]
     captured = datetime.now().astimezone().isoformat(timespec="seconds")
     receipt = AuthorityReconciler(required).reconcile(
@@ -227,36 +562,115 @@ def authority_action(context: ExecutionContext) -> Mapping[str, Any]:
     )
     if receipt.reconciliation["disposition"] != "complete":
         raise WorkflowError(receipt.reconciliation["summary"])
-    context.authority_path = write_state(context, "authority-reconciliation.json", receipt.to_dict())
-    return receipt.to_dict()
+    context.authority_path = write_state(
+        context,
+        "authority-reconciliation.json",
+        receipt.to_dict(),
+    )
+    result = receipt.to_dict()
+    result["objective_path_decision"] = dict(objective_path_decision)
+    return result
+
 
 
 def candidate_from_mapping(context: ExecutionContext, item: Mapping[str, Any]) -> ComponentCandidate:
-    """Bind an untrusted candidate declaration to the live primitive registry."""
+    """Bind an untrusted candidate to registered or staged-domain authority."""
 
     component_id = str(item["component_id"])
-    context.catalog.require((component_id,))
-    expected = context.catalog.versions_for((component_id,))[component_id]
-    if str(item["version"]) != expected:
-        raise WorkflowError(f"Candidate {component_id} version mismatch: expected {expected}")
+    capability_ids = tuple(str(value) for value in item["capability_ids"])
+    version = str(item["version"])
+    maturity = str(item["maturity"])
     source_path = str(item["source_path"])
-    if not (context.repo / source_path).is_file():
-        raise WorkflowError(f"Candidate source does not exist: {source_path}")
+    evidence_references = tuple(
+        str(value) for value in item["evidence_references"]
+    )
+    staged_prefix = "staged-domain-capability:"
+
+    if component_id.startswith(staged_prefix):
+        capability_id = component_id.removeprefix(staged_prefix)
+        if not capability_id or capability_ids != (capability_id,):
+            raise WorkflowError(
+                f"Staged domain candidate {component_id} must bind exactly its "
+                "single declared capability"
+            )
+        if maturity != "staged-implementation":
+            raise WorkflowError(
+                f"Staged domain candidate {component_id} has invalid maturity: "
+                f"{maturity}"
+            )
+        approved_reference = f"approved-domain-gap:{capability_id}"
+        if approved_reference not in evidence_references:
+            raise WorkflowError(
+                f"Staged domain candidate {component_id} lacks Architect-approved "
+                "domain-gap evidence"
+            )
+        planning_references = tuple(
+            value.removeprefix("planning-source-sha256:")
+            for value in evidence_references
+            if value.startswith("planning-source-sha256:")
+        )
+        if (
+            len(planning_references) != 1
+            or re.fullmatch(r"[0-9a-f]{64}", planning_references[0]) is None
+        ):
+            raise WorkflowError(
+                f"Staged domain candidate {component_id} lacks one valid "
+                "planning-source SHA-256 provenance reference"
+            )
+        source_sha = planning_references[0]
+        if not version.endswith("@" + source_sha[:12]):
+            raise WorkflowError(
+                f"Staged domain candidate {component_id} version is not bound "
+                "to its planning-source digest"
+            )
+        baseline_references = tuple(
+            value
+            for value in evidence_references
+            if value.startswith("proposed-baseline:")
+            and value.endswith("#" + capability_id)
+        )
+        if len(baseline_references) != 1:
+            raise WorkflowError(
+                f"Staged domain candidate {component_id} lacks one matching "
+                "proposed-baseline provenance reference"
+            )
+        proposal_source_paths = {
+            source.path for source in context.bundle.source_files
+        }
+        if (
+            source_path not in proposal_source_paths
+            and not (context.repo / source_path).is_file()
+        ):
+            raise WorkflowError(
+                f"Staged domain candidate source is absent from both the "
+                f"checksum-bound proposal and repository: {source_path}"
+            )
+        expected = version
+    else:
+        context.catalog.require((component_id,))
+        expected = context.catalog.versions_for((component_id,))[component_id]
+        if version != expected:
+            raise WorkflowError(
+                f"Candidate {component_id} version mismatch: expected {expected}"
+            )
+        if not (context.repo / source_path).is_file():
+            raise WorkflowError(f"Candidate source does not exist: {source_path}")
+
     return ComponentCandidate(
         str(item["candidate_id"]),
-        tuple(str(value) for value in item["capability_ids"]),
+        capability_ids,
         component_id,
         expected,
         source_path,
-        str(item["maturity"]),
+        maturity,
         dict(item["selection_factors"]),
-        tuple(str(value) for value in item["evidence_references"]),
+        evidence_references,
         str(item["rationale"]),
     )
 
 
 def selection_action(context: ExecutionContext) -> Mapping[str, Any]:
-    """Select only live versioned repository primitives for declared capabilities."""
+    """Select registered primitives and governed staged-domain candidates."""
 
     capabilities = tuple(
         RequiredCapability(str(item["capability_id"]), str(item["description"]), bool(item["required"]))
@@ -290,7 +704,7 @@ def gap_action(context: ExecutionContext) -> Mapping[str, Any]:
         "component_manifest": str(context.component_path),
         "new_primitive_required": False,
         "composition_can_close_gap": True,
-        "decision": "Reuse the selected repository primitives; no new low-level primitive is authorized.",
+        "decision": "Reuse selected registered primitives and governed checksum-bound staged-domain candidates; no new low-level primitive is authorized.",
         "approval": {"status": "review-required", "reviewed_by": None, "reviewed_at": None},
     }
     context.gap_path = write_state(context, "capability-gap-decision.json", payload)
@@ -429,6 +843,10 @@ def mutation_action(context: ExecutionContext) -> Mapping[str, str]:
 
     capture_python_safety_baseline(context)
     validate_python_payloads(context)
+    context.context_baseline_validation = context_policy_validation(
+        context,
+        field="baseline",
+    )
     paths = tuple(context.repo / relative for relative in context.bundle.declared_paths)
     context.transaction = AtomicFileTransaction(context.writer, paths)
     digests: dict[str, str] = {}
@@ -461,16 +879,31 @@ def proposal_validation_commands(context: ExecutionContext) -> tuple[ValidationC
 
 
 def validation_action(context: ExecutionContext) -> tuple[Any, ...]:
-    """Classify the exact changed scope and execute declared SAGE validations."""
+    """Execute repository-required context validation plus proposal-supplied checks."""
 
     changed = SageDiscovery(context.repo, context.runner).changed()
-    results = ValidationPlan(context.repo, context.runner, proposal_validation_commands(context)).run()
+    context_required = context_policy_validation(
+        context,
+        field="required",
+        changed=True,
+    )
+    commands = proposal_validation_commands(context)
+    results = ValidationPlan(context.repo, context.runner, commands).run()
     context.inspector.run_read_only(("diff", "--check"), label="Validate repository diff whitespace")
     context.inspector.require_exact_paths(context.bundle.declared_paths)
-    context.validation = [
-        {"label": command.label, "reference": "runtime-command", "status": "pass", "sha256": result.output_sha256}
-        for command, result in zip(proposal_validation_commands(context), results)
-    ]
+    context.validation = []
+    if context.context_baseline_validation is not None:
+        context.validation.append(dict(context.context_baseline_validation))
+    context.validation.append(context_required)
+    context.validation.extend(
+        {
+            "label": command.label,
+            "reference": "proposal-supplemental-validation",
+            "status": "pass",
+            "sha256": result.output_sha256,
+        }
+        for command, result in zip(commands, results)
+    )
     context.validation.append({
         "label": "Changed-path SAGE discovery",
         "reference": "sage.discovery",
@@ -660,73 +1093,292 @@ def failure_closeout_status(recovery: Mapping[str, Any]) -> str:
     return "failed-rollback-unverified"
 
 
-def failure_diagnosis(
+
+def _recovery_policy(context: ExecutionContext) -> dict[str, Any]:
+    """Load the repository-owned fail-closed recovery policy."""
+
+    policy_path = context.repo / "sage-recovery-policy.json"
+    recovery = json.loads(policy_path.read_text(encoding="utf-8"))
+    if (
+        not isinstance(recovery, dict)
+        or recovery.get("schema_version") != "1.0"
+        or recovery.get("policy_id") != "kalaxy3-sage-recovery"
+    ):
+        raise WorkflowError("SAGE recovery policy is invalid")
+    return recovery
+
+
+def _action_status(context: ExecutionContext, action_id: str) -> str | None:
+    """Return the current lifecycle status for one improvement action."""
+
+    registry = json.loads(
+        (context.repo / "sage-improvement-actions.json").read_text(encoding="utf-8")
+    )
+    for action in registry.get("actions", []):
+        if isinstance(action, dict) and action.get("action_id") == action_id:
+            status = action.get("current_status")
+            return str(status) if status is not None else None
+    return None
+
+
+def _governing_evidence(context: ExecutionContext) -> dict[str, Any]:
+    """Build stable evidence for all post-retrieval governing conditions."""
+
+    policy_path = context.repo / "sage-operating-contract-policy.json"
+    policy = json.loads(policy_path.read_text(encoding="utf-8"))
+    recovery = _recovery_policy(context)
+    paths = recovery.get("governing_composition_paths", [])
+    if not isinstance(paths, list) or not all(isinstance(item, str) for item in paths):
+        raise WorkflowError("recovery governing composition paths are invalid")
+    return {
+        "authority_contract_sha256": digest_value(
+            {
+                "branch": context.bundle.manifest["repository"]["branch"],
+                "policy": policy.get("authority_policy", {}),
+            }
+        ),
+        "scope_sha256": digest_value(list(context.bundle.declared_paths)),
+        "required_capability_sha256": digest_value(
+            context.bundle.manifest.get("capabilities", [])
+        ),
+        "safety_requirements_sha256": digest_value(policy.get("helper_policy", {})),
+        "repository_owned_composition_sha256": governing_composition_digest(
+            context.repo, paths
+        ),
+        "approval_or_mutation_boundaries_sha256": digest_value(
+            {
+                "operator_plan": context.bundle.manifest.get("operator_plan", {}),
+                "policy": policy.get("operator_mutation_policy", {}),
+            }
+        ),
+        "observed_remote_main": context.remote_main_head,
+    }
+
+
+def _governing_changes(
+    identity: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+    previous: list[Mapping[str, Any]],
+) -> dict[str, bool]:
+    """Compare current governing evidence with the prior matching failure."""
+
+    if not previous:
+        return {
+            "authority": False,
+            "scope": False,
+            "required_capability": False,
+            "safety_requirements": False,
+            "repository_owned_composition": False,
+            "approval_or_mutation_boundaries": False,
+        }
+    prior = previous[-1]
+    prior_evidence = prior.get("governing_evidence", {})
+    return {
+        "authority": (
+            evidence.get("authority_contract_sha256")
+            != prior_evidence.get("authority_contract_sha256")
+        ),
+        "scope": evidence.get("scope_sha256") != prior_evidence.get("scope_sha256"),
+        "required_capability": (
+            evidence.get("required_capability_sha256")
+            != prior_evidence.get("required_capability_sha256")
+        ),
+        "safety_requirements": (
+            evidence.get("safety_requirements_sha256")
+            != prior_evidence.get("safety_requirements_sha256")
+        ),
+        "repository_owned_composition": (
+            evidence.get("repository_owned_composition_sha256")
+            != prior_evidence.get("repository_owned_composition_sha256")
+        ),
+        "approval_or_mutation_boundaries": (
+            evidence.get("approval_or_mutation_boundaries_sha256")
+            != prior_evidence.get("approval_or_mutation_boundaries_sha256")
+        ),
+    }
+
+
+def _recovery_authority(context: ExecutionContext) -> dict[str, str]:
+    """Return stable feature-branch authority for recovery identity."""
+
+    repository = context.bundle.manifest["repository"]
+    return {
+        "branch": str(repository["branch"]),
+        "head": str(repository["head"]),
+    }
+
+
+def _build_recovery_decision(
     context: ExecutionContext,
+    text: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build post-retrieval and recurrence-aware next-boundary decisions."""
+
+    recovery = _recovery_policy(context)
+    identity = build_recovery_identity(
+        request=context.request,
+        component_id=WORKFLOW_ID,
+        failure_text=text,
+        repository_authority=_recovery_authority(context),
+    )
+    state_root = Path(str(recovery.get("state_root", "~/.local/state/kalaxy3")))
+    state_root = state_root.expanduser()
+    previous = load_recovery_decisions(state_root, str(identity["identity_sha256"]))
+    evidence = _governing_evidence(context)
+    changes = _governing_changes(identity, evidence, previous)
+    post_retrieval = classify_post_retrieval_continuation(
+        retrieval_performed=True,
+        attempted_action_authorized=True,
+        governing_changes=changes,
+        recovery_identity=identity,
+    )
+    control_id = str(recovery.get("owning_control_action_id", "")) or None
+    status = _action_status(context, control_id) if control_id else None
+    # Recurrence, consumed re-entry, and accepted control status are context,
+    # not proof that the owning control violated its contract.
+    accepted_failure = None
+    consumed = load_consumed_fingerprints(
+        state_root,
+        str(identity["identity_sha256"]),
+    )
+    decision = decide_next_boundary(
+        identity=identity,
+        post_retrieval=post_retrieval,
+        governing_evidence=evidence,
+        previous=previous,
+        consumed_fingerprints=consumed,
+        owning_component=WORKFLOW_ID,
+        control_action_id=control_id,
+        control_action_status=status,
+        accepted_control_failure=accepted_failure,
+    )
+    return post_retrieval, decision
+
+
+def _diagnosis_correction(
+    context: ExecutionContext,
+    decision: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Map the shared recovery decision into failure-diagnosis correction."""
+
+    recovery = _recovery_policy(context)
+    disposition = str(decision.get("disposition"))
+    action_reference = None
+    if disposition in {"successor-action", "over-governance-blocked"}:
+        action_reference = recovery.get("recovery_control_action_id")
+    if disposition == "successor-action":
+        correction = "Create the governed successor action emitted by recovery."
+        target = "create-control"
+    elif disposition == "over-governance-blocked":
+        correction = "Consume or resolve the already-emitted recovery boundary."
+        target = "no-action"
+    else:
+        correction = "Repair, regress, and revalidate through the selected boundary."
+        target = "update-composition"
+    return {
+        "disposition": target,
+        "reusable_correction": correction,
+        "no_action_rationale": (
+            "A duplicate governance re-entry is already outstanding."
+            if target == "no-action"
+            else None
+        ),
+        "regression_test_required": target != "no-action",
+        "action_reference": action_reference,
+    }
+
+def _failure_text(
     error: Exception,
     recovery: Mapping[str, Any],
-) -> Path:
-    """Retrieve prior experience and record measured failure recovery state."""
-    if recovery.get("transaction_started") is not True:
-        recovery_summary = (
-            "repository transaction was not started; rollback was not applicable"
-        )
-    elif recovery.get("rollback_verified") is True:
-        recovery_summary = "repository rollback independently verified"
-    else:
-        recovery_summary = "repository rollback was not independently verified"
+) -> str:
+    """Render one stable request-execution failure description."""
 
-    text = (
+    if recovery.get("transaction_started") is not True:
+        summary = "repository transaction was not started; rollback was not applicable"
+    elif recovery.get("rollback_verified") is True:
+        summary = "repository rollback independently verified"
+    else:
+        summary = "repository rollback was not independently verified"
+    return (
         f"SAGE request execution failed: {type(error).__name__}: {error}; "
-        f"{recovery_summary}"
+        f"{summary}"
     )
+
+
+def _failure_retrieval(
+    context: ExecutionContext,
+    text: str,
+) -> str:
+    """Run canonical failure retrieval and return its receipt reference."""
+
     result = context.runner.run(
         CommandSpec(
             primitive_id="failure.diagnose",
             label="Retrieve SAGE experience after request-execution failure",
-            argv=("python3", "-S", "scripts/sage/sage-failure-retrieval-gate.py", "--failure", text),
+            argv=(
+                "python3",
+                "-S",
+                "scripts/sage/sage-failure-retrieval-gate.py",
+                "--failure",
+                text,
+            ),
             cwd=context.repo,
             timeout_seconds=600,
         ),
         step_id="failure-retrieval",
     )
-    receipt_match = re.search(r"^Receipt:\s+(.+)$", result.stdout, re.MULTILINE)
-    receipt = (
-        receipt_match.group(1).strip()
-        if receipt_match
-        else "failure-retrieval-output"
-    )
-    payload = FailureDiagnoser.diagnose(
-        diagnosis_id=f"SAGE-DIAG-{datetime.now().strftime('%Y%m%d')}-801",
+    match = re.search(r"^Receipt:\s+(.+)$", result.stdout, re.MULTILINE)
+    return match.group(1).strip() if match else "failure-retrieval-output"
+
+
+def _failure_paths(
+    context: ExecutionContext,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Return actual and expected component paths for diagnosis."""
+
+    actual = {
+        "component_id": WORKFLOW_ID,
+        "component_version": "1.0",
+        "source_path": "scripts/sage/workflows/request_execution.py",
+        "description": "The reusable request execution composition.",
+    }
+    expected = {
+        "component_id": "workflow.composition",
+        "component_version": context.catalog.versions_for(
+            ("workflow.composition",)
+        )["workflow.composition"],
+        "source_path": "scripts/sage/workflows/operating_contract.py",
+        "description": "The mandatory SAGE operating-contract sequence.",
+    }
+    return actual, expected
+
+
+def _diagnose_failure(
+    context: ExecutionContext,
+    text: str,
+    recovery: Mapping[str, Any],
+    receipt: str,
+    post_path: Path,
+    decision_path: Path,
+    decision: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Build the canonical failure diagnosis from shared recovery evidence."""
+    actual, expected = _failure_paths(context)
+    diagnosis_id = f"SAGE-DIAG-{datetime.now().strftime('%Y%m%d')}-801"
+    return FailureDiagnoser.diagnose(
+        diagnosis_id=diagnosis_id,
         failure_id="request-execution",
-        attempted_action=(
-            "Execute the literal request through the repository-owned SAGE "
-            "request executor."
-        ),
+        attempted_action="Execute the literal request through SAGE request execution.",
         what_failed=text,
         direct_evidence=(
             {"kind": "exception", "value": text},
-            {
-                "kind": "recovery-state",
-                "value": stable_json(dict(recovery)).strip(),
-            },
+            {"kind": "recovery-state", "value": stable_json(dict(recovery)).strip()},
+            {"kind": "next-boundary", "value": stable_json(dict(decision)).strip()},
         ),
-        actual_path={
-            "component_id": "sage.request-execution",
-            "component_version": "1.0",
-            "source_path": "scripts/sage/workflows/request_execution.py",
-            "description": "The reusable request execution composition.",
-        },
-        expected_path={
-            "component_id": "workflow.composition",
-            "component_version": context.catalog.versions_for(
-                ("workflow.composition",)
-            )["workflow.composition"],
-            "source_path": "scripts/sage/workflows/operating_contract.py",
-            "description": "The mandatory SAGE operating-contract sequence.",
-        },
+        actual_path=actual,
+        expected_path=expected,
         why_actual_path_differed=(
-            "The exact reported failure interrupted the composed operating-contract "
-            "path before the operator boundary."
+            "The failure interrupted the governed operating-contract path."
         ),
         ownership="composition",
         mutation_effect={
@@ -741,21 +1393,48 @@ def failure_diagnosis(
             "surfaced_lesson_ids": [],
             "used_lesson_ids": [],
         },
-        previous_failure_references=(),
+        previous_failure_references=decision.get("previous_failure_references", []),
         avoidable_rework_minutes=None,
-        correction={
-            "disposition": "update-composition",
-            "reusable_correction": (
-                "Review the failure retrieval and correct the reusable request "
-                "execution composition before retry."
-            ),
-            "no_action_rationale": None,
-            "regression_test_required": True,
-        },
-        evidence_references=(receipt, str(context.state_dir / "events.jsonl")),
+        correction=_diagnosis_correction(context, decision),
+        evidence_references=(
+            receipt,
+            str(post_path),
+            str(decision_path),
+            str(context.state_dir / "events.jsonl"),
+        ),
+        recovery_decision=decision,
     )
-    return write_state(context, "failure-diagnosis.json", payload)
 
+
+def failure_diagnosis(
+    context: ExecutionContext,
+    error: Exception,
+    recovery: Mapping[str, Any],
+) -> tuple[Path, Path]:
+    """Retrieve experience and emit diagnosis plus one governed next boundary."""
+
+    text = _failure_text(error, recovery)
+    receipt = _failure_retrieval(context, text)
+    post_retrieval, decision = _build_recovery_decision(context, text)
+    decision_path = context.state_dir / RECOVERY_DECISION_NAME
+    decision = bind_successor_operator_boundary(decision, decision_path)
+    post_path = write_state(
+        context,
+        "post-retrieval-continuation-decision.json",
+        post_retrieval,
+    )
+    decision_path = write_state(context, RECOVERY_DECISION_NAME, decision)
+    diagnosis = _diagnose_failure(
+        context,
+        text,
+        recovery,
+        receipt,
+        post_path,
+        decision_path,
+        decision,
+    )
+    diagnosis_path = write_state(context, "failure-diagnosis.json", diagnosis)
+    return diagnosis_path, decision_path
 
 def write_execution_state(
     context: ExecutionContext,
@@ -1368,18 +2047,24 @@ def execute_request(repo: Path, request: str, proposal: Path) -> Mapping[str, An
         )
     except Exception as error:
         recovery = recover_repository_after_failure(context)
-        diagnosis = failure_diagnosis(context, error, recovery)
+        diagnosis, next_boundary = failure_diagnosis(
+            context,
+            error,
+            recovery,
+        )
         closeout = write_closeout(
             context,
             failure_closeout_status(recovery),
             {
                 "error": str(error),
                 "diagnosis": str(diagnosis),
+                "next_boundary": str(next_boundary),
                 "recovery": dict(recovery),
             },
         )
         raise WorkflowError(
-            f"{error}\nFailure diagnosis: {diagnosis}\nCloseout: {closeout}"
+            f"{error}\nFailure diagnosis: {diagnosis}\n"
+            f"Next governed boundary: {next_boundary}\nCloseout: {closeout}"
         ) from error
     return {
         "status": "pass",

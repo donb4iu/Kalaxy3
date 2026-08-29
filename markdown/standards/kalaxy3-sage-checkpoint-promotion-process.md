@@ -15,6 +15,41 @@ The implementation action is provenance, not a circular eligibility gate.
 Promotion eligibility is established by current authority and validation
 receipts.
 
+## Pre-promotion source reconciliation
+
+The source-descends-from-target requirement remains mandatory. When a clean,
+synchronized source branch contains unique work but current `main` has also
+advanced since the branch fork, checkpoint promotion does not weaken or bypass
+that ancestry gate. Instead, before promotion validation, the composition may
+enter one bounded **source reconciliation** sub-lifecycle using the same
+least-authority Git facts and operator-proposal model.
+
+Reconciliation is eligible only when the local and independently read remote
+source heads agree, the local `origin/main` and independently read remote target
+agree, both sides have a non-empty unique delta, and the source-side and
+target-side three-dot changed-path sets are disjoint. Any overlapping changed
+path fails closed for explicit Architect-owned reconciliation; SAGE does not
+guess conflict resolution.
+
+For an eligible divergence, SAGE emits exactly one checksum-bound operator Git
+proposal to merge the **exact frozen target SHA** into the source branch with a
+normal merge commit (`--no-ff`, no rebase, reset, force push, or history
+rewriting). After the operator result, `git.inspect` must prove that the new
+source HEAD is exactly one merge commit whose first parent is the frozen source
+and whose second parent is the frozen target, while the live remote source still
+equals the frozen pre-merge source. SAGE then emits exactly one source-branch
+push proposal. After that push is independently verified, the reconciliation
+state closes and the composition immediately restarts ordinary checkpoint
+promotion using the reconciled source HEAD and the then-current target
+authority. All applicable promotion gates are rerun; reconciliation itself
+earns no promotability claim.
+
+If `main` advances again, the restarted promotion evaluates the new authority
+again rather than treating the earlier reconciliation as current. Source-branch
+retirement remains outside this blocker-remediation slice and is reconsidered
+only after successful promotion; its deferral does not weaken the requirement
+that `main` become authoritative for the promoted source.
+
 The repository-owned `sage.checkpoint-promotion` composition uses `git.inspect`
 for Git facts and `github.inspect` for pull-request facts. It does not import
 `GitRepository`, perform workflow-side `git fetch`, invoke `gh` through the

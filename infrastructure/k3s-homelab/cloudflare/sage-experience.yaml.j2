@@ -66,7 +66,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: nginx
-          image: donb4iu/mynginx_docs:566d215fc0a077cb9330a69b08716a53903e6fe0
+          image: "{{ sage_experience_image_ref }}"
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

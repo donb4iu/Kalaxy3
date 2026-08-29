@@ -15,6 +15,8 @@ SAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SAGE_DIR))
 
 from workflow import WorkflowError  # noqa: E402
+from workflows import intent_to_outcome as intent_workflow  # noqa: E402
+from workflow.recovery import governing_composition_digest  # noqa: E402
 from workflows.intent_to_outcome import (  # noqa: E402
     adopt_iteration,
     adopt_request_execution,
@@ -22,11 +24,15 @@ from workflows.intent_to_outcome import (  # noqa: E402
     candidate_iteration_entry_mode,
     begin_intent,
     begin_intent_promotion,
+    build_objective_route,
     confirm_intent,
     continue_intent_promotion,
     continue_intent_request,
     record_runtime,
     reconcile_completed_request_child,
+    reconcile_stale_parent_completed_request_child,
+    reconcile_completed_semantic_child,
+    objective_route_snapshot,
     validate_runtime_receipt,
 )
 
@@ -132,16 +138,197 @@ def self_test() -> int:
         else:
             raise RuntimeError("non-canonical completed-child routine receipt was accepted")
     print("PASS already-completed self-closing request child reconciles without replay")
+    with tempfile.TemporaryDirectory(prefix="sage-semantic-child-reconcile-") as raw:
+        temp = Path(raw)
+        contribution = temp / "contribution.zip"
+        contribution.write_bytes(b"fixture")
+        dispositions = temp / "dispositions.json"
+        dispositions.write_text("{}\n", encoding="utf-8")
+        planning_source = temp / "source.zip"
+        planning_source.write_bytes(b"planning")
+        semantic_state = temp / "state.json"
+        semantic_state.write_text(
+            json.dumps({
+                "schema_version": "1.0",
+                "record_type": "sage-semantic-bootstrap-state",
+                "action_id": "SAGE-ACTION-FIXTURE",
+                "request": "fixture request",
+                "contribution": str(contribution),
+                "semantic_understanding_sha256": "a" * 64,
+                "architect_dispositions_sha256": hashlib.sha256(dispositions.read_bytes()).hexdigest(),
+                "planning_source": str(planning_source),
+                "status": "planning-source-ready",
+            }) + "\n",
+            encoding="utf-8",
+        )
+        reconciled_semantic = reconcile_completed_semantic_child(
+            {
+                "request": "fixture request",
+                "action_id": "SAGE-ACTION-FIXTURE",
+                "contribution": str(contribution),
+            },
+            semantic_state,
+            "a" * 64,
+            dispositions,
+            "architect",
+        )
+        if reconciled_semantic.get("planning_source") != str(planning_source.resolve()) or reconciled_semantic.get("reconciled_from_completed_semantic_child") is not True:
+            raise RuntimeError("completed semantic child did not reconcile planning-source lineage")
+    print("PASS already-completed semantic child reconciles without replay")
     if candidate_iteration_entry_mode("source-git-complete") != "durable-checkpoint":
         raise RuntimeError("durable candidate checkpoint classification failed")
     if candidate_iteration_entry_mode("architect-confirmation-required") != "inflight-supersession":
         raise RuntimeError("pre-mutation candidate could not accumulate a related correction")
+    if candidate_iteration_entry_mode("planning-source-ready") != "inflight-supersession":
+        raise RuntimeError("planning-gap candidate could not re-enter without replaying semantic confirmation")
     try:
         candidate_iteration_entry_mode("request-operator-review-required")
     except WorkflowError:
         pass
     else:
         raise RuntimeError("live operator-review boundary was silently superseded")
+    with tempfile.TemporaryDirectory(prefix="sage-intent-recovery-composition-") as raw:
+        temp = Path(raw)
+        repo = temp / "repo"
+        repo.mkdir()
+        governed = repo / "fixture-recovery-component.py"
+        governed.write_text("old composition\n", encoding="utf-8")
+        policy = {
+            "schema_version": "1.0",
+            "policy_id": "kalaxy3-sage-recovery",
+            "governing_composition_paths": [governed.name],
+        }
+        (repo / "sage-recovery-policy.json").write_text(
+            json.dumps(policy) + "\n", encoding="utf-8"
+        )
+        recovery_root = temp / "recovery"
+        stale_dir = recovery_root / "stale"
+        stale_dir.mkdir(parents=True)
+        request = "fixture recovery composition request"
+        request_sha = hashlib.sha256(request.encode("utf-8")).hexdigest()
+        identity_sha = "d" * 64
+        stale_fingerprint = "b" * 64
+        stale_composition = governing_composition_digest(repo, [governed.name])
+        stale_decision = {
+            "schema_version": "1.0",
+            "record_type": "sage-recovery-next-boundary",
+            "recorded_at": "2026-08-23T06:00:00-05:00",
+            "recovery_identity": {
+                "request_sha256": request_sha,
+                "identity_sha256": identity_sha,
+            },
+            "governing_condition_fingerprint": stale_fingerprint,
+            "governing_evidence": {
+                "repository_owned_composition_sha256": stale_composition,
+            },
+            "next_boundary": "planning",
+        }
+        (stale_dir / "recovery-next-boundary.json").write_text(
+            json.dumps(stale_decision) + "\n", encoding="utf-8"
+        )
+        (stale_dir / "recovery-governing-change-consumption.json").write_text(
+            json.dumps({
+                "record_type": "sage-recovery-governing-change-consumption",
+                "recovery_identity_sha256": identity_sha,
+                "governing_condition_fingerprint": stale_fingerprint,
+            }) + "\n",
+            encoding="utf-8",
+        )
+        governed.write_text("current composition\n", encoding="utf-8")
+        parent = temp / "intent-to-outcome-state.json"
+        parent.write_text("{}\n", encoding="utf-8")
+        original_root = intent_workflow.RECOVERY_STATE_ROOT
+        intent_workflow.RECOVERY_STATE_ROOT = recovery_root
+        try:
+            stale_result = intent_workflow._consume_recovery_reentry(
+                repo, parent, {"request_sha256": request_sha}, "planning"
+            )
+            if stale_result is not None:
+                raise RuntimeError(
+                    "stale consumed recovery decision was treated as current composition"
+                )
+            current_dir = recovery_root / "current"
+            current_dir.mkdir()
+            current_fingerprint = "c" * 64
+            current_composition = governing_composition_digest(
+                repo, [governed.name]
+            )
+            current_decision = {
+                **stale_decision,
+                "recorded_at": "2026-08-24T00:00:00-05:00",
+                "governing_condition_fingerprint": current_fingerprint,
+                "governing_evidence": {
+                    "repository_owned_composition_sha256": current_composition,
+                },
+            }
+            (current_dir / "recovery-next-boundary.json").write_text(
+                json.dumps(current_decision) + "\n", encoding="utf-8"
+            )
+            (current_dir / "recovery-governing-change-consumption.json").write_text(
+                json.dumps({
+                    "record_type": "sage-recovery-governing-change-consumption",
+                    "recovery_identity_sha256": identity_sha,
+                    "governing_condition_fingerprint": current_fingerprint,
+                }) + "\n",
+                encoding="utf-8",
+            )
+            try:
+                intent_workflow._consume_recovery_reentry(
+                    repo, parent, {"request_sha256": request_sha}, "planning"
+                )
+            except WorkflowError as error:
+                if "repeated governance re-entry blocked" not in str(error):
+                    raise
+            else:
+                raise RuntimeError(
+                    "current consumed recovery decision failed to block duplicate re-entry"
+                )
+        finally:
+            intent_workflow.RECOVERY_STATE_ROOT = original_root
+    print("PASS stale consumed recovery decisions do not block changed recovery composition")
+    print("PASS current consumed recovery decisions still block duplicate governance re-entry")
+    route = build_objective_route(
+        {
+            "action_id": "SAGE-ACTION-20260823-001",
+            "desired_outcome": "Keep the parent objective visible while routing bounded remediation.",
+            "acceptance_criteria": [
+                "The implementation explicitly identifies SAGE-ACTION-20260815-002 as the parent delivery re-entry point."
+            ],
+            "measurement_plan": ["Track unplanned recovery steps."],
+        },
+        {
+            "objective_id": "SAGE-ACTION-20260823-001",
+            "status": "planning-source-ready",
+            "current_iteration": 1,
+            "iterations": [
+                {
+                    "iteration": 1,
+                    "candidate_head": None,
+                    "status": "planning",
+                    "validation_state": "pending",
+                    "unresolved_findings": [],
+                    "next_boundary": "planning",
+                    "promotion_eligible": False,
+                }
+            ],
+        },
+        {
+            "alternatives": [
+                "Extend the existing intent-to-outcome composition.",
+                "Do nothing and retain the current collision-driven routing behavior.",
+            ]
+        },
+    )
+    if route.get("parent_objective_id") != "SAGE-ACTION-20260815-002":
+        raise RuntimeError("objective route did not preserve explicit parent re-entry")
+    if route.get("next_governed_boundary") != "planning":
+        raise RuntimeError("objective route did not preserve the current governed boundary")
+    alternatives = route.get("alternatives", [])
+    if not alternatives or not all("risk" in item and "expected_value" in item for item in alternatives):
+        raise RuntimeError("objective route alternatives do not expose evaluation dimensions")
+    if route.get("integration_state", {}).get("canonical_integration_eligibility") != "unassessed":
+        raise RuntimeError("objective route manufactured integration assurance")
+    print("PASS objective route preserves parent re-entry, alternatives, and unearned-assurance boundaries")
     print("PASS unfinished pre-mutation candidate can accumulate related corrections before checkpoint")
     print("PASS live operator-review boundary remains fail-closed")
     print("PASS intent-to-outcome front door self-test")
@@ -188,11 +375,14 @@ def parse_args() -> argparse.Namespace:
     )
     iterate.add_argument("--parent-checkpoint", required=True)
     iterate.add_argument("--affected-obligation", action="append", default=[])
+    iterate.add_argument("--approved-gap-set", type=Path)
 
     continuation = sub.add_parser("continue-request")
     continuation.add_argument("--state", type=Path, required=True)
     continuation.add_argument("--operator-result", type=Path)
     continuation.add_argument("--routine-receipt", type=Path)
+    continuation.add_argument("--completed-child-state", type=Path)
+    continuation.add_argument("--planning-source", type=Path)
 
     runtime = sub.add_parser("record-runtime")
     runtime.add_argument("--state", type=Path, required=True)
@@ -207,7 +397,11 @@ def parse_args() -> argparse.Namespace:
     promotion = sub.add_parser("continue-promotion")
     promotion.add_argument("--state", type=Path, required=True)
     promotion.add_argument("--operator-result", type=Path, required=True)
+
+    route = sub.add_parser("route")
+    route.add_argument("--state", type=Path, required=True)
     return parser.parse_args()
+
 
 
 def main() -> int:
@@ -241,16 +435,40 @@ def main() -> int:
             reentry_boundary=args.reentry_boundary,
             parent_checkpoint=args.parent_checkpoint,
             affected_obligations=args.affected_obligation,
+            approved_gap_set=args.approved_gap_set,
         )
     elif args.command == "continue-request":
-        result = continue_intent_request(
-            args.repo,
-            args.state,
-            operator_result=args.operator_result,
-            routine_receipt=args.routine_receipt,
+        stale_parent_mode = (
+            args.completed_child_state is not None
+            or args.planning_source is not None
         )
+        if stale_parent_mode:
+            if (
+                args.completed_child_state is None
+                or args.planning_source is None
+                or args.routine_receipt is None
+                or args.operator_result is not None
+            ):
+                raise WorkflowError(
+                    "stale-parent completed-child reconciliation requires "
+                    "--completed-child-state, --planning-source, and --routine-receipt only"
+                )
+            result = reconcile_stale_parent_completed_request_child(
+                args.repo,
+                args.state,
+                args.completed_child_state,
+                args.planning_source,
+                args.routine_receipt,
+            )
+        else:
+            result = continue_intent_request(
+                args.repo,
+                args.state,
+                operator_result=args.operator_result,
+                routine_receipt=args.routine_receipt,
+            )
     elif args.command == "record-runtime":
-        result = record_runtime(args.state, args.runtime_receipt)
+        result = record_runtime(args.repo, args.state, args.runtime_receipt)
     elif args.command == "promote":
         result = begin_intent_promotion(
             args.repo, args.state, args.expected_head, args.title, args.body
@@ -259,11 +477,14 @@ def main() -> int:
         result = continue_intent_promotion(
             args.repo, args.state, args.operator_result
         )
+    elif args.command == "route":
+        result = objective_route_snapshot(args.repo, args.state)
     else:
         raise WorkflowError("one intent-to-outcome command is required")
     print("Kalaxy3 SAGE intent-to-outcome: PASS")
     print(json.dumps(result, indent=2, sort_keys=False))
     return 0
+
 
 
 if __name__ == "__main__":

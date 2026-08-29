@@ -14,9 +14,18 @@ SAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SAGE_DIR))
 
 from request_execution import ProposalError
+from sage_actionable_failure import render_failure
 from semantic_understanding import load_engineering_contribution
 from workflow import WorkflowError
-from workflows.semantic_bootstrap import _apply_architect_dispositions, begin_bootstrap, continue_bootstrap, default_planning_source_path
+from workflows.semantic_bootstrap import (
+    ArchitectDispositionContractError,
+    SemanticActionableFailure,
+    _apply_architect_dispositions,
+    architect_disposition_actionable_failure,
+    begin_bootstrap,
+    continue_bootstrap,
+    default_planning_source_path,
+)
 
 
 def self_test() -> int:
@@ -93,7 +102,24 @@ def self_test() -> int:
         pass
     else:
         raise RuntimeError("undispositioned proposal became authoritative")
+    invalid = json.loads(json.dumps(decisions))
+    invalid["dispositions"][0]["disposition"] = None
+    try:
+        _apply_architect_dispositions(fixture, invalid, "a" * 64)
+    except ArchitectDispositionContractError as error:
+        if error.proposal_id != "implementation-scope" or error.actual is not None:
+            raise RuntimeError("invalid Architect disposition facts were not preserved")
+        failure = architect_disposition_actionable_failure(
+            error, Path("/tmp/semantic-state.json"), Path("/tmp/architect-dispositions.json"), "a" * 64,
+        )
+        rendered = render_failure(failure)
+        for marker in ("SAGE ACTION BLOCKED", "implementation-scope", "observed=None", "accept", "reject", "modify", "defer", "--continue-state", "semantic-confirmation"):
+            if marker not in rendered:
+                raise RuntimeError(f"actionable Architect-disposition failure omitted {marker!r}")
+    else:
+        raise RuntimeError("null Architect disposition did not fail closed")
     print("PASS Architect accept/reject/modify/defer semantic dispositions")
+    print("PASS known Architect-disposition failures render actionable recovery guidance")
     print("PASS engineering contribution without caller-authored SAGE hashes")
     print("PASS external sage-source.json authorship fails closed")
     print("PASS semantic-confirmation digest scopes default planning-source identity")
@@ -151,6 +177,13 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
+    except SemanticActionableFailure as error:
+        print("Kalaxy3 SAGE semantic bootstrap: FAIL CLOSED", file=sys.stderr)
+        print(render_failure(error.failure), file=sys.stderr)
+        print("", file=sys.stderr)
+        print("Actionable failure observation:", file=sys.stderr)
+        print(f"  {error.observation_path}", file=sys.stderr)
+        raise SystemExit(2)
     except (OSError, ValueError, TypeError, ProposalError, WorkflowError, RuntimeError, zipfile.BadZipFile, json.JSONDecodeError) as error:
         print("Kalaxy3 SAGE semantic bootstrap: FAIL CLOSED", file=sys.stderr)
         print(f"  - {error}", file=sys.stderr)

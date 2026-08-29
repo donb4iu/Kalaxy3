@@ -144,6 +144,9 @@ def main() -> int:
         "arm64",
         "connector_node_ha",
         "sage_e2e_connector_nodes",
+        "sage_promotion_receipt_file",
+        "sage-artifact-promotion-receipt",
+        "sage_experience_image_ref",
     ):
         if marker not in runtime_source:
             failures.append(f"zero-trust source missing: {marker}")
@@ -196,13 +199,12 @@ def main() -> int:
         )
 
     experience = EXPERIENCE.read_text(encoding="utf-8")
-    if (
-        "donb4iu/mynginx_docs:566d215fc0a077cb9330a69b08716a53903e6fe0"
-        not in experience
-    ):
+    if 'image: "{{ sage_experience_image_ref }}"' not in experience:
         failures.append(
-            "SAGE experience does not reuse the proven documentation image"
+            "SAGE experience does not bind the verified promoted OCI digest"
         )
+    if "donb4iu/mynginx_docs:566d215fc0a077cb9330a69b08716a53903e6fe0" in experience:
+        failures.append("SAGE experience retains the historical Git-SHA image tag")
     if "{{ sage_external_hostname }}" not in experience:
         failures.append(
             "external hostname must remain runtime-selected and explicit"
@@ -255,6 +257,9 @@ def main() -> int:
         "origin_through_traefik_ready",
         "connector_node_ha",
         "sage_e2e_connector_nodes",
+        "sage_promotion_receipt_file",
+        "sage-artifact-promotion-receipt",
+        "sage_expected_image_ref",
         "unique | length == 2",
         "ansible_become: false",
         "unauthenticated_access_denied",
@@ -293,7 +298,7 @@ def main() -> int:
         "Ansible privilege escalation without weakening secret redaction"
     )
     print(
-        "PASS SAGE experience reuses the existing documentation image behind Traefik"
+        "PASS SAGE experience preserves the documentation-image runtime behind Traefik with digest-bound promotion"
     )
     print(
         "PASS automated evidence does not claim human MFA or Cloudflare route review"

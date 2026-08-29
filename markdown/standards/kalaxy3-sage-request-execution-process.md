@@ -45,6 +45,38 @@ Failure recovery is evidence, not an inference from exception handling. **rollba
 - A rollback attempt that cannot be independently verified is recorded as `failed-rollback-unverified` and remains fail-closed.
 - Failure diagnosis and closeout preserve the measured recovery state so later planning does not mistake control-flow intent for observed repository state.
 
+### Post-retrieval continuation classification
+
+After the mandatory first unexpected-failure retrieval, SAGE records a deterministic post-retrieval continuation decision before corrective retry guidance. The decision records whether authority, scope, required capability, safety requirements, repository-owned composition, or approval or mutation boundaries changed, and whether the attempted action remains authorized.
+
+When none of those governing conditions changed, the required re-entry boundary is `implementation-local`; repair, an exact regression, revalidation, and retry stay inside the same governed request. Repeating discovery or replanning for that unchanged failure class is rejected as unnecessary over-governance. When a governing condition changed, implementation-local retry is rejected: authority changes return to `authority`, semantic/safety/approval-boundary changes return to `semantic-confirmation`, and required-capability or repository-composition changes return to `planning`. The decision is written beside the failure diagnosis and referenced as failure evidence so the continuation reason remains observable and measurable.
+
+### Stable recovery identity and recurrence ownership
+
+The post-retrieval decision is paired with the shared
+`sage-recovery-next-boundary` contract. SAGE persists a stable recovery identity
+from the literal request, owning component, normalized failure signature, and
+separate repository-authority evidence. It also hashes the evidence behind the
+six governing conditions so a repository-owned composition change has a stable
+governing-condition fingerprint rather than being reported as changed on every
+retry.
+
+A new governing fingerprint may cause its earliest required re-entry once.
+Intent-to-outcome writes a consumption receipt when that re-entry actually
+starts. The same unconsumed governance re-entry is reported as
+`await-existing-reentry`; the same consumed fingerprint returns to
+implementation-local repair/regression/revalidation when governing conditions
+remain unchanged.
+
+Consumed fingerprint state, recurrence of the controlled workload, and
+accepted/implemented/validated lifecycle status are context only. They do not
+prove an accepted control failed. **Accepted-control failure assertion**
+evidence must separately identify the owning action, the promised obligation
+that was violated, and concrete evidence references. Only that distinct
+assertion permits `successor-action` / `architect-decision`; a genuine evidenced
+control failure still enters the improvement-action lifecycle and emits the
+successor capability-gap/improvement-action Architect boundary exactly once.
+
 ## Proposal package
 
 A proposal ZIP contains exactly `sage-proposal.json` plus `payload/<repository-relative-path>` for every source file. The manifest is governed by `sage-request-execution-proposal-schema-v1.0.json` and binds:
@@ -86,6 +118,33 @@ before repository mutation.
 
 This is a repository-owned reusable composition rather than a task-specific downloaded helper. The first intended consumer is the centralized-logging end-to-end SAGE thin slice. Future request classes can reuse the same request-to-operator contract by supplying a checksum-bound proposal package that passes the same authority, component, validation, safety, and exact-scope gates.
 
+
+## Context-derived baseline and required validation
+
+Proposal-declared `validation_commands` are supplemental validation inputs; they
+are not allowed to replace repository-owned context policy. Before repository
+mutation, request execution derives the implementation context from the exact
+declared proposal paths and runs every deduplicated `baseline_checks` command
+owned by those contexts. This is **context-derived baseline validation** and is
+performed before the atomic write begins.
+
+After the atomic write and before any operator Git proposal is emitted, request
+execution reruns changed-path SAGE discovery and executes every deduplicated
+`required_validation` command for the resulting contexts. This is
+**context-derived required validation**. Commands come only from the current
+`sage-change-authority.json`, retain each context's declared working directory,
+and execute shell-free through the existing `validation.plan` primitive.
+Repository authority may currently declare a single Make target or a
+repository-relative Python validator; unsupported command shapes fail closed
+rather than falling back to shell interpretation.
+
+Proposal-supplied safe `make sage-*` validations still run afterward as
+additional checks. A failure in either context-derived phase is a request
+execution failure; after a transaction has opened, the normal verified rollback
+and recovery path applies. This prevents a planning source from weakening the
+validation contract merely by omitting checks that discovery already knows are
+required.
+
 ## Proposal-bound Python safety baseline
 
 Request execution captures whole-source safety findings for each existing Python
@@ -123,3 +182,41 @@ a valid 40-hex `base_main_head`. Missing or malformed main authority fails
 closed. This compatibility exception does not authorize new legacy states and
 does not relax frozen-main verification for the one-approval routine Git
 lifecycle controller.
+
+## Architect objective-path decision gate
+
+SAGE request execution treats the active Architect-owned objective as the reason
+for work. An LLM-proposed tactical SAGE boundary is not itself mutation authority.
+
+Before the existing request-execution authority step can authorize repository
+mutation, the operator supplies a checksum-bound `sage-objective-path-decision`
+record through `SAGE_OBJECTIVE_PATH_DECISION`. The decision is bound to the exact
+literal request and exact proposal package.
+
+The Architect-facing decision surface uses **5W1H**:
+
+- **Who** owns, decides, or performs the work.
+- **What** changes and what outcome is produced.
+- **Why** the path has value to the active objective now.
+- **When** it must happen rather than be deferred.
+- **Where** it applies in the objective, architecture, or lifecycle.
+- **How** it advances value, removes a blocker, controls material risk, and will be verified.
+
+The record also states the deferral consequence and the **next value-producing milestone**. SAGE accepts three classifications:
+
+1. `direct-objective-value`
+2. `necessary-blocker-material-risk`
+3. `deferrable-sage-internal-improvement`
+
+A `deferrable-sage-internal-improvement` is a deferrable SAGE/internal improvement
+and cannot authorize mutation for the active delivery objective. Discovering an internal SAGE imperfection therefore does not
+silently make it the next objective.
+
+The LLM may propose the 5W1H and classification, but decision authority remains
+the Architect. Mutation requires an Architect-approved decision whose basis is
+`operator-supplied-to-governed-execution`. SAGE copies the validated decision
+into the request-execution state directory as `objective-path-decision.json`
+before mutation, preserving provenance and audit evidence.
+
+This gate reuses the existing federated authority reconciliation path; it does
+not introduce another planner, mutation engine, or lifecycle.

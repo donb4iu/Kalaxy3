@@ -40,6 +40,27 @@ When SAGE cannot determine a canonical recovery path, it MUST:
 - preserve failed-path evidence for evaluation;
 - prohibit substitution of undocumented or ad hoc commands.
 
+### Known deterministic recovery knowledge
+
+When a SAGE-controlled failure already has deterministic runtime or repository
+evidence for the violated requirement and already knows a repository-owned
+recovery or retry path, the failure MUST surface that knowledge. The invoker
+must not be required to reverse-engineer information SAGE already possesses.
+
+The response must identify the known cause, the requirement that was violated,
+the valid input shape or choices when known, the authoritative artifact or
+boundary requiring attention, and a realistic repository-owned next step. A
+recovery hint is explanatory and non-authoritative: it MUST NOT make a human
+decision, weaken a guardrail, or authorize mutation that the failing boundary
+did not authorize.
+
+Where the workflow can do so without mutating governed repository state, it
+SHOULD preserve a structured failure-quality observation recording whether the
+cause was known, whether a recovery hint was available and prepared, whether
+invoker action was required, and the retry boundary. Those observations are
+workflow-friction evidence for measuring interpretation burden, avoidable
+rework, recovery effectiveness, and recurrence.
+
 ## Integrity behavior
 
 Recovery guidance MUST preserve:

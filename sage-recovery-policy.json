@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "policy_id": "kalaxy3-sage-recovery",
+  "policy_version": "1.0.0",
+  "status": "accepted-action-staged",
+  "action_id": "SAGE-ACTION-20260821-001",
+  "standard_path": "markdown/standards/kalaxy3-sage-recovery-process.md",
+  "contracts": {
+    "next_boundary": "markdown/standards/sage-recovery-next-boundary-schema-v1.0.json",
+    "governing_change_consumption": "markdown/standards/sage-recovery-consumption-schema-v1.0.json"
+  },
+  "state_root": "~/.local/state/kalaxy3",
+  "owning_control_action_id": "SAGE-ACTION-20260810-001",
+  "recovery_control_action_id": "SAGE-ACTION-20260821-001",
+  "governing_conditions": [
+    "authority",
+    "scope",
+    "required_capability",
+    "safety_requirements",
+    "repository_owned_composition",
+    "approval_or_mutation_boundaries"
+  ],
+  "governing_composition_paths": [
+    "scripts/sage/workflow/diagnosis.py",
+    "scripts/sage/workflow/recovery.py",
+    "scripts/sage/workflows/request_execution.py",
+    "scripts/sage/workflows/intent_to_outcome.py",
+    "scripts/sage/workflows/operating_contract.py",
+    "scripts/sage/workflows/improvement_action_transition.py",
+    "scripts/sage/sage-improvement-action-transition.py"
+  ],
+  "behavior": {
+    "stable_failure_identity_required": true,
+    "governing_change_fingerprint_required": true,
+    "consumed_reentry_required": true,
+    "duplicate_reentry_for_same_fingerprint_forbidden": true,
+    "accepted_control_failure_requires_successor_boundary": true,
+    "remote_main_ancestry_required": false,
+    "accepted_control_failure_requires_evidence_assertion": true
+  }
+}

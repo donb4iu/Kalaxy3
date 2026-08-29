@@ -10,6 +10,130 @@ def _now() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
 
+POST_RETRIEVAL_GOVERNING_CONDITIONS = (
+    "authority",
+    "scope",
+    "required_capability",
+    "safety_requirements",
+    "repository_owned_composition",
+    "approval_or_mutation_boundaries",
+)
+
+
+def classify_post_retrieval_continuation(
+    *,
+    retrieval_performed: bool,
+    attempted_action_authorized: bool,
+    governing_changes: Mapping[str, bool],
+    recovery_identity: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Classify corrective retry versus governance re-entry deterministically."""
+
+    if retrieval_performed is not True:
+        raise ValueError("Post-retrieval continuation requires completed failure retrieval")
+    if set(governing_changes) != set(POST_RETRIEVAL_GOVERNING_CONDITIONS):
+        raise ValueError("Post-retrieval governing-condition fields are invalid")
+    if any(not isinstance(value, bool) for value in governing_changes.values()):
+        raise ValueError("Post-retrieval governing-condition values must be boolean")
+    if not isinstance(attempted_action_authorized, bool):
+        raise ValueError("Post-retrieval attempted-action authorization must be boolean")
+
+    changed = [
+        name for name in POST_RETRIEVAL_GOVERNING_CONDITIONS
+        if governing_changes[name]
+    ]
+    if not attempted_action_authorized:
+        disposition = "governance-reentry"
+        required_boundary = "authority"
+        reason = "The attempted action is no longer authorized."
+    elif not changed:
+        disposition = "implementation-local-retry"
+        required_boundary = "implementation-local"
+        reason = (
+            "Authority, scope, required capability, safety requirements, "
+            "repository-owned composition, and approval or mutation boundaries "
+            "are unchanged."
+        )
+    elif "authority" in changed:
+        disposition = "governance-reentry"
+        required_boundary = "authority"
+        reason = "Repository or execution authority changed."
+    elif any(
+        name in changed
+        for name in ("scope", "safety_requirements", "approval_or_mutation_boundaries")
+    ):
+        disposition = "governance-reentry"
+        required_boundary = "semantic-confirmation"
+        reason = "A semantic, safety, or approval-boundary condition changed."
+    else:
+        disposition = "governance-reentry"
+        required_boundary = "planning"
+        reason = "Required capability or repository-owned composition changed."
+
+    result = {
+        "schema_version": "1.0",
+        "record_type": "sage-post-retrieval-continuation-decision",
+        "retrieval_performed": True,
+        "attempted_action_authorized": attempted_action_authorized,
+        "governing_conditions": dict(governing_changes),
+        "changed_conditions": changed,
+        "disposition": disposition,
+        "required_reentry_boundary": required_boundary,
+        "reason": reason,
+    }
+    if recovery_identity is not None:
+        identity_sha = recovery_identity.get("identity_sha256")
+        if not isinstance(identity_sha, str) or len(identity_sha) != 64:
+            raise ValueError("Recovery identity digest is invalid")
+        result["recovery_identity_sha256"] = identity_sha
+    return result
+
+
+def require_post_retrieval_boundary(
+    decision: Mapping[str, Any],
+    requested_boundary: str,
+) -> None:
+    """Fail closed when a corrective path does not match the classified boundary."""
+
+    required = decision.get("required_reentry_boundary")
+    if requested_boundary != required:
+        raise ValueError(
+            "Post-retrieval continuation boundary mismatch: "
+            f"required={required}, requested={requested_boundary}"
+        )
+
+
+def recovery_contract_view(
+    decision: Mapping[str, Any] | None,
+    previous_references: Iterable[str],
+) -> dict[str, Any] | None:
+    """Validate and project the shared recovery contract into diagnosis."""
+
+    if decision is None:
+        return None
+    if decision.get("record_type") != "sage-recovery-next-boundary":
+        raise ValueError("Failure diagnosis recovery contract type is invalid")
+    identity = decision.get("recovery_identity")
+    if not isinstance(identity, Mapping):
+        raise ValueError("Failure diagnosis recovery identity is missing")
+    identity_sha = identity.get("identity_sha256")
+    if not isinstance(identity_sha, str) or len(identity_sha) != 64:
+        raise ValueError("Failure diagnosis recovery identity digest is invalid")
+    previous = list(dict.fromkeys(previous_references))
+    if previous != list(decision.get("previous_failure_references", [])):
+        raise ValueError("Failure diagnosis recurrence references diverged from recovery")
+    return {
+        "identity_sha256": identity_sha,
+        "failure_signature": identity.get("failure_signature"),
+        "classification": decision.get("classification"),
+        "governing_condition_fingerprint": decision.get(
+            "governing_condition_fingerprint"
+        ),
+        "next_boundary": decision.get("next_boundary"),
+        "owning_component": decision.get("owning_component"),
+    }
+
+
 class FailureDiagnoser:
     """Record expected and actual paths, ownership, recurrence, and correction."""
 
@@ -31,6 +155,7 @@ class FailureDiagnoser:
         avoidable_rework_minutes: float | None,
         correction: Mapping[str, Any],
         evidence_references: Iterable[str],
+        recovery_decision: Mapping[str, Any] | None = None,
         recorded_at: str | None = None,
     ) -> dict[str, Any]:
         evidence = [dict(item) for item in direct_evidence]
@@ -45,6 +170,7 @@ class FailureDiagnoser:
         if ownership not in {"primitive", "composition", "policy", "authority", "environment", "operator", "external-dependency"}:
             raise ValueError(f"Unsupported failure ownership: {ownership}")
         previous = list(dict.fromkeys(previous_failure_references))
+        recovery = recovery_contract_view(recovery_decision, previous)
         recurred = bool(previous)
         disposition = correction.get("disposition")
         if disposition not in {"create-control", "update-primitive", "update-composition", "update-policy", "update-authority", "environment-repair", "operator-correction", "no-action"}:
@@ -64,7 +190,7 @@ class FailureDiagnoser:
             raise ValueError("Used lessons must have been surfaced")
         if set(surfaced) - set(applicable):
             raise ValueError("Surfaced lessons must be applicable")
-        return {
+        result = {
             "schema_version": "1.0",
             "diagnosis_id": diagnosis_id,
             "failure_id": failure_id,
@@ -92,3 +218,6 @@ class FailureDiagnoser:
             "correction": dict(correction),
             "evidence_references": list(dict.fromkeys(evidence_references)),
         }
+        if recovery is not None:
+            result["recovery"] = recovery
+        return result

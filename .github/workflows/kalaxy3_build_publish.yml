@@ -7,6 +7,23 @@ on:
     paths-ignore:
       - "docs/**"
   workflow_dispatch:
+    inputs:
+      operation:
+        description: Governed manual operation
+        required: true
+        default: validate-only
+        type: choice
+        options:
+          - validate-only
+          - promote-proven-stage
+      promotion_source_sha:
+        description: Exact source SHA whose successful portable-stage artifact is approved for promotion
+        required: false
+        type: string
+      promotion_stage_run_id:
+        description: Exact successful workflow run ID that produced the approved portable-stage artifact
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -117,7 +134,7 @@ jobs:
         if-no-files-found: error
 
   doc:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.event_name == 'push'
     needs: mkdocs-validation
     env:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -174,54 +191,164 @@ jobs:
         user-email: "dbuddenbaum@gmail.com"
         user-name: "donb4iu"
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      id: Logging_into_docker_hub
-      with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-    - name: Build and push image to donb4iu/mynginx_docs
-      uses: docker/build-push-action@v6
-      id: Build_and_Push_Docker_Image
-      with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          file: yaml/nginx-docs/k8s-doc-to-nginx/nginx/Dockerfile
-          push: true
-          tags: donb4iu/mynginx_docs:${{ github.sha }}
-
-    - name: Update values.yaml
-      id: Update_Helm_Values_File
-      run: |
-        cd yaml/nginx-docs/k8s-doc-to-nginx
-
-        sed -i \
-          's|APP_VERSION:.*|APP_VERSION: ${{ github.sha }}|' \
-          values.yaml
-
-        git config --global user.name "donb4iu"
-        git config --global user.email "dbuddenbaum@gmail.com"
-
-        git add values.yaml
-
-        if git diff --cached --quiet; then
-          echo "values.yaml already contains the current application version."
-        else
-          git commit -m "Update values.yaml [skip ci]"
-          git pull --rebase origin main
-          git push origin HEAD:main
-        fi
-
     - name: Send Slack message
       uses: act10ns/slack@v2
       with:
           status: ${{ job.status }}
           steps: ${{ toJson(steps) }}
       if: always()
+
+  promote-proven-stage:
+    name: Promote proven OCI stage artifact
+    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'promote-proven-stage'
+    needs: [sage-governance, mkdocs-validation]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    env:
+      PROMOTION_SOURCE_SHA: ${{ inputs.promotion_source_sha }}
+      PROMOTION_STAGE_RUN_ID: ${{ inputs.promotion_stage_run_id }}
+      SAGE_PROMOTION_ENVIRONMENT: ${{ github.workspace }}/infrastructure/k3s-homelab/cloudflare/sage-experience-promotion-environment.json
+
+    steps:
+    - name: Check out exact approved source SHA
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        ref: ${{ inputs.promotion_source_sha }}
+
+    - name: Verify dispatch is bound to exact current source and prior stage run
+      run: |
+        python3 - <<'PY'
+        import os
+        import re
+
+        source_sha = os.environ["PROMOTION_SOURCE_SHA"]
+        stage_run_id = os.environ["PROMOTION_STAGE_RUN_ID"]
+        github_sha = os.environ["GITHUB_SHA"]
+        if not re.fullmatch(r"[0-9a-f]{40}", source_sha):
+            raise SystemExit("promotion_source_sha must be an exact 40-character Git SHA")
+        if source_sha != github_sha:
+            raise SystemExit(
+                "promotion_source_sha must equal the workflow-dispatch source SHA; "
+                "dispatch the workflow from the exact approved branch head"
+            )
+        if not stage_run_id.isdigit():
+            raise SystemExit("promotion_stage_run_id must be a numeric GitHub Actions run ID")
+        print("PASS manual promotion dispatch is bound to exact current source SHA")
+        print("PASS prior portable-stage workflow run ID is explicit")
+        PY
+
+    - name: Download exact portable-stage OCI artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: sage-stage-oci-${{ inputs.promotion_source_sha }}
+        path: ${{ runner.temp }}/sage-stage-oci
+        github-token: ${{ github.token }}
+        repository: ${{ github.repository }}
+        run-id: ${{ inputs.promotion_stage_run_id }}
+
+    - name: Download exact portable-stage receipt
+      uses: actions/download-artifact@v4
+      with:
+        name: sage-stage-receipt-${{ inputs.promotion_source_sha }}
+        path: ${{ runner.temp }}/sage-stage-receipt
+        github-token: ${{ github.token }}
+        repository: ${{ github.repository }}
+        run-id: ${{ inputs.promotion_stage_run_id }}
+
+    - name: Verify downloaded receipt source/run lineage before credentials exist
+      env:
+        SAGE_STAGE_RECEIPT: ${{ runner.temp }}/sage-stage-receipt/sage-stage-receipt.json
+      run: |
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        receipt = json.loads(Path(os.environ["SAGE_STAGE_RECEIPT"]).read_text(encoding="utf-8"))
+        source = receipt.get("source", {})
+        invocation = receipt.get("invocation", {})
+        artifact = receipt.get("artifact", {})
+        storage = artifact.get("storage", {}) if isinstance(artifact, dict) else {}
+        expected_name = "sage-stage-oci-" + os.environ["PROMOTION_SOURCE_SHA"]
+        if source.get("git_sha") != os.environ["PROMOTION_SOURCE_SHA"]:
+            raise SystemExit("downloaded stage receipt source SHA differs from approved source")
+        if str(invocation.get("workflow_run_id")) != os.environ["PROMOTION_STAGE_RUN_ID"]:
+            raise SystemExit("downloaded stage receipt run ID differs from approved stage run")
+        if storage.get("artifact_name") != expected_name:
+            raise SystemExit("downloaded stage receipt artifact name differs from approved source")
+        print("PASS downloaded stage receipt is bound to exact approved source/run")
+        PY
+
+    - name: Install first qualified OCI promotion adapter
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y skopeo
+        skopeo --version
+
+    - name: Prepare immutable promotion before registry credentials are exposed
+      env:
+        PROMOTION_ROOT: ${{ runner.temp }}/sage-artifact-promotion
+        SAGE_STAGE_RECEIPT: ${{ runner.temp }}/sage-stage-receipt/sage-stage-receipt.json
+        SAGE_STAGE_ARCHIVE: ${{ runner.temp }}/sage-stage-oci/sage-stage.oci.tar
+        SAGE_PROMOTION_EVENT_LOG: ${{ runner.temp }}/sage-artifact-promotion/promotion-events.jsonl
+        SAGE_EXECUTOR_ID: github-actions:${{ github.run_id }}:${{ github.run_attempt }}
+        SAGE_WORKFLOW_ENGINE: github-actions
+      run: |
+        mkdir -p "${PROMOTION_ROOT}"
+        make sage-artifact-promotion-prepare | tee "${PROMOTION_ROOT}/promotion-prepare-output.txt"
+
+    - name: Login to Docker Hub at the approved publication boundary
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Promote exact proven OCI content without rebuild
+      env:
+        SAGE_STAGE_RECEIPT: ${{ runner.temp }}/sage-stage-receipt/sage-stage-receipt.json
+        SAGE_STAGE_ARCHIVE: ${{ runner.temp }}/sage-stage-oci/sage-stage.oci.tar
+        SAGE_PROMOTION_EVENT_LOG: ${{ runner.temp }}/sage-artifact-promotion/promotion-events.jsonl
+        SAGE_PROMOTION_RECEIPT: ${{ runner.temp }}/sage-artifact-promotion/promotion-receipt.json
+        SAGE_EXECUTOR_ID: github-actions:${{ github.run_id }}:${{ github.run_attempt }}
+        SAGE_WORKFLOW_ENGINE: github-actions
+      run: make sage-artifact-promotion-execute
+
+    - name: Verify immutable-promotion receipt invariants
+      env:
+        SAGE_PROMOTION_RECEIPT: ${{ runner.temp }}/sage-artifact-promotion/promotion-receipt.json
+      run: |
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        receipt = json.loads(Path(os.environ["SAGE_PROMOTION_RECEIPT"]).read_text(encoding="utf-8"))
+        expected_sha = os.environ["PROMOTION_SOURCE_SHA"]
+        expected = receipt.get("stage", {}).get("index_digest")
+        verification = receipt.get("verification", {})
+        if receipt.get("status") != "pass":
+            raise SystemExit("promotion receipt status is not pass")
+        if receipt.get("stage", {}).get("source_git_sha") != expected_sha:
+            raise SystemExit("promotion receipt source SHA differs from approved source")
+        if receipt.get("target", {}).get("index_digest") != expected:
+            raise SystemExit("promoted target digest differs from proven stage digest")
+        if verification.get("rebuild_performed") is not False:
+            raise SystemExit("promotion receipt does not prove rebuild_performed=false")
+        if verification.get("secrets_in_command_arguments") is not False:
+            raise SystemExit("promotion receipt does not prove secret-free command arguments")
+        print("PASS exact stage digest equals promoted target digest")
+        print("PASS rebuild_performed=false")
+        PY
+
+    - name: Persist immutable-promotion evidence
+      uses: actions/upload-artifact@v4
+      with:
+        name: sage-promotion-evidence-${{ inputs.promotion_source_sha }}
+        path: |
+          ${{ runner.temp }}/sage-artifact-promotion/promotion-receipt.json
+          ${{ runner.temp }}/sage-artifact-promotion/promotion-events.jsonl
+          ${{ runner.temp }}/sage-artifact-promotion/promotion-prepare-output.txt
+        if-no-files-found: error
