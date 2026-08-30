@@ -5,7 +5,7 @@
   "title": "Centralized logging: a first end-to-end SAGE case",
   "status": "selected-validated-case",
   "audience": "People evaluating or contributing to SAGE without requiring prior SAGE expertise.",
-  "introduction": "SAGE is Kalaxy3's federated decision partner: it preserves operator intent, current authority, alternatives, evidence, failures, human expertise, validation, and outcomes so that engineering decisions remain understandable and reviewable.",
+  "introduction": "SAGE is Kalaxy3's federated decision partner: it preserves operator intent, current authority, alternatives, evidence, failures, human expertise, validation, and outcomes so that engineering decisions remain understandable and reviewable. Retained evidence is reconsidered when later context makes it relevant; it informs current architecture without silently dictating it.",
   "case_question": "Can Kalaxy3 introduce centralized logging through a governed path that remains reproducible, validates real runtime value, learns from failures without hiding them, and keeps human authority explicit?",
   "selected_case": {
     "capability_id": "operations.centralized-logging",
@@ -121,6 +121,19 @@
       "evidence_refs": [
         "SAGE-K3-OBS-20260728-003"
       ]
+    },
+    {
+      "sequence": 8,
+      "stage_id": "evidence-reconsideration",
+      "title": "Reconsider remembered evidence before creating a parallel path",
+      "source_statement": "The case already preserves reusable failure, recovery, runtime, and review evidence, and its reviewers remain responsible for deciding whether that evidence applies to a new case.",
+      "sage_contribution": "After intent-first ideation, retrieve contextually relevant prior evidence, preserve its source facts, and assess current applicability plus value impact. Materially overlapping existing capability enters the alternative set for reuse, augmentation, replacement, intentional coexistence, or do-nothing rather than being silently forgotten.",
+      "human_contribution": "The Architect retains authority over material tradeoffs and Definition-of-Done choices; historical evidence creates a consideration obligation but not a technology preference.",
+      "evidence_refs": [
+        "SAGE-K3-GUARDRAIL-20260731-001",
+        "SAGE-K3-OBS-20260804-001",
+        "SAGE-K3-OBS-20260728-003"
+      ]
     }
   ],
   "measures": [
@@ -194,6 +207,26 @@
       "status": "not-measured",
       "measurement_type": "unavailable",
       "evidence_refs": []
+    },
+    {
+      "measure_id": "evidence-reconsideration-coverage",
+      "description": "Relevant retrieved evidence receives a finalized applicability and value-impact disposition before semantic commitment.",
+      "target": 1.0,
+      "actual": null,
+      "unit": "ratio",
+      "status": "not-measured",
+      "measurement_type": "unavailable",
+      "evidence_refs": []
+    },
+    {
+      "measure_id": "prior-capability-alternative-change",
+      "description": "Count of architecture decisions where rediscovered existing capability materially changes the alternative set.",
+      "target": "observed-not-invented",
+      "actual": null,
+      "unit": "events",
+      "status": "not-measured",
+      "measurement_type": "unavailable",
+      "evidence_refs": []
     }
   ],
   "participation_paths": [
@@ -214,12 +247,12 @@
     },
     {
       "participant": "engineer",
-      "entry_action": "Improve a repository-owned component, test, validator, or evidence path used by the case.",
+      "entry_action": "Improve a repository-owned component, test, validator, or evidence path used by the case; when prior evidence is retrieved, contribute an applicability/value assessment and any resulting alternative or acceptance-criterion augmentation.",
       "authority": "Proposes implementation; repository validation and operator review determine acceptance."
     },
     {
       "participant": "reviewer",
-      "entry_action": "Verify selected and rejected alternatives, machine-readable receipts, runtime evidence, and remaining unknowns.",
+      "entry_action": "Verify selected and rejected alternatives, evidence-reconsideration dispositions, machine-readable receipts, implementation-generation lineage, runtime evidence, and remaining unknowns.",
       "authority": "May accept, reject, or request correction; cannot convert inference into source fact."
     }
   ],
@@ -228,6 +261,9 @@
     "Measure whether retrieved evidence is actually applied and whether it reduces rework or time to validated implementation.",
     "Add new cases without changing SAGE's federated authority, one-boundary mutation, or evidence contracts.",
     "Use participant feedback to improve clarity while keeping source assertions, inference, predictions, and outcomes separate.",
-    "Keep evidence-learning claims open until retrieval/application and outcome metrics demonstrate reduced rework or faster validated delivery."
+    "Keep evidence-learning claims open until retrieval/application and outcome metrics demonstrate reduced rework or faster validated delivery.",
+    "Detect materially overlapping existing capabilities and explicitly compare reuse, augmentation, replacement, intentional coexistence, and do-nothing before creating an independent stack.",
+    "Preserve criteria-to-implementation-generation lineage so later evidence can justify retain, adapt, rebuild, or supersede decisions without rewriting historical justification.",
+    "Measure evidence-reconsideration coverage, prior-capability alternative changes, revalidation triggers, and predicted-versus-observed modernization value before claiming learning efficiency."
   ]
 }

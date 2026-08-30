@@ -20,7 +20,7 @@ from workflow import (
 )
 
 WORKFLOW_ID = "sage.branch-lifecycle"
-WORKFLOW_VERSION = "0.1.0"
+WORKFLOW_VERSION = "0.2.0"
 STATE_ROOT = Path("~/.local/state/kalaxy3/sage-branch-lifecycle").expanduser()
 PRIMITIVES_USED = (
     "catalog.registry",
@@ -172,6 +172,7 @@ def _write_proposal(
     expected_result: str,
     risk: str,
     rollback: str,
+    change_scope: tuple[str, ...] | None = None,
 ) -> Mapping[str, Any]:
     proposal = OperatorGitProposal.build(
         proposal_id=_proposal_id(branch, boundary),
@@ -180,7 +181,7 @@ def _write_proposal(
         authority_receipt=str(authority_path),
         component_manifest=str(component_path),
         boundary=boundary,
-        change_scope=(f"refs/heads/{branch}",),
+        change_scope=(change_scope or (f"refs/heads/{branch}",)),
         validation=validation,
         command_argv=argv,
         expected_result=expected_result,
@@ -259,6 +260,7 @@ def start_branch_bootstrap(
         "record_type": "sage-branch-lifecycle-state",
         "workflow_id": WORKFLOW_ID,
         "workflow_version": WORKFLOW_VERSION,
+        "mode": "bootstrap",
         "request": request,
         "target_branch": branch,
         "expected_main": expected_main,
@@ -291,6 +293,370 @@ def _load_result(path: Path, proposal: Mapping[str, Any]) -> Mapping[str, Any]:
     if result.get("returncode") != 0 or result.get("pasted_output_received") is not True:
         raise WorkflowError("operator result must record successful execution and complete pasted output")
     return result
+
+
+def _write_repository_lineage_milestone(
+    writer: AtomicFileWriter,
+    path: Path,
+    *,
+    objective_id: str,
+    milestone_type: str,
+    source_branch: str,
+    source_head: str,
+    authoritative_main: str,
+    local_main: str,
+    source_local_exists: bool,
+    source_remote_exists: bool,
+    assertions: list[dict[str, Any]],
+    evidence_references: list[str],
+) -> Path:
+    value = {
+        "schema_version": "1.0",
+        "record_type": "sage-repository-lineage-milestone",
+        "objective_id": objective_id,
+        "milestone_type": milestone_type,
+        "delegation": {
+            "capability_class": "source-control",
+            "implementation": "git",
+            "adapter": WORKFLOW_ID,
+            "adapter_version": WORKFLOW_VERSION,
+            "chronology_ownership": "delegated-high-resolution-mechanics",
+            "sage_ownership": "semantic-milestones-authority-and-reconstruction-evidence",
+        },
+        "authority": {
+            "source_branch": source_branch,
+            "source_head": source_head,
+            "authoritative_main": authoritative_main,
+            "local_main": local_main,
+            "source_local_exists": source_local_exists,
+            "source_remote_exists": source_remote_exists,
+        },
+        "assertions": assertions,
+        "evidence_references": evidence_references,
+        "historical_mechanics": "Consult delegated Git history for per-commit chronology; this milestone preserves the semantic anchors needed to interpret it.",
+    }
+    writer.write_text(path, _stable_json(value), new_mode=0o600)
+    return path
+
+
+def start_branch_closeout(
+    repo: Path,
+    *,
+    request: str,
+    objective_id: str,
+    source_branch: str,
+    promoted_source: str,
+    expected_main: str,
+) -> Mapping[str, Any]:
+    """Prove promotion containment and emit the first post-promotion closeout proposal."""
+    repo = repo.expanduser().resolve()
+    if not request.strip() or not objective_id.strip():
+        raise WorkflowError("post-promotion closeout requires request and objective identity")
+    if not _BRANCH.fullmatch(source_branch) or source_branch == "main" or ".." in source_branch:
+        raise WorkflowError("post-promotion closeout source branch is invalid")
+    if not _SHA40.fullmatch(promoted_source) or not _SHA40.fullmatch(expected_main):
+        raise WorkflowError("post-promotion closeout requires exact source and main SHAs")
+
+    state_dir = _new_state_dir()
+    _, _, writer, inspector = _runtime(repo, state_dir)
+    inspector.require_clean()
+    inspector.require_branch(source_branch)
+    inspector.require_head(promoted_source)
+    inspector.require_upstream_equal()
+    if inspector.upstream_head() != promoted_source:
+        raise WorkflowError("source upstream changed before post-promotion closeout")
+    if inspector.head("origin/main") != expected_main or inspector.remote_head("origin", "main") != expected_main:
+        raise WorkflowError("authoritative main is not stable before post-promotion closeout")
+    if inspector.remote_head("origin", source_branch) != promoted_source:
+        raise WorkflowError("remote source tip changed after promotion")
+    if not inspector.is_ancestor(promoted_source, expected_main):
+        raise WorkflowError("promoted source is not contained in authoritative main")
+    if not _local_branch_exists(inspector, "main"):
+        raise WorkflowError("local main branch is missing")
+    local_main = inspector.head("main")
+    if not inspector.is_ancestor(local_main, expected_main):
+        raise WorkflowError(
+            "local main cannot fast-forward to authoritative main without rewriting history"
+        )
+
+    snapshot = inspector.snapshot()
+    authority_path, component_path, validation = _write_common_receipts(
+        writer,
+        state_dir,
+        request=request,
+        expected_main=expected_main,
+        branch=source_branch,
+        repository=snapshot.as_dict(),
+    )
+    validation.extend([
+        {
+            "label": "Promoted source contained in authoritative main",
+            "reference": "git.inspect merge-base --is-ancestor",
+            "status": "pass",
+            "sha256": _sha256_text(f"{promoted_source}:{expected_main}"),
+        },
+        {
+            "label": "Source and main remote tips stable",
+            "reference": "git.inspect ls-remote",
+            "status": "pass",
+            "sha256": _sha256_text(f"{source_branch}:{promoted_source}:{expected_main}"),
+        },
+    ])
+    pre = _write_repository_lineage_milestone(
+        writer,
+        state_dir / "repository-lineage-pre-closeout.json",
+        objective_id=objective_id,
+        milestone_type="post-promotion-closeout-ready",
+        source_branch=source_branch,
+        source_head=promoted_source,
+        authoritative_main=expected_main,
+        local_main=local_main,
+        source_local_exists=True,
+        source_remote_exists=True,
+        assertions=[
+            {"kind": "source-contained-in-target", "verified": True, "source": promoted_source, "target": expected_main},
+            {"kind": "local-main-fast-forwardable", "verified": True, "source": local_main, "target": expected_main},
+        ],
+        evidence_references=[str(authority_path), str(component_path)],
+    )
+    proposal_path = state_dir / "operator-git-proposal-switch-main.json"
+    proposal = _write_proposal(
+        writer,
+        proposal_path,
+        snapshot=snapshot,
+        authority_path=authority_path,
+        component_path=component_path,
+        validation=validation,
+        boundary="switch-branch",
+        branch=source_branch,
+        argv=("git", "switch", "main"),
+        expected_result="Switch off the promoted source branch so local main can be reconciled and the source retired safely.",
+        risk="Mutates only the active local branch selection; no commit, remote, deployment, or history rewrite.",
+        rollback="Do not execute the proposal; remaining closeout steps stay blocked.",
+        change_scope=("refs/heads/main", f"refs/heads/{source_branch}"),
+    )
+    state = {
+        "schema_version": "1.0",
+        "record_type": "sage-branch-lifecycle-state",
+        "workflow_id": WORKFLOW_ID,
+        "workflow_version": WORKFLOW_VERSION,
+        "mode": "post-promotion-closeout",
+        "request": request,
+        "objective_id": objective_id,
+        "target_branch": source_branch,
+        "promoted_source": promoted_source,
+        "expected_main": expected_main,
+        "local_main_before": local_main,
+        "phase": "switch-main",
+        "status": "operator-review-required",
+        "authority_receipt": str(authority_path),
+        "component_manifest": str(component_path),
+        "repository_lineage_pre": str(pre),
+        "current_proposal": str(proposal_path),
+        "history": [],
+    }
+    state_path = state_dir / "branch-lifecycle-state.json"
+    writer.write_text(state_path, _stable_json(state), new_mode=0o600)
+    return {
+        "status": state["status"],
+        "state": str(state_path),
+        "proposal_path": str(proposal_path),
+        "proposal": proposal,
+    }
+
+
+def continue_branch_closeout(
+    repo: Path,
+    state_path: Path,
+    operator_result: Path,
+) -> Mapping[str, Any]:
+    """Verify one post-promotion closeout boundary and emit the next."""
+    repo = repo.expanduser().resolve()
+    state_path = state_path.expanduser().resolve()
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    if state.get("record_type") != "sage-branch-lifecycle-state" or state.get("mode") != "post-promotion-closeout":
+        raise WorkflowError("branch closeout state type or mode is invalid")
+    if state.get("status") != "operator-review-required":
+        raise WorkflowError("branch closeout is not awaiting an operator result")
+    state_dir = state_path.parent
+    _, _, writer, inspector = _runtime(repo, state_dir)
+    proposal_path = Path(str(state["current_proposal"])).expanduser().resolve()
+    proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+    _load_result(operator_result, proposal)
+
+    source_branch = str(state["target_branch"])
+    promoted_source = str(state["promoted_source"])
+    expected_main = str(state["expected_main"])
+    phase = str(state["phase"])
+    inspector.require_clean()
+    if inspector.head("origin/main") != expected_main or inspector.remote_head("origin", "main") != expected_main:
+        raise WorkflowError("authoritative main changed during post-promotion closeout")
+    if not inspector.is_ancestor(promoted_source, expected_main):
+        raise WorkflowError("source containment changed during post-promotion closeout")
+
+    state["history"].append({
+        "phase": phase,
+        "proposal_id": proposal["proposal_id"],
+        "command_sha256": proposal["command"]["sha256"],
+        "result_sha256": hashlib.sha256(operator_result.expanduser().resolve().read_bytes()).hexdigest(),
+    })
+    authority_path = Path(str(state["authority_receipt"]))
+    component_path = Path(str(state["component_manifest"]))
+
+    if phase == "switch-main":
+        inspector.require_branch("main")
+        local_main = inspector.head()
+        if local_main != str(state["local_main_before"]):
+            raise WorkflowError("local main changed while switching branches")
+        if inspector.remote_head("origin", source_branch) != promoted_source:
+            raise WorkflowError("remote source changed before local-main reconciliation")
+        if local_main == expected_main:
+            next_phase = "delete-remote"
+            boundary = "push"
+            argv = ("git", "push", "origin", "--delete", source_branch)
+            expected_result = "Delete exactly the stable promoted remote source branch after proving it is contained in authoritative main."
+            change_scope = (f"refs/heads/{source_branch}",)
+        else:
+            next_phase = "fast-forward-main"
+            boundary = "other-git-mutation"
+            argv = ("git", "merge", "--ff-only", expected_main)
+            expected_result = "Fast-forward local main to the exact authoritative main commit without creating or rewriting history."
+            change_scope = ("refs/heads/main",)
+        next_path = state_dir / f"operator-git-proposal-{next_phase}.json"
+        next_proposal = _write_proposal(
+            writer, next_path,
+            snapshot=inspector.snapshot(), authority_path=authority_path,
+            component_path=component_path,
+            validation=[{"label":"Post-switch authority verification","reference":"git.inspect","status":"pass","sha256":_sha256_text(f"{local_main}:{expected_main}:{promoted_source}")}],
+            boundary=boundary, branch=source_branch, argv=argv,
+            expected_result=expected_result,
+            risk="Bounded repository-reference mutation only; force, reset, rebase, and history rewriting are prohibited.",
+            rollback="Stop before the next boundary; Git history remains intact and the source is still contained in authoritative main.",
+            change_scope=change_scope,
+        )
+        state["phase"] = next_phase
+        state["current_proposal"] = str(next_path)
+        writer.write_text(state_path, _stable_json(state), new_mode=0o600)
+        return {"status": state["status"], "verified_boundary":"switch-main", "state":str(state_path), "proposal_path":str(next_path), "proposal":next_proposal}
+
+    if phase == "fast-forward-main":
+        inspector.require_branch("main")
+        inspector.require_head(expected_main)
+        if inspector.remote_head("origin", source_branch) != promoted_source:
+            raise WorkflowError("remote source changed before retirement")
+        next_path = state_dir / "operator-git-proposal-delete-remote.json"
+        next_proposal = _write_proposal(
+            writer, next_path,
+            snapshot=inspector.snapshot(), authority_path=authority_path,
+            component_path=component_path,
+            validation=[{"label":"Local main reconciled exactly","reference":"git.inspect","status":"pass","sha256":_sha256_text(expected_main)}],
+            boundary="push", branch=source_branch,
+            argv=("git", "push", "origin", "--delete", source_branch),
+            expected_result="Delete exactly the stable promoted remote source branch after main reconciliation.",
+            risk="Deletes only the declared remote source ref; promoted content remains reachable from authoritative main.",
+            rollback="Stop before local source deletion; authoritative main already contains the promoted source.",
+            change_scope=(f"refs/heads/{source_branch}",),
+        )
+        state["phase"] = "delete-remote"
+        state["current_proposal"] = str(next_path)
+        writer.write_text(state_path, _stable_json(state), new_mode=0o600)
+        return {"status":state["status"],"verified_boundary":"fast-forward-main","state":str(state_path),"proposal_path":str(next_path),"proposal":next_proposal}
+
+    if phase == "delete-remote":
+        inspector.require_branch("main")
+        inspector.require_head(expected_main)
+        if _remote_branch_exists(inspector, "origin", source_branch):
+            raise WorkflowError("remote promoted source still exists after governed deletion")
+        if not _local_branch_exists(inspector, source_branch):
+            raise WorkflowError("local source disappeared before its separately governed deletion boundary")
+        if inspector.head(source_branch) != promoted_source:
+            raise WorkflowError("local source changed before deletion")
+        next_path = state_dir / "operator-git-proposal-delete-local.json"
+        next_proposal = _write_proposal(
+            writer, next_path,
+            snapshot=inspector.snapshot(), authority_path=authority_path,
+            component_path=component_path,
+            validation=[{"label":"Remote source retirement verified","reference":"git.inspect ls-remote","status":"pass","sha256":_sha256_text(f"absent:{source_branch}:{promoted_source}")}],
+            boundary="branch-delete", branch=source_branch,
+            argv=("git", "branch", "-d", source_branch),
+            expected_result="Delete the exact local promoted source branch only after its remote ref is absent and its content remains contained in main.",
+            risk="Deletes only the declared local branch ref; promoted content remains reachable from main.",
+            rollback="Stop before execution; the local source ref remains available.",
+            change_scope=(f"refs/heads/{source_branch}",),
+        )
+        state["phase"] = "delete-local"
+        state["current_proposal"] = str(next_path)
+        writer.write_text(state_path, _stable_json(state), new_mode=0o600)
+        return {"status":state["status"],"verified_boundary":"delete-remote","state":str(state_path),"proposal_path":str(next_path),"proposal":next_proposal}
+
+    if phase == "delete-local":
+        inspector.require_branch("main")
+        inspector.require_head(expected_main)
+        inspector.require_upstream_equal()
+        if _remote_branch_exists(inspector, "origin", source_branch):
+            raise WorkflowError("remote source reappeared during closeout")
+        if _local_branch_exists(inspector, source_branch):
+            raise WorkflowError("local source still exists after governed deletion")
+        post = _write_repository_lineage_milestone(
+            writer,
+            state_dir / "repository-lineage-closeout.json",
+            objective_id=str(state["objective_id"]),
+            milestone_type="post-promotion-source-retired",
+            source_branch=source_branch,
+            source_head=promoted_source,
+            authoritative_main=expected_main,
+            local_main=expected_main,
+            source_local_exists=False,
+            source_remote_exists=False,
+            assertions=[
+                {"kind":"source-contained-in-target","verified":True,"source":promoted_source,"target":expected_main},
+                {"kind":"local-main-reconciled","verified":True,"target":expected_main},
+                {"kind":"remote-source-retired","verified":True,"branch":source_branch},
+                {"kind":"local-source-retired","verified":True,"branch":source_branch},
+            ],
+            evidence_references=[str(state["repository_lineage_pre"]), str(state["authority_receipt"]), str(state["component_manifest"])],
+        )
+        receipt = {
+            "schema_version":"1.0",
+            "record_type":"sage-branch-lifecycle-receipt",
+            "status":"pass",
+            "mode":"post-promotion-closeout",
+            "objective_id":state["objective_id"],
+            "source_branch":source_branch,
+            "promoted_source":promoted_source,
+            "authoritative_main":expected_main,
+            "active_branch":"main",
+            "head":inspector.head(),
+            "upstream_head":inspector.upstream_head(),
+            "source_local_exists":False,
+            "source_remote_exists":False,
+            "repository_lineage_pre":state["repository_lineage_pre"],
+            "repository_lineage_post":str(post),
+            "repository_lineage_post_sha256":hashlib.sha256(post.read_bytes()).hexdigest(),
+            "operator_boundaries":list(state["history"]),
+        }
+        receipt_path = state_dir / "branch-lifecycle-receipt.json"
+        writer.write_text(receipt_path, _stable_json(receipt), new_mode=0o600)
+        state["status"]="complete"; state["phase"]="complete"; state["current_proposal"]=None; state["receipt"]=str(receipt_path); state["repository_lineage_post"]=str(post)
+        writer.write_text(state_path, _stable_json(state), new_mode=0o600)
+        return {"status":"complete","verified_boundary":"delete-local","state":str(state_path),"receipt":str(receipt_path),"repository_lineage":str(post),"proposal":None}
+
+    raise WorkflowError(f"unsupported branch closeout phase: {phase}")
+
+
+def continue_branch_lifecycle(
+    repo: Path,
+    state_path: Path,
+    operator_result: Path,
+) -> Mapping[str, Any]:
+    """Dispatch continuation by persisted branch-lifecycle mode."""
+    value = json.loads(state_path.expanduser().resolve().read_text(encoding="utf-8"))
+    mode = value.get("mode", "bootstrap")
+    if mode == "post-promotion-closeout":
+        return continue_branch_closeout(repo, state_path, operator_result)
+    if mode == "bootstrap":
+        return continue_branch_bootstrap(repo, state_path, operator_result)
+    raise WorkflowError(f"unsupported branch lifecycle mode: {mode}")
 
 
 def continue_branch_bootstrap(

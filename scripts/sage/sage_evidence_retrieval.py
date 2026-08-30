@@ -44,6 +44,98 @@ class RetrievalError(RuntimeError):
     """Raised when retrieval violates the repository contract."""
 
 
+RECONSIDERATION_MUTABLE_FIELDS = frozenset({
+    "disposition",
+    "disposition_rationale",
+    "applicability",
+    "value_effect",
+    "alternative_effect",
+    "augmentations",
+    "additional_acceptance_criteria",
+    "reconsideration_trigger",
+})
+
+
+def _stable_json_bytes(value: object) -> bytes:
+    return json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+
+
+def retrieval_basis(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the immutable retrieval basis that an LLM assessment may not rewrite."""
+    results: list[dict[str, Any]] = []
+    for item in payload.get("results", []):
+        if not isinstance(item, Mapping):
+            raise RetrievalError("retrieval result entries must be objects")
+        results.append({
+            key: value
+            for key, value in item.items()
+            if key not in RECONSIDERATION_MUTABLE_FIELDS
+        })
+    return {
+        "schema_version": payload.get("schema_version"),
+        "algorithm_version": payload.get("algorithm_version"),
+        "request": payload.get("request"),
+        "policy_sha256": payload.get("policy_sha256"),
+        "sources": payload.get("sources"),
+        "results": results,
+    }
+
+
+def retrieval_basis_sha256(payload: Mapping[str, Any]) -> str:
+    return hashlib.sha256(_stable_json_bytes(retrieval_basis(payload))).hexdigest()
+
+
+def reconsideration_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Summarize finalized evidence participation without manufacturing outcomes."""
+    results = [item for item in payload.get("results", []) if isinstance(item, Mapping)]
+    final = [item for item in results if item.get("applicability") not in {None, "pending"}]
+    return {
+        "candidate_count": len(results),
+        "assessed_count": len(final),
+        "assessment_coverage": (len(final) / len(results)) if results else 1.0,
+        "applied_count": sum(item.get("disposition") == "applied" for item in results),
+        "contextually_not_applicable_count": sum(
+            item.get("applicability") in {
+                "contextually-relevant-not-applicable",
+                "superseded-for-context",
+            }
+            for item in results
+        ),
+        "requires_revalidation_count": sum(
+            item.get("applicability") == "requires-revalidation"
+            or item.get("value_effect") == "requires-revalidation"
+            for item in results
+        ),
+        "alternative_set_change_count": sum(
+            item.get("alternative_effect") not in {None, "pending", "none"}
+            for item in results
+        ),
+        "augmentation_count": sum(len(item.get("augmentations", [])) for item in results),
+        "additional_acceptance_criteria_count": sum(
+            len(item.get("additional_acceptance_criteria", [])) for item in results
+        ),
+        "reconsideration_trigger_count": sum(
+            bool(str(item.get("reconsideration_trigger", "")).strip()) for item in results
+        ),
+    }
+
+
+def requires_contribution_refresh(payload: Mapping[str, Any]) -> bool:
+    """Return whether evidence materially changed the candidate contribution."""
+    for item in payload.get("results", []):
+        if not isinstance(item, Mapping):
+            continue
+        if item.get("value_effect") in {"redirect", "expand"}:
+            return True
+        if item.get("alternative_effect") not in {None, "pending", "none"}:
+            return True
+        if item.get("augmentations") or item.get("additional_acceptance_criteria"):
+            return True
+    return False
+
+
 def load_json(path: Path) -> Any:
     """Load one UTF-8 JSON document."""
     try:
@@ -652,6 +744,12 @@ def score_record(
         "recency": recency,
         "disposition": "pending",
         "disposition_rationale": "",
+        "applicability": "pending",
+        "value_effect": "pending",
+        "alternative_effect": "pending",
+        "augmentations": [],
+        "additional_acceptance_criteria": [],
+        "reconsideration_trigger": "",
     }
 
 
@@ -718,14 +816,16 @@ def retrieve(
     for rank, candidate in enumerate(selected, start=1):
         candidate["rank"] = rank
 
-    return {
-        "schema_version": "1.0",
+    payload = {
+        "schema_version": "1.1",
         "algorithm_version": policy["algorithm_version"],
         "request": request,
         "policy_sha256": policy_sha256(policy_path),
         "sources": sources,
         "results": selected,
     }
+    payload["retrieval_basis_sha256"] = retrieval_basis_sha256(payload)
+    return payload
 
 
 def validate_result(
@@ -735,6 +835,9 @@ def validate_result(
     require_final: bool = False,
 ) -> None:
     """Validate structure, quality fields, and dispositions."""
+    version = str(payload.get("schema_version", ""))
+    if version not in {"1.0", "1.1"}:
+        raise RetrievalError(f"unsupported retrieval result schema version: {version!r}")
     required = {
         "schema_version",
         "algorithm_version",
@@ -743,6 +846,8 @@ def validate_result(
         "sources",
         "results",
     }
+    if version == "1.1":
+        required.add("retrieval_basis_sha256")
     missing = sorted(required - set(payload))
     if missing:
         raise RetrievalError(
@@ -755,8 +860,20 @@ def validate_result(
         raise RetrievalError(
             "retrieval algorithm version does not match policy"
         )
+    if version == "1.1":
+        observed_basis = str(payload.get("retrieval_basis_sha256", ""))
+        expected_basis = retrieval_basis_sha256(payload)
+        if observed_basis != expected_basis:
+            raise RetrievalError(
+                "retrieval immutable basis changed during evidence reconsideration"
+            )
 
     allowed = set(policy["allowed_dispositions"])
+    reconsideration = policy.get("reconsideration_contract", {})
+    applicability_values = set(reconsideration.get("applicability_values", ()))
+    value_effect_values = set(reconsideration.get("value_effect_values", ()))
+    alternative_effect_values = set(reconsideration.get("alternative_effect_values", ()))
+    trigger_required = set(reconsideration.get("reconsideration_trigger_required_for", ()))
     quality_required = {
         "confidence",
         "applicable_facts",
@@ -903,11 +1020,65 @@ def validate_result(
                 f"{result.get('identifier')} disposition "
                 "needs rationale"
             )
-        if require_final and disposition == "pending":
+        if version == "1.0":
+            if require_final and disposition == "pending":
+                raise RetrievalError(
+                    f"{result.get('identifier')} legacy evidence disposition is still pending"
+                )
+            continue
+        applicability = result.get("applicability")
+        value_effect = result.get("value_effect")
+        alternative_effect = result.get("alternative_effect")
+        if applicability not in applicability_values:
             raise RetrievalError(
-                f"{result.get('identifier')} disposition "
-                "is still pending"
+                f"{result.get('identifier')} applicability is invalid: {applicability!r}"
             )
+        if value_effect not in value_effect_values:
+            raise RetrievalError(
+                f"{result.get('identifier')} value_effect is invalid: {value_effect!r}"
+            )
+        if alternative_effect not in alternative_effect_values:
+            raise RetrievalError(
+                f"{result.get('identifier')} alternative_effect is invalid: {alternative_effect!r}"
+            )
+        for field in ("augmentations", "additional_acceptance_criteria"):
+            values = result.get(field)
+            if not isinstance(values, list) or not all(
+                isinstance(item, str) and item.strip() for item in values
+            ):
+                raise RetrievalError(
+                    f"{result.get('identifier')} {field} must contain only non-empty strings"
+                )
+        trigger = str(result.get("reconsideration_trigger", "")).strip()
+        if applicability in trigger_required and not trigger:
+            raise RetrievalError(
+                f"{result.get('identifier')} {applicability} requires a reconsideration trigger"
+            )
+        if require_final and (
+            disposition == "pending"
+            or applicability == "pending"
+            or value_effect == "pending"
+            or alternative_effect == "pending"
+        ):
+            raise RetrievalError(
+                f"{result.get('identifier')} evidence reconsideration is still pending"
+            )
+        if require_final:
+            expected_disposition = None
+            if applicability in {"applicable", "partially-applicable"}:
+                expected_disposition = "applied"
+            elif applicability in {
+                "contextually-relevant-not-applicable",
+                "superseded-for-context",
+            }:
+                expected_disposition = "reviewed-not-applicable"
+            elif applicability == "requires-revalidation":
+                expected_disposition = "requires-revalidation"
+            if expected_disposition is not None and disposition != expected_disposition:
+                raise RetrievalError(
+                    f"{result.get('identifier')} disposition/applicability mismatch: "
+                    f"expected={expected_disposition}, observed={disposition}"
+                )
 
 
 def write_result(path: Path, payload: Mapping[str, Any]) -> None:

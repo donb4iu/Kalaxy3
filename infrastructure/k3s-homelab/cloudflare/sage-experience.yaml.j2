@@ -39,6 +39,22 @@ data:
           <p>The Architect then clarified the workload semantics: cloudflared is a platform service, node-level HA outranks ordinary placement preference, amd64-01 capacity should be preserved for AI when alternatives exist, and ARM64 capacity must not be ignored. SAGE converts that into hard cross-node separation plus soft placement preferences instead of a brittle node-name rule.</p>
         </section>
         <section>
+          <h2>How SAGE uses remembered evidence without getting trapped by it</h2>
+          <p>SAGE starts from the intended future outcome and allows the LLM to contribute current engineering alternatives before accumulated SAGE evidence narrows the solution space. Relevant prior evidence is then reconsidered for current applicability and value. Existing capability becomes an explicit alternative to reuse, augment, replace, intentionally coexist with, or leave unchanged; it is not an automatic technology preference.</p>
+        </section>
+        <section>
+          <h2>Who decides</h2>
+          <p>The Architect retains authority over intended outcomes, Definition of Done, material tradeoffs, and architectural fitness. The LLM contributes alternatives, critique, applicability analysis, and proposed acceptance criteria. SAGE preserves provenance, validates deterministic facts, exposes material decision boundaries, and does not manufacture authority from remembered evidence.</p>
+        </section>
+        <section>
+          <h2>How implementations evolve</h2>
+          <p>Each governed implementation generation remains linked to the intent, criteria, assumptions, evidence, alternatives, and decisions that justified it. Later evidence can support retaining, adapting, rebuilding, replacing, or intentionally coexisting with that generation without rewriting a historically justified decision as an error. Repository mechanics remain delegated to Git while SAGE preserves milestone-level semantic lineage and reconstruction evidence.</p>
+        </section>
+        <section>
+          <h2>What is observable</h2>
+          <p>SAGE can expose how much relevant evidence was dispositioned, whether rediscovered prior capability changed the alternative set, which items require revalidation, where material human decisions occurred, and which implementation generation reached validation or promotion. Process-efficiency or modernization-value claims remain unknown until measured; unavailable human effort is not replaced with invented numbers.</p>
+        </section>
+        <section>
           <h2>Health and evidence</h2>
           <p>If this page is visible after Access authentication, the protected external request reached the live cluster-hosted origin. Deterministic workload, tunnel, routing, and negative-access evidence is recorded separately by SAGE.</p>
           <p><a href="/evidence/">Browse evidence</a> · <a href="/standards/kalaxy3-sage-operating-contract/">SAGE operating contract</a></p>

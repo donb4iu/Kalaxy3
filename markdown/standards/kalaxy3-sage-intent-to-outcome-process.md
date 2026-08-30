@@ -20,9 +20,21 @@ The front door must consume published child-workflow results through compatibili
 
 The parent must also **persist the planning source before planning**. Semantic confirmation and request planning are separate evidence domains: if semantic confirmation succeeds and planning later fails closed, the parent may not remain falsely recorded as still waiting for Architect confirmation. A **planning failure** therefore preserves the already-completed semantic child, the checksum-bound planning source, and `planning` as the next governed boundary. The parent may then enter a governed candidate iteration without replaying semantic confirmation.
 
+Request planning and request mutation are also separate authority domains. After planning produces the **exact planning proposal**, the front door persists that proposal and stops at an Architect **objective-path decision** boundary before calling request execution. The decision is checksum-bound to the literal request and exact proposal package. `continue-planned` resumes the same persisted proposal only after that Architect authority is available; it does not replan, substitute a candidate, or create a second semantic-confirmation cycle. The same split applies to initial semantic-confirmation completion and later candidate iterations so a plan-then-execute composition cannot outrun its own mutation-authority gate.
+
 If the semantic child was completed directly or by another compatible caller, the parent validates the child request, action, contribution, confirmation digest, Architect disposition digest, and planning-source existence before reconciling it. This **completed semantic child** reconciliation changes only parent orchestration state; it does not regenerate semantic evidence or fabricate a second confirmation.
 
 A request-execution child may also **already self-closed** when the repository-owned routine Git lifecycle consumes its receipt, performs post-operator verification, records metrics/evidence closeout, and marks the child boundary complete before the intent-to-outcome parent is resumed. In that case the parent **must not replay** the consumed Git boundary. Parent continuation validates the child request binding, canonical routine receipt and recorded digest, and the referenced verification/metrics/evidence closeout artifacts, then reconciles only the parent state to `source-git-complete` with `runtime-validation` as the next boundary.
+
+The completed-child reconciliation also binds the **canonical routine receipt commit**
+to the current iteration's `candidate_head`. The normal continuation and stale-parent
+reconciliation paths must derive that exact source identity from the same verified
+receipt rather than maintain separate interpretations.
+
+Runtime acceptance fails closed when the current iteration has no candidate source
+commit. Runtime evidence cannot create an implementation generation whose source
+identity is unknown. Repair of missing parent lineage never edits intent state by
+hand and never replays an already consumed Git lifecycle boundary.
 
 ## One-time bootstrap seam
 
@@ -38,7 +50,7 @@ Automated runtime validation must not fabricate a human MFA success or Cloudflar
 
 After runtime acceptance, the front door delegates promotion to the existing checkpoint-promotion composition. Browser approval boundaries and exact merge verification remain unchanged.
 
-Safe local-main reconciliation and source-branch retirement remain part of this E2E Definition of Done. The checkpoint-promotion composition now closes the bounded pre-promotion reconciliation case in which both the source branch and current `main` have unique, disjoint-path changes: it emits operator-executed merge and push boundaries, proves exact merge-parent topology, and immediately re-enters full checkpoint promotion against current target authority. Overlapping-path reconciliation still fails closed for Architect disposition. Source-branch retirement remains a separate post-promotion obligation and is not pulled into a blocker-remediation detour.
+Safe local-main reconciliation and source-branch retirement remain part of this E2E Definition of Done. The checkpoint-promotion composition closes the bounded pre-promotion reconciliation case in which both the source branch and current `main` have unique, disjoint-path changes: it emits operator-executed merge and push boundaries, proves exact merge-parent topology, and immediately re-enters full checkpoint promotion against current target authority. Overlapping-path reconciliation still fails closed for Architect disposition. After successful promotion, the existing branch-lifecycle composition owns the separate post-promotion closeout: it independently proves source containment and stable remote authority, governs operator-executed fast-forward-only local-main reconciliation and exact remote/local source retirement, and emits a **repository-lineage milestone**. Git remains the delegated high-resolution mechanical chronicle; the SAGE milestone preserves implementation-neutral objective meaning, authority anchors, verified lineage assertions, and durable reconstruction references without duplicating every Git event.
 
 
 ## Governed candidate iteration
@@ -148,6 +160,53 @@ evidence, constraints, authority, and deterministic transition mechanisms.
 **Current SAGE capabilities constrain the governed transition path; they do not
 define the future-state solution space.**
 
+## Evidence reconsideration before semantic commitment
+
+Initial LLM ideation remains intent-first: the first engineering contribution is
+formed from the intended future state and current/world engineering knowledge
+before accumulated SAGE evidence is allowed to narrow the solution space. The
+front door then performs deterministic evidence retrieval. When relevant prior
+evidence exists, semantic commitment pauses at an `evidence-reconsideration`
+boundary so that remembered experience can challenge or augment the candidate
+without becoming institutional inertia.
+
+The retrieved source facts, rank, provenance, confidence, and recency remain
+checksum-bound. The LLM may add contextual assessment only. Each relevant item
+receives an applicability assessment and a separate value-effect assessment. An
+existing overlapping capability creates a **consideration obligation, not a selection preference**: reuse, augmentation, replacement, intentional
+coexistence, and do-nothing remain legitimate alternatives when evaluated against
+the same Architect-owned intent, constraints, Definition of Done, risk, and
+current evidence. This makes accidental divergent stacks observable without
+forbidding deliberate redundancy.
+
+A material assessment that redirects or expands alternatives, proposes a bounded
+augmentation, or adds acceptance criteria requires a refreshed engineering
+contribution before semantic confirmation. Evidence-derived acceptance criteria
+are proposals, not authority; they become planning obligations only after the
+Architect dispositions them through the existing semantic-confirmation boundary.
+Evidence that is currently inapplicable, diminished, superseded for the context,
+or requires revalidation preserves its rationale and reconsideration trigger so
+it can participate again when conditions change. Mere retrieval does not create a
+mandatory human gate; material architectural meaning or tradeoffs retain the
+existing Architect boundary.
+
+## Implementation-generation lineage
+
+Each governed implementation generation preserves the accepted action, candidate
+head, evidence-reconsideration lineage, runtime evidence, and promotion outcome so
+that an implementation can remain **historically justified** even when later
+technology changes its comparative fitness. Stable intent and acceptance criteria
+are kept distinct from the technology generation that happened to satisfy them.
+
+Later evidence may therefore support retain, adapt, rebuild, replace, or
+intentional coexistence without rewriting the original decision as an error. A
+new generation may supersede an older one only through the normal evidence,
+semantic, authority, validation, runtime, and promotion boundaries. SAGE does not
+autonomously modernize implementations. The preserved lineage provides the
+evidence path for explaining what assumptions changed, which criteria remain,
+why a successor generation is expected to add value, and whether later observed
+outcomes support that prediction.
+
 ## Earliest affected boundary
 
 SAGE re-enters only the **earliest affected boundary**:
@@ -227,9 +286,13 @@ contract establishes the location where that decision evidence lives.
 Guardrail and collaboration effectiveness also remain first-class route data.
 Activations, prevented defects, false positives, break-glass use, manual
 corrections, unplanned recovery steps, operator boundaries, and interpretation
-burden are represented without inventing unavailable values. Existing outcome
-metrics and continuous-improvement evidence remain the authoritative sources
-for populating those fields.
+burden are represented without inventing unavailable values. Evidence
+reconsideration adds deterministic process observations such as retrieved-candidate
+count, finalized applicability/value coverage, prior-capability changes to the
+alternative set, revalidation needs, reconsideration triggers, and implementation
+generation status. Existing outcome metrics and continuous-improvement evidence
+remain the authoritative sources for populating human-effort and predicted-versus-
+observed value fields; unavailable measurements remain unavailable.
 
 ## Bounded Action-001 delivery and Action-002 re-entry
 

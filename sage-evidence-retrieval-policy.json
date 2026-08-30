@@ -7,7 +7,8 @@
     "pending",
     "applied",
     "reviewed-not-applicable",
-    "rejected"
+    "rejected",
+    "requires-revalidation"
   ],
   "validated_status_values": [
     "accepted",
@@ -149,5 +150,39 @@
     "maximum_applicable_facts": 5,
     "confidence_missing_value": "not-recorded",
     "recency_policy": "explicit-source-fields-only; relevance-score-first; recency-descending-tie-breaker"
+  },
+  "reconsideration_contract": {
+    "schema_version": "1.0",
+    "applicability_values": [
+      "pending",
+      "applicable",
+      "partially-applicable",
+      "contextually-relevant-not-applicable",
+      "requires-revalidation",
+      "superseded-for-context"
+    ],
+    "value_effect_values": [
+      "pending",
+      "strengthen",
+      "weaken",
+      "redirect",
+      "expand",
+      "no-material-effect",
+      "requires-revalidation"
+    ],
+    "alternative_effect_values": [
+      "pending",
+      "none",
+      "reuse",
+      "augment",
+      "replace",
+      "coexist",
+      "add-to-alternative-set"
+    ],
+    "reconsideration_trigger_required_for": [
+      "contextually-relevant-not-applicable",
+      "requires-revalidation",
+      "superseded-for-context"
+    ]
   }
 }

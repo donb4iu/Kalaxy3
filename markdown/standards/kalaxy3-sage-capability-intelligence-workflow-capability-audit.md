@@ -34,7 +34,7 @@ The capability-intelligence policy already identifies both of these as blocking 
 - a bootstrap requires the capability it is intended to create;
 - required live state exists only through undocumented manual mutation.
 
-Branch bootstrap is the regression case for that rule. The permanent branch-lifecycle composition therefore reuses `git.inspect` and `operator.git-proposal`, emits one operator command per boundary, freezes exact `origin/main`, verifies each operator result, and contains no direct Git mutation implementation.
+Branch bootstrap is the regression case for that rule. The permanent branch-lifecycle composition therefore reuses `git.inspect` and `operator.git-proposal`, emits one operator command per boundary, freezes exact repository authority, verifies each operator result, and contains no direct Git mutation implementation. Its post-promotion closeout mode additionally proves the promoted source is contained in stable authoritative `main`, permits only fast-forward local-main reconciliation, governs exact remote and local source-ref retirement, and records a milestone-level SAGE repository-lineage receipt while leaving detailed chronology to Git.
 
 Historical branch transitions are not rewritten and retrospective receipts are not fabricated. Where evidence is later reconciled, it must distinguish governed-and-evidenced, independently-verifiable-but-previously-unrecorded, and unsupported history.
 

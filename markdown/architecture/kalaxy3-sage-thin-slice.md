@@ -4,7 +4,7 @@
 
 ## What SAGE is
 
-SAGE is Kalaxy3's federated decision partner: it preserves operator intent, current authority, alternatives, evidence, failures, human expertise, validation, and outcomes so that engineering decisions remain understandable and reviewable.
+SAGE is Kalaxy3's federated decision partner: it preserves operator intent, current authority, alternatives, evidence, failures, human expertise, validation, and outcomes so that engineering decisions remain understandable and reviewable. Retained evidence is reconsidered when later context makes it relevant; it informs current architecture without silently dictating it.
 
 ## The question
 
@@ -43,7 +43,7 @@ Can Kalaxy3 introduce centralized logging through a governed path that remains r
 <div class="sage-card">
 <div class="sage-kicker">Validated outcome</div>
 <div class="sage-big">4 measured outcomes met</div>
-<div class="sage-role">2 important learning measures remain explicitly open.</div>
+<div class="sage-role">4 important learning measures remain explicitly open.</div>
 </div>
 </div>
 <div class="sage-card">
@@ -93,6 +93,12 @@ Can Kalaxy3 introduce centralized logging through a governed path that remains r
 <strong>Make the decision inspectable and reusable</strong>
 <span class="sage-muted">The centralized-logging evidence package was independently audited for quality and prompt-equivalent completeness.</span>
 <div class="sage-links"><strong>Evidence:</strong> <a class="sage-evidence-link" href="../../verification/kalaxy3-centralized-logging-sage-evidence-quality-audit/" title="SAGE-K3-OBS-20260728-003">Audit centralized logging SAGE evidence quality</a></div>
+</div>
+<div class="sage-step">
+<span class="sage-kicker">Stage 8</span>
+<strong>Reconsider remembered evidence before creating a parallel path</strong>
+<span class="sage-muted">The case already preserves reusable failure, recovery, runtime, and review evidence, and its reviewers remain responsible for deciding whether that evidence applies to a new case.</span>
+<div class="sage-links"><strong>Evidence:</strong> <a class="sage-evidence-link" href="../../governance/kalaxy3-actionable-guardrail-recovery-evidence/" title="SAGE-K3-GUARDRAIL-20260731-001">Recover guardrails and validate active logging</a> · <a class="sage-evidence-link" href="../../verification/kalaxy3-centralized-logging-runtime-validation-evidence/" title="SAGE-K3-OBS-20260804-001">Validate active centralized logging</a> · <a class="sage-evidence-link" href="../../verification/kalaxy3-centralized-logging-sage-evidence-quality-audit/" title="SAGE-K3-OBS-20260728-003">Audit centralized logging SAGE evidence quality</a></div>
 </div>
 </div>
 <h2>Decision space</h2>
@@ -157,6 +163,20 @@ Can Kalaxy3 introduce centralized logging through a governed path that remains r
 <div class="sage-role">A contributor without prior SAGE expertise can follow the case and complete one governed contribution.</div>
 
 </div>
+<div class="sage-card">
+<span class="sage-status">Open</span>
+<div class="sage-kicker">evidence-reconsideration-coverage</div>
+<div class="sage-big">Not measured</div>
+<div class="sage-role">Relevant retrieved evidence receives a finalized applicability and value-impact disposition before semantic commitment.</div>
+
+</div>
+<div class="sage-card">
+<span class="sage-status">Open</span>
+<div class="sage-kicker">prior-capability-alternative-change</div>
+<div class="sage-big">Not measured</div>
+<div class="sage-role">Count of architecture decisions where rediscovered existing capability materially changes the alternative set.</div>
+
+</div>
 </div>
 <h2>Who contributes what?</h2>
 <div class="sage-grid">
@@ -177,12 +197,12 @@ Can Kalaxy3 introduce centralized logging through a governed path that remains r
 </div>
 <div class="sage-card">
 <div class="sage-kicker">engineer</div>
-<h3>Improve a repository-owned component, test, validator, or evidence path used by the case.</h3>
+<h3>Improve a repository-owned component, test, validator, or evidence path used by the case; when prior evidence is retrieved, contribute an applicability/value assessment and any resulting alternative or acceptance-criterion augmentation.</h3>
 <div class="sage-role"><strong>Authority:</strong> Proposes implementation; repository validation and operator review determine acceptance.</div>
 </div>
 <div class="sage-card">
 <div class="sage-kicker">reviewer</div>
-<h3>Verify selected and rejected alternatives, machine-readable receipts, runtime evidence, and remaining unknowns.</h3>
+<h3>Verify selected and rejected alternatives, evidence-reconsideration dispositions, machine-readable receipts, implementation-generation lineage, runtime evidence, and remaining unknowns.</h3>
 <div class="sage-role"><strong>Authority:</strong> May accept, reject, or request correction; cannot convert inference into source fact.</div>
 </div>
 </div>
@@ -320,6 +340,16 @@ The visual summary above is intentionally newcomer-first. The sections below pre
 
 **Evidence:** [Audit centralized logging SAGE evidence quality](../verification/kalaxy3-centralized-logging-sage-evidence-quality-audit.md) (`SAGE-K3-OBS-20260728-003`)
 
+### 8. Reconsider remembered evidence before creating a parallel path
+
+**What happened:** The case already preserves reusable failure, recovery, runtime, and review evidence, and its reviewers remain responsible for deciding whether that evidence applies to a new case.
+
+**SAGE contribution:** After intent-first ideation, retrieve contextually relevant prior evidence, preserve its source facts, and assess current applicability plus value impact. Materially overlapping existing capability enters the alternative set for reuse, augmentation, replacement, intentional coexistence, or do-nothing rather than being silently forgotten.
+
+**Human contribution:** The Architect retains authority over material tradeoffs and Definition-of-Done choices; historical evidence creates a consideration obligation but not a technology preference.
+
+**Evidence:** [Recover guardrails and validate active logging](../governance/kalaxy3-actionable-guardrail-recovery-evidence.md) (`SAGE-K3-GUARDRAIL-20260731-001`), [Validate active centralized logging](../verification/kalaxy3-centralized-logging-runtime-validation-evidence.md) (`SAGE-K3-OBS-20260804-001`), [Audit centralized logging SAGE evidence quality](../verification/kalaxy3-centralized-logging-sage-evidence-quality-audit.md) (`SAGE-K3-OBS-20260728-003`)
+
 ## Measured outcomes and open measurements
 
 | Measure | Target | Actual | Status | Evidence |
@@ -330,6 +360,8 @@ The visual summary above is intentionally newcomer-first. The sections below pre
 | `evidence-quality-audit` | True boolean | True | met | [Audit centralized logging SAGE evidence quality](../verification/kalaxy3-centralized-logging-sage-evidence-quality-audit.md) (`SAGE-K3-OBS-20260728-003`) |
 | `evidence-use-reduces-rework` | True boolean | unknown | not-measured | `SAGE-REVIEW-20260730-001` |
 | `new-participant-completion` | 1 participants | unknown | not-measured | not yet available |
+| `evidence-reconsideration-coverage` | 1.0 ratio | unknown | not-measured | not yet available |
+| `prior-capability-alternative-change` | observed-not-invented events | unknown | not-measured | not yet available |
 
 ## How to participate
 
@@ -353,13 +385,13 @@ Add attributed expertise, assumptions, failure conditions, or corrections to the
 
 ### engineer
 
-Improve a repository-owned component, test, validator, or evidence path used by the case.
+Improve a repository-owned component, test, validator, or evidence path used by the case; when prior evidence is retrieved, contribute an applicability/value assessment and any resulting alternative or acceptance-criterion augmentation.
 
 **Authority boundary:** Proposes implementation; repository validation and operator review determine acceptance.
 
 ### reviewer
 
-Verify selected and rejected alternatives, machine-readable receipts, runtime evidence, and remaining unknowns.
+Verify selected and rejected alternatives, evidence-reconsideration dispositions, machine-readable receipts, implementation-generation lineage, runtime evidence, and remaining unknowns.
 
 **Authority boundary:** May accept, reject, or request correction; cannot convert inference into source fact.
 
@@ -370,5 +402,8 @@ Verify selected and rejected alternatives, machine-readable receipts, runtime ev
 - Add new cases without changing SAGE's federated authority, one-boundary mutation, or evidence contracts.
 - Use participant feedback to improve clarity while keeping source assertions, inference, predictions, and outcomes separate.
 - Keep evidence-learning claims open until retrieval/application and outcome metrics demonstrate reduced rework or faster validated delivery.
+- Detect materially overlapping existing capabilities and explicitly compare reuse, augmentation, replacement, intentional coexistence, and do-nothing before creating an independent stack.
+- Preserve criteria-to-implementation-generation lineage so later evidence can justify retain, adapt, rebuild, or supersede decisions without rewriting historical justification.
+- Measure evidence-reconsideration coverage, prior-capability alternative changes, revalidation triggers, and predicted-versus-observed modernization value before claiming learning efficiency.
 
 SAGE remains a federated decision partner. Repository, operator, runtime, and domain authorities retain their scoped authority.

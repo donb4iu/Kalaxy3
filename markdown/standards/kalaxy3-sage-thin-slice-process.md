@@ -48,6 +48,22 @@ guardrail must prove:
 - a do-nothing alternative;
 - no opaque composite score or maturity claim.
 
+## Evidence reconsideration and generational evolution
+
+The public case must make the learning loop understandable without implying that
+old evidence dictates current architecture. Initial ideation remains intent-first;
+relevant accumulated evidence is then reconsidered for current applicability and
+value. If an existing capability materially overlaps a proposed solution, the case
+may show reuse, augmentation, replacement, intentional coexistence, or do-nothing
+as alternatives, with the Architect retaining the material decision.
+
+The public narrative may also show implementation-generation lineage: what intent
+and criteria justified a generation, what later evidence changed, and why a
+successor might be retained, adapted, rebuilt, or superseded. Historical choices
+remain attributable and evidence-backed. Unmeasured reconsideration efficiency or
+modernization value remains explicitly unknown rather than being converted into a
+maturity claim.
+
 ## Evolution
 
 Additional cases may reuse this contract after their authority, evidence,

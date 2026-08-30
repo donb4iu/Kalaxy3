@@ -11,6 +11,7 @@ from typing import Any, Mapping
 from request_planning import reconcile_semantic_contexts, reuse_confirmed_source_package, write_source_package
 from sage_actionable_failure import ActionableFailure, RecoveryStep
 from semantic_understanding import action_record_sha256, load_engineering_contribution, sha256_file
+from sage_evidence_retrieval import load_json as load_retrieval_json, validate_result as validate_retrieval_result
 from workflow import (
     AtomicFileWriter,
     CloseoutWriter,
@@ -229,6 +230,12 @@ def _derive_planning_obligations(
                 f"PO-{safe_id}", "constraint", str(item["effective_value"]),
                 f"architect-disposition:{item['proposal_id']}"
             ))
+        if item.get("target") == "evidence_acceptance_criteria" and isinstance(item.get("effective_value"), str):
+            safe_id = "".join(ch if ch.isalnum() else "-" for ch in str(item["proposal_id"])).upper()
+            obligations.append(_planning_obligation(
+                f"PO-{safe_id}", "requirement", str(item["effective_value"]),
+                f"architect-disposition:{item['proposal_id']}"
+            ))
     for index, value in enumerate(FEASIBILITY_PLANNING_OBLIGATIONS, 1):
         obligations.append(_planning_obligation(
             f"PO-FEAS-{index:03d}", "feasibility", value,
@@ -258,7 +265,10 @@ def _derive_planning_obligations(
 
 
 
-def _negotiation_proposals(contribution: Any) -> list[dict[str, Any]]:
+def _negotiation_proposals(
+    contribution: Any,
+    evidence_reconsideration: Mapping[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     proposals = [{
         "proposal_id": "implementation-scope",
         "target": "implementation_scope",
@@ -277,6 +287,28 @@ def _negotiation_proposals(contribution: Any) -> list[dict[str, Any]]:
                 "value": str(value),
                 "prior_disposition": None,
             })
+    if evidence_reconsideration is not None:
+        criterion_index = 0
+        for result in evidence_reconsideration.get("results", []):
+            if not isinstance(result, Mapping):
+                continue
+            for value in result.get("additional_acceptance_criteria", []):
+                criterion_index += 1
+                proposals.append({
+                    "proposal_id": f"evidence-criterion-{criterion_index:03d}",
+                    "target": "evidence_acceptance_criteria",
+                    "source": (
+                        "evidence-reconsideration:"
+                        + str(result.get("identifier", "unknown"))
+                    ),
+                    "provenance": {
+                        "retrieval_basis_sha256": evidence_reconsideration.get("retrieval_basis_sha256"),
+                        "source_type": result.get("source_type"),
+                        "identifier": result.get("identifier"),
+                    },
+                    "value": str(value),
+                    "prior_disposition": None,
+                })
     return proposals
 
 
@@ -403,7 +435,13 @@ def _runtime(repo: Path, state_dir: Path):
     return catalog, logger, runner, writer, GitInspector(repo, runner)
 
 
-def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path: Path) -> Mapping[str, Any]:
+def begin_bootstrap(
+    repo: Path,
+    action_id: str,
+    request: str,
+    contribution_path: Path,
+    evidence_reconsideration_path: Path | None = None,
+) -> Mapping[str, Any]:
     repo = repo.expanduser().resolve()
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     state_dir = Path("~/.local/state/kalaxy3/sage-semantic-bootstrap").expanduser() / stamp
@@ -435,6 +473,30 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
             "package": str(contribution.package_path),
             "package_sha256": contribution.package_sha256,
             "paths": list(contribution.paths),
+        }
+
+    def evidence_reconsideration_action() -> Mapping[str, Any]:
+        if evidence_reconsideration_path is None:
+            state["evidence_reconsideration"] = None
+            return {"status": "not-provided"}
+        source = evidence_reconsideration_path.expanduser().resolve()
+        payload = load_retrieval_json(source)
+        if payload.get("schema_version") != "1.1":
+            raise WorkflowError("evidence reconsideration requires retrieval result schema v1.1")
+        policy = load_retrieval_json(repo / "sage-evidence-retrieval-policy.json")
+        validate_retrieval_result(payload, policy, require_final=True)
+        if payload.get("request") != request:
+            raise WorkflowError("evidence reconsideration does not match the literal request")
+        state["evidence_reconsideration"] = {
+            "path": source,
+            "sha256": sha256_file(source),
+            "payload": payload,
+        }
+        return {
+            "status": "finalized",
+            "path": str(source),
+            "sha256": state["evidence_reconsideration"]["sha256"],
+            "retrieval_basis_sha256": payload.get("retrieval_basis_sha256"),
         }
 
     def discovery_action() -> Mapping[str, Any]:
@@ -477,6 +539,30 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
                 "alternatives": list(contribution.manifest["alternatives"]),
                 "proposed_paths": list(contribution.paths),
             },
+            "evidence_reconsideration": (
+                {
+                    "path": str(state["evidence_reconsideration"]["path"]),
+                    "sha256": state["evidence_reconsideration"]["sha256"],
+                    "retrieval_basis_sha256": state["evidence_reconsideration"]["payload"].get("retrieval_basis_sha256"),
+                    "results": [
+                        {
+                            "identifier": item.get("identifier"),
+                            "source_type": item.get("source_type"),
+                            "disposition": item.get("disposition"),
+                            "applicability": item.get("applicability"),
+                            "value_effect": item.get("value_effect"),
+                            "alternative_effect": item.get("alternative_effect"),
+                            "rationale": item.get("disposition_rationale"),
+                            "augmentations": list(item.get("augmentations", [])),
+                            "additional_acceptance_criteria": list(item.get("additional_acceptance_criteria", [])),
+                            "reconsideration_trigger": item.get("reconsideration_trigger", ""),
+                        }
+                        for item in state["evidence_reconsideration"]["payload"].get("results", [])
+                    ],
+                }
+                if state.get("evidence_reconsideration") is not None
+                else None
+            ),
             "interpretation": {
                 "implementation_scope": list(contribution.paths),
                 "inferred_contexts": list(preflight.contexts),
@@ -487,7 +573,12 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
             },
             "negotiation": {
                 "status": "architect-disposition-required",
-                "proposals": _negotiation_proposals(contribution),
+                "proposals": _negotiation_proposals(
+                    contribution,
+                    state["evidence_reconsideration"]["payload"]
+                    if state.get("evidence_reconsideration") is not None
+                    else None,
+                ),
             },
             "assertions": {
                 "meaning": "architect-confirmation-required",
@@ -517,6 +608,7 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
             Step("read-accepted-action", "sage.action-lifecycle", action_contract),
             Step("collect-current-git-authority", "git.inspect", git_authority),
             Step("load-engineering-contribution", "workflow.composition", contribution_action),
+            Step("bind-evidence-reconsideration", "workflow.composition", evidence_reconsideration_action),
             Step("interpret-applicable-contexts", "sage.discovery", discovery_action),
             Step("record-semantic-understanding", "file.atomic-preserve-mode", interpretation_action),
         ),
@@ -541,6 +633,16 @@ def begin_bootstrap(repo: Path, action_id: str, request: str, contribution_path:
         "applicable_contexts": list(reconciliation["applicable_contexts"]),
         "implementation_contexts": list(reconciliation["implementation_contexts"]),
         "architect_dispositions": str(state["dispositions_path"]),
+        "evidence_reconsideration": (
+            str(state["evidence_reconsideration"]["path"])
+            if state.get("evidence_reconsideration") is not None
+            else None
+        ),
+        "evidence_reconsideration_sha256": (
+            state["evidence_reconsideration"]["sha256"]
+            if state.get("evidence_reconsideration") is not None
+            else None
+        ),
         "status": "architect-confirmation-required",
     }
     state_path = _write_json(writer, state_dir / "state.json", persisted)
@@ -611,6 +713,19 @@ def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, a
     if sha256_file(contribution_path) != state.get("contribution_sha256"):
         raise WorkflowError("engineering contribution changed after semantic interpretation")
     contribution = load_engineering_contribution(contribution_path)
+    evidence_reconsideration_value = state.get("evidence_reconsideration")
+    if evidence_reconsideration_value is not None:
+        evidence_reconsideration_path = Path(str(evidence_reconsideration_value)).expanduser().resolve()
+        if sha256_file(evidence_reconsideration_path) != state.get("evidence_reconsideration_sha256"):
+            raise WorkflowError("evidence reconsideration changed after semantic interpretation")
+        evidence_payload = load_retrieval_json(evidence_reconsideration_path)
+        validate_retrieval_result(
+            evidence_payload,
+            load_retrieval_json(repo / "sage-evidence-retrieval-policy.json"),
+            require_final=True,
+        )
+        if evidence_payload.get("request") != state.get("request"):
+            raise WorkflowError("evidence reconsideration request binding changed after semantic interpretation")
     confirmed_understanding_path = Path(str(state["semantic_understanding"])).expanduser().resolve()
     confirmed_understanding_sha256 = confirmation_sha256
     if state.get("architect_dispositions"):

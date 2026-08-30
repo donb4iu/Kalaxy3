@@ -110,3 +110,55 @@ source location, and recency without inventing metadata.
 The source-only test suite must prove exact fact provenance, non-inference for
 missing confidence and dates, explicit recency tie-breaking, production failure
 registry support, and schema enforcement.
+
+## Contextual reconsideration and innovation participation
+
+Retrieval is not complete when SAGE merely ranks prior experience. The ranked
+source facts remain immutable, and the retrieval result carries a digest over
+that immutable basis. An LLM contribution may add only the contextual assessment
+fields; changing source facts, rank, provenance, confidence, or recency fails
+closed.
+
+This contract is published additively as retrieval-result schema v1.1. Historical
+v1.0 retrieval results remain readable without rewrite; they do not acquire
+contextual-reconsideration authority retroactively. New in-loop reconsideration
+requires v1.1 so the immutable retrieval basis and assessment fields are explicit.
+
+For every retrieved candidate that participates in an architecture decision, the
+LLM records two distinct judgments before implementation commitment:
+
+1. **Applicability** -- whether the evidence is applicable, partially applicable,
+   contextually relevant but not currently applicable, requires revalidation, or
+   has been superseded for this context.
+2. **Value effect** -- whether reconsidering that evidence strengthens, weakens,
+   redirects, expands, or does not materially change the current candidate.
+
+The assessment also records whether the evidence changes the architectural
+alternative set through reuse, augmentation, replacement, intentional
+coexistence, or addition of an existing capability as an explicit alternative.
+It may propose bounded augmentations and additional acceptance criteria. Evidence
+that is currently non-applicable, requires revalidation, or is superseded for the
+current context carries a reconsideration trigger rather than being forgotten.
+Historical truth is not rewritten merely because current comparative fitness
+changes.
+
+Existing capability creates a **consideration obligation, not a selection
+preference**. When retrieved evidence exposes materially overlapping capability,
+reuse, augment, replace, intentional coexistence, and do-nothing remain legitimate
+Architect choices against the same intent, constraints, Definition of Done, and
+current evidence. This specifically prevents accidental divergent stacks while
+allowing deliberate redundancy when the Definition of Done justifies it.
+
+The intent-to-outcome front door owns the lifecycle gate. Initial LLM ideation is
+preserved before the retrieval result constrains the candidate. If relevant
+evidence exists, the front door pauses at `evidence-reconsideration`; a finalized
+assessment and, when the assessment materially changes alternatives or criteria,
+a refreshed engineering contribution are required before semantic confirmation.
+Additional acceptance criteria become Architect-dispositioned semantic proposals
+and, when accepted, downstream planning obligations.
+
+The minimum observability contract reports candidate count, assessment coverage,
+alternative-set changes caused by rediscovered prior capability, augmentations,
+additional acceptance criteria, revalidation needs, and reconsideration triggers.
+These are process/evidence facts; SAGE does not manufacture unavailable human
+effort or claim that retrieval reduced rework until measured outcomes support it.

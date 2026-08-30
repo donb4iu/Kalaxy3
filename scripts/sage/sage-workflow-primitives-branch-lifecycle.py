@@ -13,8 +13,9 @@ sys.path.insert(0, str(SAGE_DIR))
 
 from workflow import GitAuthoritySnapshot, OperatorGitProposal, WorkflowError  # noqa: E402
 from workflows.branch_lifecycle import (  # noqa: E402
-    continue_branch_bootstrap,
+    continue_branch_lifecycle,
     start_branch_bootstrap,
+    start_branch_closeout,
 )
 
 
@@ -27,14 +28,11 @@ def self_test() -> int:
         working_tree_status="clean",
         changed_paths=(),
     )
-    create = OperatorGitProposal.build(
-        proposal_id="SAGE-GIT-20260816-001",
+    common = dict(
         controller="sage.branch-lifecycle",
         repository=snapshot,
         authority_receipt="/tmp/authority.json",
         component_manifest="/tmp/component.json",
-        boundary="create-branch",
-        change_scope=("refs/heads/feature/new",),
         validation=(
             {
                 "label": "fixture",
@@ -43,41 +41,32 @@ def self_test() -> int:
                 "sha256": "0" * 64,
             },
         ),
-        command_argv=("git", "switch", "-c", "feature/new", "a" * 40),
         expected_result="fixture",
         risk="fixture",
         rollback="fixture",
         post_command_verification=("git branch --show-current",),
         created_at="2026-08-16T00:00:00-05:00",
     )
-    if create["boundary"] != "create-branch" or create["command"]["command_count"] != 1:
-        raise RuntimeError("create-branch proposal contract failed")
-    push = OperatorGitProposal.build(
-        proposal_id="SAGE-GIT-20260816-002",
-        controller="sage.branch-lifecycle",
-        repository=snapshot,
-        authority_receipt="/tmp/authority.json",
-        component_manifest="/tmp/component.json",
-        boundary="push",
-        change_scope=("refs/heads/feature/new",),
-        validation=(
-            {
-                "label": "fixture",
-                "reference": "fixture",
-                "status": "pass",
-                "sha256": "0" * 64,
-            },
-        ),
-        command_argv=("git", "push", "-u", "origin", "feature/new"),
-        expected_result="fixture",
-        risk="fixture",
-        rollback="fixture",
-        post_command_verification=("git rev-parse @{upstream}",),
-        created_at="2026-08-16T00:00:00-05:00",
+    cases = (
+        ("SAGE-GIT-20260816-001", "create-branch", ("git", "switch", "-c", "feature/new", "a" * 40), ("refs/heads/feature/new",)),
+        ("SAGE-GIT-20260816-002", "push", ("git", "push", "-u", "origin", "feature/new"), ("refs/heads/feature/new",)),
+        ("SAGE-GIT-20260816-003", "switch-branch", ("git", "switch", "main"), ("refs/heads/main",)),
+        ("SAGE-GIT-20260816-004", "other-git-mutation", ("git", "merge", "--ff-only", "b" * 40), ("refs/heads/main",)),
+        ("SAGE-GIT-20260816-005", "push", ("git", "push", "origin", "--delete", "feature/old"), ("refs/heads/feature/old",)),
+        ("SAGE-GIT-20260816-006", "branch-delete", ("git", "branch", "-d", "feature/old"), ("refs/heads/feature/old",)),
     )
-    if push["boundary"] != "push" or push["command"]["command_count"] != 1:
-        raise RuntimeError("push proposal contract failed")
-    print("PASS create-branch and push remain separate one-command operator boundaries")
+    for proposal_id, boundary, argv, change_scope in cases:
+        proposal = OperatorGitProposal.build(
+            proposal_id=proposal_id,
+            boundary=boundary,
+            change_scope=change_scope,
+            command_argv=argv,
+            **common,
+        )
+        if proposal["boundary"] != boundary or proposal["command"]["command_count"] != 1:
+            raise RuntimeError(f"{boundary} proposal contract failed")
+    print("PASS bootstrap and post-promotion closeout remain separate one-command operator boundaries")
+    print("PASS fast-forward, remote retirement, and local retirement use existing operator proposal boundaries")
     print("PASS branch lifecycle reuses git.inspect and operator.git-proposal without direct mutation")
     print("Kalaxy3 SAGE branch lifecycle self-test: PASS")
     return 0
@@ -93,6 +82,13 @@ def parse_args() -> argparse.Namespace:
     start.add_argument("--request", required=True)
     start.add_argument("--branch", required=True)
     start.add_argument("--expected-main", required=True)
+
+    closeout = sub.add_parser("closeout")
+    closeout.add_argument("--request", required=True)
+    closeout.add_argument("--objective-id", required=True)
+    closeout.add_argument("--source-branch", required=True)
+    closeout.add_argument("--promoted-source", required=True)
+    closeout.add_argument("--expected-main", required=True)
 
     cont = sub.add_parser("continue")
     cont.add_argument("--state", type=Path, required=True)
@@ -111,8 +107,17 @@ def main() -> int:
             branch=args.branch,
             expected_main=args.expected_main,
         )
+    elif args.command == "closeout":
+        result = start_branch_closeout(
+            args.repo,
+            request=args.request,
+            objective_id=args.objective_id,
+            source_branch=args.source_branch,
+            promoted_source=args.promoted_source,
+            expected_main=args.expected_main,
+        )
     elif args.command == "continue":
-        result = continue_branch_bootstrap(args.repo, args.state, args.operator_result)
+        result = continue_branch_lifecycle(args.repo, args.state, args.operator_result)
     else:
         raise WorkflowError("one branch-lifecycle command is required")
     print("Kalaxy3 SAGE branch lifecycle: PASS")

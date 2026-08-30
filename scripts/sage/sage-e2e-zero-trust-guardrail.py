@@ -192,11 +192,134 @@ def main() -> int:
             "zero-trust deploy target does not request decryption for its required Ansible Vault source"
         )
 
+    if "sage-e2e-zero-trust-project-experience:" not in root_makefile:
+        failures.append("experience-only zero-trust projection target is missing")
+    else:
+        projection_block = root_makefile.split(
+            "sage-e2e-zero-trust-project-experience:", 1
+        )[1].split("\n\nsage-e2e-zero-trust-deploy:", 1)[0]
+        for marker in (
+            "SAGE_EXTERNAL_HOSTNAME",
+            "SAGE_PROMOTION_RECEIPT",
+            "sage_promotion_receipt_file=$$SAGE_PROMOTION_RECEIPT",
+            "sage_runtime_projection_scope=experience-only",
+        ):
+            if marker not in projection_block:
+                failures.append(
+                    f"experience-only projection target missing authority marker: {marker}"
+                )
+        for forbidden in (
+            "KALAXY3_ANSIBLE_SECRETS_FILE",
+            "kalaxy3_secrets_file",
+            "--ask-vault-pass",
+            "cloudflare_tunnel_token",
+            "cloudflared",
+        ):
+            if forbidden in projection_block:
+                failures.append(
+                    "experience-only projection target must not access connector "
+                    f"secret/runtime authority: {forbidden}"
+                )
+
+    runtime_validate_block = root_makefile.split(
+        "sage-e2e-zero-trust-runtime-validate:", 1
+    )[1].split("\n\nsage-e2e-zero-trust-runtime-receipt:", 1)[0]
+    for marker in (
+        "SAGE_PROMOTION_RECEIPT",
+        "sage_promotion_receipt_file=$$SAGE_PROMOTION_RECEIPT",
+    ):
+        if marker not in runtime_validate_block:
+            failures.append(
+                f"runtime validation target lacks promotion-receipt transport: {marker}"
+            )
+
     deploy_source = DEPLOY.read_text(encoding="utf-8")
     if deploy_source.count("ansible_become: false") < 2:
         failures.append(
             "controller-local secret inspection does not override inherited ansible_become"
         )
+    for marker in (
+        "sage_e2e_projection_scope: \"{{ sage_runtime_projection_scope | default('full') }}\"",
+        "sage_e2e_projection_scope in ['full', 'experience-only']",
+        "Validate connector secret authority for full deployment",
+        "Project tunnel connector only for full deployment",
+    ):
+        if marker not in deploy_source:
+            failures.append(f"bounded runtime projection source missing: {marker}")
+
+    secret_scope_start = deploy_source.find(
+        "    - name: Validate connector secret authority for full deployment"
+    )
+    secret_scope_end = deploy_source.find("\n  tasks:", secret_scope_start)
+    if secret_scope_start < 0 or secret_scope_end < 0:
+        failures.append("full-deployment secret block cannot be bounded")
+    else:
+        secret_scope = deploy_source[secret_scope_start:secret_scope_end]
+        if "when: sage_e2e_projection_scope == 'full'" not in secret_scope:
+            failures.append("full-deployment secret block lacks full-only condition")
+        for marker in (
+            "kalaxy3_secrets_file",
+            "ansible.builtin.include_vars",
+        ):
+            if marker not in secret_scope:
+                failures.append(
+                    f"full-deployment secret block lost expected secret marker: {marker}"
+                )
+            remainder = deploy_source[:secret_scope_start] + deploy_source[secret_scope_end:]
+            if marker in remainder:
+                failures.append(
+                    f"secret authority escaped the full-only projection block: {marker}"
+                )
+
+    connector_scope_start = deploy_source.find(
+        "        - name: Project tunnel connector only for full deployment"
+    )
+    experience_apply_start = deploy_source.find(
+        "        - name: Apply SAGE experience", connector_scope_start
+    )
+    if connector_scope_start < 0 or experience_apply_start < 0:
+        failures.append("full-deployment connector block cannot be bounded")
+    else:
+        connector_scope = deploy_source[connector_scope_start:experience_apply_start]
+        if "when: sage_e2e_projection_scope == 'full'" not in connector_scope:
+            failures.append("full-deployment connector block lacks full-only condition")
+        for marker in (
+            "Render namespaces",
+            "Render cloudflared connector",
+            "Apply bounded namespaces",
+            "Apply tunnel token secret from protected in-memory definition",
+            "Apply cloudflared connector",
+            "Wait for cloudflared rollout",
+        ):
+            if marker not in connector_scope:
+                failures.append(
+                    f"connector mutation escaped or is missing from full-only block: {marker}"
+                )
+        if "Apply SAGE experience" in connector_scope:
+            failures.append("SAGE experience apply is incorrectly gated by connector authority")
+        full_only_scope = secret_scope + connector_scope
+        for marker in (
+            "kalaxy3_runtime_secrets.cloudflare_tunnel_token",
+            "Apply tunnel token secret from protected in-memory definition",
+        ):
+            if marker not in full_only_scope:
+                failures.append(
+                    f"full-only secret projection lost required marker: {marker}"
+                )
+        if secret_scope:
+            outside_full_only = (
+                deploy_source[:secret_scope_start]
+                + deploy_source[secret_scope_end:connector_scope_start]
+                + deploy_source[experience_apply_start:]
+            )
+            for marker in (
+                "kalaxy3_runtime_secrets.cloudflare_tunnel_token",
+                "Apply tunnel token secret from protected in-memory definition",
+            ):
+                if marker in outside_full_only:
+                    failures.append(
+                        f"secret/connector authority escaped full-only scope: {marker}"
+                    )
 
     experience = EXPERIENCE.read_text(encoding="utf-8")
     if 'image: "{{ sage_experience_image_ref }}"' not in experience:
@@ -287,6 +410,14 @@ def main() -> int:
     print(
         "PASS zero-trust deploy front door consumes the required Ansible Vault "
         "through the repository's interactive decryption convention"
+    )
+    print(
+        "PASS experience-only projection consumes exact promotion evidence while "
+        "remaining structurally unable to read or mutate tunnel secret/connector authority"
+    )
+    print(
+        "PASS runtime validation receives the exact non-secret promotion receipt through "
+        "the repository-owned Make boundary"
     )
     print("PASS cloudflared is pinned, replicated, observable, and secret-file bound")
     print(

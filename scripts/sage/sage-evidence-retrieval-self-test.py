@@ -14,6 +14,8 @@ from sage_evidence_retrieval import (
     load_json,
     retrieve,
     validate_result,
+    reconsideration_summary,
+    requires_contribution_refresh,
 )
 
 
@@ -146,6 +148,9 @@ def disposition_test(repo: Path, policy_path: Path) -> None:
         limit=2,
     )
     payload["results"][0]["disposition"] = "applied"
+    payload["results"][0]["applicability"] = "applicable"
+    payload["results"][0]["value_effect"] = "strengthen"
+    payload["results"][0]["alternative_effect"] = "none"
     try:
         validate_result(
             payload,
@@ -160,11 +165,38 @@ def disposition_test(repo: Path, policy_path: Path) -> None:
     for result in payload["results"]:
         result["disposition"] = "applied"
         result["disposition_rationale"] = "Used by implementation plan."
+        result["applicability"] = "applicable"
+        result["value_effect"] = "strengthen"
+        result["alternative_effect"] = "none"
     validate_result(
         payload,
         load_json(policy_path),
         require_final=True,
     )
+
+    first = payload["results"][0]
+    first["alternative_effect"] = "add-to-alternative-set"
+    first["augmentations"] = [
+        "Evaluate the existing governed capability before introducing an orthogonal stack."
+    ]
+    first["additional_acceptance_criteria"] = [
+        "Any materially overlapping existing capability is explicitly dispositioned as reuse, augment, replace, or intentional coexistence."
+    ]
+    if not requires_contribution_refresh(payload):
+        raise AssertionError("material evidence augmentation did not require contribution refresh")
+    summary = reconsideration_summary(payload)
+    if summary["alternative_set_change_count"] != 1 or summary["additional_acceptance_criteria_count"] != 1:
+        raise AssertionError(f"reconsideration summary is incomplete: {summary}")
+    validate_result(payload, load_json(policy_path), require_final=True)
+
+    first["disposition"] = "reviewed-not-applicable"
+    first["applicability"] = "superseded-for-context"
+    first["value_effect"] = "weaken"
+    first["alternative_effect"] = "none"
+    first["augmentations"] = []
+    first["additional_acceptance_criteria"] = []
+    first["reconsideration_trigger"] = "Reconsider if the superseding architecture or its governing constraint changes."
+    validate_result(payload, load_json(policy_path), require_final=True)
 
 
 def negative_test(repo: Path, policy_path: Path) -> None:
@@ -422,7 +454,7 @@ def production_schema_quality_test() -> None:
     schema = load_json(
         root
         / "markdown/standards/"
-        / "sage-evidence-retrieval-result-schema-v1.0.json"
+        / "sage-evidence-retrieval-result-schema-v1.1.json"
     )
     item_schema = (
         schema["properties"]["results"]["items"]
@@ -433,11 +465,58 @@ def production_schema_quality_test() -> None:
         "applicable_facts",
         "source_section",
         "recency",
+        "applicability",
+        "value_effect",
+        "alternative_effect",
+        "augmentations",
+        "additional_acceptance_criteria",
+        "reconsideration_trigger",
     }
     if not expected.issubset(required):
         raise AssertionError(
             f"schema quality fields missing: {required}"
         )
+
+def legacy_schema_compatibility_test(repo: Path, policy_path: Path) -> None:
+    """Require historical v1.0 retrieval results to remain readable without rewrite."""
+    payload = retrieve(
+        repo=repo,
+        policy_path=policy_path,
+        request="Grafana runtime validation",
+        limit=2,
+    )
+    payload["schema_version"] = "1.0"
+    payload.pop("retrieval_basis_sha256", None)
+    for result in payload["results"]:
+        for field in (
+            "applicability",
+            "value_effect",
+            "alternative_effect",
+            "augmentations",
+            "additional_acceptance_criteria",
+            "reconsideration_trigger",
+        ):
+            result.pop(field, None)
+    validate_result(payload, load_json(policy_path))
+
+
+def immutable_basis_test(repo: Path, policy_path: Path) -> None:
+    """Require LLM assessment to leave deterministic retrieval evidence unchanged."""
+    payload = retrieve(
+        repo=repo,
+        policy_path=policy_path,
+        request="Grafana runtime validation",
+        limit=2,
+    )
+    payload["results"][0]["title"] = "tampered source fact"
+    try:
+        validate_result(payload, load_json(policy_path))
+    except RetrievalError as error:
+        if "immutable basis changed" not in str(error):
+            raise
+    else:
+        raise AssertionError("mutable LLM assessment rewrote retrieval source facts")
+
 
 def main() -> int:
     """Run all tests without site packages or network access."""
@@ -451,6 +530,8 @@ def main() -> int:
         negative_test(repo, policy_path)
         no_overlap_test(repo, policy_path)
         quality_fields_test(repo, policy_path)
+        legacy_schema_compatibility_test(repo, policy_path)
+        immutable_basis_test(repo, policy_path)
 
     recency_tie_break_test()
     production_failure_registry_test()
