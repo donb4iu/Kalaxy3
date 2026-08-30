@@ -120,6 +120,8 @@ def _write_common_receipts(
             "status": "review-ready",
             "operator_approval_required": True,
             "autonomous_mutation_allowed": False,
+            "objective_execution_delegation_allowed": True,
+            "objective_execution_requires_architect_plan": True,
         },
     }
     authority_path = state_dir / "authority-reconciliation.json"
@@ -281,19 +283,145 @@ def start_branch_bootstrap(
     }
 
 
-def _load_result(path: Path, proposal: Mapping[str, Any]) -> Mapping[str, Any]:
-    result = json.loads(path.expanduser().resolve().read_text(encoding="utf-8"))
-    if not isinstance(result, dict):
-        raise WorkflowError("operator result must be a JSON object")
-    if result.get("proposal_id") != proposal.get("proposal_id"):
-        raise WorkflowError("operator result proposal_id does not match active proposal")
-    command = proposal.get("command")
-    if not isinstance(command, dict) or result.get("command_sha256") != command.get("sha256"):
-        raise WorkflowError("operator result command digest does not match active proposal")
-    if result.get("returncode") != 0 or result.get("pasted_output_received") is not True:
-        raise WorkflowError("operator result must record successful execution and complete pasted output")
-    return result
 
+def _validate_objective_executor_result(
+    result: Mapping[str, Any],
+    proposal: Mapping[str, Any],
+    state_path: Path | None,
+) -> None:
+    """Validate objective-level Architect authority for one delegated proposal."""
+    if state_path is None:
+        raise WorkflowError(
+            "objective executor result requires lifecycle state binding"
+        )
+    plan_path = Path(
+        str(result.get("objective_execution_plan", ""))
+    ).expanduser().resolve()
+    approval_path = Path(
+        str(result.get("objective_execution_approval", ""))
+    ).expanduser().resolve()
+    if not plan_path.is_file() or not approval_path.is_file():
+        raise WorkflowError("objective executor authority evidence is missing")
+    observed_plan_sha = hashlib.sha256(plan_path.read_bytes()).hexdigest()
+    observed_approval_sha = hashlib.sha256(
+        approval_path.read_bytes()
+    ).hexdigest()
+    if result.get("objective_execution_plan_sha256") != observed_plan_sha:
+        raise WorkflowError("objective executor plan digest is invalid")
+    if result.get("objective_execution_approval_sha256") != observed_approval_sha:
+        raise WorkflowError("objective executor approval digest is invalid")
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    approval = json.loads(approval_path.read_text(encoding="utf-8"))
+    lifecycle = json.loads(
+        state_path.expanduser().resolve().read_text(encoding="utf-8")
+    )
+    _validate_objective_bindings(
+        plan, approval, lifecycle, plan_path, state_path
+    )
+    authority_path = Path(
+        str(proposal["authority_receipt"])
+    ).expanduser().resolve()
+    authority = json.loads(authority_path.read_text(encoding="utf-8"))
+    gate = authority.get("mutation_gate", {})
+    if gate.get("objective_execution_delegation_allowed") is not True:
+        raise WorkflowError(
+            "branch authority does not allow objective execution delegation"
+        )
+    if gate.get("objective_execution_requires_architect_plan") is not True:
+        raise WorkflowError(
+            "branch authority does not require objective plan approval"
+        )
+
+
+def _validate_objective_bindings(
+    plan: Mapping[str, Any],
+    approval: Mapping[str, Any],
+    lifecycle: Mapping[str, Any],
+    plan_path: Path,
+    state_path: Path,
+) -> None:
+    """Validate objective, adapter, lifecycle, and Architect approval binding."""
+    if plan.get("record_type") != "sage-objective-execution-plan":
+        raise WorkflowError("objective executor plan type is invalid")
+    lifecycle_target = Path(
+        str(plan.get("lifecycle_state", ""))
+    ).expanduser().resolve()
+    if lifecycle_target != state_path.expanduser().resolve():
+        raise WorkflowError(
+            "objective executor plan targets a different lifecycle state"
+        )
+    if plan.get("objective_id") != lifecycle.get("objective_id"):
+        raise WorkflowError(
+            "objective executor plan targets a different objective"
+        )
+    adapter = plan.get("delegated_adapter", {})
+    current = hashlib.sha256(Path(__file__).resolve().read_bytes()).hexdigest()
+    if adapter.get("workflow_id") != WORKFLOW_ID:
+        raise WorkflowError("objective executor plan adapter is invalid")
+    if adapter.get("sha256") != current:
+        raise WorkflowError("objective executor plan adapter digest is stale")
+    if approval.get("record_type") != "sage-objective-execution-approval":
+        raise WorkflowError("objective executor approval type is invalid")
+    if approval.get("authority") != "Architect":
+        raise WorkflowError("objective executor lacks Architect authority")
+    if approval.get("status") != "approved":
+        raise WorkflowError("objective executor approval is not active")
+    if approval.get("atomicity") != "material-objective-path":
+        raise WorkflowError("objective executor approval atomicity is invalid")
+    approved_plan = Path(
+        str(approval.get("plan", ""))
+    ).expanduser().resolve()
+    if approved_plan != plan_path:
+        raise WorkflowError("objective executor approval targets another plan")
+    observed_sha = hashlib.sha256(plan_path.read_bytes()).hexdigest()
+    if approval.get("plan_sha256") != observed_sha:
+        raise WorkflowError(
+            "objective executor approval does not bind the exact plan"
+        )
+
+
+def _load_result(
+    path: Path,
+    proposal: Mapping[str, Any],
+    state_path: Path | None = None,
+) -> Mapping[str, Any]:
+    """Load operator or objective-executor evidence for one exact proposal."""
+    result = json.loads(
+        path.expanduser().resolve().read_text(encoding="utf-8")
+    )
+    if not isinstance(result, dict):
+        raise WorkflowError("execution result must be a JSON object")
+    if result.get("proposal_id") != proposal.get("proposal_id"):
+        raise WorkflowError(
+            "execution result proposal_id does not match active proposal"
+        )
+    command = proposal.get("command")
+    if not isinstance(command, dict):
+        raise WorkflowError("active proposal command is invalid")
+    if result.get("command_sha256") != command.get("sha256"):
+        raise WorkflowError(
+            "execution result command digest does not match active proposal"
+        )
+    if result.get("returncode") != 0:
+        raise WorkflowError(
+            "execution result did not record successful execution"
+        )
+    if result.get("pasted_output_received") is True:
+        return result
+    if result.get("execution_mode") == "objective-executor":
+        if result.get("complete_output_captured") is not True:
+            raise WorkflowError(
+                "objective executor did not preserve complete output evidence"
+            )
+        _validate_objective_executor_result(
+            result,
+            proposal,
+            state_path,
+        )
+        return result
+    raise WorkflowError(
+        "execution result lacks operator paste or objective authority"
+    )
 
 def _write_repository_lineage_milestone(
     writer: AtomicFileWriter,
@@ -482,7 +610,7 @@ def continue_branch_closeout(
     _, _, writer, inspector = _runtime(repo, state_dir)
     proposal_path = Path(str(state["current_proposal"])).expanduser().resolve()
     proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
-    _load_result(operator_result, proposal)
+    _load_result(operator_result, proposal, state_path)
 
     source_branch = str(state["target_branch"])
     promoted_source = str(state["promoted_source"])
@@ -676,7 +804,7 @@ def continue_branch_bootstrap(
     _, _, writer, inspector = _runtime(repo, state_dir)
     proposal_path = Path(str(state["current_proposal"])).expanduser().resolve()
     proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
-    result = _load_result(operator_result, proposal)
+    result = _load_result(operator_result, proposal, state_path)
 
     branch = str(state["target_branch"])
     expected_main = str(state["expected_main"])

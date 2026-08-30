@@ -76,7 +76,12 @@ def _validate_authorization(
     state_path: Path,
     proposal_path: Path,
 ) -> dict[str, Any]:
-    if state.get("record_type") != "sage-request-execution-state":
+    record_type = str(state.get("record_type", ""))
+    controller_by_state = {
+        "sage-request-execution-state": "sage-request-execution",
+        "sage-candidate-persistence-state": "sage.candidate-persistence",
+    }
+    if record_type not in controller_by_state:
         raise WorkflowError("routine Git lifecycle state record type is invalid")
     if state.get("current_boundary") != "routine-git-lifecycle":
         raise WorkflowError("routine Git lifecycle is not the active request boundary")
@@ -107,7 +112,8 @@ def _validate_authorization(
             raise WorkflowError("already-open legacy routine proposal contract drifted")
     else:
         raise WorkflowError("routine Git lifecycle requires schema 1.2 or an already-open legacy schema 1.0 proposal")
-    if proposal.get("controller") != "sage-request-execution":
+    expected_controller = controller_by_state[record_type]
+    if proposal.get("controller") != expected_controller:
         raise WorkflowError("routine Git lifecycle controller ownership drifted")
 
     repository = proposal.get("repository")

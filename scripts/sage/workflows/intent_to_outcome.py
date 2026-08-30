@@ -19,6 +19,7 @@ from workflow.recovery import (
     load_consumed_fingerprints,
 )
 from workflows.checkpoint_promotion import continue_promotion, start_promotion
+from workflows.objective_execution import objective_execution_route_summary
 from workflows.request_execution import (
     continue_request,
     continue_request_from_routine_receipt,
@@ -314,6 +315,7 @@ def build_objective_route(
             "runtime_promotion_eligibility": bool(current.get("promotion_eligible")),
             "objective_completion": state.get("status") == "promotion-complete",
         },
+        "objective_execution": objective_execution_route_summary(state),
         "guardrail_collaboration_feedback": {
             "status": "measurement-contract-present-values-may-be-unavailable",
             "activations": None,

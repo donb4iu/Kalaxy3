@@ -699,3 +699,11 @@ sage-artifact-promotion-execute:
 	@test -n "$${SAGE_EXECUTOR_ID:-}" || { echo 'SAGE_EXECUTOR_ID is required'; exit 2; }
 	@test -n "$${SAGE_WORKFLOW_ENGINE:-}" || { echo 'SAGE_WORKFLOW_ENGINE is required'; exit 2; }
 	$(PYTHON) scripts/sage/sage-artifact-promote.py execute --stage-receipt "$$SAGE_STAGE_RECEIPT" --oci-archive "$$SAGE_STAGE_ARCHIVE" --environment "$$SAGE_PROMOTION_ENVIRONMENT" --event-log "$$SAGE_PROMOTION_EVENT_LOG" --output "$$SAGE_PROMOTION_RECEIPT" --executor-id "$$SAGE_EXECUTOR_ID" --workflow-engine "$$SAGE_WORKFLOW_ENGINE"
+
+.PHONY: sage-objective-execution-self-test sage-objective-execution-guardrail
+
+sage-objective-execution-self-test:
+	python3 scripts/sage/sage-objective-execution.py --self-test
+
+sage-objective-execution-guardrail:
+	python3 scripts/sage/sage-objective-execution-guardrail.py
