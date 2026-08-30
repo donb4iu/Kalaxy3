@@ -556,8 +556,9 @@ SAGE_E2E_INFRA_DIR := infrastructure/k3s-homelab
         sage-intent-to-outcome-promote sage-intent-to-outcome-continue-promotion \
         sage-intent-to-outcome-self-test sage-intent-to-outcome-guardrail \
         sage-e2e-zero-trust-source-guardrail sage-e2e-zero-trust-controller-guardrail \
-        sage-e2e-zero-trust-guardrail sage-e2e-zero-trust-deploy \
-        sage-e2e-zero-trust-runtime-validate sage-e2e-zero-trust-runtime-receipt \
+        sage-e2e-zero-trust-guardrail sage-e2e-zero-trust-project-experience \
+        sage-e2e-zero-trust-deploy sage-e2e-zero-trust-runtime-validate \
+        sage-e2e-zero-trust-runtime-receipt \
         sage-e2e-zero-trust-runtime-self-test
 
 sage-intent-to-outcome:
@@ -649,6 +650,12 @@ sage-e2e-zero-trust-controller-guardrail: sage-e2e-zero-trust-source-guardrail
 
 sage-e2e-zero-trust-guardrail: sage-e2e-zero-trust-controller-guardrail
 
+sage-e2e-zero-trust-project-experience:
+	@test -n "$${SAGE_EXTERNAL_HOSTNAME:-}" || { echo 'SAGE_EXTERNAL_HOSTNAME is required'; exit 2; }
+	@test -n "$${SAGE_PROMOTION_RECEIPT:-}" || { echo 'SAGE_PROMOTION_RECEIPT is required'; exit 2; }
+	@test -f "$$SAGE_PROMOTION_RECEIPT" || { echo 'SAGE_PROMOTION_RECEIPT file is missing'; exit 2; }
+	cd $(SAGE_E2E_INFRA_DIR) && .venv/bin/ansible-playbook cloudflare/deploy-sage-e2e.yml --extra-vars "sage_external_hostname=$$SAGE_EXTERNAL_HOSTNAME sage_promotion_receipt_file=$$SAGE_PROMOTION_RECEIPT sage_runtime_projection_scope=experience-only"
+
 sage-e2e-zero-trust-deploy:
 	@test -n "$${SAGE_EXTERNAL_HOSTNAME:-}" || { echo 'SAGE_EXTERNAL_HOSTNAME is required'; exit 2; }
 	@test -n "$${KALAXY3_ANSIBLE_SECRETS_FILE:-}" || { echo 'KALAXY3_ANSIBLE_SECRETS_FILE is required'; exit 2; }
@@ -656,7 +663,9 @@ sage-e2e-zero-trust-deploy:
 
 sage-e2e-zero-trust-runtime-validate:
 	@test -n "$${SAGE_EXTERNAL_HOSTNAME:-}" || { echo 'SAGE_EXTERNAL_HOSTNAME is required'; exit 2; }
-	cd $(SAGE_E2E_INFRA_DIR) && .venv/bin/ansible-playbook cloudflare/validate-sage-e2e.yml --extra-vars "sage_external_hostname=$$SAGE_EXTERNAL_HOSTNAME"
+	@test -n "$${SAGE_PROMOTION_RECEIPT:-}" || { echo 'SAGE_PROMOTION_RECEIPT is required'; exit 2; }
+	@test -f "$$SAGE_PROMOTION_RECEIPT" || { echo 'SAGE_PROMOTION_RECEIPT file is missing'; exit 2; }
+	cd $(SAGE_E2E_INFRA_DIR) && .venv/bin/ansible-playbook cloudflare/validate-sage-e2e.yml --extra-vars "sage_external_hostname=$$SAGE_EXTERNAL_HOSTNAME sage_promotion_receipt_file=$$SAGE_PROMOTION_RECEIPT"
 
 sage-e2e-zero-trust-runtime-receipt:
 	@test -n "$${SAGE_EXTERNAL_HOSTNAME:-}" || { echo 'SAGE_EXTERNAL_HOSTNAME is required'; exit 2; }
