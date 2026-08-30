@@ -18,6 +18,18 @@ def main() -> int:
         "OperatorGitProposal",
         'boundary="create-branch"',
         'boundary="push"',
+        'boundary="switch-branch"',
+        '"other-git-mutation"',
+        'boundary="branch-delete"',
+        "start_branch_closeout",
+        "continue_branch_closeout",
+        "continue_branch_lifecycle",
+        'mode": "post-promotion-closeout"',
+        "source-contained-in-target",
+        "sage-repository-lineage-milestone",
+        "repository-lineage-closeout.json",
+        '"--ff-only"',
+        '"--delete"',
         "expected_main",
         "remote_head",
         "require_clean",
@@ -34,15 +46,29 @@ def main() -> int:
         "git checkout",
         "git switch -c",
         "git push -u",
+        '("git", "reset"',
+        '("git", "rebase"',
+        '("git", "push", "--force"',
     )
     observed = [item for item in forbidden if item in workflow]
     if observed:
-        raise RuntimeError(f"branch lifecycle workflow contains direct mutation path: {observed}")
-    if "--self-test" not in cli or "start_branch_bootstrap" not in cli or "continue_branch_bootstrap" not in cli:
-        raise RuntimeError("branch lifecycle CLI does not expose the governed composition")
-    print("PASS branch creation and push are operator-proposal boundaries")
-    print("PASS branch lifecycle workflow has no direct Git mutation implementation")
-    print("PASS exact frozen-main and post-operator verification markers")
+        raise RuntimeError(f"branch lifecycle workflow contains direct/destructive mutation path: {observed}")
+    cli_required = (
+        "--self-test",
+        "start_branch_bootstrap",
+        "start_branch_closeout",
+        "continue_branch_lifecycle",
+        'sub.add_parser("closeout")',
+        'closeout.add_argument("--objective-id"',
+        'closeout.add_argument("--promoted-source"',
+    )
+    cli_missing = [item for item in cli_required if item not in cli]
+    if cli_missing:
+        raise RuntimeError(f"branch lifecycle CLI does not expose the governed composition: {cli_missing}")
+    print("PASS branch bootstrap and post-promotion closeout are operator-proposal boundaries")
+    print("PASS closeout requires exact source containment, stable authority, and fast-forward-only main reconciliation")
+    print("PASS source retirement uses governed remote/local ref boundaries and semantic repository-lineage milestones")
+    print("PASS branch lifecycle workflow has no direct or destructive Git mutation implementation")
     print("Kalaxy3 SAGE branch lifecycle guardrail: PASS")
     return 0
 

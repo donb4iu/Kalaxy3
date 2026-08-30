@@ -302,6 +302,7 @@
         "sage-evidence-retrieval-policy.json",
         "markdown/standards/kalaxy3-sage-evidence-retrieval-process.md",
         "markdown/standards/sage-evidence-retrieval-result-schema-v1.0.json",
+        "markdown/standards/sage-evidence-retrieval-result-schema-v1.1.json",
         "scripts/sage/sage_evidence_retrieval.py",
         "scripts/sage/sage-evidence-retrieval.py",
         "scripts/sage/sage-evidence-retrieval-self-test.py",

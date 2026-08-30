@@ -26,9 +26,11 @@ from workflows.intent_to_outcome import (  # noqa: E402
     begin_intent_promotion,
     build_objective_route,
     confirm_intent,
+    continue_planned_request,
     continue_intent_promotion,
     continue_intent_request,
     record_runtime,
+    reconsider_intent,
     reconcile_completed_request_child,
     reconcile_stale_parent_completed_request_child,
     reconcile_completed_semantic_child,
@@ -311,6 +313,36 @@ def self_test() -> int:
                     "promotion_eligible": False,
                 }
             ],
+            "evidence_reconsideration": {
+                "status": "finalized",
+                "summary": {
+                    "candidate_count": 4,
+                    "assessed_count": 4,
+                    "assessment_coverage": 1.0,
+                    "applied_count": 3,
+                    "contextually_not_applicable_count": 1,
+                    "requires_revalidation_count": 0,
+                    "alternative_set_change_count": 1,
+                    "augmentation_count": 2,
+                    "additional_acceptance_criteria_count": 1,
+                    "reconsideration_trigger_count": 1,
+                },
+            },
+            "implementation_generations": [
+                {
+                    "generation": 1,
+                    "candidate_head": "a" * 40,
+                    "status": "promoted",
+                    "historical_justification_preserved": True,
+                },
+                {
+                    "generation": 2,
+                    "candidate_head": "b" * 40,
+                    "status": "runtime-verified",
+                    "supersedes_generation": 1,
+                    "historical_justification_preserved": True,
+                },
+            ],
         },
         {
             "alternatives": [
@@ -328,9 +360,25 @@ def self_test() -> int:
         raise RuntimeError("objective route alternatives do not expose evaluation dimensions")
     if route.get("integration_state", {}).get("canonical_integration_eligibility") != "unassessed":
         raise RuntimeError("objective route manufactured integration assurance")
+    reconsideration = route.get("evidence_reconsideration", {})
+    if reconsideration.get("assessment_coverage") != 1.0 or reconsideration.get("alternative_set_change_count") != 1:
+        raise RuntimeError("objective route omitted evidence reconsideration observability")
+    lineage = route.get("implementation_generation_lineage", {})
+    current_generation = lineage.get("current_generation", {})
+    history = lineage.get("history", [])
+    if (
+        lineage.get("generation_count") != 2
+        or current_generation.get("supersedes_generation") != 1
+        or current_generation.get("historical_justification_preserved") is not True
+        or not history
+        or history[0].get("historical_justification_preserved") is not True
+    ):
+        raise RuntimeError("objective route omitted implementation generation supersession lineage")
     print("PASS objective route preserves parent re-entry, alternatives, and unearned-assurance boundaries")
+    print("PASS objective route exposes evidence reconsideration and implementation-generation supersession lineage")
     print("PASS unfinished pre-mutation candidate can accumulate related corrections before checkpoint")
     print("PASS live operator-review boundary remains fail-closed")
+    print("PASS exact planning proposal can pause for Architect objective-path approval before mutation")
     print("PASS intent-to-outcome front door self-test")
     return 0
 
@@ -345,6 +393,11 @@ def parse_args() -> argparse.Namespace:
     start.add_argument("--request", required=True)
     start.add_argument("--action-id", required=True)
     start.add_argument("--contribution", type=Path, required=True)
+
+    reconsider = sub.add_parser("reconsider")
+    reconsider.add_argument("--state", type=Path, required=True)
+    reconsider.add_argument("--evidence-reconsideration", type=Path, required=True)
+    reconsider.add_argument("--contribution", type=Path, required=True)
 
     confirm = sub.add_parser("confirm")
     confirm.add_argument("--state", type=Path, required=True)
@@ -376,6 +429,9 @@ def parse_args() -> argparse.Namespace:
     iterate.add_argument("--parent-checkpoint", required=True)
     iterate.add_argument("--affected-obligation", action="append", default=[])
     iterate.add_argument("--approved-gap-set", type=Path)
+
+    planned_continuation = sub.add_parser("continue-planned")
+    planned_continuation.add_argument("--state", type=Path, required=True)
 
     continuation = sub.add_parser("continue-request")
     continuation.add_argument("--state", type=Path, required=True)
@@ -410,6 +466,13 @@ def main() -> int:
         return self_test()
     if args.command == "start":
         result = begin_intent(args.repo, args.action_id, args.request, args.contribution)
+    elif args.command == "reconsider":
+        result = reconsider_intent(
+            args.repo,
+            args.state,
+            args.evidence_reconsideration,
+            args.contribution,
+        )
     elif args.command == "confirm":
         result = confirm_intent(
             args.repo, args.state, args.confirmation, args.dispositions, args.actor
@@ -437,6 +500,8 @@ def main() -> int:
             affected_obligations=args.affected_obligation,
             approved_gap_set=args.approved_gap_set,
         )
+    elif args.command == "continue-planned":
+        result = continue_planned_request(args.repo, args.state)
     elif args.command == "continue-request":
         stale_parent_mode = (
             args.completed_child_state is not None

@@ -31,9 +31,17 @@ from workflows.request_planning import (
 )
 from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap, reuse_confirmed_intent
 from semantic_understanding import load_engineering_contribution
+from sage_evidence_retrieval import (
+    load_json as load_retrieval_json,
+    reconsideration_summary,
+    requires_contribution_refresh,
+    retrieve as retrieve_evidence,
+    validate_result as validate_retrieval_result,
+    write_result as write_retrieval_result,
+)
 
 WORKFLOW_ID = "sage.intent-to-outcome"
-WORKFLOW_VERSION = "0.3.1"
+WORKFLOW_VERSION = "0.4.1"
 PRIMITIVES_USED = (
     "catalog.registry",
     "file.atomic-preserve-mode",
@@ -154,6 +162,72 @@ def _route_alternatives(contribution_manifest: Mapping[str, Any] | None) -> list
     ]
 
 
+def _file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.expanduser().resolve().read_bytes()).hexdigest()
+
+
+def _evidence_route_state(state: Mapping[str, Any]) -> dict[str, Any]:
+    value = state.get("evidence_reconsideration")
+    if not isinstance(value, Mapping):
+        return {
+            "status": "not-triggered",
+            "candidate_count": 0,
+            "assessed_count": 0,
+            "assessment_coverage": 1.0,
+            "alternative_set_change_count": 0,
+            "augmentation_count": 0,
+            "additional_acceptance_criteria_count": 0,
+            "requires_revalidation_count": 0,
+            "reconsideration_trigger_count": 0,
+        }
+    summary = value.get("summary")
+    if isinstance(summary, Mapping):
+        return {"status": str(value.get("status", "finalized")), **dict(summary)}
+    count = int(value.get("candidate_count", 0) or 0)
+    return {
+        "status": str(value.get("status", "pending")),
+        "candidate_count": count,
+        "assessed_count": 0,
+        "assessment_coverage": 0.0 if count else 1.0,
+        "alternative_set_change_count": 0,
+        "augmentation_count": 0,
+        "additional_acceptance_criteria_count": 0,
+        "requires_revalidation_count": 0,
+        "reconsideration_trigger_count": 0,
+    }
+
+
+def _generation_route_state(state: Mapping[str, Any]) -> dict[str, Any]:
+    generations = [
+        dict(item)
+        for item in state.get("implementation_generations", [])
+        if isinstance(item, Mapping)
+    ]
+    return {
+        "generation_count": len(generations),
+        "current_generation": generations[-1] if generations else None,
+        "history": generations,
+    }
+
+
+def _promotion_source_branch(state: Mapping[str, Any]) -> str:
+    semantic_state = state.get("semantic_state")
+    if isinstance(semantic_state, str) and semantic_state:
+        path = Path(semantic_state).expanduser().resolve()
+        try:
+            child = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise WorkflowError(f"semantic state is unreadable for promotion source resolution: {error}") from error
+        repository = child.get("repository")
+        if isinstance(repository, Mapping):
+            branch = repository.get("branch")
+            if isinstance(branch, str) and branch and branch != "main":
+                return branch
+    raise WorkflowError(
+        "promotion source branch is not preserved in governed semantic lineage"
+    )
+
+
 def build_objective_route(
     action: Mapping[str, Any],
     state: Mapping[str, Any],
@@ -179,6 +253,8 @@ def build_objective_route(
         item for item in state.get("deferred_debt", []) if isinstance(item, Mapping)
     ]
     runtime_mapped = bool(state.get("runtime_receipt"))
+    evidence_route = _evidence_route_state(state)
+    generation_route = _generation_route_state(state)
     source_validated = current.get("validation_state") in {
         "source-validations-passed",
         "runtime-verified",
@@ -195,6 +271,7 @@ def build_objective_route(
             "accepted-action authority",
             "confirmed semantic/planning lineage when present",
             "repository-owned request/Git/runtime/promotion compositions",
+            "contextual evidence reconsideration before semantic commitment when retrieval finds relevant prior experience",
         ],
         "alternatives": _route_alternatives(contribution_manifest),
         "selected_candidate": {
@@ -221,6 +298,8 @@ def build_objective_route(
             for item in findings
         ],
         "deferred_debt": deferred_debt,
+        "evidence_reconsideration": evidence_route,
+        "implementation_generation_lineage": generation_route,
         "assurance": {
             "source_validation_evidence": source_validated,
             "runtime_evidence_mapped": runtime_mapped,
@@ -245,6 +324,11 @@ def build_objective_route(
             "unplanned_recovery_steps": None,
             "operator_boundaries": None,
             "interpretation_burden": None,
+            "evidence_retrieval_candidates": evidence_route["candidate_count"],
+            "evidence_assessment_coverage": evidence_route["assessment_coverage"],
+            "prior_capability_alternative_changes": evidence_route["alternative_set_change_count"],
+            "evidence_revalidation_needs": evidence_route["requires_revalidation_count"],
+            "reconsideration_triggers": evidence_route["reconsideration_trigger_count"],
         },
     }
 
@@ -332,6 +416,10 @@ def _ensure_iteration_contract(state: dict[str, Any]) -> dict[str, Any]:
             )
         ]
         state["promotion_eligible"] = False
+    if "implementation_generations" not in state:
+        state["implementation_generations"] = []
+    if "evidence_reconsideration" not in state:
+        state["evidence_reconsideration"] = None
     return state
 
 
@@ -422,26 +510,18 @@ def reconcile_completed_semantic_child(
     }
 
 
-def begin_intent(
-    repo: Path,
+def _new_intent_state(
+    *,
     action_id: str,
     request: str,
     contribution: Path,
-) -> Mapping[str, Any]:
-    resolved = repo.expanduser().resolve()
-    PrimitiveCatalog.load(resolved / "sage-workflow-primitives.json").require(
-        PRIMITIVES_USED
-    )
-    semantic = begin_bootstrap(
-        resolved,
-        action_id,
-        request,
-        contribution.expanduser().resolve(),
-    )
-    directory = _new_state_directory()
-    state_path = directory / "intent-to-outcome-state.json"
-    state = {
-        "schema_version": "1.0",
+    status: str,
+    semantic_state: str | None,
+    iteration_status: str,
+    next_boundary: str,
+) -> dict[str, Any]:
+    return {
+        "schema_version": "1.1",
         "record_type": "sage-intent-to-outcome-state",
         "workflow_id": WORKFLOW_ID,
         "workflow_version": WORKFLOW_VERSION,
@@ -449,12 +529,15 @@ def begin_intent(
         "request_sha256": _request_digest(request),
         "action_id": action_id,
         "objective_id": action_id,
+        "initial_contribution": str(contribution.expanduser().resolve()),
         "contribution": str(contribution.expanduser().resolve()),
-        "status": "architect-confirmation-required",
-        "semantic_state": str(semantic["state"]),
+        "status": status,
+        "semantic_state": semantic_state,
         "request_execution_state": None,
         "runtime_receipt": None,
         "promotion_state": None,
+        "evidence_reconsideration": None,
+        "implementation_generations": [],
         "current_iteration": 1,
         "iterations": [
             _iteration_record(
@@ -463,13 +546,109 @@ def begin_intent(
                 candidate_head=None,
                 trigger="initial governed objective candidate",
                 affected_obligations=[],
-                status="semantic-confirmation",
-                next_boundary="semantic-confirmation",
+                status=iteration_status,
+                next_boundary=next_boundary,
             )
         ],
         "promotion_eligible": False,
         "history": [],
     }
+
+
+def begin_intent(
+    repo: Path,
+    action_id: str,
+    request: str,
+    contribution: Path,
+) -> Mapping[str, Any]:
+    """Start with intent-first contribution, then require contextual evidence reconsideration."""
+    resolved = repo.expanduser().resolve()
+    PrimitiveCatalog.load(resolved / "sage-workflow-primitives.json").require(
+        PRIMITIVES_USED
+    )
+    contribution_path = contribution.expanduser().resolve()
+    initial = load_engineering_contribution(contribution_path)
+    action = load_improvement_action(resolved, action_id)
+    if action.get("current_status") != "accepted":
+        raise WorkflowError(f"{action_id} must be accepted before intent-to-outcome start")
+
+    directory = _new_state_directory()
+    state_path = directory / "intent-to-outcome-state.json"
+    policy_path = resolved / "sage-evidence-retrieval-policy.json"
+    retrieval = retrieve_evidence(
+        repo=resolved,
+        policy_path=policy_path,
+        request=request,
+    )
+    retrieval_path = directory / "evidence-retrieval.json"
+    write_retrieval_result(retrieval_path, retrieval)
+
+    if retrieval.get("results"):
+        state = _new_intent_state(
+            action_id=action_id,
+            request=request,
+            contribution=contribution_path,
+            status="evidence-reconsideration-required",
+            semantic_state=None,
+            iteration_status="evidence-reconsideration",
+            next_boundary="evidence-reconsideration",
+        )
+        state["evidence_reconsideration"] = {
+            "status": "pending",
+            "retrieval": str(retrieval_path),
+            "retrieval_sha256": _file_sha256(retrieval_path),
+            "retrieval_basis_sha256": retrieval.get("retrieval_basis_sha256"),
+            "candidate_count": len(retrieval["results"]),
+            "assessment": None,
+            "assessment_sha256": None,
+            "summary": None,
+        }
+        state["history"].append({
+            "stage": "evidence-retrieval",
+            "iteration": 1,
+            "initial_contribution_sha256": initial.package_sha256,
+            "retrieval": str(retrieval_path),
+            "retrieval_basis_sha256": retrieval.get("retrieval_basis_sha256"),
+            "candidate_count": len(retrieval["results"]),
+        })
+        _refresh_objective_route(resolved, state)
+        _persist(state_path, state)
+        return {
+            "status": state["status"],
+            "state": str(state_path),
+            "evidence_retrieval": str(retrieval_path),
+            "retrieval_basis_sha256": retrieval.get("retrieval_basis_sha256"),
+            "candidate_count": len(retrieval["results"]),
+            "next_boundary": "LLM must finalize every candidate applicability/value assessment and refresh the contribution when evidence materially changes it.",
+        }
+
+    semantic = begin_bootstrap(
+        resolved, action_id, request, contribution_path
+    )
+    state = _new_intent_state(
+        action_id=action_id,
+        request=request,
+        contribution=contribution_path,
+        status="architect-confirmation-required",
+        semantic_state=str(semantic["state"]),
+        iteration_status="semantic-confirmation",
+        next_boundary="semantic-confirmation",
+    )
+    state["evidence_reconsideration"] = {
+        "status": "not-triggered",
+        "retrieval": str(retrieval_path),
+        "retrieval_sha256": _file_sha256(retrieval_path),
+        "retrieval_basis_sha256": retrieval.get("retrieval_basis_sha256"),
+        "candidate_count": 0,
+        "assessment": None,
+        "assessment_sha256": None,
+        "summary": reconsideration_summary(retrieval),
+    }
+    state["history"].append({
+        "stage": "evidence-retrieval-no-relevant-candidates",
+        "iteration": 1,
+        "retrieval": str(retrieval_path),
+    })
     _refresh_objective_route(resolved, state)
     _persist(state_path, state)
     return {
@@ -479,6 +658,92 @@ def begin_intent(
         "semantic_understanding_sha256": semantic["semantic_understanding_sha256"],
         "architect_dispositions": semantic["architect_dispositions"],
         "confirmation_command": semantic["confirmation_command"],
+    }
+
+
+def reconsider_intent(
+    repo: Path,
+    state_path: Path,
+    evidence_reconsideration: Path,
+    contribution: Path,
+) -> Mapping[str, Any]:
+    """Bind finalized LLM evidence assessment and enter semantic confirmation."""
+    resolved = repo.expanduser().resolve()
+    state = _load_parent(state_path)
+    if state.get("status") != "evidence-reconsideration-required":
+        raise WorkflowError("intent state is not awaiting evidence reconsideration")
+    gate = state.get("evidence_reconsideration")
+    if not isinstance(gate, Mapping):
+        raise WorkflowError("intent state lacks evidence-reconsideration lineage")
+    raw_path = Path(str(gate.get("retrieval", ""))).expanduser().resolve()
+    if not raw_path.is_file() or _file_sha256(raw_path) != gate.get("retrieval_sha256"):
+        raise WorkflowError("stored evidence retrieval changed before reconsideration")
+    raw = load_retrieval_json(raw_path)
+    if raw.get("schema_version") != "1.1":
+        raise WorkflowError("intent evidence reconsideration requires retrieval result schema v1.1")
+
+    assessment_path = evidence_reconsideration.expanduser().resolve()
+    assessed = load_retrieval_json(assessment_path)
+    if assessed.get("schema_version") != "1.1":
+        raise WorkflowError("finalized evidence reconsideration requires retrieval result schema v1.1")
+    policy = load_retrieval_json(resolved / "sage-evidence-retrieval-policy.json")
+    validate_retrieval_result(assessed, policy, require_final=True)
+    if assessed.get("request") != state.get("request"):
+        raise WorkflowError("evidence reconsideration does not match the literal request")
+    if assessed.get("retrieval_basis_sha256") != raw.get("retrieval_basis_sha256"):
+        raise WorkflowError("evidence reconsideration does not match the stored retrieval basis")
+
+    initial = load_engineering_contribution(
+        Path(str(state["initial_contribution"])).expanduser().resolve()
+    )
+    refreshed = load_engineering_contribution(contribution.expanduser().resolve())
+    if requires_contribution_refresh(assessed) and refreshed.package_sha256 == initial.package_sha256:
+        raise WorkflowError(
+            "material evidence reconsideration requires a refreshed engineering contribution"
+        )
+
+    semantic = begin_bootstrap(
+        resolved,
+        str(state["action_id"]),
+        str(state["request"]),
+        refreshed.package_path,
+        assessment_path,
+    )
+    summary = reconsideration_summary(assessed)
+    state["contribution"] = str(refreshed.package_path)
+    state["semantic_state"] = str(semantic["state"])
+    state["status"] = "architect-confirmation-required"
+    state["evidence_reconsideration"] = {
+        **dict(gate),
+        "status": "finalized",
+        "assessment": str(assessment_path),
+        "assessment_sha256": _file_sha256(assessment_path),
+        "summary": summary,
+    }
+    iteration = _current_iteration(state)
+    iteration["status"] = "semantic-confirmation"
+    iteration["next_boundary"] = "semantic-confirmation"
+    state["history"].append({
+        "stage": "evidence-reconsideration-complete",
+        "iteration": state["current_iteration"],
+        "retrieval_basis_sha256": assessed.get("retrieval_basis_sha256"),
+        "assessment": str(assessment_path),
+        "assessment_sha256": state["evidence_reconsideration"]["assessment_sha256"],
+        "initial_contribution_sha256": initial.package_sha256,
+        "refreshed_contribution_sha256": refreshed.package_sha256,
+        "material_refresh_required": requires_contribution_refresh(assessed),
+        "summary": summary,
+    })
+    _refresh_objective_route(resolved, state)
+    _persist(state_path.expanduser().resolve(), state)
+    return {
+        "status": state["status"],
+        "state": str(state_path.expanduser().resolve()),
+        "semantic_understanding": semantic["semantic_understanding"],
+        "semantic_understanding_sha256": semantic["semantic_understanding_sha256"],
+        "architect_dispositions": semantic["architect_dispositions"],
+        "confirmation_command": semantic["confirmation_command"],
+        "evidence_reconsideration_summary": summary,
     }
 
 
@@ -540,27 +805,94 @@ def confirm_intent(
         Path(semantic_source),
         proposal_path,
     )
+    return _pause_for_objective_path_decision(
+        resolved,
+        state_path,
+        state,
+        planning_source=semantic_source,
+        planned=planned,
+        history_stage="semantic-plan-ready-for-objective-path-decision",
+    )
+
+
+def _pause_for_objective_path_decision(
+    repo: Path,
+    state_path: Path,
+    state: dict[str, Any],
+    *,
+    planning_source: str,
+    planned: Mapping[str, Any],
+    history_stage: str,
+) -> Mapping[str, Any]:
+    """Persist the exact proposal before the Architect authorizes request mutation."""
+
+    proposal = Path(str(planned["proposal"])).expanduser().resolve()
+    if not proposal.is_file():
+        raise WorkflowError(f"planned request proposal is missing: {proposal}")
+    proposal_sha256 = hashlib.sha256(proposal.read_bytes()).hexdigest()
+    state["planning_source"] = planning_source
+    state["planning_proposal"] = str(proposal)
+    state["request_execution_state"] = None
+    state["status"] = "objective-path-decision-required"
+    iteration = _current_iteration(state)
+    iteration["status"] = "objective-path-decision"
+    iteration["next_boundary"] = "objective-path-decision"
+    state["history"].append({
+        "stage": history_stage,
+        "iteration": state["current_iteration"],
+        "planning_source": planning_source,
+        "planning_proposal": str(proposal),
+        "planning_proposal_sha256": proposal_sha256,
+    })
+    _refresh_objective_route(repo, state)
+    _persist(state_path.expanduser().resolve(), state)
+    return {
+        "status": state["status"],
+        "state": str(state_path.expanduser().resolve()),
+        "planning_proposal": str(proposal),
+        "planning_proposal_sha256": proposal_sha256,
+        "next_boundary": "objective-path-decision",
+    }
+
+
+def continue_planned_request(
+    repo: Path,
+    state_path: Path,
+) -> Mapping[str, Any]:
+    """Execute one persisted exact proposal after Architect objective-path approval."""
+
+    resolved = repo.expanduser().resolve()
+    state = _load_parent(state_path)
+    if state.get("status") != "objective-path-decision-required":
+        raise WorkflowError("intent state is not awaiting objective-path decision")
+    proposal_value = state.get("planning_proposal")
+    if not isinstance(proposal_value, str) or not proposal_value:
+        raise WorkflowError("objective-path continuation has no planning proposal")
+    proposal = Path(proposal_value).expanduser().resolve()
+    if not proposal.is_file():
+        raise WorkflowError(f"objective-path planning proposal is missing: {proposal}")
+    iteration = _current_iteration(state)
+    if (
+        iteration.get("status") != "objective-path-decision"
+        or iteration.get("next_boundary") != "objective-path-decision"
+    ):
+        raise WorkflowError("objective-path continuation iteration boundary is invalid")
     execution = execute_request(
         resolved,
         str(state["request"]),
-        Path(str(planned["proposal"])),
+        proposal,
     )
-    state["status"] = "request-operator-review-required"
-    state["planning_source"] = semantic_source
-    state["planning_proposal"] = str(planned["proposal"])
     state["request_execution_state"] = str(execution["state"])
-    iteration = _current_iteration(state)
+    state["status"] = "request-operator-review-required"
     iteration["status"] = "request-execution"
     iteration["next_boundary"] = "operator-review"
-    state["history"].append(
-        {
-            "stage": "semantic-plan-execute",
-            "iteration": state["current_iteration"],
-            "planning_source": semantic_source,
-            "planning_proposal": str(planned["proposal"]),
-            "request_execution_state": str(execution["state"]),
-        }
-    )
+    state["history"].append({
+        "stage": "objective-path-decision-consumed",
+        "iteration": state["current_iteration"],
+        "planning_proposal": str(proposal),
+        "planning_proposal_sha256": hashlib.sha256(proposal.read_bytes()).hexdigest(),
+        "request_execution_state": str(execution["state"]),
+    })
     _refresh_objective_route(resolved, state)
     _persist(state_path.expanduser().resolve(), state)
     return {
@@ -902,39 +1234,25 @@ def begin_candidate_iteration(
             proposal_path,
             approved_gap_set=approved_gap_set,
         )
-    execution = execute_request(
-        resolved,
-        str(state["request"]),
-        Path(str(planned["proposal"])),
-    )
-    state["planning_source"] = str(new_source)
-    state["planning_proposal"] = str(planned["proposal"])
-    state["request_execution_state"] = str(execution["state"])
-    state["status"] = "request-operator-review-required"
-    iteration["status"] = "request-execution"
-    iteration["next_boundary"] = "operator-review"
     state["history"].append({
-        "stage": "candidate-iteration-start",
+        "stage": "candidate-iteration-plan-ready",
         "iteration": number,
         "reentry_boundary": reentry_boundary,
         "trigger": trigger.strip(),
-        "planning_source": str(new_source),
-        "planning_proposal": str(planned["proposal"]),
-        "request_execution_state": str(execution["state"]),
         "approved_gap_set": (
             str(approved_gap_set.expanduser().resolve())
             if approved_gap_set is not None
             else None
         ),
     })
-    _refresh_objective_route(resolved, state)
-    _persist(state_path.expanduser().resolve(), state)
-    return {
-        "status": state["status"],
-        "state": str(state_path.expanduser().resolve()),
-        "iteration": number,
-        "request_execution": execution,
-    }
+    return _pause_for_objective_path_decision(
+        resolved,
+        state_path,
+        state,
+        planning_source=str(new_source),
+        planned=planned,
+        history_stage="candidate-iteration-ready-for-objective-path-decision",
+    )
 
 
 
@@ -1269,6 +1587,25 @@ def record_runtime(
     iteration["next_boundary"] = "promotion"
     iteration["promotion_eligible"] = not bool(iteration.get("unresolved_findings"))
     state["promotion_eligible"] = iteration["promotion_eligible"]
+    generations = state.setdefault("implementation_generations", [])
+    previous = generations[-1] if generations else None
+    generation = {
+        "generation": len(generations) + 1,
+        "iteration": state["current_iteration"],
+        "candidate_head": iteration.get("candidate_head"),
+        "status": "runtime-verified",
+        "supersedes_generation": previous.get("generation") if isinstance(previous, Mapping) else None,
+        "historical_justification_preserved": True,
+        "accepted_action": state.get("action_id"),
+        "evidence_reconsideration": (
+            dict(state["evidence_reconsideration"])
+            if isinstance(state.get("evidence_reconsideration"), Mapping)
+            else None
+        ),
+        "runtime_receipt": str(receipt_path),
+        "runtime_receipt_sha256": state["runtime_receipt_sha256"],
+    }
+    generations.append(generation)
     state["history"].append(
         {
             "stage": "runtime-acceptance",
@@ -1298,7 +1635,7 @@ def begin_intent_promotion(
     result = start_promotion(
         repo=repo.expanduser().resolve(),
         request=str(state["request"]),
-        source_branch="feature/sage-e2e-zero-trust-viability",
+        source_branch=_promotion_source_branch(state),
         expected_head=expected_head,
         target_branch="main",
         title=title,
@@ -1336,6 +1673,11 @@ def continue_intent_promotion(
         if result["status"] == "complete"
         else "promotion-operator-review-required"
     )
+    if result["status"] == "complete":
+        generations = state.setdefault("implementation_generations", [])
+        if generations:
+            generations[-1]["status"] = "promoted"
+            generations[-1]["promotion_state"] = str(state.get("promotion_state"))
     state["history"].append(
         {
             "stage": "promotion-continuation",

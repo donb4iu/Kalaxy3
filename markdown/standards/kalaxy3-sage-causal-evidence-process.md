@@ -132,6 +132,32 @@ Counterfactual architectural assessment remains Architect-owned. A later slice
 may assemble actual-path context and alternatives from the graph, but SAGE
 must not decide which architecture the Architect should have selected.
 
+## Contextual fitness and implementation generations
+
+Historical evidence truth and current applicability are separate concerns. A
+retrieved fact may remain valid history while a later architecture-decision cycle
+records that it is only partially applicable, requires revalidation, has diminished
+comparative value, or is superseded for the current context. Those contextual
+assessments add evidence; they do not delete or silently relabel the original fact.
+A reconsideration trigger preserves why retained evidence may need to participate
+again in future ideation.
+
+Implementation generations compose with the same immutable lineage principle.
+The evidence path from intent, accepted criteria, assumptions, alternatives,
+Architect disposition, implementation, runtime outcome, and promotion is retained
+so later evidence can justify retaining, adapting, rebuilding, or superseding a
+generation. Supersession preserves the historical justification and observed
+outcomes of the previous generation rather than treating newer technology as proof
+that the older decision was wrong when made.
+
+Repository mechanics remain delegated to the source-control implementation. A
+SAGE repository-lineage milestone records the objective, delegated adapter,
+authoritative before/after anchors, verified containment/reconciliation assertions,
+and durable evidence references needed to interpret or reconstruct the transition.
+Per-commit Git chronology is not copied into the causal graph merely to make SAGE
+look complete; it remains linked substrate evidence that can be consulted or
+migrated if the delegated source-control architecture changes.
+
 ## Relationship to existing workflow evidence
 
 Existing append-only structured event logs and checksummed closeout evidence

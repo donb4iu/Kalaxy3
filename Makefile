@@ -549,10 +549,10 @@ sage-legacy-evidence-projection-guardrail:
 # SAGE intent-to-outcome and zero-trust E2E viability slice
 SAGE_E2E_INFRA_DIR := infrastructure/k3s-homelab
 
-.PHONY: sage-intent-to-outcome sage-intent-to-outcome-confirm \
+.PHONY: sage-intent-to-outcome sage-intent-to-outcome-reconsider sage-intent-to-outcome-confirm \
         sage-intent-to-outcome-adopt-request sage-intent-to-outcome-adopt-iteration \
         sage-intent-to-outcome-iterate sage-intent-to-outcome-continue \
-        sage-intent-to-outcome-continue-routine sage-intent-to-outcome-record-runtime \
+        sage-intent-to-outcome-continue-planned sage-intent-to-outcome-continue-routine sage-intent-to-outcome-record-runtime \
         sage-intent-to-outcome-promote sage-intent-to-outcome-continue-promotion \
         sage-intent-to-outcome-self-test sage-intent-to-outcome-guardrail \
         sage-e2e-zero-trust-source-guardrail sage-e2e-zero-trust-controller-guardrail \
@@ -565,6 +565,12 @@ sage-intent-to-outcome:
 	@test -n "$${SAGE_ACTION_ID:-}" || { echo 'SAGE_ACTION_ID is required'; exit 2; }
 	@test -n "$${SAGE_CONTRIBUTION:-}" || { echo 'SAGE_CONTRIBUTION is required'; exit 2; }
 	$(PYTHON) scripts/sage/sage-intent-to-outcome.py start --request "$$SAGE_REQUEST" --action-id "$$SAGE_ACTION_ID" --contribution "$$SAGE_CONTRIBUTION"
+
+sage-intent-to-outcome-reconsider:
+	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }
+	@test -n "$${SAGE_EVIDENCE_RECONSIDERATION:-}" || { echo 'SAGE_EVIDENCE_RECONSIDERATION is required'; exit 2; }
+	@test -n "$${SAGE_CONTRIBUTION:-}" || { echo 'SAGE_CONTRIBUTION is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py reconsider --state "$$SAGE_INTENT_STATE" --evidence-reconsideration "$$SAGE_EVIDENCE_RECONSIDERATION" --contribution "$$SAGE_CONTRIBUTION"
 
 sage-intent-to-outcome-confirm:
 	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }
@@ -592,6 +598,11 @@ sage-intent-to-outcome-iterate:
 	@test -n "$${SAGE_REENTRY_BOUNDARY:-}" || { echo 'SAGE_REENTRY_BOUNDARY is required'; exit 2; }
 	@test -n "$${SAGE_PARENT_CHECKPOINT:-}" || { echo 'SAGE_PARENT_CHECKPOINT is required'; exit 2; }
 	$(PYTHON) scripts/sage/sage-intent-to-outcome.py iterate --state "$$SAGE_INTENT_STATE" --contribution "$$SAGE_CONTRIBUTION" --trigger "$$SAGE_ITERATION_TRIGGER" --reentry-boundary "$$SAGE_REENTRY_BOUNDARY" --parent-checkpoint "$$SAGE_PARENT_CHECKPOINT" $${SAGE_APPROVED_GAP_SET:+--approved-gap-set "$$SAGE_APPROVED_GAP_SET"}
+
+sage-intent-to-outcome-continue-planned:
+	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }
+	@test -n "$${SAGE_OBJECTIVE_PATH_DECISION:-}" || { echo 'SAGE_OBJECTIVE_PATH_DECISION is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py continue-planned --state "$$SAGE_INTENT_STATE"
 
 sage-intent-to-outcome-continue:
 	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }

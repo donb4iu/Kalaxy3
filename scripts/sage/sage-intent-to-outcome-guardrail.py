@@ -41,6 +41,8 @@ def main() -> int:
         "continue_promotion",
         "validate_runtime_receipt",
         "begin_candidate_iteration",
+        "continue_planned_request",
+        "objective-path-decision-required",
         "candidate_iteration_entry_mode",
         "reuse_confirmed_intent",
         "reuse_component_plan",
@@ -72,6 +74,14 @@ def main() -> int:
         "_current_recovery_composition_sha256",
         "governing_composition_digest",
         "repository_owned_composition_sha256=current_composition",
+        "evidence-reconsideration-required",
+        "reconsider_intent",
+        "retrieve_evidence",
+        "validate_retrieval_result",
+        "requires_contribution_refresh",
+        "additional_acceptance_criteria",
+        "implementation_generation_lineage",
+        "_promotion_source_branch",
     ):
         if marker not in wrapper:
             failures.append(f"front door missing existing-component marker: {marker}")
@@ -90,8 +100,12 @@ def main() -> int:
             failures.append(f"intent recovery-composition regression missing: {marker}")
     if '"--planning-source"' not in cli:
         failures.append("adopt-iteration CLI does not accept historical planning-source lineage")
+    if 'sub.add_parser("continue-planned")' not in cli or "continue_planned_request" not in cli:
+        failures.append("intent-to-outcome CLI lacks exact-proposal objective-path continuation")
     if 'sub.add_parser("route")' not in cli or "objective_route_snapshot" not in cli:
         failures.append("intent-to-outcome CLI lacks read-only objective route inspection")
+    if 'sub.add_parser("reconsider")' not in cli or "reconsider_intent" not in cli:
+        failures.append("intent-to-outcome CLI lacks evidence-reconsideration continuation")
     if '"--completed-child-state"' not in cli or '"--planning-source"' not in cli:
         failures.append("continue-request lacks explicit stale-parent completed-child reconciliation inputs")
     if "intent state is not awaiting request continuation" not in wrapper:
@@ -100,6 +114,36 @@ def main() -> int:
         failures.append("adopt-iteration does not persist validated planning lineage")
     if "candidate iteration requires a durable prior candidate checkpoint" in wrapper:
         failures.append("front door still requires checkpoint before same-class accumulation")
+    if 'source_branch="feature/sage-e2e-zero-trust-viability"' in wrapper:
+        failures.append("front door promotion still hard-codes one historical source branch")
+
+    functions = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    for function_name in ("confirm_intent", "begin_candidate_iteration"):
+        node = functions.get(function_name)
+        if node is None:
+            failures.append(f"missing front-door function: {function_name}")
+            continue
+        calls = {
+            child.func.id
+            for child in ast.walk(node)
+            if isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
+        }
+        if "execute_request" in calls:
+            failures.append(
+                f"{function_name} executes request mutation before an exact-proposal Architect boundary"
+            )
+    continuation_node = functions.get("continue_planned_request")
+    continuation_calls = set() if continuation_node is None else {
+        child.func.id
+        for child in ast.walk(continuation_node)
+        if isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
+    }
+    if "execute_request" not in continuation_calls:
+        failures.append("planned-request continuation does not reuse request execution")
 
     imports = {
         alias.name.split(".")[0]
@@ -124,10 +168,12 @@ def main() -> int:
     makefile = MAKEFILE.read_text(encoding="utf-8")
     for marker in (
         "sage-intent-to-outcome:",
+        "sage-intent-to-outcome-reconsider:",
         "sage-intent-to-outcome-confirm:",
         "sage-intent-to-outcome-adopt-request:",
         "sage-intent-to-outcome-adopt-iteration:",
         "sage-intent-to-outcome-iterate:",
+        "sage-intent-to-outcome-continue-planned:",
         "sage-intent-to-outcome-continue-routine:",
         "sage-intent-to-outcome-record-runtime:",
         "sage-intent-to-outcome-promote:",
@@ -171,6 +217,13 @@ def main() -> int:
         "refreshed planning lineage",
         "current recovery composition",
         "historical consumed recovery decision",
+        "Evidence reconsideration before semantic commitment",
+        "consideration obligation, not a selection preference",
+        "Implementation-generation lineage",
+        "historically justified",
+        "repository-lineage milestone",
+        "objective-path decision",
+        "exact planning proposal",
     ):
         if marker not in standard:
             failures.append(f"intent-to-outcome standard missing: {marker}")
@@ -191,6 +244,9 @@ def main() -> int:
     print("PASS objective-first route is a read-only extension of the existing front door, not a parallel orchestrator")
     print("PASS stale-parent completed-child reconciliation preserves exact child, receipt, and refreshed planning lineage without replay")
     print("PASS route exposes parent re-entry, limitations, BDD assurance status, integration separation, and collaboration feedback without manufacturing evidence")
+    print("PASS exact planning proposal is persisted before Architect objective-path approval and request mutation")
+    print("PASS evidence reconsideration is an in-loop boundary and material augmentation requires a refreshed contribution")
+    print("PASS implementation generations preserve historical justification and promotion source is lineage-derived")
     print("Kalaxy3 SAGE intent-to-outcome guardrail: PASS")
     return 0
 
