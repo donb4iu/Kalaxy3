@@ -228,6 +228,24 @@ def main() -> int:
         if marker not in standard:
             failures.append(f"intent-to-outcome standard missing: {marker}")
 
+    for marker in (
+        "completed child routine receipt has no candidate commit",
+        '"candidate_head": candidate_head',
+        'iteration["candidate_head"] = candidate_head',
+        "runtime acceptance requires a candidate source commit",
+    ):
+        if marker not in wrapper:
+            failures.append(f"candidate source lineage contract missing: {marker}")
+    for marker in (
+        "completed-child lineage did not preserve routine receipt commit",
+        "completed child without routine receipt commit was accepted",
+        "runtime acceptance without candidate source commit did not fail closed",
+    ):
+        if marker not in cli:
+            failures.append(f"candidate source lineage regression missing: {marker}")
+    for marker in ("canonical routine receipt commit", "Runtime acceptance fails closed"):
+        if marker not in standard:
+            failures.append(f"candidate source lineage standard missing: {marker}")
     if failures:
         print("Kalaxy3 SAGE intent-to-outcome guardrail: FAIL CLOSED")
         for item in failures:
@@ -247,6 +265,7 @@ def main() -> int:
     print("PASS exact planning proposal is persisted before Architect objective-path approval and request mutation")
     print("PASS evidence reconsideration is an in-loop boundary and material augmentation requires a refreshed contribution")
     print("PASS implementation generations preserve historical justification and promotion source is lineage-derived")
+    print("PASS canonical completed-child source commit is mandatory before runtime acceptance")
     print("Kalaxy3 SAGE intent-to-outcome guardrail: PASS")
     return 0
 

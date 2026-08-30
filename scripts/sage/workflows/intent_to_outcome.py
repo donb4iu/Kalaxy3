@@ -41,7 +41,7 @@ from sage_evidence_retrieval import (
 )
 
 WORKFLOW_ID = "sage.intent-to-outcome"
-WORKFLOW_VERSION = "0.4.1"
+WORKFLOW_VERSION = "0.4.2"
 PRIMITIVES_USED = (
     "catalog.registry",
     "file.atomic-preserve-mode",
@@ -1315,7 +1315,10 @@ def reconcile_completed_request_child(
     receipt_sha256 = hashlib.sha256(canonical_receipt.read_bytes()).hexdigest()
     if event.get("boundary_result_sha256") != receipt_sha256:
         raise WorkflowError("completed child routine receipt digest does not match child history")
-    _load_json_object(canonical_receipt, "completed child routine receipt")
+    receipt = _load_json_object(canonical_receipt, "completed child routine receipt")
+    candidate_head = receipt.get("commit")
+    if not isinstance(candidate_head, str) or not candidate_head:
+        raise WorkflowError("completed child routine receipt has no candidate commit")
 
     evidence: dict[str, str] = {}
     for field, label in (
@@ -1336,8 +1339,10 @@ def reconcile_completed_request_child(
         "reconciled_from_completed_child": True,
         "routine_receipt": str(canonical_receipt),
         "routine_receipt_sha256": receipt_sha256,
+        "candidate_head": candidate_head,
         **evidence,
     }
+
 
 
 def reconcile_stale_parent_completed_request_child(
@@ -1411,13 +1416,9 @@ def reconcile_stale_parent_completed_request_child(
         routine_receipt=routine_receipt,
     )
 
-    receipt = _load_json_object(
-        Path(str(result["routine_receipt"])).expanduser().resolve(),
-        "completed child routine receipt",
-    )
-    candidate_head = receipt.get("commit")
+    candidate_head = result.get("candidate_head")
     if not isinstance(candidate_head, str) or not candidate_head:
-        raise WorkflowError("completed child routine receipt has no candidate commit")
+        raise WorkflowError("completed child reconciliation did not preserve the candidate commit")
 
     prior_planning_source = state.get("planning_source")
     state["planning_source"] = lineage["planning_source"]
@@ -1455,6 +1456,7 @@ def reconcile_stale_parent_completed_request_child(
         "planning_proposal": lineage["planning_proposal"],
         "candidate_head": candidate_head,
     }
+
 
 
 def continue_intent_request(
@@ -1500,6 +1502,11 @@ def continue_intent_request(
     )
     iteration = _current_iteration(state)
     if result["status"] == "complete":
+        if result.get("reconciled_from_completed_child") is True:
+            candidate_head = result.get("candidate_head")
+            if not isinstance(candidate_head, str) or not candidate_head:
+                raise WorkflowError("completed child reconciliation did not preserve the candidate commit")
+            iteration["candidate_head"] = candidate_head
         iteration["status"] = "checkpoint-non-promotable"
         iteration["validation_state"] = "source-validations-passed"
         iteration["next_boundary"] = "runtime-validation"
@@ -1522,6 +1529,7 @@ def continue_intent_request(
         "state": str(state_path.expanduser().resolve()),
         "child": result,
     }
+
 
 
 def validate_runtime_receipt(value: Mapping[str, Any]) -> None:
@@ -1573,6 +1581,10 @@ def record_runtime(
     state = _load_parent(state_path)
     if state.get("status") != "source-git-complete":
         raise WorkflowError("source Git lifecycle must complete before runtime acceptance")
+    iteration = _current_iteration(state)
+    candidate_head = iteration.get("candidate_head")
+    if not isinstance(candidate_head, str) or not candidate_head:
+        raise WorkflowError("runtime acceptance requires a candidate source commit")
     receipt_path = runtime_receipt.expanduser().resolve()
     value = json.loads(receipt_path.read_text(encoding="utf-8"))
     validate_runtime_receipt(value)
@@ -1581,7 +1593,6 @@ def record_runtime(
         receipt_path.read_bytes()
     ).hexdigest()
     state["status"] = "runtime-verified"
-    iteration = _current_iteration(state)
     iteration["validation_state"] = "runtime-verified"
     iteration["status"] = "validated-candidate"
     iteration["next_boundary"] = "promotion"
@@ -1592,7 +1603,7 @@ def record_runtime(
     generation = {
         "generation": len(generations) + 1,
         "iteration": state["current_iteration"],
-        "candidate_head": iteration.get("candidate_head"),
+        "candidate_head": candidate_head,
         "status": "runtime-verified",
         "supersedes_generation": previous.get("generation") if isinstance(previous, Mapping) else None,
         "historical_justification_preserved": True,
@@ -1617,6 +1628,7 @@ def record_runtime(
     _refresh_objective_route(repo.expanduser().resolve(), state)
     _persist(state_path.expanduser().resolve(), state)
     return {"status": state["status"], "state": str(state_path.expanduser().resolve())}
+
 
 
 def begin_intent_promotion(

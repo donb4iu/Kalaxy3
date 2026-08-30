@@ -26,6 +26,16 @@ If the semantic child was completed directly or by another compatible caller, th
 
 A request-execution child may also **already self-closed** when the repository-owned routine Git lifecycle consumes its receipt, performs post-operator verification, records metrics/evidence closeout, and marks the child boundary complete before the intent-to-outcome parent is resumed. In that case the parent **must not replay** the consumed Git boundary. Parent continuation validates the child request binding, canonical routine receipt and recorded digest, and the referenced verification/metrics/evidence closeout artifacts, then reconciles only the parent state to `source-git-complete` with `runtime-validation` as the next boundary.
 
+The completed-child reconciliation also binds the **canonical routine receipt commit**
+to the current iteration's `candidate_head`. The normal continuation and stale-parent
+reconciliation paths must derive that exact source identity from the same verified
+receipt rather than maintain separate interpretations.
+
+Runtime acceptance fails closed when the current iteration has no candidate source
+commit. Runtime evidence cannot create an implementation generation whose source
+identity is unknown. Repair of missing parent lineage never edits intent state by
+hand and never replays an already consumed Git lifecycle boundary.
+
 ## One-time bootstrap seam
 
 The first installation of this front door necessarily uses the already-established semantic-bootstrap, request-planning, and request-execution path. After the source exists in the repository, `adopt-request` may bind that in-flight request-execution state into the new parent lifecycle. This one-time bootstrap seam is explicit evidence, not a normal operating mode.

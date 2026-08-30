@@ -95,7 +95,7 @@ def self_test() -> int:
         request = "fixture completed child request"
         request_sha = hashlib.sha256(request.encode("utf-8")).hexdigest()
         receipt = temp / "routine-git-lifecycle-receipt.json"
-        receipt.write_text(json.dumps({"schema_version": "fixture", "status": "pass"}) + "\n", encoding="utf-8")
+        receipt.write_text(json.dumps({"schema_version": "fixture", "status": "pass", "commit": "a" * 40}) + "\n", encoding="utf-8")
         receipt_sha = hashlib.sha256(receipt.read_bytes()).hexdigest()
         verification = temp / "post-operator-verification.json"
         metrics = temp / "outcome-metrics.json"
@@ -129,6 +129,8 @@ def self_test() -> int:
         )
         if reconciled.get("status") != "complete" or reconciled.get("reconciled_from_completed_child") is not True:
             raise RuntimeError("completed child reconciliation did not return complete evidence")
+        if reconciled.get("candidate_head") != "a" * 40:
+            raise RuntimeError("completed-child lineage did not preserve routine receipt commit")
         bad_receipt = temp / "other-receipt.json"
         bad_receipt.write_text("{}\n", encoding="utf-8")
         try:
@@ -139,7 +141,19 @@ def self_test() -> int:
             pass
         else:
             raise RuntimeError("non-canonical completed-child routine receipt was accepted")
+        receipt.write_text(json.dumps({"schema_version": "fixture", "status": "pass"}) + "\n", encoding="utf-8")
+        missing_sha = hashlib.sha256(receipt.read_bytes()).hexdigest()
+        child_value = json.loads(child.read_text(encoding="utf-8"))
+        child_value["history"][0]["boundary_result_sha256"] = missing_sha
+        child.write_text(json.dumps(child_value) + "\n", encoding="utf-8")
+        try:
+            reconcile_completed_request_child({"request_sha256": request_sha}, child, routine_receipt=receipt)
+        except WorkflowError:
+            pass
+        else:
+            raise RuntimeError("completed child without routine receipt commit was accepted")
     print("PASS already-completed self-closing request child reconciles without replay")
+    print("PASS completed-child source lineage binds the canonical routine receipt commit")
     with tempfile.TemporaryDirectory(prefix="sage-semantic-child-reconcile-") as raw:
         temp = Path(raw)
         contribution = temp / "contribution.zip"
@@ -379,6 +393,25 @@ def self_test() -> int:
     print("PASS unfinished pre-mutation candidate can accumulate related corrections before checkpoint")
     print("PASS live operator-review boundary remains fail-closed")
     print("PASS exact planning proposal can pause for Architect objective-path approval before mutation")
+    with tempfile.TemporaryDirectory(prefix="sage-runtime-lineage-") as raw:
+        temp = Path(raw)
+        request = "fixture runtime lineage"
+        state = temp / "state.json"
+        state.write_text(json.dumps({
+            "record_type":"sage-intent-to-outcome-state",
+            "request":request,
+            "request_sha256":hashlib.sha256(request.encode()).hexdigest(),
+            "status":"source-git-complete",
+            "current_iteration":1,
+            "iterations":[{"iteration":1,"candidate_head":None}]
+        }) + "\n", encoding="utf-8")
+        try:
+            record_runtime(Path.cwd(), state, temp/"unused-runtime.json")
+        except WorkflowError:
+            pass
+        else:
+            raise RuntimeError("runtime acceptance without candidate source commit did not fail closed")
+    print("PASS runtime acceptance fails closed without candidate source lineage")
     print("PASS intent-to-outcome front door self-test")
     return 0
 
