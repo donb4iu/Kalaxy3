@@ -44,7 +44,7 @@ from sage_evidence_retrieval import (
 )
 
 WORKFLOW_ID = "sage.intent-to-outcome"
-WORKFLOW_VERSION = "0.4.2"
+WORKFLOW_VERSION = "0.4.3"
 PRIMITIVES_USED = (
     "catalog.registry",
     "file.atomic-preserve-mode",
@@ -477,6 +477,9 @@ def build_objective_route(
         item for item in state.get("deferred_debt", []) if isinstance(item, Mapping)
     ]
     runtime_mapped = bool(state.get("runtime_receipt"))
+    delivery_applicability = state.get("delivery_applicability")
+    if not isinstance(delivery_applicability, Mapping):
+        delivery_applicability = {}
     evidence_route = _evidence_route_state(state)
     generation_route = _generation_route_state(state)
     source_validated = current.get("validation_state") in {
@@ -536,9 +539,32 @@ def build_objective_route(
             "canonical_integration_eligibility": "unassessed",
             "capability_validation": current.get("validation_state"),
             "runtime_promotion_eligibility": bool(current.get("promotion_eligible")),
+            "runtime_applicability": (
+                delivery_applicability.get(
+                    "runtime_validation",
+                    {},
+                ).get("applicability")
+                if isinstance(
+                    delivery_applicability.get("runtime_validation"),
+                    Mapping,
+                )
+                else "required-unless-dispositioned"
+            ),
+            "promotion_applicability": (
+                delivery_applicability.get(
+                    "promotion",
+                    {},
+                ).get("applicability")
+                if isinstance(
+                    delivery_applicability.get("promotion"),
+                    Mapping,
+                )
+                else "required-unless-dispositioned"
+            ),
             "objective_completion": state.get("status") == "promotion-complete",
         },
         "objective_execution": objective_execution_route_summary(state),
+        "delivery_applicability": delivery_applicability,
         "guardrail_collaboration_feedback": {
             "status": "measurement-contract-present-values-may-be-unavailable",
             "activations": None,
@@ -556,6 +582,7 @@ def build_objective_route(
             "reconsideration_triggers": evidence_route["reconsideration_trigger_count"],
         },
     }
+
 
 
 def objective_route_snapshot(repo: Path, state_path: Path) -> Mapping[str, Any]:
@@ -1443,6 +1470,7 @@ def begin_candidate_iteration(
     state["promotion_eligible"] = False
     state["runtime_receipt"] = None
     state["promotion_state"] = None
+    state["delivery_applicability"] = None
     state["contribution"] = str(contribution.expanduser().resolve())
 
     resolved = repo.expanduser().resolve()
@@ -1889,6 +1917,195 @@ def continue_intent_request(
 
 
 
+
+def _runtime_not_applicable_promotion_ready(
+    state: Mapping[str, Any],
+    iteration: Mapping[str, Any],
+) -> bool:
+    disposition = state.get("delivery_applicability")
+    if not isinstance(disposition, Mapping):
+        return False
+
+    runtime = disposition.get("runtime_validation")
+    promotion = disposition.get("promotion")
+    if not isinstance(runtime, Mapping) or not isinstance(promotion, Mapping):
+        return False
+
+    return (
+        runtime.get("applicability") == "not-applicable-to-bounded-slice"
+        and runtime.get("status") == "not-evaluated"
+        and str(runtime.get("actor", "")).strip().lower() == "architect"
+        and promotion.get("applicability") == "applicable"
+        and promotion.get("status") == "pending"
+        and str(promotion.get("actor", "")).strip().lower() == "architect"
+        and state.get("runtime_receipt") is None
+        and iteration.get("validation_state") == "source-validations-passed"
+        and not bool(iteration.get("unresolved_findings"))
+    )
+
+
+def record_runtime_applicability_for_promotion(
+    repo: Path,
+    state_path: Path,
+    *,
+    reason: str,
+    actor: str,
+) -> Mapping[str, Any]:
+    """Record runtime N/A while retaining governed checkpoint promotion."""
+
+    resolved = repo.expanduser().resolve()
+    state_path = state_path.expanduser().resolve()
+    state = _load_parent(state_path)
+
+    if state.get("status") != "source-git-complete":
+        raise WorkflowError(
+            "runtime applicability disposition requires source-git-complete"
+        )
+    if state.get("runtime_receipt") is not None:
+        raise WorkflowError(
+            "runtime applicability disposition cannot replace runtime evidence"
+        )
+    if state.get("promotion_state") is not None:
+        raise WorkflowError(
+            "runtime applicability disposition cannot replace active promotion"
+        )
+    if state.get("delivery_applicability") is not None:
+        raise WorkflowError(
+            "runtime applicability disposition has already been recorded"
+        )
+    if not isinstance(reason, str) or not reason.strip():
+        raise WorkflowError(
+            "runtime applicability disposition requires an explicit rationale"
+        )
+    if not isinstance(actor, str) or actor.strip().lower() != "architect":
+        raise WorkflowError(
+            "runtime applicability disposition requires explicit Architect authority"
+        )
+
+    action: Mapping[str, Any] = {
+        "action_id": state.get("action_id"),
+        "desired_outcome": "",
+        "acceptance_criteria": [],
+        "measurement_plan": [],
+    }
+    if state.get("action_id"):
+        action = load_improvement_action(
+            resolved,
+            str(state["action_id"]),
+        )
+
+    parent_objective = _parent_reentry_objective(action)
+    if not isinstance(parent_objective, str) or not parent_objective:
+        raise WorkflowError(
+            "runtime applicability disposition requires an explicit parent objective"
+        )
+
+    iteration = _current_iteration(state)
+    candidate_head = iteration.get("candidate_head")
+
+    if not isinstance(candidate_head, str) or not candidate_head:
+        raise WorkflowError(
+            "runtime applicability disposition requires a candidate source commit"
+        )
+    if iteration.get("validation_state") != "source-validations-passed":
+        raise WorkflowError(
+            "runtime applicability disposition requires passed source validation"
+        )
+    if iteration.get("unresolved_findings"):
+        raise WorkflowError(
+            "runtime applicability disposition refuses unresolved findings"
+        )
+
+    disposition = {
+        "runtime_validation": {
+            "applicability": "not-applicable-to-bounded-slice",
+            "status": "not-evaluated",
+            "reason": reason.strip(),
+            "actor": "Architect",
+        },
+        "promotion": {
+            "applicability": "applicable",
+            "status": "pending",
+            "reason": (
+                "Promotion remains required to prove the approved "
+                "post-promotion branch-closeout objective path."
+            ),
+            "actor": "Architect",
+        },
+        "parent_objective_id": parent_objective,
+    }
+
+    state["delivery_applicability"] = disposition
+    state["promotion_eligible"] = True
+    iteration["status"] = "source-validated-promotion-ready"
+    iteration["next_boundary"] = "promotion"
+    iteration["promotion_eligible"] = True
+
+    generations = state.setdefault("implementation_generations", [])
+    previous = generations[-1] if generations else None
+    generations.append(
+        {
+            "generation": len(generations) + 1,
+            "iteration": state["current_iteration"],
+            "candidate_head": candidate_head,
+            "status": "runtime-not-applicable-promotion-ready",
+            "supersedes_generation": (
+                previous.get("generation")
+                if isinstance(previous, Mapping)
+                else None
+            ),
+            "historical_justification_preserved": True,
+            "accepted_action": state.get("action_id"),
+            "evidence_reconsideration": (
+                dict(state["evidence_reconsideration"])
+                if isinstance(
+                    state.get("evidence_reconsideration"),
+                    Mapping,
+                )
+                else None
+            ),
+            "runtime_receipt": None,
+            "runtime_receipt_sha256": None,
+            "delivery_applicability": disposition,
+        }
+    )
+
+    state["history"].append(
+        {
+            "stage": "runtime-applicability-disposition",
+            "iteration": state["current_iteration"],
+            "candidate_head": candidate_head,
+            "parent_objective_id": parent_objective,
+            "runtime_applicability": "not-applicable-to-bounded-slice",
+            "runtime_success_claimed": False,
+            "promotion_applicability": "applicable",
+            "promotion_eligible": True,
+            "actor": "Architect",
+            "reason": reason.strip(),
+        }
+    )
+
+    if not _runtime_not_applicable_promotion_ready(state, iteration):
+        raise WorkflowError(
+            "runtime applicability disposition did not produce promotion readiness"
+        )
+
+    _refresh_objective_route(resolved, state)
+    _persist(state_path, state)
+
+    return {
+        "status": state["status"],
+        "state": str(state_path),
+        "candidate_head": candidate_head,
+        "parent_objective_id": parent_objective,
+        "next_boundary": "promotion",
+        "runtime_applicability": "not-applicable-to-bounded-slice",
+        "runtime_success_claimed": False,
+        "promotion_applicability": "applicable",
+        "promotion_eligible": True,
+    }
+
+
 def validate_runtime_receipt(value: Mapping[str, Any]) -> None:
     if value.get("schema_version") != "1.0":
         raise WorkflowError("runtime receipt schema_version must be 1.0")
@@ -1996,9 +2213,23 @@ def begin_intent_promotion(
     body: str,
 ) -> Mapping[str, Any]:
     state = _load_parent(state_path)
-    if state.get("status") != "runtime-verified":
-        raise WorkflowError("runtime outcome must be verified before promotion")
     iteration = _current_iteration(state)
+
+    runtime_verified = state.get("status") == "runtime-verified"
+    runtime_not_applicable = (
+        state.get("status") == "source-git-complete"
+        and _runtime_not_applicable_promotion_ready(
+            state,
+            iteration,
+        )
+    )
+
+    if not runtime_verified and not runtime_not_applicable:
+        raise WorkflowError(
+            "runtime outcome must be verified before promotion unless "
+            "explicit Architect applicability records runtime as not "
+            "applicable and promotion as applicable"
+        )
     if state.get("promotion_eligible") is not True or iteration.get("unresolved_findings"):
         raise WorkflowError("current candidate remains non-promotable while unresolved findings exist")
     result = start_promotion(
@@ -2022,6 +2253,7 @@ def begin_intent_promotion(
         "state": str(state_path.expanduser().resolve()),
         "child": result,
     }
+
 
 
 def continue_intent_promotion(

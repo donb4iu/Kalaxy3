@@ -422,3 +422,34 @@ routine Git controller remains the sole stage/commit/push mutation owner and
 verifies exact scope, single-commit topology, remote synchronization, and the
 clean post-state. This bootstrap seam grants no semantic, merge, promotion,
 branch-retirement, deployment, or objective-completion authority.
+
+## Runtime applicability with promotion retained
+
+Runtime validation is an applicability-sensitive assurance domain; it is not a
+universal requirement to manufacture deployment evidence for every
+source-validated repository candidate.
+
+For a source-only candidate whose accepted objective requires governed
+checkpoint promotion but does not change the deployed workload, Traefik origin,
+Cloudflare tunnel, Access/MFA policy, monitoring configuration, or privileged
+publication surface, the Architect may explicitly record **runtime not
+applicable** for that bounded candidate.
+
+The `runtime not applicable` disposition is not a runtime pass. No runtime receipt is created,
+`runtime-verified` is not claimed, and the candidate retains
+`source-validations-passed` as its actual assurance state.
+
+For this disposition, **promotion remains applicable** when source validation
+passed, a canonical candidate commit exists, there are no unresolved findings,
+and the Architect explicitly records the applicability decision. The normal
+checkpoint-promotion composition, browser approval boundaries, merge
+verification, and post-promotion branch lifecycle remain unchanged.
+
+Candidates for which runtime behavior is applicable continue to use the existing
+`sage-e2e-zero-trust-runtime-receipt` contract and `record-runtime` path. The
+runtime-N/A path cannot substitute for, weaken, or reinterpret those trust
+boundary checks.
+
+A later candidate iteration clears the prior candidate's delivery-applicability
+disposition. Runtime or promotion applicability never transfers automatically
+between candidate generations.
