@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -31,6 +32,7 @@ from workflows.request_planning import (
     validate_reusable_plan_lineage,
 )
 from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap, reuse_confirmed_intent
+from request_execution import load_proposal
 from semantic_understanding import load_engineering_contribution
 from sage_evidence_retrieval import (
     load_json as load_retrieval_json,
@@ -84,6 +86,7 @@ INFLIGHT_CANDIDATE_STATUSES = frozenset({
     "architect-confirmation-required",
     "planning-source-ready",
     "authority-review-required",
+    "objective-path-decision-required",
 })
 
 
@@ -165,6 +168,226 @@ def _route_alternatives(contribution_manifest: Mapping[str, Any] | None) -> list
 
 def _file_sha256(path: Path) -> str:
     return hashlib.sha256(path.expanduser().resolve().read_bytes()).hexdigest()
+
+
+def _implementation_local_inherited_objective_decision(
+    state_path: Path,
+    state: Mapping[str, Any],
+    prior_proposal_path: Path,
+    corrected_proposal_path: Path,
+    contribution_path: Path,
+) -> Path:
+    """Project one existing Architect path approval onto a verified local correction."""
+
+    raw_decision_path = os.environ.get(
+        "SAGE_OBJECTIVE_PATH_DECISION", ""
+    ).strip()
+    if not raw_decision_path:
+        raise WorkflowError(
+            "implementation-local continuation requires the existing "
+            "SAGE_OBJECTIVE_PATH_DECISION approval source"
+        )
+
+    decision_source = Path(raw_decision_path).expanduser().resolve()
+    try:
+        decision = json.loads(
+            decision_source.read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError) as error:
+        raise WorkflowError(
+            "existing objective-path decision is unreadable: "
+            f"{decision_source}: {error}"
+        ) from error
+    if not isinstance(decision, dict):
+        raise WorkflowError(
+            "existing objective-path decision must be a JSON object"
+        )
+
+    request = str(state.get("request", ""))
+    if not request:
+        raise WorkflowError(
+            "implementation-local continuation lost literal request"
+        )
+    if decision.get("request_sha256") != _request_digest(request):
+        raise WorkflowError(
+            "existing objective-path decision belongs to another request"
+        )
+
+    objective_id = str(
+        state.get("objective_id")
+        or state.get("action_id")
+        or ""
+    )
+    if not objective_id:
+        raise WorkflowError(
+            "implementation-local continuation has no active objective id"
+        )
+    if decision.get("active_objective_id") != objective_id:
+        raise WorkflowError(
+            "existing objective-path decision belongs to another objective"
+        )
+
+    disposition = decision.get("architect_disposition")
+    if (
+        not isinstance(disposition, Mapping)
+        or disposition.get("status") != "approved"
+        or str(disposition.get("authority", "")).strip().lower()
+        != "architect"
+        or disposition.get("basis")
+        != "operator-supplied-to-governed-execution"
+    ):
+        raise WorkflowError(
+            "existing objective-path decision is not an Architect-approved "
+            "governed execution decision"
+        )
+
+    prior = prior_proposal_path.expanduser().resolve()
+    corrected = corrected_proposal_path.expanduser().resolve()
+    if decision.get("proposal_sha256") != _file_sha256(prior):
+        raise WorkflowError(
+            "existing Architect decision no longer matches the prior "
+            "approved proposal"
+        )
+
+    prior_bundle = load_proposal(prior, request)
+    corrected_bundle = load_proposal(corrected, request)
+
+    # Component/path selection is immutable across this implementation-local
+    # correction. Only implementation bytes and their repository HEAD may move.
+    immutable_manifest_fields = (
+        "capabilities",
+        "candidates",
+        "new_primitive_required",
+        "generated_paths",
+        "reconcile_evidence_index",
+        "validation_commands",
+        "operator_plan",
+    )
+    changed = [
+        field
+        for field in immutable_manifest_fields
+        if corrected_bundle.manifest.get(field)
+        != prior_bundle.manifest.get(field)
+    ]
+    if changed:
+        raise WorkflowError(
+            "implementation-local proposal changed the approved component/path "
+            "decision surface: "
+            + ", ".join(changed)
+        )
+
+    prior_repository = prior_bundle.manifest.get("repository")
+    corrected_repository = corrected_bundle.manifest.get("repository")
+    if (
+        not isinstance(prior_repository, Mapping)
+        or not isinstance(corrected_repository, Mapping)
+        or prior_repository.get("branch")
+        != corrected_repository.get("branch")
+    ):
+        raise WorkflowError(
+            "implementation-local proposal changed repository branch authority"
+        )
+
+    def source_shape(manifest: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+        values = manifest.get("source_files")
+        if not isinstance(values, list):
+            raise WorkflowError(
+                "implementation-local proposal source_files are invalid"
+            )
+        result = []
+        for item in values:
+            if not isinstance(item, Mapping):
+                raise WorkflowError(
+                    "implementation-local proposal source file is invalid"
+                )
+            result.append(
+                (str(item.get("path", "")), str(item.get("mode", "")))
+            )
+        return tuple(result)
+
+    if source_shape(prior_bundle.manifest) != source_shape(
+        corrected_bundle.manifest
+    ):
+        raise WorkflowError(
+            "implementation-local proposal changed the approved source-file "
+            "scope or modes"
+        )
+
+    reuse_marker = (
+        "implementation-local-plan-reuse:"
+        + str(prior_bundle.package_path)
+    )
+    evidence = corrected_bundle.manifest.get("evidence_references")
+    if (
+        not isinstance(evidence, list)
+        or reuse_marker not in evidence
+    ):
+        raise WorkflowError(
+            "corrected proposal lacks repository-owned prior-plan reuse lineage"
+        )
+
+    # Bind the corrected proposal payload to the exact implementation-local
+    # engineering contribution supplied to this iteration.
+    contribution = load_engineering_contribution(
+        contribution_path.expanduser().resolve()
+    )
+    expected_payload = tuple(
+        (item.path, item.sha256, f"{item.mode:04o}")
+        for item in contribution.source_files
+    )
+    observed_payload = tuple(
+        (
+            str(item.get("path", "")),
+            str(item.get("sha256", "")),
+            str(item.get("mode", "")),
+        )
+        for item in corrected_bundle.manifest.get("source_files", [])
+        if isinstance(item, Mapping)
+    )
+    if observed_payload != expected_payload:
+        raise WorkflowError(
+            "corrected proposal payload does not exactly match the "
+            "implementation-local contribution"
+        )
+
+    corrected_sha = _file_sha256(corrected)
+    inherited = json.loads(json.dumps(decision))
+    inherited["proposal_sha256"] = corrected_sha
+
+    iteration_number = int(state.get("current_iteration", 0) or 0)
+    destination = (
+        state_path.expanduser().resolve().parent
+        / f"objective-path-decision-iteration-{iteration_number:03d}.json"
+    )
+    if destination.exists():
+        existing = json.loads(
+            destination.read_text(encoding="utf-8")
+        )
+        if existing != inherited:
+            raise WorkflowError(
+                "implementation-local inherited decision already exists with "
+                "different content"
+            )
+    else:
+        _persist(destination, inherited)
+
+    state.setdefault("history", []).append(
+        {
+            "stage": "implementation-local-objective-path-approval-inherited",
+            "iteration": iteration_number,
+            "architect_decision_source": str(decision_source),
+            "architect_decision_source_sha256": _file_sha256(
+                decision_source
+            ),
+            "prior_planning_proposal": str(prior),
+            "prior_planning_proposal_sha256": _file_sha256(prior),
+            "corrected_planning_proposal": str(corrected),
+            "corrected_planning_proposal_sha256": corrected_sha,
+            "material_decision_surface_changed": False,
+            "approval_reused": True,
+        }
+    )
+    return destination
 
 
 def _evidence_route_state(state: Mapping[str, Any]) -> dict[str, Any]:
@@ -1095,7 +1318,16 @@ def begin_candidate_iteration(
         raise WorkflowError("candidate iteration requires trigger and parent checkpoint")
     resolved = repo.expanduser().resolve()
     state = _load_parent(state_path)
+    prior_planning_proposal = state.get("planning_proposal")
     entry_mode = candidate_iteration_entry_mode(str(state.get("status", "")))
+    if (
+        reentry_boundary == "implementation-local"
+        and not os.environ.get("SAGE_OBJECTIVE_PATH_DECISION", "").strip()
+    ):
+        raise WorkflowError(
+            "implementation-local re-entry requires the existing "
+            "SAGE_OBJECTIVE_PATH_DECISION approval source"
+        )
     recovery_consumption = _consume_recovery_reentry(
         resolved,
         state_path,
@@ -1247,6 +1479,57 @@ def begin_candidate_iteration(
             else None
         ),
     })
+
+    if reentry_boundary == "implementation-local":
+        if not isinstance(prior_planning_proposal, str) or not prior_planning_proposal:
+            raise WorkflowError(
+                "implementation-local re-entry lost the prior approved proposal"
+            )
+        corrected_proposal = Path(str(planned["proposal"])).expanduser().resolve()
+        validate_reusable_plan_lineage(
+            str(state["request"]),
+            new_source,
+            corrected_proposal,
+        )
+        inherited_decision = _implementation_local_inherited_objective_decision(
+            state_path,
+            state,
+            Path(prior_planning_proposal),
+            corrected_proposal,
+            contribution,
+        )
+        _pause_for_objective_path_decision(
+            resolved,
+            state_path,
+            state,
+            planning_source=str(new_source),
+            planned=planned,
+            history_stage=(
+                "candidate-iteration-ready-for-objective-path-decision"
+            ),
+        )
+        prior_environment = os.environ.get(
+            "SAGE_OBJECTIVE_PATH_DECISION"
+        )
+        os.environ["SAGE_OBJECTIVE_PATH_DECISION"] = str(
+            inherited_decision
+        )
+        try:
+            return continue_planned_request(
+                resolved,
+                state_path,
+            )
+        finally:
+            if prior_environment is None:
+                os.environ.pop(
+                    "SAGE_OBJECTIVE_PATH_DECISION",
+                    None,
+                )
+            else:
+                os.environ[
+                    "SAGE_OBJECTIVE_PATH_DECISION"
+                ] = prior_environment
+
     return _pause_for_objective_path_decision(
         resolved,
         state_path,

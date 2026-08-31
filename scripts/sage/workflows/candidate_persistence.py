@@ -24,7 +24,7 @@ WORKFLOW_ID = "sage.candidate-persistence"
 STATE_ROOT = Path(
     "~/.local/state/kalaxy3/sage-candidate-persistence"
 ).expanduser()
-PRIMITIVES = (
+PRIMITIVES_USED = (
     "logging.events",
     "command.run",
     "git.inspect",
@@ -44,11 +44,11 @@ def _runtime(
 ) -> tuple[AtomicFileWriter, CommandRunner, GitInspector]:
     """Build repository-owned validation primitives."""
     catalog = PrimitiveCatalog.load(repo / "sage-workflow-primitives.json")
-    catalog.require(PRIMITIVES)
+    catalog.require(PRIMITIVES_USED)
     logger = JsonlEventLogger(
         state_dir / "events.jsonl",
         WORKFLOW_ID,
-        primitive_versions=catalog.versions_for(PRIMITIVES),
+        primitive_versions=catalog.versions_for(PRIMITIVES_USED),
     )
     runner = CommandRunner(
         logger,
