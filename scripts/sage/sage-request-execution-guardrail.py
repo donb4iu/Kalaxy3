@@ -78,7 +78,9 @@ WORKFLOW_MARKERS = (
     "sage-python-static-guardrail.py",
     "AuthorityReconciler",
     "ComponentSelector",
-    "SageDiscovery(context.repo, context.runner).changed()",
+    "return discovery.changed()",
+    "validation_discovery",
+    "Run proposal-path SAGE preflight",
     "capture_python_safety_baseline(context)",
     "context_policy_validation",
     "_proposal_payload_already_realized",
@@ -586,6 +588,106 @@ def already_realized_payload_guardrail() -> list[str]:
     return failures
 
 
+def already_realized_discovery_guardrail() -> list[str]:
+    """Prove clean already-realized validation uses proposal paths, not Git dirtiness."""
+
+    failures: list[str] = []
+    spec = importlib.util.spec_from_file_location(
+        "sage_request_execution_discovery_guardrail",
+        ROOT / WORKFLOW_PATH,
+    )
+    if spec is None or spec.loader is None:
+        return ["unable to load request-execution workflow for discovery test"]
+
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.modules.pop(spec.name, None)
+
+    class RecordingRunner:
+        def __init__(self) -> None:
+            self.calls: list[Any] = []
+
+        def run(self, command: Any, step_id: str | None = None) -> Any:
+            self.calls.append((command, step_id))
+            return SimpleNamespace(
+                stdout=(
+                    "Inferred SAGE contexts:\n"
+                    "  - repository-governance\n"
+                    "Authoritative files:\n"
+                    "  - candidate.py\n"
+                )
+            )
+
+    with tempfile.TemporaryDirectory(
+        prefix="sage-request-execution-discovery-"
+    ) as raw:
+        root = Path(raw)
+        (root / "candidate.py").write_text(
+            "print('ok')\n",
+            encoding="utf-8",
+        )
+        bundle = SimpleNamespace(declared_paths=("candidate.py",))
+
+        realized_runner = RecordingRunner()
+        realized = SimpleNamespace(
+            repo=root,
+            runner=realized_runner,
+            bundle=bundle,
+            already_realized=True,
+        )
+        module.validation_discovery(realized)
+
+        if len(realized_runner.calls) != 1:
+            failures.append(
+                "already-realized discovery did not execute exactly one preflight"
+            )
+        else:
+            command, step_id = realized_runner.calls[0]
+            expected = (
+                "python3",
+                "scripts/sage/sage-change-preflight.py",
+                "--path",
+                "candidate.py",
+            )
+            if tuple(command.argv) != expected:
+                failures.append(
+                    "already-realized discovery did not use exact proposal paths"
+                )
+            if "--changed" in command.argv:
+                failures.append(
+                    "already-realized discovery still depends on Git dirtiness"
+                )
+            if step_id != "proposal-path-discovery":
+                failures.append(
+                    "already-realized discovery lost deterministic step identity"
+                )
+
+        changed_runner = RecordingRunner()
+        changed = SimpleNamespace(
+            repo=root,
+            runner=changed_runner,
+            bundle=bundle,
+            already_realized=False,
+        )
+        module.validation_discovery(changed)
+
+        if len(changed_runner.calls) != 1:
+            failures.append(
+                "ordinary mutation discovery did not execute exactly one preflight"
+            )
+        else:
+            command, _ = changed_runner.calls[0]
+            if "--changed" not in command.argv:
+                failures.append(
+                    "ordinary mutation path no longer uses changed-path discovery"
+                )
+
+    return failures
+
+
 def validate() -> list[str]:
     """Run the complete repository request-execution guardrail."""
 
@@ -604,6 +706,7 @@ def validate() -> list[str]:
     failures.extend(routine_operator_schema_failures(load_object(ROOT / ROUTINE_OPERATOR_SCHEMA_PATH)))
     failures.extend(process_failures((ROOT / PROCESS_PATH).read_text(encoding="utf-8")))
     failures.extend(already_realized_payload_guardrail())
+    failures.extend(already_realized_discovery_guardrail())
     failures.extend(runtime_self_test())
     return failures
 

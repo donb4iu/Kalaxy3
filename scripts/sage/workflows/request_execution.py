@@ -988,10 +988,38 @@ def proposal_validation_commands(context: ExecutionContext) -> tuple[ValidationC
     )
 
 
+def validation_discovery(context: ExecutionContext) -> Any:
+    """Discover authority from mutation paths or the exact realized proposal scope."""
+
+    discovery = SageDiscovery(context.repo, context.runner)
+    if not context.already_realized:
+        return discovery.changed()
+
+    argv: list[str] = [
+        "python3",
+        "scripts/sage/sage-change-preflight.py",
+    ]
+    for relative in context.bundle.declared_paths:
+        argv.extend(("--path", relative))
+
+    result = context.runner.run(
+        CommandSpec(
+            primitive_id="sage.discovery",
+            label="Run proposal-path SAGE preflight",
+            argv=tuple(argv),
+            cwd=context.repo,
+        ),
+        step_id="proposal-path-discovery",
+    )
+    parsed = SageDiscovery.parse("<proposal-path discovery>", result.stdout)
+    discovery.read_authorities(parsed.authorities)
+    return parsed
+
+
 def validation_action(context: ExecutionContext) -> tuple[Any, ...]:
     """Execute required validation for mutation or exact canonical realization."""
 
-    changed = SageDiscovery(context.repo, context.runner).changed()
+    discovery = validation_discovery(context)
     context_required = context_policy_validation(
         context,
         field="required",
@@ -1040,11 +1068,15 @@ def validation_action(context: ExecutionContext) -> tuple[Any, ...]:
     )
     context.validation.append(
         {
-            "label": "Changed-path SAGE discovery",
+            "label": (
+                "Proposal-path SAGE discovery"
+                if context.already_realized
+                else "Changed-path SAGE discovery"
+            ),
             "reference": "sage.discovery",
             "status": "pass",
             "sha256": hashlib.sha256(
-                changed.stdout.encode("utf-8")
+                discovery.stdout.encode("utf-8")
             ).hexdigest(),
         }
     )
