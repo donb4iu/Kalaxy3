@@ -1089,35 +1089,107 @@ def continue_planned_request(
     resolved = repo.expanduser().resolve()
     state = _load_parent(state_path)
     if state.get("status") != "objective-path-decision-required":
-        raise WorkflowError("intent state is not awaiting objective-path decision")
+        raise WorkflowError(
+            "intent state is not awaiting objective-path decision"
+        )
     proposal_value = state.get("planning_proposal")
     if not isinstance(proposal_value, str) or not proposal_value:
-        raise WorkflowError("objective-path continuation has no planning proposal")
+        raise WorkflowError(
+            "objective-path continuation has no planning proposal"
+        )
     proposal = Path(proposal_value).expanduser().resolve()
     if not proposal.is_file():
-        raise WorkflowError(f"objective-path planning proposal is missing: {proposal}")
+        raise WorkflowError(
+            f"objective-path planning proposal is missing: {proposal}"
+        )
     iteration = _current_iteration(state)
     if (
         iteration.get("status") != "objective-path-decision"
-        or iteration.get("next_boundary") != "objective-path-decision"
+        or iteration.get("next_boundary")
+        != "objective-path-decision"
     ):
-        raise WorkflowError("objective-path continuation iteration boundary is invalid")
+        raise WorkflowError(
+            "objective-path continuation iteration boundary is invalid"
+        )
+
     execution = execute_request(
         resolved,
         str(state["request"]),
         proposal,
     )
+    proposal_sha256 = hashlib.sha256(
+        proposal.read_bytes()
+    ).hexdigest()
+
+    if execution.get("status") == "already-realized":
+        candidate_head = execution.get("candidate_head")
+        if (
+            not isinstance(candidate_head, str)
+            or re.fullmatch(r"[0-9a-f]{40}", candidate_head) is None
+        ):
+            raise WorkflowError(
+                "already-realized request execution lost candidate HEAD"
+            )
+        bundle = load_proposal(
+            proposal,
+            str(state["request"]),
+        )
+        if candidate_head != str(
+            bundle.manifest["repository"]["head"]
+        ):
+            raise WorkflowError(
+                "already-realized candidate HEAD differs from proposal authority"
+            )
+
+        state["request_execution_state"] = None
+        state["status"] = "source-git-complete"
+        iteration["candidate_head"] = candidate_head
+        iteration["status"] = "checkpoint-non-promotable"
+        iteration["validation_state"] = "source-validations-passed"
+        iteration["next_boundary"] = "runtime-validation"
+        iteration["promotion_eligible"] = False
+        state["promotion_eligible"] = False
+        state["history"].append(
+            {
+                "stage": (
+                    "objective-path-decision-consumed-already-realized"
+                ),
+                "iteration": state["current_iteration"],
+                "planning_proposal": str(proposal),
+                "planning_proposal_sha256": proposal_sha256,
+                "candidate_head": candidate_head,
+                "realization_receipt": execution.get(
+                    "realization_receipt"
+                ),
+                "request_execution_closeout": execution.get(
+                    "closeout"
+                ),
+                "repository_mutation": False,
+                "git_mutation": False,
+            }
+        )
+        _refresh_objective_route(resolved, state)
+        _persist(state_path.expanduser().resolve(), state)
+        return {
+            "status": state["status"],
+            "state": str(state_path.expanduser().resolve()),
+            "request_execution": execution,
+            "candidate_head": candidate_head,
+        }
+
     state["request_execution_state"] = str(execution["state"])
     state["status"] = "request-operator-review-required"
     iteration["status"] = "request-execution"
     iteration["next_boundary"] = "operator-review"
-    state["history"].append({
-        "stage": "objective-path-decision-consumed",
-        "iteration": state["current_iteration"],
-        "planning_proposal": str(proposal),
-        "planning_proposal_sha256": hashlib.sha256(proposal.read_bytes()).hexdigest(),
-        "request_execution_state": str(execution["state"]),
-    })
+    state["history"].append(
+        {
+            "stage": "objective-path-decision-consumed",
+            "iteration": state["current_iteration"],
+            "planning_proposal": str(proposal),
+            "planning_proposal_sha256": proposal_sha256,
+            "request_execution_state": str(execution["state"]),
+        }
+    )
     _refresh_objective_route(resolved, state)
     _persist(state_path.expanduser().resolve(), state)
     return {
