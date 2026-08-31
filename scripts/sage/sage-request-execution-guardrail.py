@@ -3,12 +3,15 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
+import os
 import re
 import sys
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -75,9 +78,16 @@ WORKFLOW_MARKERS = (
     "sage-python-static-guardrail.py",
     "AuthorityReconciler",
     "ComponentSelector",
-    "SageDiscovery(context.repo, context.runner).changed()",
+    "return discovery.changed()",
+    "validation_discovery",
+    "Run proposal-path SAGE preflight",
     "capture_python_safety_baseline(context)",
     "context_policy_validation",
+    "_proposal_payload_already_realized",
+    "_require_already_realized_authority",
+    "realization-receipt.json",
+    '"status": "already-realized"',
+    '"repository_mutation": False',
     "--run-baseline-validation",
     "--run-required-validation",
     "introduced_safety_violations",
@@ -353,6 +363,17 @@ def source_failures() -> list[str]:
     ):
         if marker not in intent_workflow:
             failures.append(f"intent recovery-consumption marker missing: {marker}")
+    for marker in (
+        'execution.get("status") == "already-realized"',
+        "objective-path-decision-consumed-already-realized",
+        '"validation_state"] = "source-validations-passed"',
+        '"next_boundary"] = "runtime-validation"',
+    ):
+        if marker not in intent_workflow:
+            failures.append(
+                "intent already-realized continuation marker missing: "
+                + marker
+            )
     if "def _composition_digest(" in workflow:
         failures.append("request execution duplicates shared recovery composition digest")
     if "context.inspector.is_ancestor(" in workflow:
@@ -478,6 +499,195 @@ def runtime_self_test() -> list[str]:
     return [] if result == 0 else [f"request-execution self-test returned {result}"]
 
 
+
+def already_realized_payload_guardrail() -> list[str]:
+    """Exercise exact payload, digest, mode, and bounded-scope realization."""
+
+    failures: list[str] = []
+    spec = importlib.util.spec_from_file_location(
+        "sage_request_execution_already_realized_guardrail",
+        ROOT / WORKFLOW_PATH,
+    )
+    if spec is None or spec.loader is None:
+        return ["unable to load request-execution workflow for realization test"]
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.modules.pop(spec.name, None)
+
+    with tempfile.TemporaryDirectory(
+        prefix="sage-request-execution-already-realized-"
+    ) as raw:
+        root = Path(raw)
+        candidate = root / "candidate.py"
+        payload = b"print('ok')\n"
+        candidate.write_bytes(payload)
+        os.chmod(candidate, 0o644)
+
+        item = SimpleNamespace(
+            path="candidate.py",
+            sha256=hashlib.sha256(payload).hexdigest(),
+            mode=0o644,
+            payload=payload,
+        )
+        bundle = SimpleNamespace(
+            source_files=(item,),
+            declared_paths=("candidate.py",),
+            generated_paths=(),
+            manifest={"reconcile_evidence_index": False},
+        )
+
+        realized, digests = module._proposal_payload_already_realized(
+            root,
+            bundle,
+        )
+        if not realized or digests.get("candidate.py") != item.sha256:
+            failures.append(
+                "exact canonical payload was not recognized as already realized"
+            )
+
+        candidate.write_bytes(b"print('changed')\n")
+        realized, _ = module._proposal_payload_already_realized(
+            root,
+            bundle,
+        )
+        if realized:
+            failures.append(
+                "payload digest mismatch falsely passed already-realized check"
+            )
+
+        candidate.write_bytes(payload)
+        os.chmod(candidate, 0o600)
+        realized, _ = module._proposal_payload_already_realized(
+            root,
+            bundle,
+        )
+        if realized:
+            failures.append(
+                "payload mode mismatch falsely passed already-realized check"
+            )
+
+        os.chmod(candidate, 0o644)
+        generated_bundle = SimpleNamespace(
+            source_files=(item,),
+            declared_paths=("candidate.py", "generated.md"),
+            generated_paths=("generated.md",),
+            manifest={"reconcile_evidence_index": False},
+        )
+        realized, _ = module._proposal_payload_already_realized(
+            root,
+            generated_bundle,
+        )
+        if realized:
+            failures.append(
+                "generated-path proposal falsely used bounded realization shortcut"
+            )
+
+    return failures
+
+
+def already_realized_discovery_guardrail() -> list[str]:
+    """Prove clean already-realized validation uses proposal paths, not Git dirtiness."""
+
+    failures: list[str] = []
+    spec = importlib.util.spec_from_file_location(
+        "sage_request_execution_discovery_guardrail",
+        ROOT / WORKFLOW_PATH,
+    )
+    if spec is None or spec.loader is None:
+        return ["unable to load request-execution workflow for discovery test"]
+
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.modules.pop(spec.name, None)
+
+    class RecordingRunner:
+        def __init__(self) -> None:
+            self.calls: list[Any] = []
+
+        def run(self, command: Any, step_id: str | None = None) -> Any:
+            self.calls.append((command, step_id))
+            return SimpleNamespace(
+                stdout=(
+                    "Inferred SAGE contexts:\n"
+                    "  - repository-governance\n"
+                    "Authoritative files:\n"
+                    "  - candidate.py\n"
+                )
+            )
+
+    with tempfile.TemporaryDirectory(
+        prefix="sage-request-execution-discovery-"
+    ) as raw:
+        root = Path(raw)
+        (root / "candidate.py").write_text(
+            "print('ok')\n",
+            encoding="utf-8",
+        )
+        bundle = SimpleNamespace(declared_paths=("candidate.py",))
+
+        realized_runner = RecordingRunner()
+        realized = SimpleNamespace(
+            repo=root,
+            runner=realized_runner,
+            bundle=bundle,
+            already_realized=True,
+        )
+        module.validation_discovery(realized)
+
+        if len(realized_runner.calls) != 1:
+            failures.append(
+                "already-realized discovery did not execute exactly one preflight"
+            )
+        else:
+            command, step_id = realized_runner.calls[0]
+            expected = (
+                "python3",
+                "scripts/sage/sage-change-preflight.py",
+                "--path",
+                "candidate.py",
+            )
+            if tuple(command.argv) != expected:
+                failures.append(
+                    "already-realized discovery did not use exact proposal paths"
+                )
+            if "--changed" in command.argv:
+                failures.append(
+                    "already-realized discovery still depends on Git dirtiness"
+                )
+            if step_id != "proposal-path-discovery":
+                failures.append(
+                    "already-realized discovery lost deterministic step identity"
+                )
+
+        changed_runner = RecordingRunner()
+        changed = SimpleNamespace(
+            repo=root,
+            runner=changed_runner,
+            bundle=bundle,
+            already_realized=False,
+        )
+        module.validation_discovery(changed)
+
+        if len(changed_runner.calls) != 1:
+            failures.append(
+                "ordinary mutation discovery did not execute exactly one preflight"
+            )
+        else:
+            command, _ = changed_runner.calls[0]
+            if "--changed" not in command.argv:
+                failures.append(
+                    "ordinary mutation path no longer uses changed-path discovery"
+                )
+
+    return failures
+
+
 def validate() -> list[str]:
     """Run the complete repository request-execution guardrail."""
 
@@ -495,6 +705,8 @@ def validate() -> list[str]:
     failures.extend(git_head_contract_failures(schema))
     failures.extend(routine_operator_schema_failures(load_object(ROOT / ROUTINE_OPERATOR_SCHEMA_PATH)))
     failures.extend(process_failures((ROOT / PROCESS_PATH).read_text(encoding="utf-8")))
+    failures.extend(already_realized_payload_guardrail())
+    failures.extend(already_realized_discovery_guardrail())
     failures.extend(runtime_self_test())
     return failures
 
@@ -565,6 +777,7 @@ def main() -> int:
     print("PASS untrusted checksum-bound proposal package")
     print("PASS exact authority, component, gap, validation, and safety boundaries")
     print("PASS atomic rollback and one operator Git proposal")
+    print("PASS exact already-realized proposals self-close without Git mutation")
     print("PASS one-approval routine Git lifecycle self-closes from repository-owned receipt with legacy stage/commit/push fallback")
     print("PASS Python payload runtime-name validation precedes repository writes")
     print("PASS mandatory post-operator verification, metrics, closeout, and deterministic continuation")

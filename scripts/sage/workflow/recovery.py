@@ -297,6 +297,10 @@ def _bound_recovery_command(
             "python3 scripts/sage/sage-request-execute.py "
             f"--recovery-decision {quoted}"
         ),
+        "sage.objective-execution": (
+            "python3 scripts/sage/sage-objective-execution.py recover "
+            f"--recovery-decision {quoted}"
+        ),
     }
     command = implementation_local.get(owning_component)
     if command is None:

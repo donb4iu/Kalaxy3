@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -102,7 +103,9 @@ class ExecutionContext:
     component_path: Path | None = None
     gap_path: Path | None = None
     proposal_path: Path | None = None
+    realization_path: Path | None = None
     transaction: AtomicFileTransaction | None = None
+    already_realized: bool = False
     baseline_safety: dict[str, tuple[tuple[str, str, str], ...]] | None = None
     context_baseline_validation: dict[str, Any] | None = None
     validation: list[dict[str, Any]] = field(default_factory=list)
@@ -838,8 +841,68 @@ def introduced_safety_violations(
     return tuple(introduced)
 
 
+
+def _proposal_payload_already_realized(
+    repo: Path,
+    bundle: Any,
+) -> tuple[bool, dict[str, str]]:
+    """Return exact payload realization without inferring generated output state."""
+
+    source_paths = tuple(item.path for item in bundle.source_files)
+    if len(source_paths) != len(set(source_paths)):
+        raise WorkflowError("proposal contains duplicate source-file paths")
+    if set(bundle.declared_paths) != set(source_paths):
+        return False, {}
+    if tuple(bundle.generated_paths):
+        return False, {}
+    if bundle.manifest.get("reconcile_evidence_index") is True:
+        return False, {}
+
+    digests: dict[str, str] = {}
+    for item in bundle.source_files:
+        path = repo / item.path
+        if not path.is_file() or path.is_symlink():
+            return False, {}
+        observed = sha256_file(path)
+        if observed != item.sha256:
+            return False, {}
+        if stat.S_IMODE(path.stat().st_mode) != item.mode:
+            return False, {}
+        digests[item.path] = observed
+    return True, digests
+
+
+def _require_already_realized_authority(
+    context: ExecutionContext,
+) -> Any:
+    """Fail closed unless exact realized bytes are canonical and synchronized."""
+
+    repository = context.bundle.manifest["repository"]
+    context.inspector.require_clean()
+    context.inspector.require_branch(str(repository["branch"]))
+    context.inspector.require_head(str(repository["head"]))
+    context.inspector.require_upstream_equal()
+
+    snapshot = context.inspector.snapshot()
+    plan = context.bundle.manifest["operator_plan"]
+    remote = str(plan["push_remote"])
+    if context.inspector.remote_head(remote, snapshot.branch) != snapshot.head:
+        raise WorkflowError(
+            "already-realized proposal remote feature branch is not synchronized"
+        )
+    if context.remote_main_head is None:
+        raise WorkflowError(
+            "already-realized proposal lacks frozen remote-main authority"
+        )
+    if context.inspector.remote_head(remote, "main") != context.remote_main_head:
+        raise WorkflowError(
+            "already-realized proposal remote-main authority changed during execution"
+        )
+    return snapshot
+
+
 def mutation_action(context: ExecutionContext) -> Mapping[str, str]:
-    """Apply the checksum-bound proposal atomically within its exact scope."""
+    """Apply the checksum-bound proposal or prove it is already canonical."""
 
     capture_python_safety_baseline(context)
     validate_python_payloads(context)
@@ -847,19 +910,66 @@ def mutation_action(context: ExecutionContext) -> Mapping[str, str]:
         context,
         field="baseline",
     )
-    paths = tuple(context.repo / relative for relative in context.bundle.declared_paths)
+
+    already_realized, digests = _proposal_payload_already_realized(
+        context.repo,
+        context.bundle,
+    )
+    if already_realized:
+        snapshot = _require_already_realized_authority(context)
+        context.already_realized = True
+        context.realization_path = write_state(
+            context,
+            "realization-receipt.json",
+            {
+                "schema_version": "1.0",
+                "record_type": "sage-request-execution-realization",
+                "status": "already-realized",
+                "proposal_package": str(context.bundle.package_path),
+                "proposal_package_sha256": sha256_file(
+                    context.bundle.package_path
+                ),
+                "repository": snapshot.as_dict(),
+                "candidate_head": snapshot.head,
+                "declared_paths": list(context.bundle.declared_paths),
+                "source_files": [
+                    {
+                        "path": item.path,
+                        "sha256": item.sha256,
+                        "mode": f"{item.mode:04o}",
+                    }
+                    for item in context.bundle.source_files
+                ],
+                "repository_mutation": False,
+                "git_mutation": False,
+            },
+        )
+        return digests
+
+    paths = tuple(
+        context.repo / relative
+        for relative in context.bundle.declared_paths
+    )
     context.transaction = AtomicFileTransaction(context.writer, paths)
-    digests: dict[str, str] = {}
+    digests = {}
     for item in context.bundle.source_files:
-        digest = context.transaction.write_bytes(context.repo / item.path, item.payload, new_mode=item.mode)
+        digest = context.transaction.write_bytes(
+            context.repo / item.path,
+            item.payload,
+            new_mode=item.mode,
+        )
         if digest != item.sha256:
-            raise WorkflowError(f"Written payload digest mismatch: {item.path}")
+            raise WorkflowError(
+                f"Written payload digest mismatch: {item.path}"
+            )
         digests[item.path] = digest
     reconcile_index(context)
     for relative in context.bundle.generated_paths:
         path = context.repo / relative
         if not path.is_file():
-            raise WorkflowError(f"Declared generated path is missing: {relative}")
+            raise WorkflowError(
+                f"Declared generated path is missing: {relative}"
+            )
         digests[relative] = sha256_file(path)
     context.inspector.require_exact_paths(context.bundle.declared_paths)
     return digests
@@ -878,22 +988,74 @@ def proposal_validation_commands(context: ExecutionContext) -> tuple[ValidationC
     )
 
 
-def validation_action(context: ExecutionContext) -> tuple[Any, ...]:
-    """Execute repository-required context validation plus proposal-supplied checks."""
+def validation_discovery(context: ExecutionContext) -> Any:
+    """Discover authority from mutation paths or the exact realized proposal scope."""
 
-    changed = SageDiscovery(context.repo, context.runner).changed()
+    discovery = SageDiscovery(context.repo, context.runner)
+    if not context.already_realized:
+        return discovery.changed()
+
+    argv: list[str] = [
+        "python3",
+        "scripts/sage/sage-change-preflight.py",
+    ]
+    for relative in context.bundle.declared_paths:
+        argv.extend(("--path", relative))
+
+    result = context.runner.run(
+        CommandSpec(
+            primitive_id="sage.discovery",
+            label="Run proposal-path SAGE preflight",
+            argv=tuple(argv),
+            cwd=context.repo,
+        ),
+        step_id="proposal-path-discovery",
+    )
+    parsed = SageDiscovery.parse("<proposal-path discovery>", result.stdout)
+    discovery.read_authorities(parsed.authorities)
+    return parsed
+
+
+def validation_action(context: ExecutionContext) -> tuple[Any, ...]:
+    """Execute required validation for mutation or exact canonical realization."""
+
+    discovery = validation_discovery(context)
     context_required = context_policy_validation(
         context,
         field="required",
-        changed=True,
+        changed=not context.already_realized,
     )
     commands = proposal_validation_commands(context)
-    results = ValidationPlan(context.repo, context.runner, commands).run()
-    context.inspector.run_read_only(("diff", "--check"), label="Validate repository diff whitespace")
-    context.inspector.require_exact_paths(context.bundle.declared_paths)
+    results = ValidationPlan(
+        context.repo,
+        context.runner,
+        commands,
+    ).run()
+    context.inspector.run_read_only(
+        ("diff", "--check"),
+        label="Validate repository diff whitespace",
+    )
+
+    if context.already_realized:
+        still_realized, _ = _proposal_payload_already_realized(
+            context.repo,
+            context.bundle,
+        )
+        if not still_realized:
+            raise WorkflowError(
+                "already-realized proposal changed during validation"
+            )
+        _require_already_realized_authority(context)
+    else:
+        context.inspector.require_exact_paths(
+            context.bundle.declared_paths
+        )
+
     context.validation = []
     if context.context_baseline_validation is not None:
-        context.validation.append(dict(context.context_baseline_validation))
+        context.validation.append(
+            dict(context.context_baseline_validation)
+        )
     context.validation.append(context_required)
     context.validation.extend(
         {
@@ -904,12 +1066,20 @@ def validation_action(context: ExecutionContext) -> tuple[Any, ...]:
         }
         for command, result in zip(commands, results)
     )
-    context.validation.append({
-        "label": "Changed-path SAGE discovery",
-        "reference": "sage.discovery",
-        "status": "pass",
-        "sha256": hashlib.sha256(changed.stdout.encode("utf-8")).hexdigest(),
-    })
+    context.validation.append(
+        {
+            "label": (
+                "Proposal-path SAGE discovery"
+                if context.already_realized
+                else "Changed-path SAGE discovery"
+            ),
+            "reference": "sage.discovery",
+            "status": "pass",
+            "sha256": hashlib.sha256(
+                discovery.stdout.encode("utf-8")
+            ).hexdigest(),
+        }
+    )
     return results
 
 
@@ -955,6 +1125,21 @@ def no_failure_action() -> Mapping[str, str]:
 
 def proposal_action(context: ExecutionContext) -> Mapping[str, Any]:
     """Produce one exact-scope routine Git lifecycle proposal when authority permits."""
+
+    if context.already_realized:
+        if context.realization_path is None:
+            raise WorkflowError(
+                "already-realized execution lacks realization evidence"
+            )
+        snapshot = _require_already_realized_authority(context)
+        return {
+            "status": "already-realized",
+            "boundary": "already-realized",
+            "candidate_head": snapshot.head,
+            "realization_receipt": str(context.realization_path),
+            "repository_mutation": False,
+            "git_mutation": False,
+        }
 
     snapshot = context.inspector.snapshot()
     plan = context.bundle.manifest["operator_plan"]
@@ -2019,10 +2204,18 @@ def continue_request_from_routine_receipt(
     )
 
 
-def execute_request(repo: Path, request: str, proposal: Path) -> Mapping[str, Any]:
-    """Execute one literal request to the exact first operator mutation boundary."""
+def execute_request(
+    repo: Path,
+    request: str,
+    proposal: Path,
+) -> Mapping[str, Any]:
+    """Execute one literal request to mutation boundary or canonical realization."""
 
-    context = build_context(repo.expanduser().resolve(), request, proposal)
+    context = build_context(
+        repo.expanduser().resolve(),
+        request,
+        proposal,
+    )
     workflow = build_pre_mutation_workflow(
         workflow_id=WORKFLOW_ID,
         logger=context.logger,
@@ -2031,10 +2224,61 @@ def execute_request(repo: Path, request: str, proposal: Path) -> Mapping[str, An
     )
     try:
         results = workflow.run()
+        result_payload = results[-1]
+
+        if context.already_realized:
+            if (
+                context.transaction is not None
+                or context.proposal_path is not None
+                or context.realization_path is None
+            ):
+                raise WorkflowError(
+                    "already-realized execution opened a mutation boundary"
+                )
+            if result_payload.get("status") != "already-realized":
+                raise WorkflowError(
+                    "already-realized execution result contract drifted"
+                )
+            candidate_head = str(result_payload["candidate_head"])
+            closeout = write_closeout(
+                context,
+                "verified",
+                {
+                    "status": "already-realized",
+                    "realization_receipt": str(context.realization_path),
+                    "candidate_head": candidate_head,
+                    "declared_paths": list(
+                        context.bundle.declared_paths
+                    ),
+                    "repository_mutation": False,
+                    "git_mutation": False,
+                },
+            )
+            return {
+                "status": "already-realized",
+                "proposal": result_payload,
+                "proposal_path": None,
+                "state": None,
+                "candidate_head": candidate_head,
+                "realization_receipt": str(context.realization_path),
+                "authority_receipt": str(context.authority_path),
+                "component_manifest": str(context.component_path),
+                "capability_gap_decision": str(context.gap_path),
+                "validation": list(context.validation),
+                "closeout": str(closeout),
+                "event_log": str(
+                    context.state_dir / "events.jsonl"
+                ),
+                "repository_mutation": False,
+                "git_mutation": False,
+            }
+
         if context.transaction is None or context.proposal_path is None:
-            raise WorkflowError("request execution completed without transaction or proposal")
+            raise WorkflowError(
+                "request execution completed without transaction or proposal"
+            )
         context.transaction.commit()
-        proposal_payload = results[-1]
+        proposal_payload = result_payload
         state = write_execution_state(context, proposal_payload)
         closeout = write_closeout(
             context,
@@ -2042,7 +2286,9 @@ def execute_request(repo: Path, request: str, proposal: Path) -> Mapping[str, An
             {
                 "proposal": str(context.proposal_path),
                 "state": str(state),
-                "declared_paths": list(context.bundle.declared_paths),
+                "declared_paths": list(
+                    context.bundle.declared_paths
+                ),
             },
         )
     except Exception as error:
@@ -2064,7 +2310,8 @@ def execute_request(repo: Path, request: str, proposal: Path) -> Mapping[str, An
         )
         raise WorkflowError(
             f"{error}\nFailure diagnosis: {diagnosis}\n"
-            f"Next governed boundary: {next_boundary}\nCloseout: {closeout}"
+            f"Next governed boundary: {next_boundary}\n"
+            f"Closeout: {closeout}"
         ) from error
     return {
         "status": "pass",

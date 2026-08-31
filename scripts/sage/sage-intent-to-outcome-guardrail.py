@@ -82,6 +82,10 @@ def main() -> int:
         "additional_acceptance_criteria",
         "implementation_generation_lineage",
         "_promotion_source_branch",
+        "record_runtime_applicability_for_promotion",
+        "_runtime_not_applicable_promotion_ready",
+        "not-applicable-to-bounded-slice",
+        "source-validated-promotion-ready",
     ):
         if marker not in wrapper:
             failures.append(f"front door missing existing-component marker: {marker}")
@@ -104,6 +108,8 @@ def main() -> int:
         failures.append("intent-to-outcome CLI lacks exact-proposal objective-path continuation")
     if 'sub.add_parser("route")' not in cli or "objective_route_snapshot" not in cli:
         failures.append("intent-to-outcome CLI lacks read-only objective route inspection")
+    if 'sub.add_parser("record-runtime-applicability")' not in cli or "record_runtime_applicability_for_promotion" not in cli:
+        failures.append("intent-to-outcome CLI lacks explicit runtime applicability disposition")
     if 'sub.add_parser("reconsider")' not in cli or "reconsider_intent" not in cli:
         failures.append("intent-to-outcome CLI lacks evidence-reconsideration continuation")
     if '"--completed-child-state"' not in cli or '"--planning-source"' not in cli:
@@ -116,6 +122,17 @@ def main() -> int:
         failures.append("front door still requires checkpoint before same-class accumulation")
     if 'source_branch="feature/sage-e2e-zero-trust-viability"' in wrapper:
         failures.append("front door promotion still hard-codes one historical source branch")
+
+    for marker in (
+        '"sage-e2e-zero-trust-runtime-receipt"',
+        '"authorized_mfa_access_verified"',
+        '"privileged_surfaces_not_published"',
+        "_runtime_not_applicable_promotion_ready",
+    ):
+        if marker not in wrapper:
+            failures.append(
+                f"runtime applicability replan weakened required marker: {marker}"
+            )
 
     functions = {
         node.name: node
@@ -224,6 +241,8 @@ def main() -> int:
         "repository-lineage milestone",
         "objective-path decision",
         "exact planning proposal",
+        "runtime not applicable",
+        "promotion remains applicable",
     ):
         if marker not in standard:
             failures.append(f"intent-to-outcome standard missing: {marker}")
@@ -262,6 +281,7 @@ def main() -> int:
     print("PASS objective-first route is a read-only extension of the existing front door, not a parallel orchestrator")
     print("PASS stale-parent completed-child reconciliation preserves exact child, receipt, and refreshed planning lineage without replay")
     print("PASS route exposes parent re-entry, limitations, BDD assurance status, integration separation, and collaboration feedback without manufacturing evidence")
+    print("PASS runtime applicability can be explicitly N/A while promotion remains applicable and zero-trust runtime validation remains mandatory when applicable")
     print("PASS exact planning proposal is persisted before Architect objective-path approval and request mutation")
     print("PASS evidence reconsideration is an in-loop boundary and material augmentation requires a refreshed contribution")
     print("PASS implementation generations preserve historical justification and promotion source is lineage-derived")

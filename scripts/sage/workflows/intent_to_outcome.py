@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -19,6 +20,7 @@ from workflow.recovery import (
     load_consumed_fingerprints,
 )
 from workflows.checkpoint_promotion import continue_promotion, start_promotion
+from workflows.objective_execution import objective_execution_route_summary
 from workflows.request_execution import (
     continue_request,
     continue_request_from_routine_receipt,
@@ -30,6 +32,7 @@ from workflows.request_planning import (
     validate_reusable_plan_lineage,
 )
 from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap, reuse_confirmed_intent
+from request_execution import load_proposal
 from semantic_understanding import load_engineering_contribution
 from sage_evidence_retrieval import (
     load_json as load_retrieval_json,
@@ -41,7 +44,7 @@ from sage_evidence_retrieval import (
 )
 
 WORKFLOW_ID = "sage.intent-to-outcome"
-WORKFLOW_VERSION = "0.4.2"
+WORKFLOW_VERSION = "0.4.3"
 PRIMITIVES_USED = (
     "catalog.registry",
     "file.atomic-preserve-mode",
@@ -83,6 +86,7 @@ INFLIGHT_CANDIDATE_STATUSES = frozenset({
     "architect-confirmation-required",
     "planning-source-ready",
     "authority-review-required",
+    "objective-path-decision-required",
 })
 
 
@@ -164,6 +168,226 @@ def _route_alternatives(contribution_manifest: Mapping[str, Any] | None) -> list
 
 def _file_sha256(path: Path) -> str:
     return hashlib.sha256(path.expanduser().resolve().read_bytes()).hexdigest()
+
+
+def _implementation_local_inherited_objective_decision(
+    state_path: Path,
+    state: Mapping[str, Any],
+    prior_proposal_path: Path,
+    corrected_proposal_path: Path,
+    contribution_path: Path,
+) -> Path:
+    """Project one existing Architect path approval onto a verified local correction."""
+
+    raw_decision_path = os.environ.get(
+        "SAGE_OBJECTIVE_PATH_DECISION", ""
+    ).strip()
+    if not raw_decision_path:
+        raise WorkflowError(
+            "implementation-local continuation requires the existing "
+            "SAGE_OBJECTIVE_PATH_DECISION approval source"
+        )
+
+    decision_source = Path(raw_decision_path).expanduser().resolve()
+    try:
+        decision = json.loads(
+            decision_source.read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError) as error:
+        raise WorkflowError(
+            "existing objective-path decision is unreadable: "
+            f"{decision_source}: {error}"
+        ) from error
+    if not isinstance(decision, dict):
+        raise WorkflowError(
+            "existing objective-path decision must be a JSON object"
+        )
+
+    request = str(state.get("request", ""))
+    if not request:
+        raise WorkflowError(
+            "implementation-local continuation lost literal request"
+        )
+    if decision.get("request_sha256") != _request_digest(request):
+        raise WorkflowError(
+            "existing objective-path decision belongs to another request"
+        )
+
+    objective_id = str(
+        state.get("objective_id")
+        or state.get("action_id")
+        or ""
+    )
+    if not objective_id:
+        raise WorkflowError(
+            "implementation-local continuation has no active objective id"
+        )
+    if decision.get("active_objective_id") != objective_id:
+        raise WorkflowError(
+            "existing objective-path decision belongs to another objective"
+        )
+
+    disposition = decision.get("architect_disposition")
+    if (
+        not isinstance(disposition, Mapping)
+        or disposition.get("status") != "approved"
+        or str(disposition.get("authority", "")).strip().lower()
+        != "architect"
+        or disposition.get("basis")
+        != "operator-supplied-to-governed-execution"
+    ):
+        raise WorkflowError(
+            "existing objective-path decision is not an Architect-approved "
+            "governed execution decision"
+        )
+
+    prior = prior_proposal_path.expanduser().resolve()
+    corrected = corrected_proposal_path.expanduser().resolve()
+    if decision.get("proposal_sha256") != _file_sha256(prior):
+        raise WorkflowError(
+            "existing Architect decision no longer matches the prior "
+            "approved proposal"
+        )
+
+    prior_bundle = load_proposal(prior, request)
+    corrected_bundle = load_proposal(corrected, request)
+
+    # Component/path selection is immutable across this implementation-local
+    # correction. Only implementation bytes and their repository HEAD may move.
+    immutable_manifest_fields = (
+        "capabilities",
+        "candidates",
+        "new_primitive_required",
+        "generated_paths",
+        "reconcile_evidence_index",
+        "validation_commands",
+        "operator_plan",
+    )
+    changed = [
+        field
+        for field in immutable_manifest_fields
+        if corrected_bundle.manifest.get(field)
+        != prior_bundle.manifest.get(field)
+    ]
+    if changed:
+        raise WorkflowError(
+            "implementation-local proposal changed the approved component/path "
+            "decision surface: "
+            + ", ".join(changed)
+        )
+
+    prior_repository = prior_bundle.manifest.get("repository")
+    corrected_repository = corrected_bundle.manifest.get("repository")
+    if (
+        not isinstance(prior_repository, Mapping)
+        or not isinstance(corrected_repository, Mapping)
+        or prior_repository.get("branch")
+        != corrected_repository.get("branch")
+    ):
+        raise WorkflowError(
+            "implementation-local proposal changed repository branch authority"
+        )
+
+    def source_shape(manifest: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+        values = manifest.get("source_files")
+        if not isinstance(values, list):
+            raise WorkflowError(
+                "implementation-local proposal source_files are invalid"
+            )
+        result = []
+        for item in values:
+            if not isinstance(item, Mapping):
+                raise WorkflowError(
+                    "implementation-local proposal source file is invalid"
+                )
+            result.append(
+                (str(item.get("path", "")), str(item.get("mode", "")))
+            )
+        return tuple(result)
+
+    if source_shape(prior_bundle.manifest) != source_shape(
+        corrected_bundle.manifest
+    ):
+        raise WorkflowError(
+            "implementation-local proposal changed the approved source-file "
+            "scope or modes"
+        )
+
+    reuse_marker = (
+        "implementation-local-plan-reuse:"
+        + str(prior_bundle.package_path)
+    )
+    evidence = corrected_bundle.manifest.get("evidence_references")
+    if (
+        not isinstance(evidence, list)
+        or reuse_marker not in evidence
+    ):
+        raise WorkflowError(
+            "corrected proposal lacks repository-owned prior-plan reuse lineage"
+        )
+
+    # Bind the corrected proposal payload to the exact implementation-local
+    # engineering contribution supplied to this iteration.
+    contribution = load_engineering_contribution(
+        contribution_path.expanduser().resolve()
+    )
+    expected_payload = tuple(
+        (item.path, item.sha256, f"{item.mode:04o}")
+        for item in contribution.source_files
+    )
+    observed_payload = tuple(
+        (
+            str(item.get("path", "")),
+            str(item.get("sha256", "")),
+            str(item.get("mode", "")),
+        )
+        for item in corrected_bundle.manifest.get("source_files", [])
+        if isinstance(item, Mapping)
+    )
+    if observed_payload != expected_payload:
+        raise WorkflowError(
+            "corrected proposal payload does not exactly match the "
+            "implementation-local contribution"
+        )
+
+    corrected_sha = _file_sha256(corrected)
+    inherited = json.loads(json.dumps(decision))
+    inherited["proposal_sha256"] = corrected_sha
+
+    iteration_number = int(state.get("current_iteration", 0) or 0)
+    destination = (
+        state_path.expanduser().resolve().parent
+        / f"objective-path-decision-iteration-{iteration_number:03d}.json"
+    )
+    if destination.exists():
+        existing = json.loads(
+            destination.read_text(encoding="utf-8")
+        )
+        if existing != inherited:
+            raise WorkflowError(
+                "implementation-local inherited decision already exists with "
+                "different content"
+            )
+    else:
+        _persist(destination, inherited)
+
+    state.setdefault("history", []).append(
+        {
+            "stage": "implementation-local-objective-path-approval-inherited",
+            "iteration": iteration_number,
+            "architect_decision_source": str(decision_source),
+            "architect_decision_source_sha256": _file_sha256(
+                decision_source
+            ),
+            "prior_planning_proposal": str(prior),
+            "prior_planning_proposal_sha256": _file_sha256(prior),
+            "corrected_planning_proposal": str(corrected),
+            "corrected_planning_proposal_sha256": corrected_sha,
+            "material_decision_surface_changed": False,
+            "approval_reused": True,
+        }
+    )
+    return destination
 
 
 def _evidence_route_state(state: Mapping[str, Any]) -> dict[str, Any]:
@@ -253,6 +477,9 @@ def build_objective_route(
         item for item in state.get("deferred_debt", []) if isinstance(item, Mapping)
     ]
     runtime_mapped = bool(state.get("runtime_receipt"))
+    delivery_applicability = state.get("delivery_applicability")
+    if not isinstance(delivery_applicability, Mapping):
+        delivery_applicability = {}
     evidence_route = _evidence_route_state(state)
     generation_route = _generation_route_state(state)
     source_validated = current.get("validation_state") in {
@@ -312,8 +539,32 @@ def build_objective_route(
             "canonical_integration_eligibility": "unassessed",
             "capability_validation": current.get("validation_state"),
             "runtime_promotion_eligibility": bool(current.get("promotion_eligible")),
+            "runtime_applicability": (
+                delivery_applicability.get(
+                    "runtime_validation",
+                    {},
+                ).get("applicability")
+                if isinstance(
+                    delivery_applicability.get("runtime_validation"),
+                    Mapping,
+                )
+                else "required-unless-dispositioned"
+            ),
+            "promotion_applicability": (
+                delivery_applicability.get(
+                    "promotion",
+                    {},
+                ).get("applicability")
+                if isinstance(
+                    delivery_applicability.get("promotion"),
+                    Mapping,
+                )
+                else "required-unless-dispositioned"
+            ),
             "objective_completion": state.get("status") == "promotion-complete",
         },
+        "objective_execution": objective_execution_route_summary(state),
+        "delivery_applicability": delivery_applicability,
         "guardrail_collaboration_feedback": {
             "status": "measurement-contract-present-values-may-be-unavailable",
             "activations": None,
@@ -331,6 +582,7 @@ def build_objective_route(
             "reconsideration_triggers": evidence_route["reconsideration_trigger_count"],
         },
     }
+
 
 
 def objective_route_snapshot(repo: Path, state_path: Path) -> Mapping[str, Any]:
@@ -864,35 +1116,107 @@ def continue_planned_request(
     resolved = repo.expanduser().resolve()
     state = _load_parent(state_path)
     if state.get("status") != "objective-path-decision-required":
-        raise WorkflowError("intent state is not awaiting objective-path decision")
+        raise WorkflowError(
+            "intent state is not awaiting objective-path decision"
+        )
     proposal_value = state.get("planning_proposal")
     if not isinstance(proposal_value, str) or not proposal_value:
-        raise WorkflowError("objective-path continuation has no planning proposal")
+        raise WorkflowError(
+            "objective-path continuation has no planning proposal"
+        )
     proposal = Path(proposal_value).expanduser().resolve()
     if not proposal.is_file():
-        raise WorkflowError(f"objective-path planning proposal is missing: {proposal}")
+        raise WorkflowError(
+            f"objective-path planning proposal is missing: {proposal}"
+        )
     iteration = _current_iteration(state)
     if (
         iteration.get("status") != "objective-path-decision"
-        or iteration.get("next_boundary") != "objective-path-decision"
+        or iteration.get("next_boundary")
+        != "objective-path-decision"
     ):
-        raise WorkflowError("objective-path continuation iteration boundary is invalid")
+        raise WorkflowError(
+            "objective-path continuation iteration boundary is invalid"
+        )
+
     execution = execute_request(
         resolved,
         str(state["request"]),
         proposal,
     )
+    proposal_sha256 = hashlib.sha256(
+        proposal.read_bytes()
+    ).hexdigest()
+
+    if execution.get("status") == "already-realized":
+        candidate_head = execution.get("candidate_head")
+        if (
+            not isinstance(candidate_head, str)
+            or re.fullmatch(r"[0-9a-f]{40}", candidate_head) is None
+        ):
+            raise WorkflowError(
+                "already-realized request execution lost candidate HEAD"
+            )
+        bundle = load_proposal(
+            proposal,
+            str(state["request"]),
+        )
+        if candidate_head != str(
+            bundle.manifest["repository"]["head"]
+        ):
+            raise WorkflowError(
+                "already-realized candidate HEAD differs from proposal authority"
+            )
+
+        state["request_execution_state"] = None
+        state["status"] = "source-git-complete"
+        iteration["candidate_head"] = candidate_head
+        iteration["status"] = "checkpoint-non-promotable"
+        iteration["validation_state"] = "source-validations-passed"
+        iteration["next_boundary"] = "runtime-validation"
+        iteration["promotion_eligible"] = False
+        state["promotion_eligible"] = False
+        state["history"].append(
+            {
+                "stage": (
+                    "objective-path-decision-consumed-already-realized"
+                ),
+                "iteration": state["current_iteration"],
+                "planning_proposal": str(proposal),
+                "planning_proposal_sha256": proposal_sha256,
+                "candidate_head": candidate_head,
+                "realization_receipt": execution.get(
+                    "realization_receipt"
+                ),
+                "request_execution_closeout": execution.get(
+                    "closeout"
+                ),
+                "repository_mutation": False,
+                "git_mutation": False,
+            }
+        )
+        _refresh_objective_route(resolved, state)
+        _persist(state_path.expanduser().resolve(), state)
+        return {
+            "status": state["status"],
+            "state": str(state_path.expanduser().resolve()),
+            "request_execution": execution,
+            "candidate_head": candidate_head,
+        }
+
     state["request_execution_state"] = str(execution["state"])
     state["status"] = "request-operator-review-required"
     iteration["status"] = "request-execution"
     iteration["next_boundary"] = "operator-review"
-    state["history"].append({
-        "stage": "objective-path-decision-consumed",
-        "iteration": state["current_iteration"],
-        "planning_proposal": str(proposal),
-        "planning_proposal_sha256": hashlib.sha256(proposal.read_bytes()).hexdigest(),
-        "request_execution_state": str(execution["state"]),
-    })
+    state["history"].append(
+        {
+            "stage": "objective-path-decision-consumed",
+            "iteration": state["current_iteration"],
+            "planning_proposal": str(proposal),
+            "planning_proposal_sha256": proposal_sha256,
+            "request_execution_state": str(execution["state"]),
+        }
+    )
     _refresh_objective_route(resolved, state)
     _persist(state_path.expanduser().resolve(), state)
     return {
@@ -1093,7 +1417,16 @@ def begin_candidate_iteration(
         raise WorkflowError("candidate iteration requires trigger and parent checkpoint")
     resolved = repo.expanduser().resolve()
     state = _load_parent(state_path)
+    prior_planning_proposal = state.get("planning_proposal")
     entry_mode = candidate_iteration_entry_mode(str(state.get("status", "")))
+    if (
+        reentry_boundary == "implementation-local"
+        and not os.environ.get("SAGE_OBJECTIVE_PATH_DECISION", "").strip()
+    ):
+        raise WorkflowError(
+            "implementation-local re-entry requires the existing "
+            "SAGE_OBJECTIVE_PATH_DECISION approval source"
+        )
     recovery_consumption = _consume_recovery_reentry(
         resolved,
         state_path,
@@ -1137,6 +1470,7 @@ def begin_candidate_iteration(
     state["promotion_eligible"] = False
     state["runtime_receipt"] = None
     state["promotion_state"] = None
+    state["delivery_applicability"] = None
     state["contribution"] = str(contribution.expanduser().resolve())
 
     resolved = repo.expanduser().resolve()
@@ -1245,6 +1579,57 @@ def begin_candidate_iteration(
             else None
         ),
     })
+
+    if reentry_boundary == "implementation-local":
+        if not isinstance(prior_planning_proposal, str) or not prior_planning_proposal:
+            raise WorkflowError(
+                "implementation-local re-entry lost the prior approved proposal"
+            )
+        corrected_proposal = Path(str(planned["proposal"])).expanduser().resolve()
+        validate_reusable_plan_lineage(
+            str(state["request"]),
+            new_source,
+            corrected_proposal,
+        )
+        inherited_decision = _implementation_local_inherited_objective_decision(
+            state_path,
+            state,
+            Path(prior_planning_proposal),
+            corrected_proposal,
+            contribution,
+        )
+        _pause_for_objective_path_decision(
+            resolved,
+            state_path,
+            state,
+            planning_source=str(new_source),
+            planned=planned,
+            history_stage=(
+                "candidate-iteration-ready-for-objective-path-decision"
+            ),
+        )
+        prior_environment = os.environ.get(
+            "SAGE_OBJECTIVE_PATH_DECISION"
+        )
+        os.environ["SAGE_OBJECTIVE_PATH_DECISION"] = str(
+            inherited_decision
+        )
+        try:
+            return continue_planned_request(
+                resolved,
+                state_path,
+            )
+        finally:
+            if prior_environment is None:
+                os.environ.pop(
+                    "SAGE_OBJECTIVE_PATH_DECISION",
+                    None,
+                )
+            else:
+                os.environ[
+                    "SAGE_OBJECTIVE_PATH_DECISION"
+                ] = prior_environment
+
     return _pause_for_objective_path_decision(
         resolved,
         state_path,
@@ -1532,6 +1917,195 @@ def continue_intent_request(
 
 
 
+
+def _runtime_not_applicable_promotion_ready(
+    state: Mapping[str, Any],
+    iteration: Mapping[str, Any],
+) -> bool:
+    disposition = state.get("delivery_applicability")
+    if not isinstance(disposition, Mapping):
+        return False
+
+    runtime = disposition.get("runtime_validation")
+    promotion = disposition.get("promotion")
+    if not isinstance(runtime, Mapping) or not isinstance(promotion, Mapping):
+        return False
+
+    return (
+        runtime.get("applicability") == "not-applicable-to-bounded-slice"
+        and runtime.get("status") == "not-evaluated"
+        and str(runtime.get("actor", "")).strip().lower() == "architect"
+        and promotion.get("applicability") == "applicable"
+        and promotion.get("status") == "pending"
+        and str(promotion.get("actor", "")).strip().lower() == "architect"
+        and state.get("runtime_receipt") is None
+        and iteration.get("validation_state") == "source-validations-passed"
+        and not bool(iteration.get("unresolved_findings"))
+    )
+
+
+def record_runtime_applicability_for_promotion(
+    repo: Path,
+    state_path: Path,
+    *,
+    reason: str,
+    actor: str,
+) -> Mapping[str, Any]:
+    """Record runtime N/A while retaining governed checkpoint promotion."""
+
+    resolved = repo.expanduser().resolve()
+    state_path = state_path.expanduser().resolve()
+    state = _load_parent(state_path)
+
+    if state.get("status") != "source-git-complete":
+        raise WorkflowError(
+            "runtime applicability disposition requires source-git-complete"
+        )
+    if state.get("runtime_receipt") is not None:
+        raise WorkflowError(
+            "runtime applicability disposition cannot replace runtime evidence"
+        )
+    if state.get("promotion_state") is not None:
+        raise WorkflowError(
+            "runtime applicability disposition cannot replace active promotion"
+        )
+    if state.get("delivery_applicability") is not None:
+        raise WorkflowError(
+            "runtime applicability disposition has already been recorded"
+        )
+    if not isinstance(reason, str) or not reason.strip():
+        raise WorkflowError(
+            "runtime applicability disposition requires an explicit rationale"
+        )
+    if not isinstance(actor, str) or actor.strip().lower() != "architect":
+        raise WorkflowError(
+            "runtime applicability disposition requires explicit Architect authority"
+        )
+
+    action: Mapping[str, Any] = {
+        "action_id": state.get("action_id"),
+        "desired_outcome": "",
+        "acceptance_criteria": [],
+        "measurement_plan": [],
+    }
+    if state.get("action_id"):
+        action = load_improvement_action(
+            resolved,
+            str(state["action_id"]),
+        )
+
+    parent_objective = _parent_reentry_objective(action)
+    if not isinstance(parent_objective, str) or not parent_objective:
+        raise WorkflowError(
+            "runtime applicability disposition requires an explicit parent objective"
+        )
+
+    iteration = _current_iteration(state)
+    candidate_head = iteration.get("candidate_head")
+
+    if not isinstance(candidate_head, str) or not candidate_head:
+        raise WorkflowError(
+            "runtime applicability disposition requires a candidate source commit"
+        )
+    if iteration.get("validation_state") != "source-validations-passed":
+        raise WorkflowError(
+            "runtime applicability disposition requires passed source validation"
+        )
+    if iteration.get("unresolved_findings"):
+        raise WorkflowError(
+            "runtime applicability disposition refuses unresolved findings"
+        )
+
+    disposition = {
+        "runtime_validation": {
+            "applicability": "not-applicable-to-bounded-slice",
+            "status": "not-evaluated",
+            "reason": reason.strip(),
+            "actor": "Architect",
+        },
+        "promotion": {
+            "applicability": "applicable",
+            "status": "pending",
+            "reason": (
+                "Promotion remains required to prove the approved "
+                "post-promotion branch-closeout objective path."
+            ),
+            "actor": "Architect",
+        },
+        "parent_objective_id": parent_objective,
+    }
+
+    state["delivery_applicability"] = disposition
+    state["promotion_eligible"] = True
+    iteration["status"] = "source-validated-promotion-ready"
+    iteration["next_boundary"] = "promotion"
+    iteration["promotion_eligible"] = True
+
+    generations = state.setdefault("implementation_generations", [])
+    previous = generations[-1] if generations else None
+    generations.append(
+        {
+            "generation": len(generations) + 1,
+            "iteration": state["current_iteration"],
+            "candidate_head": candidate_head,
+            "status": "runtime-not-applicable-promotion-ready",
+            "supersedes_generation": (
+                previous.get("generation")
+                if isinstance(previous, Mapping)
+                else None
+            ),
+            "historical_justification_preserved": True,
+            "accepted_action": state.get("action_id"),
+            "evidence_reconsideration": (
+                dict(state["evidence_reconsideration"])
+                if isinstance(
+                    state.get("evidence_reconsideration"),
+                    Mapping,
+                )
+                else None
+            ),
+            "runtime_receipt": None,
+            "runtime_receipt_sha256": None,
+            "delivery_applicability": disposition,
+        }
+    )
+
+    state["history"].append(
+        {
+            "stage": "runtime-applicability-disposition",
+            "iteration": state["current_iteration"],
+            "candidate_head": candidate_head,
+            "parent_objective_id": parent_objective,
+            "runtime_applicability": "not-applicable-to-bounded-slice",
+            "runtime_success_claimed": False,
+            "promotion_applicability": "applicable",
+            "promotion_eligible": True,
+            "actor": "Architect",
+            "reason": reason.strip(),
+        }
+    )
+
+    if not _runtime_not_applicable_promotion_ready(state, iteration):
+        raise WorkflowError(
+            "runtime applicability disposition did not produce promotion readiness"
+        )
+
+    _refresh_objective_route(resolved, state)
+    _persist(state_path, state)
+
+    return {
+        "status": state["status"],
+        "state": str(state_path),
+        "candidate_head": candidate_head,
+        "parent_objective_id": parent_objective,
+        "next_boundary": "promotion",
+        "runtime_applicability": "not-applicable-to-bounded-slice",
+        "runtime_success_claimed": False,
+        "promotion_applicability": "applicable",
+        "promotion_eligible": True,
+    }
+
+
 def validate_runtime_receipt(value: Mapping[str, Any]) -> None:
     if value.get("schema_version") != "1.0":
         raise WorkflowError("runtime receipt schema_version must be 1.0")
@@ -1639,9 +2213,23 @@ def begin_intent_promotion(
     body: str,
 ) -> Mapping[str, Any]:
     state = _load_parent(state_path)
-    if state.get("status") != "runtime-verified":
-        raise WorkflowError("runtime outcome must be verified before promotion")
     iteration = _current_iteration(state)
+
+    runtime_verified = state.get("status") == "runtime-verified"
+    runtime_not_applicable = (
+        state.get("status") == "source-git-complete"
+        and _runtime_not_applicable_promotion_ready(
+            state,
+            iteration,
+        )
+    )
+
+    if not runtime_verified and not runtime_not_applicable:
+        raise WorkflowError(
+            "runtime outcome must be verified before promotion unless "
+            "explicit Architect applicability records runtime as not "
+            "applicable and promotion as applicable"
+        )
     if state.get("promotion_eligible") is not True or iteration.get("unresolved_findings"):
         raise WorkflowError("current candidate remains non-promotable while unresolved findings exist")
     result = start_promotion(
@@ -1665,6 +2253,7 @@ def begin_intent_promotion(
         "state": str(state_path.expanduser().resolve()),
         "child": result,
     }
+
 
 
 def continue_intent_promotion(

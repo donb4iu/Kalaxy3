@@ -342,3 +342,114 @@ This is a recovery of missing lineage persistence, not an alternate adoption or
 planning path. Ordinary `continue-request` retains its existing
 `request-operator-review-required` gate, and incomplete or active children cannot
 use the stale-parent reconciliation mode.
+
+## Objective execution unit and path critic
+
+`SAGE-ACTION-20260823-001` extends the existing objective-first route with a
+bounded **objective execution unit**. The Architect approval atom is the material
+objective/path decision surface, not each deterministic engineering command.
+Ordered and conditional work remains explicit and evidence-producing, but a
+repository-owned objective executor may consume delegated deterministic adapter
+proposals without returning every routine step to the Architect.
+
+The first 80/20 proof is ordinary post-promotion branch closeout. The objective
+plan is persisted before mutation and binds the exact objective, delegated
+`sage.branch-lifecycle` adapter digest, ordered/conditional work, dependencies,
+expected evidence, recovery behavior, component/interface reconciliation, and
+material-intervention triggers. The Architect approves the exact plan digest
+once. The existing branch-lifecycle composition continues to own Git proposal
+construction, containment checks, fast-forward-only semantics, remote/local
+retirement, and repository-lineage verification.
+
+Execution deviations are classified separately from objective replanning.
+`implementation-local-correction` means objective meaning, authority, approved
+scope envelope, constraints, material risk envelope, and intended outcome remain
+unchanged. Such corrections remain inside the approved objective authority and
+must be evidenced. `true-replan` means at least one material dimension changed;
+execution stops for Architect disposition and the remaining suffix requires
+approval when its decision surface changes.
+
+Every completed execution persists a comparable `sage-objective-episode` with
+the planned path, counterfactual path when material, actual path, local
+corrections, true replans, Architect interventions, component use, evidence
+cost, outcome, path-efficiency metrics, and improvement observations. The
+branch-closeout target is one objective approval with zero routine follow-up
+interventions while preserving delegated Git chronology and lineage guarantees.
+
+The bounded LLM path critic is advisory evidence, not an authority or migration
+engine. SAGE persists an `sage-llm-path-critic-request` covering
+objective-equivalent efficiency, unnecessary operator boundaries, component
+reuse, mutation/evidence cost, recovery burden, and architecture/technology
+fitness. LLM findings are persisted as content-addressed revisitable causal
+observations with context, rationale, expected benefit, affected components,
+and measurable indicators. Recommendations may include retain, blue/green
+migration, parallel/canary adoption, selective adoption, replacement, or
+deferral, but never authorize autonomous migration.
+
+This slice deliberately excludes universal orchestration, graph-engine
+migration, automatic technology migration, full maturity UX, and dynamic model
+invocation. Those remain evidence-driven future opportunities.
+
+
+### Objective-execution implementation-local recovery
+
+The objective execution unit reuses SAGE's repository-owned recovery identity,
+recurrence, next-boundary, and consumption contracts. A deterministic failure
+inside an unchanged Architect-approved objective decision surface is recorded
+as an implementation-local correction, receives canonical failure retrieval,
+is validated through the owning objective-execution component, and retries the
+same deterministic suffix. Persisted command-result evidence is reused so a
+failure after mutation but before delegated adapter continuation does not
+replay the mutation.
+
+A failure that indicates changed authority, containment, approved scope,
+constraints, material risk, plan/adapter binding, or another material decision
+surface remains fail-closed and does not earn automatic continuation. Repeated
+unchanged failures remain subject to the shared recurrence-aware recovery
+policy and may escalate to its governed successor boundary. This slice does not
+grant an LLM autonomous source repair, replanning authority, or migration
+authority.
+
+
+### Pre-semantic candidate persistence
+
+Semantic and evidence-reconsideration boundaries require clean repository
+authority. An exact validated dirty candidate therefore uses a bounded
+candidate-persistence authorization composition before semantic continuation.
+That composition verifies exact dirty scope and synchronized feature authority,
+then emits an operator-approved `routine-git-lifecycle` proposal. The existing
+routine Git controller remains the sole stage/commit/push mutation owner and
+verifies exact scope, single-commit topology, remote synchronization, and the
+clean post-state. This bootstrap seam grants no semantic, merge, promotion,
+branch-retirement, deployment, or objective-completion authority.
+
+## Runtime applicability with promotion retained
+
+Runtime validation is an applicability-sensitive assurance domain; it is not a
+universal requirement to manufacture deployment evidence for every
+source-validated repository candidate.
+
+For a source-only candidate whose accepted objective requires governed
+checkpoint promotion but does not change the deployed workload, Traefik origin,
+Cloudflare tunnel, Access/MFA policy, monitoring configuration, or privileged
+publication surface, the Architect may explicitly record **runtime not
+applicable** for that bounded candidate.
+
+The `runtime not applicable` disposition is not a runtime pass. No runtime receipt is created,
+`runtime-verified` is not claimed, and the candidate retains
+`source-validations-passed` as its actual assurance state.
+
+For this disposition, **promotion remains applicable** when source validation
+passed, a canonical candidate commit exists, there are no unresolved findings,
+and the Architect explicitly records the applicability decision. The normal
+checkpoint-promotion composition, browser approval boundaries, merge
+verification, and post-promotion branch lifecycle remain unchanged.
+
+Candidates for which runtime behavior is applicable continue to use the existing
+`sage-e2e-zero-trust-runtime-receipt` contract and `record-runtime` path. The
+runtime-N/A path cannot substitute for, weaken, or reinterpret those trust
+boundary checks.
+
+A later candidate iteration clears the prior candidate's delivery-applicability
+disposition. Runtime or promotion applicability never transfers automatically
+between candidate generations.

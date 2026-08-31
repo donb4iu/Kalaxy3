@@ -30,6 +30,7 @@ from workflows.intent_to_outcome import (  # noqa: E402
     continue_intent_promotion,
     continue_intent_request,
     record_runtime,
+    record_runtime_applicability_for_promotion,
     reconsider_intent,
     reconcile_completed_request_child,
     reconcile_stale_parent_completed_request_child,
@@ -303,67 +304,13 @@ def self_test() -> int:
             intent_workflow.RECOVERY_STATE_ROOT = original_root
     print("PASS stale consumed recovery decisions do not block changed recovery composition")
     print("PASS current consumed recovery decisions still block duplicate governance re-entry")
+    route_action = {'action_id': 'SAGE-ACTION-20260823-001', 'desired_outcome': 'Keep the parent objective visible while routing bounded remediation.', 'acceptance_criteria': ['The implementation explicitly identifies SAGE-ACTION-20260815-002 as the parent delivery re-entry point.'], 'measurement_plan': ['Track unplanned recovery steps.']}
+    route_state = {'objective_id': 'SAGE-ACTION-20260823-001', 'status': 'planning-source-ready', 'current_iteration': 1, 'iterations': [{'iteration': 1, 'candidate_head': None, 'status': 'planning', 'validation_state': 'pending', 'unresolved_findings': [], 'next_boundary': 'planning', 'promotion_eligible': False}], 'evidence_reconsideration': {'status': 'finalized', 'summary': {'candidate_count': 4, 'assessed_count': 4, 'assessment_coverage': 1.0, 'applied_count': 3, 'contextually_not_applicable_count': 1, 'requires_revalidation_count': 0, 'alternative_set_change_count': 1, 'augmentation_count': 2, 'additional_acceptance_criteria_count': 1, 'reconsideration_trigger_count': 1}}, 'implementation_generations': [{'generation': 1, 'candidate_head': 'a' * 40, 'status': 'promoted', 'historical_justification_preserved': True}, {'generation': 2, 'candidate_head': 'b' * 40, 'status': 'runtime-verified', 'supersedes_generation': 1, 'historical_justification_preserved': True}]}
+    route_manifest = {'alternatives': ['Extend the existing intent-to-outcome composition.', 'Do nothing and retain the current collision-driven routing behavior.']}
     route = build_objective_route(
-        {
-            "action_id": "SAGE-ACTION-20260823-001",
-            "desired_outcome": "Keep the parent objective visible while routing bounded remediation.",
-            "acceptance_criteria": [
-                "The implementation explicitly identifies SAGE-ACTION-20260815-002 as the parent delivery re-entry point."
-            ],
-            "measurement_plan": ["Track unplanned recovery steps."],
-        },
-        {
-            "objective_id": "SAGE-ACTION-20260823-001",
-            "status": "planning-source-ready",
-            "current_iteration": 1,
-            "iterations": [
-                {
-                    "iteration": 1,
-                    "candidate_head": None,
-                    "status": "planning",
-                    "validation_state": "pending",
-                    "unresolved_findings": [],
-                    "next_boundary": "planning",
-                    "promotion_eligible": False,
-                }
-            ],
-            "evidence_reconsideration": {
-                "status": "finalized",
-                "summary": {
-                    "candidate_count": 4,
-                    "assessed_count": 4,
-                    "assessment_coverage": 1.0,
-                    "applied_count": 3,
-                    "contextually_not_applicable_count": 1,
-                    "requires_revalidation_count": 0,
-                    "alternative_set_change_count": 1,
-                    "augmentation_count": 2,
-                    "additional_acceptance_criteria_count": 1,
-                    "reconsideration_trigger_count": 1,
-                },
-            },
-            "implementation_generations": [
-                {
-                    "generation": 1,
-                    "candidate_head": "a" * 40,
-                    "status": "promoted",
-                    "historical_justification_preserved": True,
-                },
-                {
-                    "generation": 2,
-                    "candidate_head": "b" * 40,
-                    "status": "runtime-verified",
-                    "supersedes_generation": 1,
-                    "historical_justification_preserved": True,
-                },
-            ],
-        },
-        {
-            "alternatives": [
-                "Extend the existing intent-to-outcome composition.",
-                "Do nothing and retain the current collision-driven routing behavior.",
-            ]
-        },
+        route_action,
+        route_state,
+        route_manifest,
     )
     if route.get("parent_objective_id") != "SAGE-ACTION-20260815-002":
         raise RuntimeError("objective route did not preserve explicit parent re-entry")
@@ -389,6 +336,105 @@ def self_test() -> int:
     ):
         raise RuntimeError("objective route omitted implementation generation supersession lineage")
     print("PASS objective route preserves parent re-entry, alternatives, and unearned-assurance boundaries")
+    applicability_state = dict(route_state)
+    applicability_state["status"] = "source-git-complete"
+    applicability_state["runtime_receipt"] = None
+    applicability_state["promotion_state"] = None
+    applicability_state["promotion_eligible"] = True
+    applicability_state["iterations"] = [
+        dict(route_state["iterations"][0])
+    ]
+    applicability_state["iterations"][0][
+        "candidate_head"
+    ] = "f" * 40
+    applicability_state["iterations"][0][
+        "validation_state"
+    ] = "source-validations-passed"
+    applicability_state["iterations"][0][
+        "status"
+    ] = "source-validated-promotion-ready"
+    applicability_state["iterations"][0][
+        "next_boundary"
+    ] = "promotion"
+    applicability_state["iterations"][0][
+        "promotion_eligible"
+    ] = True
+    applicability_state["iterations"][0][
+        "unresolved_findings"
+    ] = []
+    applicability_state["delivery_applicability"] = {
+        "runtime_validation": {
+            "applicability": "not-applicable-to-bounded-slice",
+            "status": "not-evaluated",
+            "reason": "repository-only objective execution",
+            "actor": "Architect",
+        },
+        "promotion": {
+            "applicability": "applicable",
+            "status": "pending",
+            "reason": "post-promotion closeout proof",
+            "actor": "Architect",
+        },
+    }
+
+    applicability_route = build_objective_route(
+        route_action,
+        applicability_state,
+        route_manifest,
+    )
+
+    if (
+        applicability_route["assurance"]["runtime_evidence_mapped"]
+        is not False
+    ):
+        raise RuntimeError(
+            "runtime N/A was incorrectly represented as runtime evidence"
+        )
+    if (
+        applicability_route["integration_state"][
+            "runtime_applicability"
+        ]
+        != "not-applicable-to-bounded-slice"
+    ):
+        raise RuntimeError(
+            "runtime applicability disposition was not exposed"
+        )
+    if (
+        applicability_route["integration_state"][
+            "promotion_applicability"
+        ]
+        != "applicable"
+    ):
+        raise RuntimeError(
+            "promotion applicability was not preserved"
+        )
+    if (
+        applicability_route["integration_state"][
+            "runtime_promotion_eligibility"
+        ]
+        is not True
+    ):
+        raise RuntimeError(
+            "runtime-N/A candidate did not remain promotion eligible"
+        )
+    if (
+        applicability_route["integration_state"][
+            "objective_completion"
+        ]
+        is not False
+    ):
+        raise RuntimeError(
+            "runtime applicability disposition claimed objective completion"
+        )
+    if applicability_route["next_governed_boundary"] != "promotion":
+        raise RuntimeError(
+            "runtime-N/A candidate did not route to promotion"
+        )
+
+    print(
+        "PASS runtime not applicable remains distinct from runtime success "
+        "while promotion remains applicable"
+    )
     print("PASS objective route exposes evidence reconsideration and implementation-generation supersession lineage")
     print("PASS unfinished pre-mutation candidate can accumulate related corrections before checkpoint")
     print("PASS live operator-review boundary remains fail-closed")
@@ -414,6 +460,7 @@ def self_test() -> int:
     print("PASS runtime acceptance fails closed without candidate source lineage")
     print("PASS intent-to-outcome front door self-test")
     return 0
+
 
 
 def parse_args() -> argparse.Namespace:
@@ -477,6 +524,11 @@ def parse_args() -> argparse.Namespace:
     runtime.add_argument("--state", type=Path, required=True)
     runtime.add_argument("--runtime-receipt", type=Path, required=True)
 
+    applicability = sub.add_parser("record-runtime-applicability")
+    applicability.add_argument("--state", type=Path, required=True)
+    applicability.add_argument("--reason", required=True)
+    applicability.add_argument("--actor", required=True)
+
     promote = sub.add_parser("promote")
     promote.add_argument("--state", type=Path, required=True)
     promote.add_argument("--expected-head", required=True)
@@ -490,6 +542,7 @@ def parse_args() -> argparse.Namespace:
     route = sub.add_parser("route")
     route.add_argument("--state", type=Path, required=True)
     return parser.parse_args()
+
 
 
 
@@ -567,6 +620,13 @@ def main() -> int:
             )
     elif args.command == "record-runtime":
         result = record_runtime(args.repo, args.state, args.runtime_receipt)
+    elif args.command == "record-runtime-applicability":
+        result = record_runtime_applicability_for_promotion(
+            args.repo,
+            args.state,
+            reason=args.reason,
+            actor=args.actor,
+        )
     elif args.command == "promote":
         result = begin_intent_promotion(
             args.repo, args.state, args.expected_head, args.title, args.body
@@ -582,6 +642,7 @@ def main() -> int:
     print("Kalaxy3 SAGE intent-to-outcome: PASS")
     print(json.dumps(result, indent=2, sort_keys=False))
     return 0
+
 
 
 
