@@ -904,3 +904,536 @@ def continue_branch_bootstrap(
         }
 
     raise WorkflowError(f"unsupported branch lifecycle phase: {phase}")
+
+
+# ---------------------------------------------------------------------------
+# SAGE-ACTION-20260823-001 objective-architecture correction.
+#
+# Git owns detailed mechanical chronology.  SAGE owns the semantic objective,
+# authority, invariants, approval, before/after lineage and reconstruction
+# evidence.  Historical stepwise closeout state remains readable.
+# ---------------------------------------------------------------------------
+
+OBJECTIVE_CLOSEOUT_MODEL = (
+    "delegated-git-mechanics-semantic-lineage-v1"
+)
+
+
+def _objective_closeout_runtime(repo: Path, state_dir: Path):
+    """Build the bounded delegated-Git closeout runtime."""
+    from workflow import (
+        AtomicFileWriter as _AtomicFileWriter,
+        CommandRunner as _CommandRunner,
+        CommandSpec as _CommandSpec,
+        GitInspector as _GitInspector,
+        JsonlEventLogger as _JsonlEventLogger,
+        PrimitiveCatalog as _PrimitiveCatalog,
+    )
+
+    catalog = _PrimitiveCatalog.load(
+        repo / "sage-workflow-primitives.json"
+    )
+    catalog.require(PRIMITIVES_USED)
+
+    logger = _JsonlEventLogger(
+        state_dir / "objective-delegated-git-events.jsonl",
+        WORKFLOW_ID,
+        primitive_versions=catalog.versions_for(
+            PRIMITIVES_USED
+        ),
+    )
+
+    runner = _CommandRunner(
+        logger,
+        allowed_roots=(repo, state_dir),
+        base_environment={
+            name: ""
+            for name in (
+                "GH_TOKEN",
+                "GITHUB_TOKEN",
+                "GITHUB_PAT",
+                "AWS_ACCESS_KEY_ID",
+                "AWS_SECRET_ACCESS_KEY",
+                "KUBECONFIG",
+            )
+        },
+    )
+
+    writer = _AtomicFileWriter((state_dir,))
+    inspector = _GitInspector(repo, runner)
+
+    return writer, runner, inspector, _CommandSpec
+
+
+def _objective_git_command(
+    runner,
+    CommandSpec,
+    repo: Path,
+    label: str,
+    argv: tuple[str, ...],
+) -> None:
+    """Execute one Git mechanic inside the delegated adapter."""
+    result = runner.run(
+        CommandSpec(
+            "command.run",
+            label,
+            argv,
+            repo,
+        ),
+        step_id="objective-delegated-git-closeout",
+    )
+
+    if int(result.returncode) != 0:
+        raise WorkflowError(
+            "implementation-local-git: delegated Git "
+            "closeout command failed: "
+            + " ".join(argv)
+        )
+
+
+def execute_objective_closeout(
+    repo: Path,
+    state_path: Path,
+) -> Mapping[str, Any]:
+    """
+    Realize one semantic post-promotion closeout.
+
+    Git owns switch/fast-forward/ref-retirement mechanics.
+    SAGE verifies the semantic before/after state.
+    """
+    repo = repo.expanduser().resolve()
+    state_path = state_path.expanduser().resolve()
+
+    state = json.loads(
+        state_path.read_text(encoding="utf-8")
+    )
+
+    if (
+        state.get("record_type")
+        != "sage-branch-lifecycle-state"
+        or state.get("mode")
+        != "post-promotion-closeout"
+    ):
+        raise WorkflowError(
+            "material-scope: delegated closeout requires "
+            "post-promotion lifecycle state"
+        )
+
+    state_dir = state_path.parent
+
+    (
+        writer,
+        runner,
+        inspector,
+        CommandSpec,
+    ) = _objective_closeout_runtime(
+        repo,
+        state_dir,
+    )
+
+    source_branch = str(state["target_branch"])
+    promoted_source = str(state["promoted_source"])
+    expected_main = str(state["expected_main"])
+
+    inspector.require_clean()
+
+    local_origin_main = inspector.head("origin/main")
+    live_main = inspector.remote_head(
+        "origin",
+        "main",
+    )
+
+    if (
+        local_origin_main != expected_main
+        or live_main != expected_main
+    ):
+        raise WorkflowError(
+            "material-authority: authoritative main "
+            "changed during delegated closeout"
+        )
+
+    if not inspector.is_ancestor(
+        promoted_source,
+        expected_main,
+    ):
+        raise WorkflowError(
+            "material-authority: promoted source "
+            "containment changed"
+        )
+
+    if not _local_branch_exists(
+        inspector,
+        "main",
+    ):
+        raise WorkflowError(
+            "material-authority: local main "
+            "branch is missing"
+        )
+
+    local_main = inspector.head("main")
+
+    if not inspector.is_ancestor(
+        local_main,
+        expected_main,
+    ):
+        raise WorkflowError(
+            "material-history-rewrite: local main cannot "
+            "fast-forward to authoritative main"
+        )
+
+    remote_exists = _remote_branch_exists(
+        inspector,
+        "origin",
+        source_branch,
+    )
+
+    if remote_exists:
+        remote_source = inspector.remote_head(
+            "origin",
+            source_branch,
+        )
+        if remote_source != promoted_source:
+            raise WorkflowError(
+                "material-authority: remote source "
+                "changed after promotion"
+            )
+
+    local_exists = _local_branch_exists(
+        inspector,
+        source_branch,
+    )
+
+    if (
+        local_exists
+        and inspector.head(source_branch)
+        != promoted_source
+    ):
+        raise WorkflowError(
+            "material-authority: local source "
+            "changed after promotion"
+        )
+
+    active = inspector.branch()
+
+    if active not in {
+        "main",
+        source_branch,
+    }:
+        raise WorkflowError(
+            "material-scope: delegated closeout active "
+            "branch is outside the approved source/main "
+            "envelope"
+        )
+
+    # ------------------------------------------------------------
+    # The following are Git mechanics, not SAGE lifecycle phases.
+    # The operation is intentionally idempotent against already
+    # completed mechanics after interruption.
+    # ------------------------------------------------------------
+
+    if active != "main":
+        _objective_git_command(
+            runner,
+            CommandSpec,
+            repo,
+            "Delegated Git closeout: select main",
+            (
+                "git",
+                "switch",
+                "main",
+            ),
+        )
+
+    inspector.require_branch("main")
+    inspector.require_clean()
+
+    current_main = inspector.head()
+
+    if current_main != expected_main:
+        if not inspector.is_ancestor(
+            current_main,
+            expected_main,
+        ):
+            raise WorkflowError(
+                "material-history-rewrite: main no longer "
+                "fast-forwards to authoritative main"
+            )
+
+        _objective_git_command(
+            runner,
+            CommandSpec,
+            repo,
+            "Delegated Git closeout: reconcile main",
+            (
+                "git",
+                "merge",
+                "--ff-only",
+                expected_main,
+            ),
+        )
+
+    inspector.require_branch("main")
+    inspector.require_head(expected_main)
+    inspector.require_clean()
+
+    if _remote_branch_exists(
+        inspector,
+        "origin",
+        source_branch,
+    ):
+        if (
+            inspector.remote_head(
+                "origin",
+                source_branch,
+            )
+            != promoted_source
+        ):
+            raise WorkflowError(
+                "material-authority: remote source "
+                "changed before retirement"
+            )
+
+        _objective_git_command(
+            runner,
+            CommandSpec,
+            repo,
+            "Delegated Git closeout: retire remote source",
+            (
+                "git",
+                "push",
+                "origin",
+                "--delete",
+                source_branch,
+            ),
+        )
+
+    if _remote_branch_exists(
+        inspector,
+        "origin",
+        source_branch,
+    ):
+        raise WorkflowError(
+            "implementation-local-git: remote source "
+            "still exists after delegated retirement"
+        )
+
+    if _local_branch_exists(
+        inspector,
+        source_branch,
+    ):
+        if (
+            inspector.head(source_branch)
+            != promoted_source
+        ):
+            raise WorkflowError(
+                "material-authority: local source "
+                "changed before retirement"
+            )
+
+        _objective_git_command(
+            runner,
+            CommandSpec,
+            repo,
+            "Delegated Git closeout: retire local source",
+            (
+                "git",
+                "branch",
+                "-d",
+                source_branch,
+            ),
+        )
+
+    # ------------------------------------------------------------
+    # Semantic verification after Git has done its mechanics.
+    # ------------------------------------------------------------
+
+    inspector.require_branch("main")
+    inspector.require_head(expected_main)
+    inspector.require_upstream_equal()
+    inspector.require_clean()
+
+    if _remote_branch_exists(
+        inspector,
+        "origin",
+        source_branch,
+    ):
+        raise WorkflowError(
+            "implementation-local-git: remote source "
+            "reappeared after closeout"
+        )
+
+    if _local_branch_exists(
+        inspector,
+        source_branch,
+    ):
+        raise WorkflowError(
+            "implementation-local-git: local source "
+            "still exists after closeout"
+        )
+
+    if not inspector.is_ancestor(
+        promoted_source,
+        expected_main,
+    ):
+        raise WorkflowError(
+            "material-authority: source containment "
+            "changed after closeout"
+        )
+
+    post = _write_repository_lineage_milestone(
+        writer,
+        state_dir
+        / "repository-lineage-closeout.json",
+        objective_id=str(
+            state["objective_id"]
+        ),
+        milestone_type=(
+            "post-promotion-source-retired"
+        ),
+        source_branch=source_branch,
+        source_head=promoted_source,
+        authoritative_main=expected_main,
+        local_main=expected_main,
+        source_local_exists=False,
+        source_remote_exists=False,
+        assertions=[
+            {
+                "kind": "source-contained-in-target",
+                "verified": True,
+                "source": promoted_source,
+                "target": expected_main,
+            },
+            {
+                "kind": "local-main-reconciled",
+                "verified": True,
+                "target": expected_main,
+            },
+            {
+                "kind": "remote-source-retired",
+                "verified": True,
+                "branch": source_branch,
+            },
+            {
+                "kind": "local-source-retired",
+                "verified": True,
+                "branch": source_branch,
+            },
+        ],
+        evidence_references=[
+            str(
+                state[
+                    "repository_lineage_pre"
+                ]
+            ),
+            str(
+                state[
+                    "authority_receipt"
+                ]
+            ),
+            str(
+                state[
+                    "component_manifest"
+                ]
+            ),
+        ],
+    )
+
+    receipt = {
+        "schema_version": "1.0",
+        "record_type": (
+            "sage-branch-lifecycle-receipt"
+        ),
+        "status": "pass",
+        "mode": "post-promotion-closeout",
+        "execution_model": (
+            OBJECTIVE_CLOSEOUT_MODEL
+        ),
+        "objective_id": state["objective_id"],
+        "source_branch": source_branch,
+        "promoted_source": promoted_source,
+        "authoritative_main": expected_main,
+        "active_branch": "main",
+        "head": inspector.head(),
+        "upstream_head": (
+            inspector.upstream_head()
+        ),
+        "source_local_exists": False,
+        "source_remote_exists": False,
+        "repository_lineage_pre": (
+            state["repository_lineage_pre"]
+        ),
+        "repository_lineage_post": str(post),
+        "repository_lineage_post_sha256": (
+            hashlib.sha256(
+                post.read_bytes()
+            ).hexdigest()
+        ),
+        "mechanical_chronology": (
+            "delegated-to-git; consult Git history/ref "
+            "state and adapter event evidence for detailed "
+            "mechanics; SAGE preserves semantic milestones"
+        ),
+        "sage_mechanical_phase_graph_persisted": False,
+    }
+
+    receipt_path = (
+        state_dir
+        / "branch-lifecycle-receipt.json"
+    )
+
+    writer.write_text(
+        receipt_path,
+        _stable_json(receipt),
+        new_mode=0o600,
+    )
+
+    history = list(
+        state.get("history", [])
+    )
+
+    history.append(
+        {
+            "phase": (
+                "post-promotion-source-closeout"
+            ),
+            "execution_model": (
+                OBJECTIVE_CLOSEOUT_MODEL
+            ),
+            "semantic_outcome": (
+                "source-retired-main-reconciled"
+            ),
+            "mechanical_chronology_owner": (
+                "git"
+            ),
+        }
+    )
+
+    state["history"] = history
+    state["status"] = "complete"
+    state["phase"] = "complete"
+    state["current_proposal"] = None
+    state["receipt"] = str(receipt_path)
+    state["repository_lineage_post"] = str(post)
+    state["objective_execution_model"] = (
+        OBJECTIVE_CLOSEOUT_MODEL
+    )
+
+    writer.write_text(
+        state_path,
+        _stable_json(state),
+        new_mode=0o600,
+    )
+
+    return {
+        "status": "complete",
+        "state": str(state_path),
+        "receipt": str(receipt_path),
+        "repository_lineage": str(post),
+        "execution_model": (
+            OBJECTIVE_CLOSEOUT_MODEL
+        ),
+        "mechanical_chronology_owner": "git",
+        "sage_mechanical_phase_graph_persisted": (
+            False
+        ),
+    }

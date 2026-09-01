@@ -44,7 +44,7 @@ from sage_evidence_retrieval import (
 )
 
 WORKFLOW_ID = "sage.intent-to-outcome"
-WORKFLOW_VERSION = "0.4.3"
+WORKFLOW_VERSION = "0.4.4"
 PRIMITIVES_USED = (
     "catalog.registry",
     "file.atomic-preserve-mode",
@@ -81,6 +81,7 @@ REENTRY_BOUNDARIES = {
 DURABLE_CANDIDATE_STATUSES = frozenset({
     "source-git-complete",
     "runtime-verified",
+    "promotion-complete",
 })
 INFLIGHT_CANDIDATE_STATUSES = frozenset({
     "architect-confirmation-required",
@@ -168,6 +169,175 @@ def _route_alternatives(contribution_manifest: Mapping[str, Any] | None) -> list
 
 def _file_sha256(path: Path) -> str:
     return hashlib.sha256(path.expanduser().resolve().read_bytes()).hexdigest()
+
+
+
+
+def implementation_local_source_scope_relation(
+    prior_manifest: Mapping[str, Any],
+    corrected_manifest: Mapping[str, Any],
+) -> str:
+    """
+    Validate an implementation-local source set against the
+    previously approved source envelope.
+
+    The successor may narrow to a mode-compatible subset.
+    Expansion or a mode change is material and fails closed.
+    """
+
+    def shape(
+        manifest: Mapping[str, Any],
+        label: str,
+    ) -> tuple[tuple[str, str], ...]:
+        values = manifest.get("source_files")
+        if not isinstance(values, list):
+            raise WorkflowError(
+                f"{label} proposal source_files are invalid"
+            )
+
+        result: list[tuple[str, str]] = []
+
+        for item in values:
+            if not isinstance(item, Mapping):
+                raise WorkflowError(
+                    f"{label} proposal source file is invalid"
+                )
+
+            path = str(
+                item.get("path", "")
+            )
+            mode = str(
+                item.get("mode", "")
+            )
+
+            if not path or not mode:
+                raise WorkflowError(
+                    f"{label} proposal source file is incomplete"
+                )
+
+            result.append(
+                (path, mode)
+            )
+
+        if len(result) != len(
+            {path for path, _ in result}
+        ):
+            raise WorkflowError(
+                f"{label} proposal source_files contain duplicates"
+            )
+
+        return tuple(result)
+
+    prior_shape = shape(
+        prior_manifest,
+        "prior",
+    )
+    corrected_shape = shape(
+        corrected_manifest,
+        "corrected",
+    )
+
+    if not corrected_shape:
+        raise WorkflowError(
+            "implementation-local proposal has no source files"
+        )
+
+    prior_modes = dict(
+        prior_shape
+    )
+
+    invalid = [
+        f"{path}:{mode}"
+        for path, mode in corrected_shape
+        if (
+            path not in prior_modes
+            or prior_modes[path] != mode
+        )
+    ]
+
+    if invalid:
+        raise WorkflowError(
+            "implementation-local proposal expanded the "
+            "approved source-file envelope or changed modes: "
+            + ", ".join(invalid)
+        )
+
+    if (
+        len(corrected_shape) == len(prior_shape)
+        and dict(corrected_shape) == dict(prior_shape)
+    ):
+        return "exact"
+
+    return "subset"
+
+
+def implementation_local_repository_rebind(
+    prior_repository: Mapping[str, Any],
+    corrected_repository: Mapping[str, Any],
+) -> dict[str, Any]:
+    """
+    Validate repository provenance for a successor candidate.
+
+    A new synchronized non-main feature branch is execution
+    provenance, not a change to Architect-owned objective authority.
+    """
+
+    if (
+        not isinstance(prior_repository, Mapping)
+        or not isinstance(corrected_repository, Mapping)
+    ):
+        raise WorkflowError(
+            "implementation-local proposal repository provenance "
+            "is invalid"
+        )
+
+    prior_branch = str(
+        prior_repository.get("branch", "")
+    ).strip()
+    corrected_branch = str(
+        corrected_repository.get("branch", "")
+    ).strip()
+
+    prior_head = str(
+        prior_repository.get("head", "")
+    ).strip()
+    corrected_head = str(
+        corrected_repository.get("head", "")
+    ).strip()
+
+    if not prior_branch or not corrected_branch:
+        raise WorkflowError(
+            "implementation-local repository branch provenance "
+            "is incomplete"
+        )
+
+    if corrected_branch == "main":
+        raise WorkflowError(
+            "implementation-local successor cannot bind to main"
+        )
+
+    for label, value in (
+        ("prior", prior_head),
+        ("corrected", corrected_head),
+    ):
+        if re.fullmatch(
+            r"[0-9a-f]{40}",
+            value,
+        ) is None:
+            raise WorkflowError(
+                f"{label} implementation-local repository "
+                "HEAD provenance is invalid"
+            )
+
+    return {
+        "prior_branch": prior_branch,
+        "corrected_branch": corrected_branch,
+        "prior_head": prior_head,
+        "corrected_head": corrected_head,
+        "branch_rebound": (
+            prior_branch != corrected_branch
+        ),
+    }
 
 
 def _implementation_local_inherited_objective_decision(
@@ -276,42 +446,22 @@ def _implementation_local_inherited_objective_decision(
             + ", ".join(changed)
         )
 
-    prior_repository = prior_bundle.manifest.get("repository")
-    corrected_repository = corrected_bundle.manifest.get("repository")
-    if (
-        not isinstance(prior_repository, Mapping)
-        or not isinstance(corrected_repository, Mapping)
-        or prior_repository.get("branch")
-        != corrected_repository.get("branch")
-    ):
-        raise WorkflowError(
-            "implementation-local proposal changed repository branch authority"
-        )
+    prior_repository = prior_bundle.manifest.get(
+        "repository"
+    )
+    corrected_repository = corrected_bundle.manifest.get(
+        "repository"
+    )
 
-    def source_shape(manifest: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
-        values = manifest.get("source_files")
-        if not isinstance(values, list):
-            raise WorkflowError(
-                "implementation-local proposal source_files are invalid"
-            )
-        result = []
-        for item in values:
-            if not isinstance(item, Mapping):
-                raise WorkflowError(
-                    "implementation-local proposal source file is invalid"
-                )
-            result.append(
-                (str(item.get("path", "")), str(item.get("mode", "")))
-            )
-        return tuple(result)
+    repository_rebind = implementation_local_repository_rebind(
+        prior_repository,
+        corrected_repository,
+    )
 
-    if source_shape(prior_bundle.manifest) != source_shape(
-        corrected_bundle.manifest
-    ):
-        raise WorkflowError(
-            "implementation-local proposal changed the approved source-file "
-            "scope or modes"
-        )
+    scope_relation = implementation_local_source_scope_relation(
+        prior_bundle.manifest,
+        corrected_bundle.manifest,
+    )
 
     reuse_marker = (
         "implementation-local-plan-reuse:"
@@ -383,6 +533,10 @@ def _implementation_local_inherited_objective_decision(
             "prior_planning_proposal_sha256": _file_sha256(prior),
             "corrected_planning_proposal": str(corrected),
             "corrected_planning_proposal_sha256": corrected_sha,
+            "source_scope_relation": scope_relation,
+            "prior_repository_branch": repository_rebind["prior_branch"],
+            "corrected_repository_branch": repository_rebind["corrected_branch"],
+            "repository_branch_rebound": repository_rebind["branch_rebound"],
             "material_decision_surface_changed": False,
             "approval_reused": True,
         }
@@ -1434,24 +1588,85 @@ def begin_candidate_iteration(
         reentry_boundary,
     )
     prior = _current_iteration(state)
-    prior["promotion_eligible"] = False
-    findings = prior.setdefault("unresolved_findings", [])
-    if trigger.strip() not in findings:
-        findings.append(trigger.strip())
-    if entry_mode == "durable-checkpoint":
-        prior["status"] = "checkpoint-non-promotable"
+
+    promoted_predecessor = (
+        str(state.get("status", ""))
+        == "promotion-complete"
+    )
+
+    if promoted_predecessor:
+        if entry_mode != "durable-checkpoint":
+            raise WorkflowError(
+                "promoted implementation generation was not "
+                "classified as a durable predecessor"
+            )
+
+        # Preserve the predecessor iteration exactly as the
+        # successfully promoted historical generation.  The new
+        # trigger belongs to the successor iteration, not to the
+        # already-promoted candidate.
+        state.setdefault("history", []).append(
+            {
+                "stage": "promoted-generation-successor-start",
+                "prior_iteration": state.get(
+                    "current_iteration"
+                ),
+                "prior_iteration_status": prior.get(
+                    "status"
+                ),
+                "prior_candidate_head": prior.get(
+                    "candidate_head"
+                ),
+                "prior_promotion_eligible": prior.get(
+                    "promotion_eligible"
+                ),
+                "prior_promotion_state": state.get(
+                    "promotion_state"
+                ),
+                "trigger": trigger.strip(),
+                "historical_predecessor_preserved": True,
+            }
+        )
     else:
-        prior["status"] = "superseded-in-progress"
-        prior["next_boundary"] = "candidate-iteration"
-        prior.setdefault("learning", []).append({
-            "kind": "candidate-union",
-            "observation": (
-                "Validation exposed another related correction before the "
-                "candidate reached a durable checkpoint; the successor "
-                "accumulates the unfinished candidate rather than requiring "
-                "separate promotion."
-            ),
-        })
+        prior["promotion_eligible"] = False
+
+        findings = prior.setdefault(
+            "unresolved_findings",
+            [],
+        )
+
+        if trigger.strip() not in findings:
+            findings.append(
+                trigger.strip()
+            )
+
+        if entry_mode == "durable-checkpoint":
+            prior["status"] = (
+                "checkpoint-non-promotable"
+            )
+        else:
+            prior["status"] = (
+                "superseded-in-progress"
+            )
+            prior["next_boundary"] = (
+                "candidate-iteration"
+            )
+            prior.setdefault(
+                "learning",
+                [],
+            ).append(
+                {
+                    "kind": "candidate-union",
+                    "observation": (
+                        "Validation exposed another related "
+                        "correction before the candidate reached "
+                        "a durable checkpoint; the successor "
+                        "accumulates the unfinished candidate "
+                        "rather than requiring separate promotion."
+                    ),
+                }
+            )
+
     number = int(state["current_iteration"]) + 1
     iteration = _iteration_record(
         number,
