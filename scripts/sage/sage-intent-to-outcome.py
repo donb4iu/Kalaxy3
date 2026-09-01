@@ -22,6 +22,8 @@ from workflows.intent_to_outcome import (  # noqa: E402
     adopt_request_execution,
     begin_candidate_iteration,
     candidate_iteration_entry_mode,
+    implementation_local_repository_rebind,
+    implementation_local_source_scope_relation,
     begin_intent,
     begin_intent_promotion,
     build_objective_route,
@@ -192,8 +194,77 @@ def self_test() -> int:
         if reconciled_semantic.get("planning_source") != str(planning_source.resolve()) or reconciled_semantic.get("reconciled_from_completed_semantic_child") is not True:
             raise RuntimeError("completed semantic child did not reconcile planning-source lineage")
     print("PASS already-completed semantic child reconciles without replay")
+    print("PASS promoted generation may begin a preserved implementation-local successor")
+    print("PASS implementation-local correction may narrow to an approved mode-compatible source subset")
+    print("PASS successor feature-branch provenance may rebind without changing objective authority")
     if candidate_iteration_entry_mode("source-git-complete") != "durable-checkpoint":
         raise RuntimeError("durable candidate checkpoint classification failed")
+    if candidate_iteration_entry_mode("promotion-complete") != "durable-checkpoint":
+        raise RuntimeError("promoted implementation generation was not accepted as a durable successor checkpoint")
+
+    relation = implementation_local_source_scope_relation(
+        {
+            "source_files": [
+                {"path": "a.py", "mode": "0644"},
+                {"path": "b.py", "mode": "0755"},
+            ]
+        },
+        {
+            "source_files": [
+                {"path": "a.py", "mode": "0644"},
+            ]
+        },
+    )
+    if relation != "subset":
+        raise RuntimeError("implementation-local subset source scope was not accepted")
+
+    try:
+        implementation_local_source_scope_relation(
+            {
+                "source_files": [
+                    {"path": "a.py", "mode": "0644"},
+                ]
+            },
+            {
+                "source_files": [
+                    {"path": "outside.py", "mode": "0644"},
+                ]
+            },
+        )
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("implementation-local scope expansion was accepted")
+
+    repository_rebind = implementation_local_repository_rebind(
+        {
+            "branch": "feature/original",
+            "head": "a" * 40,
+        },
+        {
+            "branch": "feature/successor",
+            "head": "b" * 40,
+        },
+    )
+    if repository_rebind.get("branch_rebound") is not True:
+        raise RuntimeError("successor feature-branch provenance rebind was not accepted")
+
+    try:
+        implementation_local_repository_rebind(
+            {
+                "branch": "feature/original",
+                "head": "a" * 40,
+            },
+            {
+                "branch": "main",
+                "head": "b" * 40,
+            },
+        )
+    except WorkflowError:
+        pass
+    else:
+        raise RuntimeError("implementation-local successor was allowed to bind main")
+
     if candidate_iteration_entry_mode("architect-confirmation-required") != "inflight-supersession":
         raise RuntimeError("pre-mutation candidate could not accumulate a related correction")
     if candidate_iteration_entry_mode("planning-source-ready") != "inflight-supersession":

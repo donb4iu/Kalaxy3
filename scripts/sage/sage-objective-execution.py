@@ -40,6 +40,11 @@ def parse_args() -> argparse.Namespace:
     run.add_argument("--plan", type=Path, required=True)
     run.add_argument("--approved-plan-sha256", required=True)
 
+    run.add_argument(
+        "--planning-critic-observation",
+        type=Path,
+        required=True,
+    )
     critic = sub.add_parser("record-critic")
     critic.add_argument("--request", type=Path, required=True)
     critic.add_argument("--observation", type=Path, required=True)
@@ -64,6 +69,8 @@ def main() -> int:
         print("PASS objective execution reuses shared self-directing recovery")
         print("PASS objective approval is plan-atomic, not step-atomic")
         print("PASS LLM path critic remains advisory")
+        print("PASS planning critic challenges implementation before Architect approval")
+        print("PASS active closeout delegates Git mechanics and records semantic lineage")
         print("Kalaxy3 SAGE objective execution self-test: PASS")
         return 0
     if args.command == "plan-closeout":
@@ -77,6 +84,7 @@ def main() -> int:
             args.repo,
             args.plan,
             args.approved_plan_sha256,
+            args.planning_critic_observation,
         )
     elif args.command == "record-critic":
         result = record_critic_observation(args.request, args.observation)

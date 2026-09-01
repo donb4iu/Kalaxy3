@@ -34,6 +34,13 @@ def main() -> int:
         "sage-path-critic-causal-observation",
         "autonomous_migration",
         "continue_branch_lifecycle",
+        "ACTIVE_OBJECTIVE_PATH_MODEL",
+        "post-promotion-source-closeout",
+        "planning-path-critic-request",
+        "semantic_vs_mechanical_ownership",
+        "repeated_graph_or_state_machine_pattern",
+        "alternative_representation_or_engine",
+        "objective_equivalent_path",
     )
     for marker in required:
         if marker not in workflow:
@@ -43,6 +50,9 @@ def main() -> int:
         "objective_execution_delegation_allowed",
         "_validate_objective_executor_result",
         'result.get("execution_mode") == "objective-executor"',
+        "execute_objective_closeout",
+        "mechanical_chronology",
+        "sage_mechanical_phase_graph_persisted",
     )
     for marker in branch_required:
         if marker not in branch:
@@ -60,9 +70,10 @@ def main() -> int:
         return 1
 
     print("PASS objective approval is material-path atomic")
-    print("PASS branch lifecycle remains delegated Git semantics")
+    print("PASS branch lifecycle delegates Git mechanics rather than exposing them as the active SAGE objective graph")
     print("PASS local correction and true replan remain distinct")
     print("PASS path critic is causal evidence without migration authority")
+    print("PASS planning-time critic challenges ownership, repeated state/graph structure, and alternative representations")
     print("Kalaxy3 SAGE objective execution guardrail: PASS")
     return 0
 

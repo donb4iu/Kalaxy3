@@ -44,6 +44,12 @@ def main() -> int:
         "continue_planned_request",
         "objective-path-decision-required",
         "candidate_iteration_entry_mode",
+        "implementation_local_repository_rebind",
+        "implementation_local_source_scope_relation",
+        "promotion-complete",
+        "promoted-generation-successor-start",
+        "source_scope_relation",
+        "repository_branch_rebound",
         "reuse_confirmed_intent",
         "reuse_component_plan",
         "checkpoint-non-promotable",
@@ -99,6 +105,9 @@ def main() -> int:
     for marker in (
         "stale consumed recovery decisions do not block changed recovery composition",
         "current consumed recovery decisions still block duplicate governance re-entry",
+        "promoted generation may begin a preserved implementation-local successor",
+        "implementation-local correction may narrow to an approved mode-compatible source subset",
+        "successor feature-branch provenance may rebind without changing objective authority",
     ):
         if marker not in cli:
             failures.append(f"intent recovery-composition regression missing: {marker}")

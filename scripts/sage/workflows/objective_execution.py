@@ -1156,3 +1156,1003 @@ def _fixture_observation() -> dict[str, Any]:
             "measurable_indicators": ["architect_interventions", "verified_steps"],
         }],
     }
+
+
+# ---------------------------------------------------------------------------
+# SAGE-ACTION-20260823-001 objective-architecture correction.
+#
+# Active path:
+#   one semantic closeout
+#   -> delegated Git mechanics
+#   -> SAGE invariant/lineage verification
+#
+# Planning critique is required before Architect approval.
+# ---------------------------------------------------------------------------
+
+ACTIVE_OBJECTIVE_PATH_MODEL = (
+    "semantic-closeout-delegated-git-v2"
+)
+PLANNING_CRITIC_PHASE = "planning"
+
+
+def _planned_work() -> list[dict[str, Any]]:
+    """Return one semantic operation rather than a Git mechanics graph."""
+    return [
+        {
+            "step_id": (
+                "post-promotion-source-closeout"
+            ),
+            "condition": (
+                "after promotion containment and "
+                "authority are proven"
+            ),
+            "dependencies": [
+                (
+                    "promoted source contained in "
+                    "authoritative main"
+                ),
+                (
+                    "local main fast-forwardable to "
+                    "authoritative main"
+                ),
+                (
+                    "source identity stable or already "
+                    "retired by idempotent continuation"
+                ),
+            ],
+            "expected_evidence": [
+                (
+                    "final Git graph/ref invariant "
+                    "verification"
+                ),
+                (
+                    "repository-lineage closeout "
+                    "milestone"
+                ),
+            ],
+            "recovery": (
+                "re-observe Git state and resume delegated "
+                "mechanics idempotently; interrupt only "
+                "when a material objective invariant changed"
+            ),
+            "mechanical_chronology_owner": "git",
+            "sage_ownership": (
+                "objective meaning, authority, invariants, "
+                "approval, semantic milestones, and "
+                "reconstruction evidence"
+            ),
+        }
+    ]
+
+
+def _planning_critic_request(
+    plan_path: Path,
+    plan: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Build the pre-approval architecture/path critic surface."""
+    return {
+        "schema_version": "1.0",
+        "record_type": (
+            "sage-llm-path-critic-request"
+        ),
+        "phase": PLANNING_CRITIC_PHASE,
+        "objective_id": plan.get(
+            "objective_id"
+        ),
+        "plan": str(plan_path),
+        "plan_sha256": _sha256(plan_path),
+        "evaluation_dimensions": list(
+            CRITIC_DIMENSIONS
+        ),
+        "allowed_recommendations": list(
+            RECOMMENDATIONS
+        ),
+        "autonomous_migration_allowed": False,
+        "challenge_questions": [
+            (
+                "Which proposed work is a SAGE semantic "
+                "or governance decision and which work is "
+                "internal mechanics of a delegated system?"
+            ),
+            (
+                "Does this implementation duplicate another "
+                "system's native chronology, lifecycle, "
+                "state machine, or control plane?"
+            ),
+            (
+                "Are we repeatedly hand-encoding graph or "
+                "state-machine structure that suggests a "
+                "directed-graph, workflow, or other "
+                "purpose-fit representation should be "
+                "evaluated?"
+            ),
+            (
+                "Is an existing engine, representation, "
+                "platform, component, or system of record "
+                "better suited to own any of this behavior?"
+            ),
+            (
+                "What objective-equivalent path reduces "
+                "operator boundaries, mutation/evidence "
+                "cost, recovery burden, or duplicated "
+                "control?"
+            ),
+        ],
+        "required_planning_assessment_fields": [
+            "semantic_vs_mechanical_ownership",
+            "repeated_graph_or_state_machine_pattern",
+            "alternative_representation_or_engine",
+            "objective_equivalent_path",
+        ],
+    }
+
+
+def create_closeout_plan(
+    repo: Path,
+    lifecycle_state: Path,
+    baseline_round_trips: int = 6,
+) -> Mapping[str, Any]:
+    """Persist semantic plan plus pre-approval LLM critique request."""
+    resolved = repo.expanduser().resolve()
+    lifecycle = (
+        lifecycle_state
+        .expanduser()
+        .resolve()
+    )
+
+    state = _load_json(
+        lifecycle,
+        "branch lifecycle state",
+    )
+    _validate_lifecycle(state)
+
+    state_dir = _new_state_dir()
+    writer, _ = _runtime(
+        resolved,
+        state_dir,
+    )
+
+    adapter = (
+        resolved
+        / "scripts/sage/workflows/"
+        "branch_lifecycle.py"
+    )
+
+    plan = _build_plan(
+        lifecycle,
+        state,
+        _sha256(adapter),
+        baseline_round_trips,
+    )
+
+    plan["path_model"] = (
+        ACTIVE_OBJECTIVE_PATH_MODEL
+    )
+    plan["approved_path"] = _planned_work()
+    plan["components"] = [
+        "sage.intent-to-outcome",
+        "sage.objective-execution",
+        "sage.branch-lifecycle",
+        "git",
+    ]
+    plan["delegation"] = {
+        "git": (
+            "mechanical chronology and ref/graph "
+            "mechanics"
+        ),
+        "sage": (
+            "objective authority, invariants, semantic "
+            "milestones, evidence, recovery classification, "
+            "and final verification"
+        ),
+    }
+
+    plan_path = (
+        state_dir
+        / "objective-execution-plan.json"
+    )
+
+    writer.write_text(
+        plan_path,
+        _stable_json(plan),
+        new_mode=0o600,
+    )
+
+    critic = _planning_critic_request(
+        plan_path,
+        plan,
+    )
+
+    critic_path = (
+        state_dir
+        / "planning-path-critic-request.json"
+    )
+
+    writer.write_text(
+        critic_path,
+        _stable_json(critic),
+        new_mode=0o600,
+    )
+
+    return {
+        "status": "objective-plan-ready",
+        "plan": str(plan_path),
+        "plan_sha256": _sha256(
+            plan_path
+        ),
+        "planning_critic_request": str(
+            critic_path
+        ),
+        "planning_critic_request_sha256": (
+            _sha256(critic_path)
+        ),
+        "next_boundary": (
+            "llm-path-critic-before-architect-approval"
+        ),
+    }
+
+
+def _validate_planning_critic_observation(
+    request: Mapping[str, Any],
+    observation: Mapping[str, Any],
+) -> None:
+    """Require implementation critique before Architect path approval."""
+    if (
+        observation.get("record_type")
+        != "sage-path-critic-causal-observation"
+    ):
+        raise WorkflowError(
+            "planning path critic observation type "
+            "is invalid"
+        )
+
+    if (
+        observation.get("producer_class")
+        != "llm-path-critic"
+    ):
+        raise WorkflowError(
+            "planning path critic producer class "
+            "is invalid"
+        )
+
+    if (
+        observation.get("phase")
+        != PLANNING_CRITIC_PHASE
+    ):
+        raise WorkflowError(
+            "planning path critic phase is invalid"
+        )
+
+    if (
+        observation.get("objective_id")
+        != request.get("objective_id")
+    ):
+        raise WorkflowError(
+            "planning path critic objective does not "
+            "match request"
+        )
+
+    if (
+        observation.get("plan_sha256")
+        != request.get("plan_sha256")
+    ):
+        raise WorkflowError(
+            "planning path critic does not bind "
+            "the exact plan"
+        )
+
+    if (
+        observation.get("autonomous_migration")
+        is not False
+    ):
+        raise WorkflowError(
+            "planning path critic cannot authorize "
+            "autonomous migration"
+        )
+
+    if (
+        observation.get("recommendation")
+        not in RECOMMENDATIONS
+    ):
+        raise WorkflowError(
+            "planning path critic recommendation "
+            "is unsupported"
+        )
+
+    _validate_findings(
+        observation.get("findings")
+    )
+
+    assessment = observation.get(
+        "planning_assessment"
+    )
+
+    if not isinstance(
+        assessment,
+        Mapping,
+    ):
+        raise WorkflowError(
+            "planning path critic assessment "
+            "is missing"
+        )
+
+    for name in request.get(
+        "required_planning_assessment_fields",
+        [],
+    ):
+        value = assessment.get(name)
+
+        if (
+            not isinstance(value, str)
+            or not value.strip()
+        ):
+            raise WorkflowError(
+                "planning path critic assessment "
+                f"requires {name}"
+            )
+
+
+def validate_critic_observation(
+    request: Mapping[str, Any],
+    observation: Mapping[str, Any],
+) -> None:
+    """Validate planning-time or post-episode LLM critic evidence."""
+    if (
+        request.get("phase")
+        == PLANNING_CRITIC_PHASE
+    ):
+        _validate_planning_critic_observation(
+            request,
+            observation,
+        )
+        return
+
+    if (
+        observation.get("record_type")
+        != "sage-path-critic-causal-observation"
+    ):
+        raise WorkflowError(
+            "path critic observation type is invalid"
+        )
+
+    if (
+        observation.get("producer_class")
+        != "llm-path-critic"
+    ):
+        raise WorkflowError(
+            "path critic producer class is invalid"
+        )
+
+    if (
+        observation.get("objective_id")
+        != request.get("objective_id")
+    ):
+        raise WorkflowError(
+            "path critic objective does not "
+            "match request"
+        )
+
+    if (
+        observation.get("autonomous_migration")
+        is not False
+    ):
+        raise WorkflowError(
+            "path critic cannot authorize "
+            "autonomous migration"
+        )
+
+    if (
+        observation.get("recommendation")
+        not in RECOMMENDATIONS
+    ):
+        raise WorkflowError(
+            "path critic recommendation is unsupported"
+        )
+
+    _validate_findings(
+        observation.get("findings")
+    )
+
+
+def record_critic_observation(
+    request_path: Path,
+    observation_path: Path,
+) -> Mapping[str, Any]:
+    """Persist planning or post-episode critic observation."""
+    request = _load_json(
+        request_path,
+        "path critic request",
+    )
+
+    observation = _load_json(
+        observation_path,
+        "path critic observation",
+    )
+
+    validate_critic_observation(
+        request,
+        observation,
+    )
+
+    identity = dict(observation)
+    identity["critic_request_sha256"] = (
+        _sha256(request_path)
+    )
+
+    digest = hashlib.sha256(
+        json.dumps(
+            identity,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+
+    root = (
+        STATE_ROOT
+        / "path-critic-observations"
+    )
+
+    root.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    destination = (
+        root
+        / f"observation-sha256-{digest}.json"
+    )
+
+    if not destination.exists():
+        AtomicFileWriter(
+            (root,)
+        ).write_text(
+            destination,
+            _stable_json(identity),
+            new_mode=0o600,
+        )
+
+    return {
+        "status": "recorded",
+        "observation": str(destination),
+        "phase": request.get(
+            "phase",
+            "post-episode",
+        ),
+    }
+
+
+def _write_approval(
+    writer: AtomicFileWriter,
+    plan_path: Path,
+    approved_sha256: str,
+    planning_critic_observation: Path,
+) -> Path:
+    """
+    Persist Architect approval bound to both
+    exact plan and exact planning critique.
+    """
+    observed = _sha256(plan_path)
+
+    if approved_sha256 != observed:
+        raise WorkflowError(
+            "Architect-approved plan digest does "
+            "not match exact plan"
+        )
+
+    critic_request_path = (
+        plan_path.parent
+        / "planning-path-critic-request.json"
+    )
+
+    critic_request = _load_json(
+        critic_request_path,
+        "planning path critic request",
+    )
+
+    observation_path = (
+        planning_critic_observation
+        .expanduser()
+        .resolve()
+    )
+
+    observation = _load_json(
+        observation_path,
+        "planning path critic observation",
+    )
+
+    _validate_planning_critic_observation(
+        critic_request,
+        observation,
+    )
+
+    approval = {
+        "schema_version": "1.0",
+        "record_type": (
+            "sage-objective-execution-approval"
+        ),
+        "authority": "Architect",
+        "status": "approved",
+        "atomicity": (
+            "material-objective-path"
+        ),
+        "plan": str(plan_path),
+        "plan_sha256": observed,
+        "planning_critic_request": str(
+            critic_request_path
+        ),
+        "planning_critic_request_sha256": (
+            _sha256(critic_request_path)
+        ),
+        "planning_critic_observation": str(
+            observation_path
+        ),
+        "planning_critic_observation_sha256": (
+            _sha256(observation_path)
+        ),
+        "approved_at": (
+            datetime.now()
+            .astimezone()
+            .isoformat(timespec="seconds")
+        ),
+    }
+
+    path = (
+        plan_path.parent
+        / "objective-execution-approval.json"
+    )
+
+    writer.write_text(
+        path,
+        _stable_json(approval),
+        new_mode=0o600,
+    )
+
+    return path
+
+
+def _material_failure_observation(
+    error: Exception,
+) -> dict[str, bool]:
+    """
+    Classify only explicit evidenced material
+    invariants as true replans.
+
+    Generic implementation terms such as
+    'adapter' are not evidence that all material
+    decision dimensions changed.
+    """
+    text = (
+        f"{type(error).__name__}: {error}"
+    ).lower()
+
+    return {
+        "objective_meaning_changed": (
+            "material-objective-meaning:"
+            in text
+        ),
+        "authority_changed": (
+            "material-authority:" in text
+            or "material-containment:" in text
+        ),
+        "scope_expanded": (
+            "material-scope:" in text
+        ),
+        "constraints_changed": (
+            "material-constraint:" in text
+            or "material-history-rewrite:"
+            in text
+        ),
+        "risk_envelope_changed": (
+            "material-risk:" in text
+        ),
+        "intended_outcome_changed": (
+            "material-outcome:" in text
+        ),
+    }
+
+
+def _append_semantic_closeout_step(
+    execution: dict[str, Any],
+    result: Mapping[str, Any],
+) -> None:
+    """Record one semantic objective result, not Git mechanics."""
+    for item in execution.get(
+        "actual_path",
+        [],
+    ):
+        if (
+            item.get("phase")
+            == "post-promotion-source-closeout"
+            and item.get("status")
+            == "verified"
+        ):
+            return
+
+    execution["actual_path"].append(
+        {
+            "phase": (
+                "post-promotion-source-closeout"
+            ),
+            "boundary": (
+                "delegated-git-closeout"
+            ),
+            "status": "verified",
+            "execution_model": result.get(
+                "execution_model"
+            ),
+            "mechanical_chronology_owner": (
+                "git"
+            ),
+            "repository_lineage": result.get(
+                "repository_lineage"
+            ),
+            "receipt": result.get(
+                "receipt"
+            ),
+        }
+    )
+
+
+def _run_delegated_closeout(
+    repo: Path,
+    plan: Mapping[str, Any],
+    writer: AtomicFileWriter,
+    runner: CommandRunner,
+    execution_path: Path,
+    execution: dict[str, Any],
+) -> Mapping[str, Any]:
+    """Execute one delegated closeout then verify semantic outcome."""
+    from workflows.branch_lifecycle import (
+        execute_objective_closeout,
+    )
+
+    lifecycle_path = Path(
+        str(plan["lifecycle_state"])
+    ).expanduser().resolve()
+
+    lifecycle = _load_json(
+        lifecycle_path,
+        "branch lifecycle state",
+    )
+
+    _validate_lifecycle(lifecycle)
+
+    if lifecycle.get("status") == "complete":
+        result = {
+            "status": "complete",
+            "execution_model": (
+                lifecycle.get(
+                    "objective_execution_model",
+                    (
+                        "delegated-git-mechanics-"
+                        "semantic-lineage-v1"
+                    ),
+                )
+            ),
+            "repository_lineage": (
+                lifecycle.get(
+                    "repository_lineage_post"
+                )
+            ),
+            "receipt": lifecycle.get(
+                "receipt"
+            ),
+        }
+
+        _append_semantic_closeout_step(
+            execution,
+            result,
+        )
+
+        finalized = _finalize(
+            writer,
+            execution_path.parent,
+            plan,
+            execution,
+            lifecycle,
+        )
+
+        writer.write_text(
+            execution_path,
+            _stable_json(execution),
+            new_mode=0o600,
+        )
+
+        return finalized
+
+    try:
+        result = execute_objective_closeout(
+            repo,
+            lifecycle_path,
+        )
+
+        _append_semantic_closeout_step(
+            execution,
+            result,
+        )
+
+        writer.write_text(
+            execution_path,
+            _stable_json(execution),
+            new_mode=0o600,
+        )
+
+        lifecycle = _load_json(
+            lifecycle_path,
+            "completed branch lifecycle state",
+        )
+
+        if lifecycle.get("status") != "complete":
+            raise WorkflowError(
+                "implementation-local-git: delegated "
+                "closeout returned without a complete "
+                "semantic state"
+            )
+
+        finalized = _finalize(
+            writer,
+            execution_path.parent,
+            plan,
+            execution,
+            lifecycle,
+        )
+
+        writer.write_text(
+            execution_path,
+            _stable_json(execution),
+            new_mode=0o600,
+        )
+
+        return finalized
+
+    except Exception as error:
+        if _recover_local_failure(
+            repo,
+            plan,
+            writer,
+            runner,
+            execution_path,
+            execution,
+            error,
+        ):
+            return _run_delegated_closeout(
+                repo,
+                plan,
+                writer,
+                runner,
+                execution_path,
+                execution,
+            )
+        raise
+
+
+def run_closeout_objective(
+    repo: Path,
+    plan_path: Path,
+    approved_plan_sha256: str,
+    planning_critic_observation: Path,
+) -> Mapping[str, Any]:
+    """
+    Execute one semantic closeout under one
+    Architect-approved objective path.
+    """
+    resolved = repo.expanduser().resolve()
+    plan_file = (
+        plan_path
+        .expanduser()
+        .resolve()
+    )
+
+    plan = _load_json(
+        plan_file,
+        "objective execution plan",
+    )
+
+    if (
+        plan.get("record_type")
+        != "sage-objective-execution-plan"
+    ):
+        raise WorkflowError(
+            "objective execution plan type "
+            "is invalid"
+        )
+
+    if (
+        plan.get("path_model")
+        != ACTIVE_OBJECTIVE_PATH_MODEL
+    ):
+        raise WorkflowError(
+            "objective execution plan does not "
+            "use semantic delegated closeout"
+        )
+
+    # Adapter identity is checked before mutation.
+    # A later branch switch is an internal Git
+    # mechanic and cannot redefine the already
+    # approved implementation identity.
+    _validate_adapter(
+        resolved,
+        plan,
+    )
+
+    writer, runner = _runtime(
+        resolved,
+        plan_file.parent,
+    )
+
+    approval = _write_approval(
+        writer,
+        plan_file,
+        approved_plan_sha256,
+        planning_critic_observation,
+    )
+
+    (
+        execution_path,
+        execution,
+    ) = _load_execution(
+        writer,
+        plan_file,
+        approval,
+    )
+
+    return _run_delegated_closeout(
+        resolved,
+        plan,
+        writer,
+        runner,
+        execution_path,
+        execution,
+    )
+
+
+def _fixture_planning_observation() -> dict[str, Any]:
+    """Return one valid planning-time architecture critique fixture."""
+    return {
+        "record_type": (
+            "sage-path-critic-causal-observation"
+        ),
+        "producer_class": (
+            "llm-path-critic"
+        ),
+        "phase": "planning",
+        "objective_id": (
+            "SAGE-ACTION-FIXTURE"
+        ),
+        "plan_sha256": "a" * 64,
+        "recommendation": "retain",
+        "autonomous_migration": False,
+        "planning_assessment": {
+            "semantic_vs_mechanical_ownership": (
+                "SAGE owns semantic outcome and "
+                "governance; the delegated system "
+                "owns mechanics."
+            ),
+            "repeated_graph_or_state_machine_pattern": (
+                "No repeated mechanical state graph "
+                "is exposed by this fixture."
+            ),
+            "alternative_representation_or_engine": (
+                "No replacement is justified by "
+                "fixture evidence."
+            ),
+            "objective_equivalent_path": (
+                "Retain one semantic objective "
+                "operation."
+            ),
+        },
+        "findings": [
+            {
+                "dimension": (
+                    "architecture-technology-fitness"
+                ),
+                "finding_key": (
+                    "semantic-mechanical-boundary"
+                ),
+                "context": (
+                    "planning-time architecture critique"
+                ),
+                "causal_rationale": (
+                    "Mechanical ownership is delegated "
+                    "before objective approval."
+                ),
+                "expected_benefit": (
+                    "Prevent SAGE from reproducing "
+                    "another system's control flow."
+                ),
+                "affected_components": [
+                    "sage.objective-execution"
+                ],
+                "measurable_indicators": [
+                    (
+                        "sage_mechanical_phase_graph_"
+                        "persisted"
+                    ),
+                    (
+                        "routine_followup_interventions"
+                    ),
+                ],
+            }
+        ],
+    }
+
+
+def self_test() -> None:
+    """Exercise active objective and planning-critic semantics."""
+    if (
+        classify_change(
+            {"scope_expanded": False}
+        )
+        != "implementation-local-correction"
+    ):
+        raise RuntimeError(
+            "local correction classification failed"
+        )
+
+    if (
+        classify_change(
+            {"authority_changed": True}
+        )
+        != "true-replan"
+    ):
+        raise RuntimeError(
+            "true replan classification failed"
+        )
+
+    steps = _planned_work()
+
+    if [
+        item.get("step_id")
+        for item in steps
+    ] != [
+        "post-promotion-source-closeout"
+    ]:
+        raise RuntimeError(
+            "active objective path still exposes "
+            "Git mechanical phases"
+        )
+
+    if (
+        steps[0].get(
+            "mechanical_chronology_owner"
+        )
+        != "git"
+    ):
+        raise RuntimeError(
+            "Git chronology ownership "
+            "is not delegated"
+        )
+
+    route = objective_execution_route_summary(
+        {}
+    )
+
+    if (
+        route[
+            "routine_step_approval_atomicity"
+        ]
+        is not False
+    ):
+        raise RuntimeError(
+            "routine step approval remained "
+            "Architect-atomic"
+        )
+
+    request = {
+        "objective_id": (
+            "SAGE-ACTION-FIXTURE"
+        ),
+        "phase": "planning",
+        "plan_sha256": "a" * 64,
+        "required_planning_assessment_fields": [
+            "semantic_vs_mechanical_ownership",
+            "repeated_graph_or_state_machine_pattern",
+            "alternative_representation_or_engine",
+            "objective_equivalent_path",
+        ],
+    }
+
+    _validate_planning_critic_observation(
+        request,
+        _fixture_planning_observation(),
+    )

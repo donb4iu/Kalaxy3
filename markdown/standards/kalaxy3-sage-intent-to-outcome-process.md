@@ -453,3 +453,89 @@ boundary checks.
 A later candidate iteration clears the prior candidate's delivery-applicability
 disposition. Runtime or promotion applicability never transfers automatically
 between candidate generations.
+
+
+### Objective-architecture correction: semantic closeout and planning critique
+
+The first live post-promotion execution of the bounded objective unit exposed a
+design contradiction in the initial implementation. The process contract said
+Git remained the delegated high-resolution mechanical chronicle, but the active
+objective executor represented `switch-main`, `fast-forward-main`,
+`delete-remote`, and `delete-local` as SAGE-owned lifecycle phases. Automating
+those phases under one approval reduced approval count but did not actually
+preserve the intended ownership boundary.
+
+The corrected active path therefore models ordinary post-promotion closeout as
+one semantic objective operation: **reconcile authoritative main and retire the
+promoted source while preserving containment, no-history-rewrite, authority,
+and repository-lineage guarantees**. The delegated Git adapter may perform the
+mechanics required to realize that outcome, including idempotent continuation
+after partial mechanical progress, but those mechanics are not the active SAGE
+objective graph. Git remains the detailed mechanical chronology. SAGE records
+the objective authority, before/after semantic lineage, verified graph/ref
+invariants, correction/replan evidence, and comparable objective episode.
+
+Adapter identity is bound and verified before mutation. A Git branch switch
+inside an already-approved delegated operation does not redefine adapter
+identity merely because the worktree then exposes another branch's file bytes.
+A genuine pre-execution adapter change still fails closed. Execution failures
+are material only when evidence identifies a changed objective meaning,
+authority or containment, approved scope, constraint or history-safety
+property, material risk envelope, or intended outcome. Error-word matching must
+not manufacture all material dimensions from an implementation-local failure.
+
+The LLM path critic also participates **before Architect path approval**, not
+only after an execution episode. Plan creation persists a planning critic
+request that requires explicit assessment of:
+
+- semantic/governance ownership versus delegated-system mechanics;
+- duplication of another system's native lifecycle, chronology, state machine,
+  or control plane;
+- repeated graph/state-machine structures that may justify evaluating a
+  directed-graph, workflow, or other purpose-fit representation;
+- existing engines, representations, platforms, components, or systems of
+  record that may be better owners of the behavior; and
+- an objective-equivalent path with lower operator-boundary,
+  mutation/evidence, recovery, or duplicated-control cost.
+
+The critic remains advisory and cannot approve a path or authorize migration.
+Its exact observation is evidence bound into subsequent Architect approval, so
+the Architect reviews the proposed implementation and its architectural
+critique at the same material decision surface. Repeated architectural
+observations accumulate as revisitable causal evidence; they do not
+autonomously trigger graph-engine or technology migration.
+
+The failed first-generation closeout episode remains immutable evidence. The
+correction supersedes its false material classification and stepwise active
+implementation without rewriting the historical failure.
+
+### Promoted-generation implementation-local successor semantics
+
+A successfully promoted implementation generation is a durable predecessor for
+later evidence-backed implementation-local correction. Starting a successor
+must not retroactively mark that promoted iteration non-promotable, attach the
+new defect as an unresolved finding on the old candidate, or otherwise rewrite
+its successful historical disposition. The predecessor remains reconstructable
+through its existing iteration and implementation-generation evidence; the new
+trigger belongs to the successor iteration.
+
+Implementation-local inheritance preserves the Architect-approved **decision
+surface**, not accidental equality of the previous staged payload. A successor
+may therefore narrow its active source set to any non-empty, mode-compatible
+subset of the previously approved/confirmed source envelope. Expansion outside
+that envelope or changing an authorized path's mode remains material and fails
+closed. The corrected proposal payload must still exactly match the checksum-
+bound successor engineering contribution.
+
+Likewise, a successor generation may execute from a newly governed,
+synchronized non-`main` feature branch. Feature-branch identity and repository
+HEAD are provenance for the implementation attempt; they are not themselves
+the Architect-owned objective meaning or approval surface. The prior and
+successor branch bindings, source-scope relation, exact proposal digests, and
+contribution payload remain explicit inherited-decision evidence. Binding an
+implementation-local successor directly to `main` remains prohibited.
+
+These rules do not transfer runtime or promotion success to the successor. They
+only allow the already-confirmed objective and implementation envelope to
+produce a new candidate without fabricating semantic rediscovery or rewriting
+the previously promoted generation.
