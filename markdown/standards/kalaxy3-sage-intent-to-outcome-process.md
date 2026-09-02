@@ -539,3 +539,19 @@ These rules do not transfer runtime or promotion success to the successor. They
 only allow the already-confirmed objective and implementation envelope to
 produce a new candidate without fabricating semantic rediscovery or rewriting
 the previously promoted generation.
+
+
+### Comparable episode improvement projection
+
+A completed objective first persists the immutable episode that the post-episode
+critic evaluates. Recording the critic result does not rewrite that input.
+Instead, SAGE derives `objective-episode-projection.json` from the immutable
+episode and embeds the content-addressed critic provenance, recommendation, and
+findings in `improvement_observations`. The projection is the comparable view for
+later objective episodes.
+
+Re-recording the same critic observation is idempotent. A later distinct
+observation extends the derived projection while preserving the original episode
+digest and the exact critic request that evaluated it. This keeps learning
+revisitable without breaking the evidence chain or granting the critic mutation
+or migration authority.

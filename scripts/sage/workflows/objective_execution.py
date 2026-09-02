@@ -18,6 +18,7 @@ from workflow import (
     WorkflowError,
 )
 from workflows.branch_lifecycle import continue_branch_lifecycle
+import tempfile
 
 WORKFLOW_ID = "sage.objective-execution"
 WORKFLOW_VERSION = "0.1.0"
@@ -1554,71 +1555,104 @@ def validate_critic_observation(
     )
 
 
+
+def _observation_reference(
+    observation: Mapping[str, Any],
+    destination: Path,
+) -> dict[str, Any]:
+    "Build portable comparable-episode evidence from one critic result."
+    return {
+        "phase": observation.get("phase", "post-episode"),
+        "producer_class": observation.get("producer_class"),
+        "recommendation": observation.get("recommendation"),
+        "observation_sha256": _sha256(destination),
+        "critic_request_sha256": observation.get("critic_request_sha256"),
+        "findings": observation.get("findings", []),
+    }
+
+
+def _load_projection(
+    path: Path,
+    episode: Mapping[str, Any],
+    base_sha256: str,
+) -> dict[str, Any]:
+    "Load an existing projection or derive a new one from the base episode."
+    if path.is_file():
+        value = _load_json(path, "objective episode projection")
+        if value.get("base_episode_sha256") != base_sha256:
+            raise WorkflowError("objective episode projection base changed")
+        return value
+    value = dict(episode)
+    value["projection_type"] = "assessed-improvement-observations"
+    value["base_episode_sha256"] = base_sha256
+    value["improvement_observations"] = []
+    return value
+
+
+def _project_episode_observation(
+    request: Mapping[str, Any],
+    observation: Mapping[str, Any],
+    destination: Path,
+) -> Path | None:
+    "Project post-episode critique without rewriting the critic input."
+    if request.get("phase", "post-episode") == PLANNING_CRITIC_PHASE:
+        return None
+    episode_path = Path(str(request.get("episode", ""))).expanduser().resolve()
+    base_sha256 = str(request.get("episode_sha256", ""))
+    if not episode_path.is_file() or _sha256(episode_path) != base_sha256:
+        raise WorkflowError("path critic episode input changed")
+    episode = _load_json(episode_path, "objective episode")
+    if episode.get("objective_id") != request.get("objective_id"):
+        raise WorkflowError("path critic episode objective changed")
+    projection_path = episode_path.with_name("objective-episode-projection.json")
+    projection = _load_projection(projection_path, episode, base_sha256)
+    reference = _observation_reference(observation, destination)
+    observations = list(projection.get("improvement_observations", []))
+    digest = reference["observation_sha256"]
+    if not any(item.get("observation_sha256") == digest for item in observations):
+        observations.append(reference)
+    projection["improvement_observations"] = observations
+    AtomicFileWriter((episode_path.parent,)).write_text(
+        projection_path,
+        _stable_json(projection),
+        new_mode=0o600,
+    )
+    return projection_path
+
+
 def record_critic_observation(
     request_path: Path,
     observation_path: Path,
 ) -> Mapping[str, Any]:
-    """Persist planning or post-episode critic observation."""
-    request = _load_json(
-        request_path,
-        "path critic request",
-    )
-
-    observation = _load_json(
-        observation_path,
-        "path critic observation",
-    )
-
-    validate_critic_observation(
-        request,
-        observation,
-    )
-
+    "Persist a critic result and project post-episode lessons for comparison."
+    request = _load_json(request_path, "path critic request")
+    observation = _load_json(observation_path, "path critic observation")
+    validate_critic_observation(request, observation)
     identity = dict(observation)
-    identity["critic_request_sha256"] = (
-        _sha256(request_path)
-    )
-
+    identity["critic_request_sha256"] = _sha256(request_path)
     digest = hashlib.sha256(
-        json.dumps(
-            identity,
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
+        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
-
-    root = (
-        STATE_ROOT
-        / "path-critic-observations"
-    )
-
-    root.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    destination = (
-        root
-        / f"observation-sha256-{digest}.json"
-    )
-
+    root = STATE_ROOT / "path-critic-observations"
+    root.mkdir(parents=True, exist_ok=True)
+    destination = root / f"observation-sha256-{digest}.json"
     if not destination.exists():
-        AtomicFileWriter(
-            (root,)
-        ).write_text(
+        AtomicFileWriter((root,)).write_text(
             destination,
             _stable_json(identity),
             new_mode=0o600,
         )
-
-    return {
+    projection = _project_episode_observation(request, identity, destination)
+    result: dict[str, Any] = {
         "status": "recorded",
         "observation": str(destination),
-        "phase": request.get(
-            "phase",
-            "post-episode",
-        ),
+        "phase": request.get("phase", "post-episode"),
     }
+    if projection is not None:
+        result["comparable_episode"] = str(projection)
+    return result
+
+
 
 
 def _write_approval(
@@ -2077,6 +2111,69 @@ def _fixture_planning_observation() -> dict[str, Any]:
     }
 
 
+
+def _self_test_episode_projection() -> None:
+    "Prove post-episode critique becomes idempotent comparable evidence."
+    global STATE_ROOT
+    original_root = STATE_ROOT
+    with tempfile.TemporaryDirectory() as raw:
+        root = Path(raw)
+        try:
+            STATE_ROOT = root / "state"
+            episode_path = root / "objective-episode.json"
+            episode = {
+                "record_type": "sage-objective-episode",
+                "objective_id": "SAGE-ACTION-FIXTURE",
+                "improvement_observations": [],
+            }
+            episode_path.write_text(_stable_json(episode), encoding="utf-8")
+            request = {
+                "record_type": "sage-llm-path-critic-request",
+                "phase": "post-episode",
+                "objective_id": "SAGE-ACTION-FIXTURE",
+                "episode": str(episode_path),
+                "episode_sha256": _sha256(episode_path),
+            }
+            request_path = root / "request.json"
+            request_path.write_text(_stable_json(request), encoding="utf-8")
+            observation = _fixture_post_episode_observation()
+            observation_path = root / "observation.json"
+            observation_path.write_text(_stable_json(observation), encoding="utf-8")
+            first = record_critic_observation(request_path, observation_path)
+            second = record_critic_observation(request_path, observation_path)
+            projection = _load_json(
+                Path(str(first["comparable_episode"])),
+                "fixture comparable episode",
+            )
+            if len(projection.get("improvement_observations", [])) != 1:
+                raise RuntimeError("episode projection did not retain one lesson")
+            if first["comparable_episode"] != second["comparable_episode"]:
+                raise RuntimeError("episode projection is not idempotent")
+        finally:
+            STATE_ROOT = original_root
+
+
+def _fixture_post_episode_observation() -> dict[str, Any]:
+    "Return one valid post-episode critic result for projection testing."
+    return {
+        "record_type": "sage-path-critic-causal-observation",
+        "producer_class": "llm-path-critic",
+        "phase": "post-episode",
+        "objective_id": "SAGE-ACTION-FIXTURE",
+        "recommendation": "retain",
+        "autonomous_migration": False,
+        "findings": [{
+            "dimension": "objective-equivalent-efficiency",
+            "finding_key": "episode-projection",
+            "context": "completed objective comparison",
+            "causal_rationale": "A saved critique must remain linked to its run.",
+            "expected_benefit": "Later runs can compare path and lesson together.",
+            "affected_components": ["sage.objective-execution"],
+            "measurable_indicators": ["improvement_observations"],
+        }],
+    }
+
+
 def self_test() -> None:
     """Exercise active objective and planning-critic semantics."""
     if (
@@ -2156,3 +2253,4 @@ def self_test() -> None:
         request,
         _fixture_planning_observation(),
     )
+    _self_test_episode_projection()
