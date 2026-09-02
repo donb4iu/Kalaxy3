@@ -31,7 +31,7 @@ from workflow import (
 from workflows.request_planning import derive_component_plan
 
 WORKFLOW_ID = "sage.checkpoint-promotion"
-WORKFLOW_VERSION = "1.3.0"
+WORKFLOW_VERSION = "1.4.0"
 POLICY_PATH = "sage-checkpoint-promotion-policy.json"
 PRIMITIVES_USED = (
     "catalog.registry",
@@ -1305,6 +1305,115 @@ def continue_source_reconciliation(
 
 
 
+
+def classify_observed_pr_state(pr: Any | None) -> str:
+    """Classify independent PR reality without persisted-boundary chronology."""
+    if pr is None:
+        return "absent"
+    if pr.merged:
+        return "merged"
+    if pr.state == "open" and not pr.draft:
+        return "open"
+    return "invalid"
+
+
+def observe_exact_pull_request(
+    github: GitHubInspector,
+    state: Mapping[str, Any],
+) -> Any | None:
+    """Read the exact frozen-source PR independently from GitHub."""
+    return github.find_pull_request(
+        base_branch=str(state["target_branch"]),
+        head_branch=str(state["source_branch"]),
+        head_sha=str(state["source_head"]),
+        required=False,
+    )
+
+
+def verify_required_checks(
+    repo: Path,
+    github: GitHubInspector,
+    state: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Re-prove exact-source required checks during continuation."""
+    policy = json.loads((repo / POLICY_PATH).read_text(encoding="utf-8"))
+    check_runs = github.require_successful_checks(
+        head_sha=str(state["source_head"]),
+        required=required_github_checks(policy),
+    )
+    values = [item.as_dict() for item in check_runs]
+    state["required_github_checks"] = values
+    return values
+
+
+def verify_observed_merged_pr(
+    github: GitHubInspector,
+    inspector: GitInspector,
+    state: dict[str, Any],
+    observed_pr: Any,
+) -> tuple[Any, str]:
+    """Verify exact merged PR reality and target advancement."""
+    checked = github.require_pull_request(
+        observed_pr.number,
+        base_branch=str(state["target_branch"]),
+        head_branch=str(state["source_branch"]),
+        head_sha=str(state["source_head"]),
+        merged=True,
+    )
+    if checked.merged_at is None:
+        raise WorkflowError("Merged PR lacks merged_at")
+    if checked.base_sha != state["frozen_target_head"]:
+        raise WorkflowError("Merged PR base SHA differs from frozen target")
+    remote_target = inspector.remote_head(
+        "origin",
+        str(state["target_branch"]),
+    )
+    if remote_target == state["frozen_target_head"]:
+        raise WorkflowError(
+            "Remote target has not advanced after independently verified merge"
+        )
+    state["pull_request_number"] = checked.number
+    state["github_merge_commit_sha"] = checked.merge_commit_sha
+    state["post_merge_remote_head"] = remote_target
+    state["merge_commit_sha"] = None
+    return checked, remote_target
+
+
+def build_post_merge_refresh_proposal(
+    inspector: GitInspector,
+    writer: AtomicFileWriter,
+    run_dir: Path,
+    state: dict[str, Any],
+) -> dict[str, Any]:
+    """Emit the existing bounded graph-refresh mechanism after proven merge."""
+    proposal = OperatorGitProposal.build(
+        proposal_id=proposal_id(str(state["source_head"]), "post-merge-fetch"),
+        controller=WORKFLOW_ID,
+        repository=inspector.snapshot(),
+        authority_receipt=str(state["authority_receipt"]),
+        component_manifest=str(state["component_manifest"]),
+        boundary="other-git-mutation",
+        change_scope=tuple(state["changed_paths"]),
+        validation=continuation_validation(state),
+        command_argv=("git", "fetch", "origin", str(state["target_branch"])),
+        expected_result=(
+            "Refresh the local remote-tracking target after the verified merge; "
+            "no working-tree or branch content changes."
+        ),
+        risk="Updates local remote-tracking Git references only.",
+        rollback="No content rollback; verification fails closed on any mismatch.",
+        post_command_verification=(
+            "git.inspect verifies refreshed origin/main equals live remote main",
+            "git.inspect finds one exact merge commit with frozen target/source parents",
+            "git.inspect permits only descendants after that exact merge",
+        ),
+    )
+    next_path = run_dir / "operator-git-proposal-post-merge-fetch.json"
+    OperatorGitProposal.write(next_path, proposal, writer)
+    state["current_boundary"] = "other-git-mutation"
+    state["current_proposal"] = str(next_path)
+    return proposal
+
 def continue_promotion(
     *,
     repo: Path,
@@ -1356,139 +1465,157 @@ def continue_promotion(
     next_proposal: dict[str, Any] | None = None
     verification: dict[str, Any]
 
+    observed_pr: Any | None = None
+    observed_state: str | None = None
+    if boundary in {"pull-request-create", "pull-request-merge"}:
+        observed_pr = observe_exact_pull_request(github, state)
+        observed_state = classify_observed_pr_state(observed_pr)
+
     if boundary == "pull-request-create":
-        pr = github.find_pull_request(
-            base_branch=str(state["target_branch"]),
-            head_branch=str(state["source_branch"]),
-            head_sha=str(state["source_head"]),
-        )
-        if pr.merged or pr.state != "open" or pr.draft:
-            raise WorkflowError("Promotion PR is not an open non-draft PR")
-        checked = github.require_pull_request(
-            pr.number,
-            base_branch=str(state["target_branch"]),
-            head_branch=str(state["source_branch"]),
-            head_sha=str(state["source_head"]),
-            merged=False,
-            require_mergeable=True,
-        )
-        policy = json.loads((resolved_repo / POLICY_PATH).read_text(encoding="utf-8"))
-        check_runs = github.require_successful_checks(
-            head_sha=str(state["source_head"]),
-            required=required_github_checks(policy),
-        )
-        state["required_github_checks"] = [item.as_dict() for item in check_runs]
-        current_target = inspector.remote_head(
-            "origin", str(state["target_branch"])
-        )
-        if current_target != state["frozen_target_head"]:
+        if observed_state == "absent":
             raise WorkflowError(
-                "Target advanced after validation; rerun checkpoint promotion"
+                "Operator-confirmed PR creation is not visible for the exact source"
             )
-        if checked.base_sha != state["frozen_target_head"]:
-            raise WorkflowError("Promotion PR base SHA differs from frozen target")
-        state["pull_request_number"] = checked.number
-        github_policy = json.loads(
-            (resolved_repo / POLICY_PATH).read_text(encoding="utf-8")
-        )["github_repository"]
-        next_proposal = OperatorGitProposal.build_browser(
-            proposal_id=proposal_id(str(state["source_head"]), "pull-request-merge"),
-            controller=WORKFLOW_ID,
-            repository=inspector.snapshot(),
-            authority_receipt=str(state["authority_receipt"]),
-            component_manifest=str(state["component_manifest"]),
-            boundary="pull-request-merge",
-            change_scope=tuple(state["changed_paths"]),
-            validation=continuation_validation(state),
-            browser_action="merge-pull-request",
-            browser_url=github_pull_url(
-                github_policy,
-                pull_request_number=checked.number,
-            ),
-            expected_result=(
-                "Review the independently verified pull request, select Create a merge "
-                "commit if GitHub presents multiple merge methods, and click the final "
-                "merge confirmation."
-            ),
-            risk="Mutates main only after explicit operator approval in GitHub.",
-            rollback=(
-                "Do not approve if review is not complete; a merged change requires "
-                "a separately governed revert."
-            ),
-            post_interaction_verification=(
-                "github.inspect verifies merged state and exact source SHA",
-                "git.inspect verifies remote main equals the merge commit",
-                "an explicit operator fetch refreshes the local graph",
-            ),
-        )
-        next_path = run_dir / "operator-git-proposal-pr-merge.json"
-        OperatorGitProposal.write(next_path, next_proposal, writer)
-        state["current_boundary"] = "pull-request-merge"
-        state["current_proposal"] = str(next_path)
-        verification = {
-            "status": "pass",
-            "boundary": boundary,
-            "pull_request": checked.as_dict(),
-            "required_github_checks": [item.as_dict() for item in check_runs],
-            "frozen_target_head": current_target,
-        }
+        if observed_state == "invalid":
+            raise WorkflowError("Exact promotion PR is neither open nor merged")
+        check_runs = verify_required_checks(resolved_repo, github, state)
+
+        if observed_state == "merged":
+            checked, remote_target = verify_observed_merged_pr(
+                github,
+                inspector,
+                state,
+                observed_pr,
+            )
+            next_proposal = build_post_merge_refresh_proposal(
+                inspector,
+                writer,
+                run_dir,
+                state,
+            )
+            verification = {
+                "status": "pass",
+                "boundary": boundary,
+                "reconciled_from_boundary": boundary,
+                "observed_pr_state": observed_state,
+                "pull_request": checked.as_dict(),
+                "required_github_checks": check_runs,
+                "remote_target_head": remote_target,
+                "replayed_mutation": False,
+                "next_boundary": "post-merge-fetch",
+            }
+        else:
+            checked = github.require_pull_request(
+                observed_pr.number,
+                base_branch=str(state["target_branch"]),
+                head_branch=str(state["source_branch"]),
+                head_sha=str(state["source_head"]),
+                merged=False,
+                require_mergeable=True,
+            )
+            current_target = inspector.remote_head(
+                "origin",
+                str(state["target_branch"]),
+            )
+            if current_target != state["frozen_target_head"]:
+                raise WorkflowError(
+                    "Target advanced before independently verified merge"
+                )
+            if checked.base_sha != state["frozen_target_head"]:
+                raise WorkflowError(
+                    "Promotion PR base SHA differs from frozen target"
+                )
+            state["pull_request_number"] = checked.number
+            github_policy = json.loads(
+                (resolved_repo / POLICY_PATH).read_text(encoding="utf-8")
+            )["github_repository"]
+            next_proposal = OperatorGitProposal.build_browser(
+                proposal_id=proposal_id(
+                    str(state["source_head"]),
+                    "pull-request-merge",
+                ),
+                controller=WORKFLOW_ID,
+                repository=inspector.snapshot(),
+                authority_receipt=str(state["authority_receipt"]),
+                component_manifest=str(state["component_manifest"]),
+                boundary="pull-request-merge",
+                change_scope=tuple(state["changed_paths"]),
+                validation=continuation_validation(state),
+                browser_action="merge-pull-request",
+                browser_url=github_pull_url(
+                    github_policy,
+                    pull_request_number=checked.number,
+                ),
+                expected_result=(
+                    "Review the independently verified pull request, select "
+                    "Create a merge commit if GitHub presents multiple merge "
+                    "methods, and click the final merge confirmation."
+                ),
+                risk="Mutates main only after explicit operator approval in GitHub.",
+                rollback=(
+                    "Do not approve if review is not complete; a merged change "
+                    "requires a separately governed revert."
+                ),
+                post_interaction_verification=(
+                    "github.inspect verifies merged state and exact source SHA",
+                    "git.inspect verifies remote main contains the exact merge",
+                    "an explicit operator fetch refreshes the local graph",
+                ),
+            )
+            next_path = run_dir / "operator-git-proposal-pr-merge.json"
+            OperatorGitProposal.write(next_path, next_proposal, writer)
+            state["current_boundary"] = "pull-request-merge"
+            state["current_proposal"] = str(next_path)
+            verification = {
+                "status": "pass",
+                "boundary": boundary,
+                "observed_pr_state": observed_state,
+                "pull_request": checked.as_dict(),
+                "required_github_checks": check_runs,
+                "frozen_target_head": current_target,
+                "replayed_mutation": False,
+            }
 
     elif boundary == "pull-request-merge":
-        number = state.get("pull_request_number")
-        if not isinstance(number, int):
-            raise WorkflowError("Promotion state lacks PR number")
-        pr = github.require_pull_request(
-            number,
-            base_branch=str(state["target_branch"]),
-            head_branch=str(state["source_branch"]),
-            head_sha=str(state["source_head"]),
-            merged=True,
-        )
-        if pr.merged_at is None:
-            raise WorkflowError("Merged PR lacks merged_at")
-        if pr.base_sha != state["frozen_target_head"]:
-            raise WorkflowError("Merged PR base SHA differs from frozen target")
-        remote_target = inspector.remote_head(
-            "origin", str(state["target_branch"])
-        )
-        if remote_target == state["frozen_target_head"]:
+        if observed_state == "absent":
             raise WorkflowError(
-                "Remote target has not advanced after the independently verified merge"
+                "Exact promotion PR disappeared before merge verification"
             )
-        state["github_merge_commit_sha"] = pr.merge_commit_sha
-        state["post_merge_remote_head"] = remote_target
-        state["merge_commit_sha"] = None
-        next_proposal = OperatorGitProposal.build(
-            proposal_id=proposal_id(str(state["source_head"]), "post-merge-fetch"),
-            controller=WORKFLOW_ID,
-            repository=inspector.snapshot(),
-            authority_receipt=str(state["authority_receipt"]),
-            component_manifest=str(state["component_manifest"]),
-            boundary="other-git-mutation",
-            change_scope=tuple(state["changed_paths"]),
-            validation=continuation_validation(state),
-            command_argv=("git", "fetch", "origin", str(state["target_branch"])),
-            expected_result=(
-                "Refresh the local remote-tracking target after the verified merge; "
-                "no working-tree or branch content changes."
-            ),
-            risk="Updates local remote-tracking Git references only.",
-            rollback="No content rollback; verification fails closed on any mismatch.",
-            post_command_verification=(
-                "git.inspect verifies refreshed origin/main equals live remote main",
-                "git.inspect finds one exact merge commit whose first parent is the frozen target and second parent is the frozen source",
-                "git.inspect permits only descendant post-merge automation commits after that exact merge",
-            ),
+        if observed_state == "invalid":
+            raise WorkflowError(
+                "Exact promotion PR is in an invalid continuation state"
+            )
+        if observed_state == "open":
+            raise WorkflowError(
+                "Operator-confirmed merge is not yet independently observable"
+            )
+        prior_number = state.get("pull_request_number")
+        if isinstance(prior_number, int) and prior_number != observed_pr.number:
+            raise WorkflowError(
+                "Observed exact PR number differs from persisted recovery context"
+            )
+        check_runs = verify_required_checks(resolved_repo, github, state)
+        checked, remote_target = verify_observed_merged_pr(
+            github,
+            inspector,
+            state,
+            observed_pr,
         )
-        next_path = run_dir / "operator-git-proposal-post-merge-fetch.json"
-        OperatorGitProposal.write(next_path, next_proposal, writer)
-        state["current_boundary"] = "other-git-mutation"
-        state["current_proposal"] = str(next_path)
+        next_proposal = build_post_merge_refresh_proposal(
+            inspector,
+            writer,
+            run_dir,
+            state,
+        )
         verification = {
             "status": "pass",
             "boundary": boundary,
-            "pull_request": pr.as_dict(),
+            "reconciled_from_boundary": boundary,
+            "observed_pr_state": observed_state,
+            "pull_request": checked.as_dict(),
+            "required_github_checks": check_runs,
             "remote_target_head": remote_target,
+            "replayed_mutation": False,
             "next_boundary": "post-merge-fetch",
         }
 
@@ -1712,7 +1839,27 @@ def self_test() -> int:
     assert "quick_pull=1" in create["browser"]["url"]
     assert create["operator_contract"]["execution_mode"] == "browser-review"
     assert merge["operator_contract"]["pasted_output_required"] is False
+    open_pr = type(
+        "FixtureOpenPR",
+        (),
+        {"merged": False, "state": "open", "draft": False},
+    )()
+    merged_pr = type(
+        "FixtureMergedPR",
+        (),
+        {"merged": True, "state": "closed", "draft": False},
+    )()
+    invalid_pr = type(
+        "FixtureInvalidPR",
+        (),
+        {"merged": False, "state": "closed", "draft": False},
+    )()
+    assert classify_observed_pr_state(None) == "absent"
+    assert classify_observed_pr_state(open_pr) == "open"
+    assert classify_observed_pr_state(merged_pr) == "merged"
+    assert classify_observed_pr_state(invalid_pr) == "invalid"
     print("PASS PR-create and PR-merge use browser-backed operator approval")
+    print("PASS continuation classifies independently observed PR reality")
     print("PASS pre-promotion source reconciliation uses explicit merge and push proposals")
     print("PASS post-merge Git graph refresh remains an explicit operator boundary")
     print("PASS workflow has no autonomous Git or GitHub mutation")
