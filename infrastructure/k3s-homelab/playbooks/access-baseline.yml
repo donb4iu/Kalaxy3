@@ -8,6 +8,7 @@
     kalaxy3_controller_public_keys: |-
       {{ lookup('ansible.builtin.file', playbook_dir + '/../access/controller-keys/donb-mac-mini-ed25519.pub') }}
       {{ lookup('ansible.builtin.file', playbook_dir + '/../access/controller-keys/donbs-imac-rsa.pub') }}
+      {{ lookup('ansible.builtin.file', playbook_dir + '/../access/controller-keys/donalds-macbook-pro-ed25519.pub') }}
     kalaxy3_canonical_sudoers_file: /etc/sudoers.d/90-kalaxy3-ansible-admin
 
   tasks:
