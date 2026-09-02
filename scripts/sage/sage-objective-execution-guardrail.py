@@ -32,6 +32,8 @@ def main() -> int:
         "routine_followup_interventions",
         "sage-llm-path-critic-request",
         "sage-path-critic-causal-observation",
+        "objective-episode-projection.json",
+        "base_episode_sha256",
         "autonomous_migration",
         "continue_branch_lifecycle",
         "ACTIVE_OBJECTIVE_PATH_MODEL",
@@ -73,6 +75,7 @@ def main() -> int:
     print("PASS branch lifecycle delegates Git mechanics rather than exposing them as the active SAGE objective graph")
     print("PASS local correction and true replan remain distinct")
     print("PASS path critic is causal evidence without migration authority")
+    print("PASS completed episodes project recorded lessons without rewriting critic input")
     print("PASS planning-time critic challenges ownership, repeated state/graph structure, and alternative representations")
     print("Kalaxy3 SAGE objective execution guardrail: PASS")
     return 0
