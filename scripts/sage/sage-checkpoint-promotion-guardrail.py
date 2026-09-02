@@ -40,6 +40,25 @@ def main() -> int:
         "post-interaction GitHub verification disabled",
     )
     require(
+        promotion.get("continuation_uses_observed_git_github_state") is True,
+        "observed-state continuation disabled",
+    )
+    require(
+        promotion.get("remembered_boundary_is_recovery_context") is True,
+        "persisted boundary became mechanical chronology authority",
+    )
+    require(
+        promotion.get("replay_satisfied_mutation_forbidden") is True,
+        "satisfied Git/GitHub mutation replay is allowed",
+    )
+    require(
+        promotion.get(
+            "operator_boundaries_are_capabilities_not_required_sequence"
+        )
+        is True,
+        "operator boundary list became a mandatory chronology",
+    )
+    require(
         promotion["operator_boundaries"]
         == ["pull-request-create", "pull-request-merge", "post-merge-fetch"],
         "promotion operator boundaries changed",
@@ -94,6 +113,22 @@ def main() -> int:
     require("existing_pr_merge_proposal(" in workflow and "required=False" in workflow and "existing_pull_request_reused" in workflow, "existing exact PR re-entry composition missing")
     require("github_pull_url(" in workflow, "prepared PR-merge browser URL missing")
     require("validate_browser_operator_result(" in workflow, "browser confirmation binding missing")
+    require(
+        "classify_observed_pr_state(" in workflow
+        and "observe_exact_pull_request(" in workflow,
+        "continuation does not derive state from independent PR observation",
+    )
+    require(
+        '"observed_pr_state": observed_state' in workflow
+        and '"reconciled_from_boundary": boundary' in workflow
+        and '"replayed_mutation": False' in workflow,
+        "observed-state recovery evidence contract missing",
+    )
+    require(
+        'if observed_state == "merged":' in workflow
+        and "build_post_merge_refresh_proposal(" in workflow,
+        "already-merged exact PR does not reconcile forward",
+    )
     require('("gh", "pr"' not in workflow, "checkpoint promotion still requires GitHub CLI")
     require(
         "urllib" not in workflow and "http.client" not in workflow,
@@ -168,6 +203,8 @@ def main() -> int:
     print("PASS exact frozen-source GitHub Actions checks are required before merge proposal")
     print("PASS disjoint-path pre-promotion source reconciliation is operator-executed and re-enters promotion")
     print("PASS PR mutation uses prepared browser-review operator proposals")
+    print("PASS continuation derives next semantic state from observed PR reality")
+    print("PASS satisfied PR mutations are not replayed from persisted boundary context")
     print("PASS exact already-open PR may satisfy the create boundary without duplicate mutation")
     print("PASS post-merge refresh remains an exact operator Git proposal")
     print("PASS nullable GitHub merge SHA falls back to exact post-fetch Git merge topology")

@@ -55,7 +55,11 @@
                 "name": "Portable OCI stage artifact",
                 "app_slug": "github-actions"
             }
-        ]
+        ],
+        "continuation_uses_observed_git_github_state": true,
+        "remembered_boundary_is_recovery_context": true,
+        "replay_satisfied_mutation_forbidden": true,
+        "operator_boundaries_are_capabilities_not_required_sequence": true
     },
     "gate_rules": [
         {
