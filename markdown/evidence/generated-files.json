@@ -9,6 +9,7 @@
     "markdown/evidence/index.md",
     "markdown/evidence/legacy.md",
     "markdown/evidence/migration-report.md",
+    "markdown/evidence/sections/architecture.md",
     "markdown/evidence/sections/benchmarks.md",
     "markdown/evidence/sections/finops.md",
     "markdown/evidence/sections/governance.md",
@@ -52,6 +53,7 @@
     "markdown/evidence/subjects/sage-enforcement-guardrails.md",
     "markdown/evidence/subjects/sage-evidence-catalog.md",
     "markdown/evidence/subjects/sage-generated-helper-runtime-validation.md",
+    "markdown/evidence/subjects/sage-human-participation-adapter.md",
     "markdown/evidence/subjects/sage-record-schema.md",
     "markdown/evidence/subjects/ubuntu-installation.md",
     "markdown/evidence/subjects/ubuntu-node-provisioning.md"
