@@ -1,0 +1,148 @@
+{
+  "schema_version": "1.0",
+  "producer_class": "llm",
+  "producer_model": "GPT-5.6 Sol",
+  "corpus_sha256": "53a75cee7e72db995bb6bbd60fe746841d0aa3318cc8da2652ad37d426eadbe7",
+  "semantic_claim_status": "llm_derived_not_fact",
+  "experience_themes": [
+    {
+      "theme": "governed_delivery_and_artifact_integrity",
+      "epistemic_status": "llm_derived",
+      "why_this_theme": "The bounded corpus contains repeated evidence around portable execution, artifact identity, promotion, runtime delivery validation, and controls introduced after delivery defects.",
+      "evidence_refs": [
+        "SAGE-ACTION-20260815-002",
+        "SAGE-ACTION-20260730-001",
+        "SAGE-K3-SAGE-20260806-001"
+      ],
+      "what_the_experience_suggests": "SAGE has meaningful engineering experience in preserving delivery provenance and using validated controls to reduce rebuild or generated-helper ambiguity.",
+      "limits": [
+        "This is an LLM synthesis of a bounded corpus, not a general competence claim.",
+        "Current runtime readiness is not established by historical delivery evidence."
+      ]
+    },
+    {
+      "theme": "recovery_by_reconciling_observed_state",
+      "epistemic_status": "llm_derived",
+      "why_this_theme": "Lessons and later actions repeatedly emphasize reconciling actual external state, retrieving prior failure experience, and avoiding stale continuation assumptions.",
+      "evidence_refs": [
+        "SAGE-LESSON-20260728-005",
+        "SAGE-LESSON-20260801-001"
+      ],
+      "what_the_experience_suggests": "When execution diverges from expectation, SAGE has accumulated useful experience favoring observed-state reconciliation and evidence-guided correction over mechanical replay.",
+      "limits": [
+        "The evidence does not prove that every recovery can be automated.",
+        "Authority and material path changes can still require Architect re-entry."
+      ]
+    },
+    {
+      "theme": "evidence_driven_execution_and_learning",
+      "epistemic_status": "llm_derived",
+      "why_this_theme": "The corpus includes explicit causal-evidence and failure-attribution work together with retrospective evidence showing repeated correction costs before stronger controls existed.",
+      "evidence_refs": [
+        "SAGE-ACTION-20260827-001",
+        "SAGE-ACTION-20260823-002",
+        "SAGE-REVIEW-20260730-001"
+      ],
+      "what_the_experience_suggests": "SAGE has accumulated experience turning failures, corrections, and completed objective evidence into reusable causal learning rather than treating execution history as disposable logs.",
+      "limits": [
+        "One episode or one successful control does not establish general maturity.",
+        "The usefulness of a past lesson to a new objective still requires contextual judgment."
+      ]
+    },
+    {
+      "theme": "runtime_guardrails_and_observability",
+      "epistemic_status": "llm_derived",
+      "why_this_theme": "The corpus contains runtime validation, guardrail, and observability evidence, although the current repository projection did not surface direct current zero-trust runtime proof.",
+      "evidence_refs": [
+        "SAGE-K3-GUARDRAIL-20260731-001",
+        "SAGE-K3-SAGE-20260806-001"
+      ],
+      "what_the_experience_suggests": "SAGE has relevant runtime-validation experience, but the available repository evidence should not be overstated as current zero-trust readiness.",
+      "limits": [
+        "Executor-local runtime receipts are unavailable on this machine.",
+        "Historical runtime guardrail evidence is not equivalent to current external-access proof."
+      ]
+    }
+  ],
+  "intent_applicability": [
+    {
+      "intent_area": "portable_delivery",
+      "semantic_relationship": "directly_relevant",
+      "epistemic_status": "llm_derived",
+      "why": "SAGE-ACTION-20260815-002 explicitly addresses portable stage execution, artifact promotion, engine-neutral orchestration, and governed phasing, which overlaps materially with the current intent's portable-build and exact-promotion concerns.",
+      "evidence_refs": [
+        "SAGE-ACTION-20260815-002"
+      ],
+      "assumptions": [
+        "The current objective still uses comparable artifact identity and promotion semantics.",
+        "The current delivery target has not invalidated the prior execution assumptions."
+      ],
+      "unknowns": [
+        "Whether the current cluster and publication path are presently ready.",
+        "Whether all runtime receipts needed for the proof are available from this executor."
+      ],
+      "implication": "Reuse the proven artifact/provenance constraints as a starting prior, but revalidate them against the current target before execution.",
+      "transfer_decision": "requires_architect_judgment"
+    },
+    {
+      "intent_area": "runtime_access",
+      "semantic_relationship": "analogous",
+      "epistemic_status": "llm_derived",
+      "why": "The retrieved repository evidence demonstrates runtime validation and guardrail experience, but it does not directly establish the present zero-trust external-access state; executor-local runtime receipts are unavailable here.",
+      "evidence_refs": [
+        "SAGE-K3-GUARDRAIL-20260731-001",
+        "SAGE-K3-SAGE-20260806-001"
+      ],
+      "assumptions": [
+        "Past runtime-validation patterns are still useful for designing the current readiness check."
+      ],
+      "unknowns": [
+        "Current Cloudflare/MFA/negative-access behavior.",
+        "Current cluster health and externally reachable workload state."
+      ],
+      "implication": "Treat prior runtime experience as design guidance, not proof; a small current-state readiness check has high information value.",
+      "transfer_decision": "requires_architect_judgment"
+    },
+    {
+      "intent_area": "recovery_and_operator_effort",
+      "semantic_relationship": "directly_relevant",
+      "epistemic_status": "llm_derived",
+      "why": "The retrieved lesson explicitly says to reconcile remote state before cohesive mutation and promotion, directly matching the current goal of avoiding unnecessary operator-mediated replay when external state has advanced.",
+      "evidence_refs": [
+        "SAGE-LESSON-20260728-005"
+      ],
+      "assumptions": [
+        "Recovery still crosses Git/GitHub or another externally mutable boundary."
+      ],
+      "unknowns": [
+        "How much of the current end-to-end path will require recovery at all."
+      ],
+      "implication": "Prefer observed-state reconciliation and bounded correction over replaying stale mechanical steps.",
+      "transfer_decision": "requires_architect_judgment"
+    }
+  ],
+  "innovation_beyond_experience": [
+    {
+      "proposal": "Use a meaningful first-party Human Participation change as the workload for the eventual end-to-end proof.",
+      "why": "It could make stakeholder value and delivery proof part of the same episode rather than spending effort on a disposable demo.",
+      "epistemic_status": "llm_proposed",
+      "experience_dependency": "none",
+      "decision_authority": "Architect"
+    },
+    {
+      "proposal": "Run only a bounded current-state readiness check before the full live episode if runtime uncertainty remains decision-relevant.",
+      "why": "This buys information about a possible blocker without turning the objective into infrastructure modernization.",
+      "epistemic_status": "llm_proposed",
+      "experience_dependency": "analogous_experience_informs_shape_only",
+      "decision_authority": "Architect"
+    },
+    {
+      "proposal": "If current evidence contradicts a historical lesson, preserve the contradiction and let the newer objective context drive a revised path rather than forcing reuse.",
+      "why": "Accumulated experience should improve priors, not constrain innovation or freeze old architecture.",
+      "epistemic_status": "llm_proposed",
+      "experience_dependency": "none",
+      "decision_authority": "Architect"
+    }
+  ],
+  "architect_authority": "Architect decides objectives, trade-offs, and whether to transfer experience into action."
+}

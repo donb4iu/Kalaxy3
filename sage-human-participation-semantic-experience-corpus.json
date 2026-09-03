@@ -1,0 +1,3113 @@
+{
+  "completeness_claim": "not_exhaustive",
+  "corpus_scope": "bounded_governed_experience_snapshot",
+  "corpus_sha256": "53a75cee7e72db995bb6bbd60fe746841d0aa3318cc8da2652ad37d426eadbe7",
+  "open_retrieval": {
+    "algorithm_version": "deterministic-token-overlap-v2",
+    "policy_sha256": "b0a1c5f052df1748df630b0d9d871fe21c1f26668c442cd3a1e23a6baaffc34a",
+    "request": "Retrieve a broad bounded snapshot of accumulated Kalaxy3 SAGE engineering experience across objectives, outcomes, evidence, lessons, failures, recovery, delivery, artifact integrity, runtime, security, observability, operations, architecture, governance, human participation, corrections, causal learning, and improvement actions. This is an experience-corpus input for LLM synthesis, not an applicability or competence query.",
+    "result_count": 40,
+    "retrieval_basis_sha256": "e907ee6c0417892819094a6e551e9af65e9a01f8d67c7311969cfb34892415b8"
+  },
+  "records": [
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "completed",
+            "path"
+          ],
+          "source_field": "summary",
+          "value": "Project: Kalaxy3 Completed: July 20, 2026, America/Chicago Kubernetes timestamps: July 21, 2026 UTC Target path: markdown/installation/kalaxy3-protected-ui-installation-evidence.md Traefik LoadBalancer address: 192.168.2.20"
+        },
+        {
+          "matched_terms": [
+            "evidence"
+          ],
+          "source_field": "title",
+          "value": "Kalaxy3 Protected Longhorn and Prometheus UI Installation Evidence and Rebuild Guide"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "low"
+      },
+      "evidence_ref": "LEGACY-K3-17E662A712",
+      "origins": [
+        "experience_inventory_projection"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-20"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "historical",
+      "title": "Kalaxy3 Protected Longhorn and Prometheus UI Installation Evidence and Rebuild Guide"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "target",
+            "validated"
+          ],
+          "source_field": "summary",
+          "value": "Project: Kalaxy3 Validated: July 17, 2026 Target path: markdown/installation/kalaxy3-minio-installation-evidence.md"
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "rebuild"
+          ],
+          "source_field": "title",
+          "value": "Kalaxy3 MinIO Installation Evidence and Rebuild Guide"
+        },
+        {
+          "matched_terms": [
+            "evidence"
+          ],
+          "source_field": "primary_subject",
+          "value": "MinIO Installation Evidence"
+        },
+        {
+          "matched_terms": [
+            "rebuild"
+          ],
+          "source_field": "nav_title",
+          "value": "MinIO installation and Rebuild Guide"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "low"
+      },
+      "evidence_ref": "LEGACY-K3-B9C5D4B188",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-17"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "historical",
+      "title": "Kalaxy3 MinIO Installation Evidence and Rebuild Guide"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "not",
+            "participation",
+            "sage"
+          ],
+          "source_field": "summary",
+          "value": "Status: Architect-owned epic; implementation not yet started Product intent: improve stakeholder participation and tactical attention allocation Execution model: existing governed SAGE objective-execution methodology remains authoritative Architecture-explorer status: separate technical due-diligence deliverable, not the first product priority"
+        },
+        {
+          "matched_terms": [
+            "human",
+            "participation",
+            "sage"
+          ],
+          "source_field": "primary_subject",
+          "value": "SAGE Human Participation Adapter"
+        },
+        {
+          "matched_terms": [
+            "human",
+            "participation",
+            "sage"
+          ],
+          "source_field": "title",
+          "value": "SAGE Human Participation Adapter \u2014 Architect Epic"
+        },
+        {
+          "matched_terms": [
+            "human",
+            "participation"
+          ],
+          "source_field": "nav_title",
+          "value": "Human Participation Adapter \u2014 Architect Epic"
+        },
+        {
+          "matched_terms": [
+            "architecture"
+          ],
+          "source_field": "nav_section",
+          "value": "architecture"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "low"
+      },
+      "evidence_ref": "LEGACY-K3-D2AEC96351",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-09-02"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "historical",
+      "title": "SAGE Human Participation Adapter \u2014 Architect Epic"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "completed",
+            "path"
+          ],
+          "source_field": "summary",
+          "value": "Project: Kalaxy3 Completed: July 19, 2026, America/Chicago Kubernetes timestamps: July 20, 2026 UTC Target path: markdown/installation/kalaxy3-amd64-node-and-longhorn-installation-evidence.md Node: amd64-01 Node address: 192.168.2.61 K3s version: v1.36.2+k3s1 Longhorn version: v1.12.0"
+        },
+        {
+          "matched_terms": [
+            "evidence"
+          ],
+          "source_field": "title",
+          "value": "Kalaxy3 AMD64 Node and Longhorn Installation Evidence and Rebuild Guide"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "low"
+      },
+      "evidence_ref": "LEGACY-K3-F5F16E53BD",
+      "origins": [
+        "experience_inventory_projection"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-19"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "historical",
+      "title": "Kalaxy3 AMD64 Node and Longhorn Installation Evidence and Rebuild Guide"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "audit",
+            "human",
+            "participation",
+            "sage"
+          ],
+          "source_field": "title",
+          "value": "SAGE Human Participation Introspection-Contract Audit"
+        },
+        {
+          "matched_terms": [
+            "human",
+            "participation",
+            "sage"
+          ],
+          "source_field": "primary_subject",
+          "value": "SAGE Human Participation Introspection"
+        },
+        {
+          "matched_terms": [
+            "audit",
+            "human",
+            "participation"
+          ],
+          "source_field": "nav_title",
+          "value": "Human Participation Introspection-Contract Audit"
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "summary",
+          "value": "Purpose: determine what SAGE can truthfully project before UI work."
+        },
+        {
+          "matched_terms": [
+            "architecture"
+          ],
+          "source_field": "nav_section",
+          "value": "architecture"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "low"
+      },
+      "evidence_ref": "LEGACY-K3-FC175F71D0",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-09-02"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "historical",
+      "title": "SAGE Human Participation Introspection-Contract Audit"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "validation"
+          ],
+          "source_field": "summary",
+          "value": "Documents the staged replacement of Daux with MkDocs Material, strict build and navigation validation, GitHub Pages publication, rollback, and remaining review gaps."
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "architecture"
+          ],
+          "source_field": "owner",
+          "value": "Kalaxy3 architecture"
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "tags[0]",
+          "value": "sage"
+        },
+        {
+          "matched_terms": [
+            "evidence"
+          ],
+          "source_field": "title",
+          "value": "Kalaxy3 Daux-to-MkDocs Material Documentation Publication Migration Evidence"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-DOCS-20260729-001",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-29"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "Kalaxy3 Daux-to-MkDocs Material Documentation Publication Migration Evidence"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "evidence",
+            "integrity",
+            "sage"
+          ],
+          "source_field": "summary",
+          "value": "Kalaxy3 now has a repository-owned SAGE evidence publication process that replaces session-specific packaging and Git instructions with a stable contract. Evidence generators must produce one ZIP containing sage-package.json and a canonical payload/; scripts/sage/sage-publish.py validates package integrity, SAGE record structure, claim-to-evidence referen..."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "sage"
+          ],
+          "source_field": "title",
+          "value": "Repeatable SAGE Evidence Package Generation and Git Publication Process"
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "primary_subject",
+          "value": "Kalaxy3 SAGE evidence-record standard 1.0"
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "tags[0]",
+          "value": "sage"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-GOVERNANCE-20260725-001",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-25"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "Repeatable SAGE Evidence Package Generation and Git Publication Process"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "sage",
+            "validation"
+          ],
+          "source_field": "summary",
+          "value": "Kalaxy3 SAGE metadata is now defined by a schema 1.1 machine-readable contract, a matching record standard and template, and publisher validation that rejects missing, extra, reordered, renamed, or inconsistent metadata. Every new record must contain an exact YAML field set, an exact human-readable Record metadata table, normalized timestamps, timezones,..."
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "tags[0]",
+          "value": "sage"
+        },
+        {
+          "matched_terms": [
+            "governance"
+          ],
+          "source_field": "tags[1]",
+          "value": "governance"
+        },
+        {
+          "matched_terms": [
+            "evidence"
+          ],
+          "source_field": "tags[3]",
+          "value": "evidence"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-GOVERNANCE-20260725-002",
+      "origins": [
+        "experience_inventory_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-25"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "Canonical SAGE metadata contract and publisher enforcement"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "evidence",
+            "sage"
+          ],
+          "source_field": "summary",
+          "value": "Adds strict navigation metadata for new SAGE records while preserving and indexing schema 1.0, schema 1.1, and pre-SAGE evidence without rewriting historical source files."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "sage"
+          ],
+          "source_field": "primary_subject",
+          "value": "SAGE evidence catalog"
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "sage"
+          ],
+          "source_field": "title",
+          "value": "Backward-Compatible SAGE Evidence Navigation and Legacy Reconciliation"
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "governance"
+          ],
+          "source_field": "nav_section",
+          "value": "governance"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-GOVERNANCE-20260725-003",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-25"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "Backward-Compatible SAGE Evidence Navigation and Legacy Reconciliation"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "decision",
+            "sage"
+          ],
+          "source_field": "summary",
+          "value": "Documents the machine-local Helm escape path, the missing preventive SAGE controls, and the decision to checkpoint and pause centralized logging until repository and admission guardrails are implemented."
+        },
+        {
+          "matched_terms": [
+            "guardrail",
+            "sage"
+          ],
+          "source_field": "title",
+          "value": "SAGE Guardrail Gap Discovery and Centralized Logging Work Pause"
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "primary_subject",
+          "value": "SAGE enforcement guardrails"
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "governance"
+          ],
+          "source_field": "nav_section",
+          "value": "governance"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-GOVERNANCE-20260726-002",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-26"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "SAGE Guardrail Gap Discovery and Centralized Logging Work Pause"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "governance"
+          ],
+          "source_field": "nav_section",
+          "value": "governance"
+        },
+        {
+          "matched_terms": [
+            "governance"
+          ],
+          "source_field": "source_path",
+          "value": "markdown/governance/kalaxy3-daux-landing-page-sage-evidence.md"
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "tags[0]",
+          "value": "sage"
+        },
+        {
+          "matched_terms": [
+            "governance"
+          ],
+          "source_field": "tags[1]",
+          "value": "governance"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-GOVERNANCE-20260726-003",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-26"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "Kalaxy3 Daux Landing Page Source and Local Render Validation"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "evidence",
+            "guardrail",
+            "recovery",
+            "runtime",
+            "validation"
+          ],
+          "source_field": "title",
+          "value": "Actionable Guardrail Recovery and Active Centralized Logging Runtime Validation Evidence"
+        },
+        {
+          "matched_terms": [
+            "recovery",
+            "sage",
+            "validation"
+          ],
+          "source_field": "summary",
+          "value": "Documents the reusable SAGE actionable-failure framework, centralized-logging lifecycle recovery, vault-tolerant metadata handling, and live seven-node Loki validation."
+        },
+        {
+          "matched_terms": [
+            "failures",
+            "sage"
+          ],
+          "source_field": "primary_subject",
+          "value": "SAGE actionable failures"
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "governance"
+          ],
+          "source_field": "nav_section",
+          "value": "governance"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-GUARDRAIL-20260731-001",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-31"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "Actionable Guardrail Recovery and Active Centralized Logging Runtime Validation Evidence"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "evidence",
+            "guardrail",
+            "validation"
+          ],
+          "source_field": "title",
+          "value": "PR #5 CI Portability Repair and Source-Only Guardrail Validation Evidence"
+        },
+        {
+          "matched_terms": [
+            "runtime",
+            "validation"
+          ],
+          "source_field": "summary",
+          "value": "Documents the three post-publication CI repairs that separated repository authority from runtime prerequisites and made PR 5 source-only guardrails pass without weakening operator-runtime validation."
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "primary_subject",
+          "value": "SAGE CI portability"
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "governance"
+          ],
+          "source_field": "nav_section",
+          "value": "governance"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-GUARDRAIL-20260731-002",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-31"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "PR #5 CI Portability Repair and Source-Only Guardrail Validation Evidence"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "evidence",
+            "observability"
+          ],
+          "source_field": "title",
+          "value": "Iterative SAGE-Governed Observability Staging and Activation-Readiness Evidence"
+        },
+        {
+          "matched_terms": [
+            "validation"
+          ],
+          "source_field": "summary",
+          "value": "Documents the iterative ChatGPT-SAGE discovery, correction, validation, commit, and push cycle that made Kalaxy3 centralized logging activation-ready without deploying Loki or Fluent Bit."
+        },
+        {
+          "matched_terms": [
+            "observability"
+          ],
+          "source_field": "primary_subject",
+          "value": "Centralized observability logging"
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "nav_title",
+          "value": "Stage centralized logging through SAGE guardrails"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-OBS-20260728-001",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-28"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "Iterative SAGE-Governed Observability Staging and Activation-Readiness Evidence"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "evidence",
+            "runtime",
+            "validation"
+          ],
+          "source_field": "title",
+          "value": "Centralized Logging Activation, Deployment, Correction, and Runtime Validation Evidence"
+        },
+        {
+          "matched_terms": [
+            "health"
+          ],
+          "source_field": "summary",
+          "value": "Documents activating and deploying Loki and Fluent Bit, correcting Grafana datasource reconciliation, and validating storage, all-node collection, Grafana health, and queryable logs."
+        },
+        {
+          "matched_terms": [
+            "observability"
+          ],
+          "source_field": "primary_subject",
+          "value": "Centralized observability logging"
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "observability"
+          ],
+          "source_field": "nav_title",
+          "value": "Deploy centralized logging observability"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-OBS-20260728-002",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-28"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "Centralized Logging Activation, Deployment, Correction, and Runtime Validation Evidence"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "audit",
+            "evidence",
+            "sage"
+          ],
+          "source_field": "nav_title",
+          "value": "Audit centralized logging SAGE evidence quality"
+        },
+        {
+          "matched_terms": [
+            "audit",
+            "evidence",
+            "sage"
+          ],
+          "source_field": "title",
+          "value": "External Audit of Centralized Logging SAGE Evidence Quality and Prompt Equivalence"
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "summary",
+          "value": "Independently audits SAGE-K3-OBS-20260728-002 against the Kalaxy3 schema 1.2 quality contract and confirms it meets the generic SAGE prompt baseline while providing stronger specificity and traceability."
+        },
+        {
+          "matched_terms": [
+            "observability"
+          ],
+          "source_field": "primary_subject",
+          "value": "Centralized observability logging"
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-OBS-20260728-003",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-28"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "External Audit of Centralized Logging SAGE Evidence Quality and Prompt Equivalence"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "evidence",
+            "recovery",
+            "runtime",
+            "validation"
+          ],
+          "source_field": "title",
+          "value": "Active Centralized Logging Runtime Validation and SAGE-Governed Recovery Evidence"
+        },
+        {
+          "matched_terms": [
+            "across",
+            "recovery"
+          ],
+          "source_field": "summary",
+          "value": "Validates Loki and Fluent Bit across all seven Kalaxy3 nodes, preserves failed operator paths, and records the repository-governed recovery and cluster guardrails."
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "tags[0]",
+          "value": "sage"
+        },
+        {
+          "matched_terms": [
+            "observability"
+          ],
+          "source_field": "tags[4]",
+          "value": "observability"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-OBS-20260804-001",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-08-04"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "Active Centralized Logging Runtime Validation and SAGE-Governed Recovery Evidence"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "evidence",
+            "failure",
+            "recovery",
+            "sage"
+          ],
+          "source_field": "summary",
+          "value": "Validates repository-owned Grafana telemetry, a 20-panel operations dashboard, two actionable Prometheus alerts, their live acceptance, failure recovery, and SAGE evidence capture."
+        },
+        {
+          "matched_terms": [
+            "observability"
+          ],
+          "source_field": "primary_subject",
+          "value": "Grafana operations observability"
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "tags[0]",
+          "value": "sage"
+        },
+        {
+          "matched_terms": [
+            "observability"
+          ],
+          "source_field": "tags[1]",
+          "value": "observability"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-OBSERVABILITY-20260802-001",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-08-02"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "Validated Grafana operations dashboard, telemetry, and alerting"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "recovery"
+          ],
+          "source_field": "summary",
+          "value": "Verifies live Fluent Bit and Loki availability SLO recording rules, inactive alert state, lifecycle-safe activation, and guarded evidence-capture recovery."
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "tags[0]",
+          "value": "sage"
+        },
+        {
+          "matched_terms": [
+            "observability"
+          ],
+          "source_field": "tags[1]",
+          "value": "observability"
+        },
+        {
+          "matched_terms": [
+            "evidence"
+          ],
+          "source_field": "title",
+          "value": "Centralized Logging Availability SLO Activation and Failure-Recovery Evidence"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-OBSERVABILITY-20260802-002",
+      "origins": [
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-08-02"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "Centralized Logging Availability SLO Activation and Failure-Recovery Evidence"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "failures",
+            "sage",
+            "validation"
+          ],
+          "source_field": "summary",
+          "value": "Documents the repository-owned SAGE continuous-improvement foundation, its staged lifecycle controls, validation results, preserved failures, and closed deployment gate."
+        },
+        {
+          "matched_terms": [
+            "improvement",
+            "sage"
+          ],
+          "source_field": "primary_subject",
+          "value": "SAGE continuous improvement"
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "sage"
+          ],
+          "source_field": "title",
+          "value": "Kalaxy3 SAGE Continuous-Improvement Foundation Staged Implementation Evidence"
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "governance"
+          ],
+          "source_field": "nav_section",
+          "value": "governance"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-SAGE-20260729-001",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-29"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "Kalaxy3 SAGE Continuous-Improvement Foundation Staged Implementation Evidence"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "sage",
+            "validation"
+          ],
+          "source_field": "summary",
+          "value": "Documents the first repository-owned live SAGE metrics pilot, truthful null handling, scalar-neutral predictions, repository-only lifecycle validation, and closed deployment gate."
+        },
+        {
+          "matched_terms": [
+            "improvement",
+            "sage"
+          ],
+          "source_field": "primary_subject",
+          "value": "SAGE continuous improvement metrics pilot"
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "sage"
+          ],
+          "source_field": "title",
+          "value": "Kalaxy3 SAGE Fully Instrumented Metrics Pilot Implementation Evidence"
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "governance"
+          ],
+          "source_field": "nav_section",
+          "value": "governance"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-SAGE-20260729-002",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-30"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "Kalaxy3 SAGE Fully Instrumented Metrics Pilot Implementation Evidence"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "evidence",
+            "improvement",
+            "sage"
+          ],
+          "source_field": "title",
+          "value": "SAGE Metrics Pilot Post-Session Closeout and Runtime-Validation Improvement Action Evidence"
+        },
+        {
+          "matched_terms": [
+            "improvement",
+            "lesson"
+          ],
+          "source_field": "summary",
+          "value": "Validates the metrics-pilot post-session review, recurring helper-runtime lesson, populated action-registry controls, and registration of the resulting improvement action."
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "primary_subject",
+          "value": "SAGE continuous-improvement closeout"
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        },
+        {
+          "matched_terms": [
+            "governance"
+          ],
+          "source_field": "nav_section",
+          "value": "governance"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-SAGE-20260731-001",
+      "origins": [
+        "experience_inventory_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-07-31"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "SAGE Metrics Pilot Post-Session Closeout and Runtime-Validation Improvement Action Evidence"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "delivery",
+            "evidence",
+            "guardrail",
+            "recovery",
+            "runtime",
+            "validated"
+          ],
+          "source_field": "title",
+          "value": "Validated Generated-Helper Runtime Delivery Guardrail and Recovery Evidence"
+        },
+        {
+          "matched_terms": [
+            "delivery",
+            "failure",
+            "recovery",
+            "runtime"
+          ],
+          "source_field": "summary",
+          "value": "Validates the repository-owned generated-helper delivery composition, its failure recovery, exact runtime checks, and the remaining five-delivery measurement gate."
+        },
+        {
+          "matched_terms": [
+            "runtime",
+            "sage",
+            "validation"
+          ],
+          "source_field": "primary_subject",
+          "value": "SAGE generated-helper runtime validation"
+        },
+        {
+          "matched_terms": [
+            "guardrail",
+            "runtime",
+            "validation"
+          ],
+          "source_field": "nav_title",
+          "value": "Generated-helper runtime validation guardrail"
+        },
+        {
+          "matched_terms": [
+            "validated"
+          ],
+          "source_field": "status",
+          "value": "validated"
+        }
+      ],
+      "confidence": {
+        "basis": "explicit-source-field",
+        "source_field": "confidence",
+        "value": "high"
+      },
+      "evidence_ref": "SAGE-K3-SAGE-20260806-001",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "valid_as_of",
+        "value": "2026-08-06"
+      },
+      "record_path": "",
+      "source_path": "markdown/evidence/catalog.json",
+      "source_type": "evidence",
+      "status": "validated",
+      "title": "Validated Generated-Helper Runtime Delivery Guardrail and Recovery Evidence"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "evidence",
+            "integrity",
+            "sage"
+          ],
+          "source_field": "why_invalid",
+          "value": "Changing the activation gate merely to satisfy a render-only validator or bypassing the assertion would falsify lifecycle state and weaken SAGE evidence integrity."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "runtime",
+            "validated"
+          ],
+          "source_field": "confirm_correct_approach[2]",
+          "value": "Review the deployment evidence for the previously validated runtime checks."
+        },
+        {
+          "matched_terms": [
+            "failure",
+            "runtime",
+            "validation"
+          ],
+          "source_field": "repository_gap",
+          "value": "If runtime validation cannot run through the canonical target, preserve its actionable failure and correct the reported gap."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "integrity",
+            "sage"
+          ],
+          "source_field": "summary",
+          "value": "Changing the activation gate merely to satisfy a render-only validator or bypassing the assertion would falsify lifecycle state and weaken SAGE evidence integrity."
+        },
+        {
+          "matched_terms": [
+            "health",
+            "sage"
+          ],
+          "source_field": "likely_intended_outcome",
+          "value": "SAGE infers that the operator intended to validate the health and usefulness of the active centralized-logging deployment."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "centralized_logging.render_validator_after_activation",
+      "origins": [
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": ""
+      },
+      "record_path": "",
+      "source_path": "sage-actionable-failures.json",
+      "source_type": "failure",
+      "status": "",
+      "title": "Run render-only validation for staged centralized logging."
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "health",
+            "runtime",
+            "validation"
+          ],
+          "source_field": "why_invalid",
+          "value": "Runtime validation before activation cannot establish the health or usefulness of a deployment that remains staged."
+        },
+        {
+          "matched_terms": [
+            "not",
+            "runtime",
+            "validation"
+          ],
+          "source_field": "prohibited_actions[2]",
+          "value": "Do not report runtime validation as complete."
+        },
+        {
+          "matched_terms": [
+            "health",
+            "runtime",
+            "validation"
+          ],
+          "source_field": "summary",
+          "value": "Runtime validation before activation cannot establish the health or usefulness of a deployment that remains staged."
+        },
+        {
+          "matched_terms": [
+            "sage",
+            "validation"
+          ],
+          "source_field": "likely_intended_outcome",
+          "value": "SAGE infers that the operator intended either staged render validation or the repository-owned activation workflow."
+        },
+        {
+          "matched_terms": [
+            "validation"
+          ],
+          "source_field": "allowed_actions[0]",
+          "value": "Run staged render validation while the activation gate is false."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "centralized_logging.runtime_requires_active_gate",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": ""
+      },
+      "record_path": "",
+      "source_path": "sage-actionable-failures.json",
+      "source_type": "failure",
+      "status": "",
+      "title": "Validate active centralized logging."
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "delivery",
+            "failure",
+            "guardrail",
+            "integrity",
+            "runtime",
+            "sage",
+            "validation"
+          ],
+          "source_field": "history[3].reason",
+          "value": "Independent committed-state validation passed the complete repository SAGE guardrail chain at commit df3e435d0ddb48edcd974fb478e808388cd8be6a, including the exact generated-helper delivery CLI, canonical path regression, static undefined-global checks, declared runtime self-test, exact operator path, companion integrity, helper-safety, failure reporting, and no-partial-receipt controls."
+        },
+        {
+          "matched_terms": [
+            "delivery",
+            "evidence",
+            "failure",
+            "sage",
+            "validated"
+          ],
+          "source_field": "history[1].reason",
+          "value": "The operator authorized remediation after SAGE discovery and evidence retrieval confirmed a recurring generated-helper delivery failure and an integration or workflow-composition gap; the validated static runtime-name control will be reused rather than duplicating a low-level primitive."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "failure",
+            "sage"
+          ],
+          "source_field": "measurement_plan[1]",
+          "value": "Record runtime-self-test pass or failure in the associated SAGE session or evidence package."
+        },
+        {
+          "matched_terms": [
+            "delivery",
+            "guardrail",
+            "runtime"
+          ],
+          "source_field": "history[2].reason",
+          "value": "The tracked generated-helper delivery composition, manifest schema, exact-CLI runtime self-test, authority registration, Make integration, and file-delivery guardrail are implemented in commit 049c0565c1c601986ad8e8e1ca4887b29f090283."
+        },
+        {
+          "matched_terms": [
+            "guardrail",
+            "runtime",
+            "validation"
+          ],
+          "source_field": "title",
+          "value": "Add generated-helper runtime validation guardrail"
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260730-001",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[3].recorded_at",
+        "value": "2026-08-06T01:21:42-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Add generated-helper runtime validation guardrail"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "failures",
+            "recovery"
+          ],
+          "source_field": "measurement_plan[2]",
+          "value": "Track repeated UNCLASSIFIED recovery failures and avoidable retries."
+        },
+        {
+          "matched_terms": [
+            "recovery",
+            "sage"
+          ],
+          "source_field": "title",
+          "value": "Derive SAGE bootstrap recovery from repository authority"
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "desired_outcome",
+          "value": "A new SAGE context is bootstrapped by reading an existing authority context and using its exact match term, rather than guessing another natural-language request that may also be unclassified."
+        },
+        {
+          "matched_terms": [
+            "recovery"
+          ],
+          "source_field": "acceptance_criteria[0]",
+          "value": "Bootstrap recovery selects an existing context that owns sage-change-authority.json."
+        },
+        {
+          "matched_terms": [
+            "recovery"
+          ],
+          "source_field": "acceptance_criteria[1]",
+          "value": "The recovery preflight uses an exact match_terms value from that context."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260801-002",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[1].recorded_at",
+        "value": "2026-08-01T15:22:47-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Derive SAGE bootstrap recovery from repository authority"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "failures",
+            "recovery"
+          ],
+          "source_field": "measurement_plan[2]",
+          "value": "Track repeated UNCLASSIFIED recovery failures and avoidable retries."
+        },
+        {
+          "matched_terms": [
+            "recovery",
+            "sage"
+          ],
+          "source_field": "title",
+          "value": "Validate SAGE bootstrap recovery through the actual classifier"
+        },
+        {
+          "matched_terms": [
+            "sage"
+          ],
+          "source_field": "desired_outcome",
+          "value": "A new SAGE context is bootstrapped by evaluating authority-owned candidate requests through the actual classifier and using a proven successful request, rather than assuming match_terms, context IDs, or filenames are classification contracts."
+        },
+        {
+          "matched_terms": [
+            "evidence"
+          ],
+          "source_field": "acceptance_criteria[0]",
+          "value": "The failed exact-match-term action is rejected with diagnostic evidence."
+        },
+        {
+          "matched_terms": [
+            "recovery"
+          ],
+          "source_field": "acceptance_criteria[1]",
+          "value": "Bootstrap recovery consumes a complete read-only classifier diagnostic."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260801-003",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[1].recorded_at",
+        "value": "2026-08-09T05:00:42-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Validate SAGE bootstrap recovery through the actual classifier"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "evidence",
+            "guardrail",
+            "learning",
+            "sage"
+          ],
+          "source_field": "history[3].reason",
+          "value": "The original literal request classifies, and the dedicated file-delivery guardrail, root SAGE self-test, discovery guardrail, evidence guardrail, learning guardrail, and evidence index all pass."
+        },
+        {
+          "matched_terms": [
+            "delivery",
+            "guardrail",
+            "lesson"
+          ],
+          "source_field": "acceptance_criteria[1]",
+          "value": "A repository guardrail validates the delivery contract, lesson recurrence, action linkage, authority registration, and root Make integration."
+        },
+        {
+          "matched_terms": [
+            "delivery",
+            "guardrail",
+            "recovery"
+          ],
+          "source_field": "history[2].reason",
+          "value": "The file-based execution delivery contract and guardrail are implemented. The recovery request now classifies through the repository-owned continuous-improvement mapping."
+        },
+        {
+          "matched_terms": [
+            "guardrail",
+            "sage"
+          ],
+          "source_field": "acceptance_criteria[2]",
+          "value": "The root SAGE self-test executes the file-delivery guardrail."
+        },
+        {
+          "matched_terms": [
+            "guardrail",
+            "lesson"
+          ],
+          "source_field": "history[0].reason",
+          "value": "Register the guardrail required after the known file-delivery lesson recurred."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260801-004",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[3].recorded_at",
+        "value": "2026-08-01T17:16:32-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Enforce file-based Kalaxy3 execution delivery"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "failures",
+            "runtime",
+            "validation"
+          ],
+          "source_field": "history[0].reason",
+          "value": "Register canonical workflow-support controls after runtime failures exposed duplicated allocation and insufficient name validation."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "guardrail",
+            "sage"
+          ],
+          "source_field": "history[3].reason",
+          "value": "Canonical allocator tests, undefined-global tests, duplicate implementation guardrail, candidate Makefile parsing, real action registration, root SAGE self-tests, repository guardrails, and evidence index all passed."
+        },
+        {
+          "matched_terms": [
+            "delivery",
+            "runtime"
+          ],
+          "source_field": "desired_outcome",
+          "value": "Workflow tooling uses canonical collision-safe identifier allocation and rejects undefined runtime global names before delivery."
+        },
+        {
+          "matched_terms": [
+            "not",
+            "validated"
+          ],
+          "source_field": "history[4].reason",
+          "value": "A confirmed same-class runtime-name recurrence proved the validated control does not inspect generated repository mutation payloads before write; reopen the existing action to extend that control rather than duplicate it."
+        },
+        {
+          "matched_terms": [
+            "sage",
+            "validation"
+          ],
+          "source_field": "title",
+          "value": "Canonicalize SAGE workflow support and runtime-name validation"
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260801-005",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[4].recorded_at",
+        "value": "2026-08-09T05:52:39-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Canonicalize SAGE workflow support and runtime-name validation"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "architecture",
+            "evidence",
+            "sage"
+          ],
+          "source_field": "desired_outcome",
+          "value": "Generated SAGE architecture and operational views cannot be misclassified as legacy evidence and make generated evidence catalogs self-referential after a normal commit."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "guardrail"
+          ],
+          "source_field": "acceptance_criteria[2]",
+          "value": "The thin-slice guardrail fails closed when its generated view appears in the evidence catalog."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "sage"
+          ],
+          "source_field": "measurement_plan[0]",
+          "value": "Count generated SAGE views that appear as inferred legacy evidence and require zero."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "sage"
+          ],
+          "source_field": "title",
+          "value": "Prevent generated SAGE views from re-entering legacy evidence"
+        },
+        {
+          "matched_terms": [
+            "architecture"
+          ],
+          "source_field": "acceptance_criteria[0]",
+          "value": "The thin-slice generated architecture view occurs exactly once in legacy-record-registry.json exclude_paths."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260807-001",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[1].recorded_at",
+        "value": "2026-08-07T20:19:42-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Prevent generated SAGE views from re-entering legacy evidence"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "guardrail",
+            "improvement",
+            "sage",
+            "validation"
+          ],
+          "source_field": "history[3].reason",
+          "value": "Validate the one-pass evidence-reconciliation improvement because the isolated obsolete-file regression passed, one real reconciliation converged immediately with zero subsequent index delta, safe stale-file cleanup remained intact, the full repository SAGE and operating-contract guardrail chain passed, and strict MkDocs build and publication validation completed successfully."
+        },
+        {
+          "matched_terms": [
+            "improvement",
+            "sage",
+            "validation"
+          ],
+          "source_field": "history[1].reason",
+          "value": "Accept the one-pass evidence-reconciliation improvement after implementation at ca09af7 and successful validation of the exact reconciliation behavior, evidence-index convergence, SAGE guardrails, operating contract, and documentation publication path."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "sage"
+          ],
+          "source_field": "desired_outcome",
+          "value": "A single canonical SAGE evidence reconciliation that removes obsolete generated paths leaves the generated evidence state immediately current, so an immediate evidence-index check passes without requiring a second reconciliation while preserving safe obsolete-file cleanup."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "validation"
+          ],
+          "source_field": "history[2].reason",
+          "value": "Record the action as implemented because commit ca09af7 contains the one-pass evidence reconciliation correction, transactional obsolete-path publication handling, and deterministic one-pass regression, and that implementation subsequently passed the complete promotion validation gate."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "sage"
+          ],
+          "source_field": "title",
+          "value": "Make SAGE evidence reconciliation one-pass idempotent"
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260809-001",
+      "origins": [
+        "experience_inventory_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[3].recorded_at",
+        "value": "2026-08-09T23:06:37-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Make SAGE evidence reconciliation one-pass idempotent"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "checkpoint",
+            "correction",
+            "promotion",
+            "versus"
+          ],
+          "source_field": "history[1].reason",
+          "value": "Accept the checkpoint-persistence versus promotion correction after repository inspection and checkpoint commit ac46ef2 demonstrated the dependency deadlock and the safe non-promotable persistence path while preserving all promotion gates."
+        },
+        {
+          "matched_terms": [
+            "checkpoint",
+            "promotion",
+            "state"
+          ],
+          "source_field": "desired_outcome",
+          "value": "SAGE treats repository commit and push as durable engineering-state persistence, not as an assertion that the persisted state is validated or promotable. Explicitly non-promotable work/checkpoint branches may preserve incomplete, temporarily invalid, or dependency-blocked states through frequent small commits and pushes for business continuity, while promotion across trust boundaries remains fail-closed until the complete applicable composite validation gate is satisfied."
+        },
+        {
+          "matched_terms": [
+            "checkpoint",
+            "promotion",
+            "state"
+          ],
+          "source_field": "acceptance_criteria[7]",
+          "value": "A deterministic regression reproduces the SAGE-ACTION-20260807-001 / SAGE-ACTION-20260809-001 dependency deadlock and proves the valid path: preserve the incomplete state as a non-promotable checkpoint, govern and resolve the dependency, satisfy the complete composite gate, then permit promotion."
+        },
+        {
+          "matched_terms": [
+            "checkpoint",
+            "correction",
+            "recovery"
+          ],
+          "source_field": "history[0].reason",
+          "value": "Register the persistence-versus-promotion lifecycle correction proven by the SAGE-ACTION-20260807-001 / SAGE-ACTION-20260809-001 checkpoint recovery."
+        },
+        {
+          "matched_terms": [
+            "checkpoint",
+            "promotion"
+          ],
+          "source_field": "acceptance_criteria[0]",
+          "value": "Repository policy explicitly distinguishes checkpoint persistence from promotion: a checkpoint commit or push may preserve incomplete or dependency-blocked work without asserting validation, merge readiness, activation readiness, or completion."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260809-002",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[1].recorded_at",
+        "value": "2026-08-09T17:30:53-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Separate checkpoint persistence from promotion validation"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "approval",
+            "execution",
+            "failures"
+          ],
+          "source_field": "desired_outcome",
+          "value": "After the first required unexpected-failure retrieval, SAGE deterministically distinguishes implementation-local execution defects from governance-changing failures. When authority, scope, required capability, safety requirements, repository-owned composition, and approval or mutation boundaries are unchanged and the attempted action remains authorized, repair, regression, revalidation, and retry remain inside the same governed request. Discovery or replanning is required only when one of those governing conditions changes."
+        },
+        {
+          "matched_terms": [
+            "approval",
+            "decision"
+          ],
+          "source_field": "acceptance_criteria[1]",
+          "value": "A repository-owned post-retrieval decision records whether authority, scope, required capability, safety requirements, repository-owned composition, or approval or mutation boundaries changed."
+        },
+        {
+          "matched_terms": [
+            "correction",
+            "execution"
+          ],
+          "source_field": "history[1].reason",
+          "value": "Architect approves the existing post-retrieval retry-versus-governance-reentry action after SAGE-DIAG-20260821-801 demonstrated that request execution failed pre-mutation because the repository-owned composition requires correction and regression before retry."
+        },
+        {
+          "matched_terms": [
+            "evidence"
+          ],
+          "source_field": "acceptance_criteria[3]",
+          "value": "Repeated discovery, evidence retrieval, or replanning after a no-governance-change classification fails closed as unnecessary over-governance rather than restarting the request."
+        },
+        {
+          "matched_terms": [
+            "execution"
+          ],
+          "source_field": "acceptance_criteria[5]",
+          "value": "A deterministic positive regression reproduces an assistant-generated builder or package execution defect after the required retrieval and proves continuation stays in the same governed request when governing conditions are unchanged."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260810-001",
+      "origins": [
+        "experience_inventory_projection"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[1].recorded_at",
+        "value": "2026-08-21T19:33:52-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Classify post-retrieval retry versus governance re-entry"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "accumulated",
+            "engineering",
+            "evidence",
+            "experience",
+            "governance",
+            "human",
+            "improvement",
+            "llm",
+            "not",
+            "observability",
+            "outcomes",
+            "sage"
+          ],
+          "source_field": "desired_outcome",
+          "value": "SAGE has an explicit implementation-neutral shared-responsibility, governed-orchestration, verification, observability, and outcome metamodel for evidence-informed intent-to-outcome system engineering. Human participants provide legitimate intent and accountable authority; the LLM is a first-class contributor of external/world knowledge, alternatives, critique, and verification ideas without human-reserved approval authority; Kalaxy3 provides accumulated local evidence, experience, standards, and measured outcomes; and deterministic orchestration owns reproducible workflow state, transitions, retry, compensation, and continuation. SAGE federates and reconciles those participant contributions under cross-cutting governance, verification/assurance, observability, and continuous improvement. The human Architect role retains end-to-end accountable architectural ownership and a governed, attributable break-glass path that can regain architectural control without making the intervention unaccountable. Success is evaluated first by mandatory outcome gates and then by a provenance-preserving multidimensional outcome vector against human-owned intent, requirements, constraints, and Definition of Done; any scalar fitness or utility function is optional, context-specific, and human-owned/approved. The metamodel remains implementation-neutral and does not prematurely select BPMN, a workflow engine, graph technology, or another orchestration product."
+        },
+        {
+          "matched_terms": [
+            "accumulated",
+            "engineering",
+            "evidence",
+            "experience",
+            "governance",
+            "human",
+            "improvement",
+            "llm",
+            "not",
+            "observability",
+            "outcomes",
+            "sage"
+          ],
+          "source_field": "history[1].amendment.after_contract.desired_outcome",
+          "value": "SAGE has an explicit implementation-neutral shared-responsibility, governed-orchestration, verification, observability, and outcome metamodel for evidence-informed intent-to-outcome system engineering. Human participants provide legitimate intent and accountable authority; the LLM is a first-class contributor of external/world knowledge, alternatives, critique, and verification ideas without human-reserved approval authority; Kalaxy3 provides accumulated local evidence, experience, standards, and measured outcomes; and deterministic orchestration owns reproducible workflow state, transitions, retry, compensation, and continuation. SAGE federates and reconciles those participant contributions under cross-cutting governance, verification/assurance, observability, and continuous improvement. The human Architect role retains end-to-end accountable architectural ownership and a governed, attributable break-glass path that can regain architectural control without making the intervention unaccountable. Success is evaluated first by mandatory outcome gates and then by a provenance-preserving multidimensional outcome vector against human-owned intent, requirements, constraints, and Definition of Done; any scalar fitness or utility function is optional, context-specific, and human-owned/approved. The metamodel remains implementation-neutral and does not prematurely select BPMN, a workflow engine, graph technology, or another orchestration product."
+        },
+        {
+          "matched_terms": [
+            "accumulated",
+            "evidence",
+            "experience",
+            "human",
+            "lessons",
+            "llm",
+            "sage",
+            "validated"
+          ],
+          "source_field": "acceptance_criteria[6]",
+          "value": "Kalaxy3 is explicitly modeled as accumulated local evidence and experience, including current facts, validated lessons, standards, workflow experience, measurements, and reusable capability; SAGE reconciles this local experience with human intent, LLM knowledge, and current evidence."
+        },
+        {
+          "matched_terms": [
+            "accumulated",
+            "evidence",
+            "experience",
+            "human",
+            "lessons",
+            "llm",
+            "sage",
+            "validated"
+          ],
+          "source_field": "history[1].amendment.after_contract.acceptance_criteria[6]",
+          "value": "Kalaxy3 is explicitly modeled as accumulated local evidence and experience, including current facts, validated lessons, standards, workflow experience, measurements, and reusable capability; SAGE reconciles this local experience with human intent, LLM knowledge, and current evidence."
+        },
+        {
+          "matched_terms": [
+            "applicability",
+            "decisions",
+            "evidence",
+            "experience",
+            "human",
+            "observability",
+            "sage",
+            "validated"
+          ],
+          "source_field": "history[1].amendment.before_contract.desired_outcome",
+          "value": "SAGE has an explicit implementation-neutral role and orchestration metamodel in which the human architect owns intended future state, requirements, constraints, Definition of Done, approval boundaries, and governed interventions; SAGE governs intent, applicability, authority, evidence, capability selection, progression, and disposition of unexpected contexts; LLMs remain untrusted stochastic proposers rather than owners of deterministic workflow state or graph traversal; and a deterministic orchestration role owns workflow state, transitions, decisions, retry, compensation, and continuation without prematurely selecting BPMN, a graph engine, or another product. The metamodel makes architect intervention, context applicability, workflow observability, provenance, capability gaps, and conversion of validated workflow experience into reusable repository-owned capability explicit and measurable."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260811-001",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[2].recorded_at",
+        "value": "2026-08-13T16:59:13-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "SAGE Shared-Responsibility, Governed Orchestration, and Outcome Metamodel"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "checkpoint",
+            "github",
+            "mutation",
+            "operator",
+            "promotion",
+            "state"
+          ],
+          "source_field": "desired_outcome",
+          "value": "SAGE has a reusable repository-owned least-authority GitHub inspection capability that lets governed workflows independently read and verify pull-request and repository-hosting state without granting those workflows GitHub mutation authority. The capability provides structured, machine-readable facts needed by checkpoint promotion and future workflows, while pull-request creation, merge, comments, labels, branch changes, and other GitHub mutations remain explicit operator.git-proposal boundaries. Generated workflow payloads consume the read-only capability through a stable interface and do not invoke gh or GitHub APIs directly."
+        },
+        {
+          "matched_terms": [
+            "checkpoint",
+            "github",
+            "mutation",
+            "operator",
+            "promotion"
+          ],
+          "source_field": "acceptance_criteria[10]",
+          "value": "SAGE-ACTION-20260809-002 checkpoint promotion is updated only to consume the new read-only inspection capability and existing git.inspect/operator.git-proposal roles; it does not gain direct Git or GitHub mutation authority."
+        },
+        {
+          "matched_terms": [
+            "failures",
+            "github",
+            "mutation",
+            "operator"
+          ],
+          "source_field": "history[0].reason",
+          "value": "Register the missing least-authority GitHub inspection capability exposed by repeated checkpoint-promotion safety failures, while preserving operator.git-proposal as the exclusive PR mutation boundary."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "github",
+            "mutation",
+            "operator"
+          ],
+          "source_field": "history[1].reason",
+          "value": "Current SAGE discovery, evidence retrieval, and complete baseline validation confirm a real workflow-composition capability gap: governed workflows need structured read-only GitHub pull-request inspection while operator.git-proposal remains the exclusive PR mutation boundary and existing Git/GitHub safety guardrails remain unchanged."
+        },
+        {
+          "matched_terms": [
+            "operator",
+            "promotion",
+            "state"
+          ],
+          "source_field": "acceptance_criteria[1]",
+          "value": "The inspection interface returns structured machine-readable facts sufficient to identify a pull request and verify its base branch, head branch, head SHA, state, merge status, and other explicitly required promotion facts without parsing free-form operator output."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260811-002",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[1].recorded_at",
+        "value": "2026-08-11T02:25:42-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Add least-authority GitHub inspection capability"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "accumulated",
+            "across",
+            "architecture",
+            "bounded",
+            "decision",
+            "engineering",
+            "evidence",
+            "experience",
+            "failure",
+            "guardrail",
+            "human",
+            "input",
+            "not",
+            "observability",
+            "outcomes",
+            "sage",
+            "security",
+            "validation"
+          ],
+          "source_field": "desired_outcome",
+          "value": "SAGE bears the burden of understanding human intent and governed SAGE artifacts while the human Architect retains authority over meaning. SAGE derives an explicit interpretation of the intended problem from human-stated intent and constraints, governed SAGE artifacts and registered workflow semantics, Kalaxy3 accumulated local evidence and experience, deterministic current-state facts, and LLM-contributed external engineering knowledge and alternatives. SAGE must preserve the provenance and epistemic role of those sources rather than flattening them into an undifferentiated experience dump. Before a materially interpreted intent becomes authoritative input to planning or execution, SAGE conducts a governed intent-definition and negotiation interaction. SAGE presents the interpreted intent, proposed scope, requirements, constraints, assumptions, alternatives, best-practice KPI/SLO/SLA and observability suggestions, capability gaps, indirect enabling changes, material ambiguities, tradeoffs, and their provenance. The Architect may accept, reject, modify, or defer those proposals before confirming the resulting intent and scope. During that negotiation, SAGE also evaluates the proposed intent and scope against established SAGE guardrails, metamodel constraints, participant responsibilities, authority boundaries, and trust boundaries. Any conflict is surfaced explicitly before semantic confirmation. If the Architect proposes to proceed despite a permitted conflict, SAGE requires an evidence-backed exception decision that records the governing authority, rationale, affected controls, scope, blast radius, residual risk, compensating controls, and reconciliation and verification obligations. Such an exception is bounded and attributable, travels with downstream planning and execution, does not silently redefine the metamodel or become precedent, and cannot override nondelegable legal, security, compliance, or other mandatory constraints. The negotiated dispositions and rationale are preserved as decision evidence. Semantic confirmation then establishes that SAGE understood the Architect-approved definition and scope of the intended problem; it does not establish that the proposed outcome is logically, technically, operationally, economically, or otherwise feasible. After meaning is confirmed, SAGE performs an explicit feasibility and consistency assessment using quantitative observability and other authoritative current-state evidence across the relevant system, together with deterministic checks, repository authority, available capabilities, governed constraints, and corroborated engineering knowledge. Observability is not limited to infrastructure telemetry: it provides the measurable facts needed to determine whether the intended outcome is achievable under actual resource, behavioral, workflow, dependency, performance, capacity, timing, and platform conditions. SAGE must also use applicable engineering knowledge, including LLM-contributed current best practices, to identify the KPIs, SLOs, SLAs, outcome measures, and other observability signals that should exist for the intended outcome. If current observability cannot measure a material success, feasibility, quality, efficiency, reliability, or constraint dimension, SAGE treats that as a capability gap and may require an observability enhancement as an enabling or prerequisite change before the original architectural intent can be responsibly planned, verified, or declared successful. Claims that can be proven deterministically must be proven before executable planning; claims supported only by evidence must remain evidence-qualified; unresolved uncertainty must remain explicit. Infeasible or insufficiently supported outcomes produce explainable gaps, violated constraints, or feasible alternatives rather than an executable plan. Authorization to mutate remains a separate governed decision after confirmed meaning and adequate feasibility. Material ambiguity produces an Architect clarification boundary rather than silent inference or vocabulary-dependent UNCLASSIFIED failure. Later evidence that materially changes either the confirmed interpretation or feasibility assessment invalidates the affected downstream state and returns SAGE to the appropriate confirmation or feasibility boundary. The composition reuses the implemented repository-owned request-planning capability from SAGE-ACTION-20260808-001 and existing canonical lifecycle, authority, evidence, capability-selection, validation, and deterministic-execution primitives rather than duplicating them. The resulting metamodel, lifecycle semantics, participant responsibilities, intent-negotiation behavior, semantic-confirmation boundary, feasibility model, observability-derived capability-gap behavior, exception handling, authority distinctions, and evidence/provenance model are documented for external consumption in implementation-neutral language. External documentation explains both the normal path and important negative paths, including ambiguity, infeasibility, rejected or deferred proposals, guardrail conflicts, exceptions, and re-entry when later evidence changes meaning or feasibility. Repository-internal schemas and primitives remain traceable implementation evidence, but external readers are not required to understand them in order to understand SAGE's architecture, responsibilities, controls, or value."
+        },
+        {
+          "matched_terms": [
+            "applicability",
+            "engineering",
+            "evidence",
+            "human",
+            "observability",
+            "sage",
+            "validation"
+          ],
+          "source_field": "acceptance_criteria[23]",
+          "value": "SAGE uses applicable repository evidence and LLM-contributed engineering knowledge to identify fit-for-purpose KPIs, SLOs, SLAs, outcome measures, constraint measurements, and observability signals needed to evaluate the intended outcome; these recommendations remain proposals until reconciled against human intent, repository authority, applicability, and deterministic validation."
+        },
+        {
+          "matched_terms": [
+            "engineering",
+            "evidence",
+            "experience",
+            "human",
+            "sage"
+          ],
+          "source_field": "acceptance_criteria[0]",
+          "value": "SAGE defines a governed semantic-understanding stage whose inputs can include human intent, governed SAGE artifacts, registered workflow identity, repository authority, applicable evidence/experience, deterministic current-state facts, and LLM-contributed external engineering knowledge."
+        },
+        {
+          "matched_terms": [
+            "decision",
+            "evidence",
+            "learning",
+            "not",
+            "sage"
+          ],
+          "source_field": "acceptance_criteria[16]",
+          "value": "Rejected or deferred SAGE proposals remain available as decision evidence for later analysis and learning but do not silently become authoritative requirements, constraints, precedent, or future defaults."
+        },
+        {
+          "matched_terms": [
+            "failures",
+            "not",
+            "observability",
+            "outcomes",
+            "sage"
+          ],
+          "source_field": "measurement_plan[8]",
+          "value": "Track feasibility failures where the limiting factor was not the initially suspected resource, so SAGE learns which observability dimensions and system semantics must be checked before proposing similar outcomes."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260813-001",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[1].recorded_at",
+        "value": "2026-08-13T18:32:24-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Add SAGE semantic understanding, feasibility, and Architect confirmation composition"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "architecture",
+            "delivery",
+            "evidence",
+            "learning",
+            "sage",
+            "security"
+          ],
+          "source_field": "desired_outcome",
+          "value": "Deliver a demonstrable SAGE delivery architecture in which Git/PR can invoke a portable multi-architecture canonical stage independent of the operator device; stage builds/tests/generates once and emits immutable artifacts and evidence; promotion binds only target-environment affinity and deploys already-proven artifacts; execution hosts and workflow engines remain replaceable; convergence consumes applicable check evidence; evidence invalidation re-enters only the earliest materially affected domain; completed child promotion reconciles into parent intent lineage; and real-world immutable constraints can change scope/phasing only through explicit, traceable Architect disposition that preserves quality, security, intent, evidence, learning, innovation, and reconciliation obligations."
+        },
+        {
+          "matched_terms": [
+            "decision",
+            "evidence",
+            "experience",
+            "learning",
+            "sage"
+          ],
+          "source_field": "acceptance_criteria[9]",
+          "value": "The external SAGE/thin-slice experience exposes the decision, evidence, constraint-aware phasing, prevented defects, learning, and delivered value rather than presenting only toolchain mechanics."
+        },
+        {
+          "matched_terms": [
+            "artifact",
+            "experience",
+            "runtime",
+            "sage",
+            "validation"
+          ],
+          "source_field": "history[3].reason",
+          "value": "Validate Action-002 because the portable multi-architecture stage produced an immutable artifact, promotion consumed that exact artifact without rebuild, the exact promoted digest was deployed to the SAGE experience, and repository-owned zero-trust runtime validation passed. Tangential Makefile receipt-transport and stale iteration-10 reconciliation defects remain explicitly deferred as non-blocking technical debt."
+        },
+        {
+          "matched_terms": [
+            "artifact",
+            "delivery",
+            "runtime",
+            "validation"
+          ],
+          "source_field": "history[2].reason",
+          "value": "Core Action-002 delivery is operationally demonstrated end to end. The exact immutable artifact was promoted without rebuild and the deployed digest passed zero-trust runtime validation. The Makefile receipt-transport and stale iteration-10 reconciliation defects are explicitly deferred as non-blocking technical debt under Architect authority."
+        },
+        {
+          "matched_terms": [
+            "architecture",
+            "not",
+            "sage"
+          ],
+          "source_field": "acceptance_criteria[0]",
+          "value": "The four-role SAGE architecture and existing intent lifecycle remain authoritative; CI/CD engines, OCI executors, runners, and environment manifests do not acquire Architect or semantic authority."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260815-002",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[3].recorded_at",
+        "value": "2026-08-27T00:00:41-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Portable Stage Execution, Artifact Promotion, Engine-Neutral Orchestration, and Constraint-Aware Governed Phasing"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "across",
+            "failure",
+            "governance",
+            "llm",
+            "recovery",
+            "sage"
+          ],
+          "source_field": "desired_outcome",
+          "value": "SAGE owns recovery from every fail-closed state. It persists stable failure and governing-condition identities across attempts, distinguishes a genuinely new governance change from one already consumed by an earlier required re-entry, recognizes unchanged recurrence, prevents repeated identical governance loops, and emits exactly one machine-readable governed next boundary. When the current lifecycle has no authorized transition, including live failure of an accepted control, SAGE emits the capability-gap/successor-action route itself instead of requiring the LLM or operator to inspect repository source and invent recovery."
+        },
+        {
+          "matched_terms": [
+            "across",
+            "evidence",
+            "failure"
+          ],
+          "source_field": "acceptance_criteria[1]",
+          "value": "Failure identity persists across attempts using stable request, component, failure-signature, and repository-authority evidence with previous-failure references."
+        },
+        {
+          "matched_terms": [
+            "failure",
+            "recovery",
+            "validated"
+          ],
+          "source_field": "measurement_plan[6]",
+          "value": "Track operator-visible discrete commands from first failure through validated recovery."
+        },
+        {
+          "matched_terms": [
+            "governance",
+            "recovery"
+          ],
+          "source_field": "acceptance_criteria[11]",
+          "value": "Positive and negative regressions prove: new governance change -> earliest required re-entry once; unchanged recurrence -> repair; exhausted/unsupported recovery -> successor gap/action."
+        },
+        {
+          "matched_terms": [
+            "llm",
+            "sage"
+          ],
+          "source_field": "acceptance_criteria[6]",
+          "value": "If the owning control is already accepted and cannot be amended under lifecycle policy, SAGE emits a verified successor capability-gap/improvement-action boundary without LLM/operator source-code inspection."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260821-001",
+      "origins": [
+        "experience_inventory_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[2].recorded_at",
+        "value": "2026-08-22T05:19:53-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Make fail-closed recovery self-directing and recurrence-aware"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "bounded",
+            "decision",
+            "evidence",
+            "experience",
+            "runtime",
+            "sage"
+          ],
+          "source_field": "desired_outcome",
+          "value": "SAGE calculates and preserves a governed path from the active Architect-owned objective before candidate mutation; evaluates established alternatives and prior art against evidence, risk, guardrails, authority, reversibility, operability, and opportunity cost; treats gaps as subordinate impediments; separates safe canonical integration from capability maturity, runtime promotion, and objective completion; continuously measures BDD-style regression assurance and the effectiveness of guardrails/collaboration; actively reevaluates deferred technical debt; exposes the resulting decision state through the existing Cloudflare-protected SAGE experience; and returns to the parent objective after bounded remediation."
+        },
+        {
+          "matched_terms": [
+            "decision",
+            "evidence",
+            "experience",
+            "guardrail",
+            "sage"
+          ],
+          "source_field": "acceptance_criteria[9]",
+          "value": "The existing Cloudflare Access/MFA protected SAGE experience can show current objective/route, evidence confidence, candidate integration and maturity state, known limitations, deferred-debt rationale and triggers, BDD assurance gaps, guardrail/collaboration metrics, alternatives, and the next governed decision without exposing privileged management surfaces or weakening zero trust."
+        },
+        {
+          "matched_terms": [
+            "decisions",
+            "evidence",
+            "experience",
+            "guardrail",
+            "sage"
+          ],
+          "source_field": "measurement_plan[5]",
+          "value": "Expose the above objective/debt/assurance/guardrail state through the protected SAGE experience and record user/Architect decisions as evidence."
+        },
+        {
+          "matched_terms": [
+            "architecture",
+            "bounded",
+            "guardrail",
+            "observability",
+            "sage"
+          ],
+          "source_field": "history[0].reason",
+          "value": "Architect authorizes objective-first routing, value-preserving integration, BDD assurance observability, active technical-debt economics, guardrail/collaboration feedback, protected UX projection, and a post-Action-002 counterfactual architecture review as one bounded integration of existing SAGE responsibilities."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "experience",
+            "sage",
+            "validated"
+          ],
+          "source_field": "acceptance_criteria[1]",
+          "value": "SAGE treats apparent novelty as an exception: viable prior art and repository-owned experience are evaluated first; materially viable alternatives and rejection/defer rationale remain evidence; a genuinely novel direction is explicitly identified, justified, independently validated, and Architect-approved."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260823-001",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[1].recorded_at",
+        "value": "2026-08-23T03:28:54-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Integrate objective-first routing, assurance, and debt feedback"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "bounded",
+            "delivery",
+            "evidence",
+            "failure",
+            "not",
+            "recovery",
+            "sage"
+          ],
+          "source_field": "desired_outcome",
+          "value": "SAGE distinguishes recurrence of an underlying candidate or execution defect from failure of the accepted recovery control governing that defect. A consumed governing fingerprint plus accepted control status is not by itself sufficient evidence that the control failed. When current post-retrieval evidence says authority, scope, required capability, safety, repository-owned composition, and approval/mutation boundaries are unchanged, an unchanged implementation defect remains on the bounded implementation-local repair/regression/revalidation path unless separate evidence demonstrates that the accepted control violated its promised behavior. Genuine accepted-control failure still emits exactly one Architect-owned successor boundary. After correction, the blocked SAGE-ACTION-20260823-001 candidate returns to its declared parent re-entry path and SAGE-ACTION-20260815-002 remains the parent delivery objective."
+        },
+        {
+          "matched_terms": [
+            "bounded",
+            "evidence",
+            "failure",
+            "not"
+          ],
+          "source_field": "history[1].reason",
+          "value": "Architect accepts the bounded successor remediation: accepted-control failure must require evidence that the control itself failed; recurrence of the underlying implementation defect alone must not force successor escalation."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "recovery",
+            "validated",
+            "validation"
+          ],
+          "source_field": "history[3].reason",
+          "value": "The implemented correction is validated by live recurrence evidence showing unchanged governing conditions remained implementation-local with accepted_control_failure=false; repeated consumption of the identical already-consumed recovery fingerprint returned already-consumed with no duplicate receipt and no repository mutation; the full candidate validation and operating-contract chain passed; implementation commit 289d728fcdaa4a89c3b561bd0d5254c2affd8255 and implemented lifecycle commit 39657d4a224777d2246ee2e5624298a0bb7827de are synchronized to the feature branch."
+        },
+        {
+          "matched_terms": [
+            "failure",
+            "not",
+            "validated"
+          ],
+          "source_field": "acceptance_criteria[0]",
+          "value": "Accepted-control failure is represented as a distinct evidence-backed assertion and is not inferred solely from a consumed governing-condition fingerprint plus accepted/implemented/validated control status."
+        },
+        {
+          "matched_terms": [
+            "decision",
+            "evidence",
+            "recovery"
+          ],
+          "source_field": "acceptance_criteria[5]",
+          "value": "Request-execution diagnosis, post-retrieval continuation, recovery decision, and intent-to-outcome re-entry agree on the selected boundary or fail closed with explicit contradiction evidence."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260823-002",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[3].recorded_at",
+        "value": "2026-08-25T23:42:41-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Make accepted-control failure attribution evidence-grounded"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "architecture",
+            "audit",
+            "bounded",
+            "causal",
+            "decision",
+            "evidence",
+            "not",
+            "recovery",
+            "sage"
+          ],
+          "source_field": "desired_outcome",
+          "value": "Implement the Architect-approved post-Action-002 convergence objective: one authoritative causal evidence graph supplies SAGE objective truth while independent actors/workflows may advance concurrently and through multiple valid paths. Current readiness and objective status are derived projections of evidence-backed facts and causal relationships, not competing workflow-owned truth. Preserve sufficient historical decision/evidence lineage for recreation, audit, and later Architect-owned counterfactual analysis. Deliver a bounded MVP happy-path vertical slice first, then the minimum MRP resilience needed to trust the model under correction/change. Existing SAGE architecture, roles, guardrails, authority boundaries, evidence obligations, recovery rules, and capability contracts are inherited unchanged."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "governance",
+            "llm",
+            "recovery",
+            "sage"
+          ],
+          "source_field": "acceptance_criteria[0]",
+          "value": "The implementation inherits existing SAGE roles, guardrails, authority, evidence, recovery, and capability contracts; it introduces no alternate governance or LLM authority model."
+        },
+        {
+          "matched_terms": [
+            "architecture",
+            "decision",
+            "evidence",
+            "sage"
+          ],
+          "source_field": "acceptance_criteria[5]",
+          "value": "MRP can assemble the preserved actual-path decision/evidence context needed for Architect-owned counterfactual review without SAGE assessing or dispositioning architecture on the Architect's behalf."
+        },
+        {
+          "matched_terms": [
+            "decision",
+            "llm",
+            "sage",
+            "validation"
+          ],
+          "source_field": "acceptance_criteria[7]",
+          "value": "For this objective's own operator path, deterministic SAGE prerequisite validation occurs before an LLM-authored execution instruction reaches the operator. If SAGE genuinely cannot determine a compliant continuation, it surfaces an explicit Architect decision boundary rather than forcing either the LLM or operator to fabricate SAGE-internal semantics."
+        },
+        {
+          "matched_terms": [
+            "bounded",
+            "evidence",
+            "recovery",
+            "sage"
+          ],
+          "source_field": "history[1].reason",
+          "value": "Architect accepts the post-Action-002 causal-evidence-graph objective as registered: deliver the bounded MVP happy-path vertical slice first, then the minimum MRP resilience, while inheriting the existing SAGE roles, guardrails, authority boundaries, evidence obligations, recovery rules, and capability contracts."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-ACTION-20260827-001",
+      "origins": [
+        "experience_inventory_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "history[2].recorded_at",
+        "value": "2026-08-29T02:53:38-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-improvement-actions.json",
+      "source_type": "improvement_action",
+      "status": "",
+      "title": "Establish SAGE causal evidence graph"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "mutation",
+            "promotion",
+            "state"
+          ],
+          "source_field": "root_cause",
+          "value": "Remote state was assumed rather than independently reconciled against expected local and remote authority before mutation or promotion."
+        },
+        {
+          "matched_terms": [
+            "mutation",
+            "promotion",
+            "state"
+          ],
+          "source_field": "title",
+          "value": "Reconcile remote state before cohesive mutation and before promotion"
+        },
+        {
+          "matched_terms": [
+            "mutation",
+            "operator"
+          ],
+          "source_field": "known_resolution[0]",
+          "value": "Read and compare the active branch, local upstream, and remote branch head before mutation; use an explicit operator Git refresh when the local graph is stale."
+        },
+        {
+          "matched_terms": [
+            "checkpoint"
+          ],
+          "source_field": "known_resolution[1]",
+          "value": "Permit a synchronized checkpoint commit/push to preserve incomplete or dependency-blocked work without claiming validation or promotability."
+        },
+        {
+          "matched_terms": [
+            "promotion"
+          ],
+          "source_field": "known_resolution[2]",
+          "value": "Before promotion, freeze the target head, require all applicable validation gates, and revalidate if the remote target advances."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-LESSON-20260728-005",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection"
+      ],
+      "recency": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": ""
+      },
+      "record_path": "",
+      "source_path": "sage-lessons.json",
+      "source_type": "lesson",
+      "status": "validated",
+      "title": "Reconcile remote state before cohesive mutation and before promotion"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "failures",
+            "input",
+            "not"
+          ],
+          "source_field": "failure_signature",
+          "value": "A Python command receives either its program text or piped JSON, but not both, causing empty input or syntax failures."
+        },
+        {
+          "matched_terms": [
+            "input",
+            "not"
+          ],
+          "source_field": "title",
+          "value": "Do not use standard input for both Python code and piped data"
+        },
+        {
+          "matched_terms": [
+            "not"
+          ],
+          "source_field": "preventive_control[0]",
+          "value": "Do not combine a Python-source heredoc with piped JSON."
+        },
+        {
+          "matched_terms": [
+            "input"
+          ],
+          "source_field": "root_cause",
+          "value": "python - consumes standard input as program source, leaving no independent standard-input channel for piped data."
+        },
+        {
+          "matched_terms": [
+            "validation"
+          ],
+          "source_field": "symptoms[2]",
+          "value": "A validation pipeline fails despite valid upstream output."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-LESSON-20260728-007",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": ""
+      },
+      "record_path": "",
+      "source_path": "sage-lessons.json",
+      "source_type": "lesson",
+      "status": "accepted",
+      "title": "Do not use standard input for both Python code and piped data"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "validation"
+          ],
+          "source_field": "known_resolution[0]",
+          "value": "Separate immediate readiness from stabilization validation."
+        },
+        {
+          "matched_terms": [
+            "not"
+          ],
+          "source_field": "preventive_control[1]",
+          "value": "Do not classify transient startup pressure as a persistent defect."
+        },
+        {
+          "matched_terms": [
+            "validation"
+          ],
+          "source_field": "preflight_detection[0]",
+          "value": "Require an explicit stabilization duration in logging validation plans."
+        },
+        {
+          "matched_terms": [
+            "not"
+          ],
+          "source_field": "symptoms[2]",
+          "value": "Resources become ready but telemetry is not yet representative."
+        },
+        {
+          "matched_terms": [
+            "observability"
+          ],
+          "source_field": "contexts[0]",
+          "value": "observability"
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-LESSON-20260728-008",
+      "origins": [
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": ""
+      },
+      "record_path": "",
+      "source_path": "sage-lessons.json",
+      "source_type": "lesson",
+      "status": "validated",
+      "title": "Use stabilization windows before classifying logging startup failures"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "evidence",
+            "failure",
+            "failures",
+            "lessons",
+            "recovery",
+            "validation"
+          ],
+          "source_field": "failure_signature",
+          "value": "An unexpected implementation or validation failure is followed by another correction without first retrieving prior evidence, lessons, actionable failures, and canonical recovery or inspecting the authoritative production contract."
+        },
+        {
+          "matched_terms": [
+            "evidence",
+            "failures",
+            "lessons",
+            "recovery",
+            "retrieve"
+          ],
+          "source_field": "known_resolution[1]",
+          "value": "Retrieve evidence, lessons, failures, and canonical recovery."
+        },
+        {
+          "matched_terms": [
+            "engineering",
+            "failure",
+            "sage"
+          ],
+          "source_field": "root_cause",
+          "value": "The first failure was treated as an isolated defect rather than a trigger to consult SAGE engineering memory and repository authority before another mutation."
+        },
+        {
+          "matched_terms": [
+            "experience",
+            "failure",
+            "retrieve"
+          ],
+          "source_field": "title",
+          "value": "Retrieve repository experience after the first unexpected failure"
+        },
+        {
+          "matched_terms": [
+            "failure",
+            "lesson"
+          ],
+          "source_field": "preventive_control[2]",
+          "value": "A second same-class failure requires a lesson or action."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-LESSON-20260801-001",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": ""
+      },
+      "record_path": "",
+      "source_path": "sage-lessons.json",
+      "source_type": "lesson",
+      "status": "accepted",
+      "title": "Retrieve repository experience after the first unexpected failure"
+    },
+    {
+      "applicable_facts": [
+        {
+          "matched_terms": [
+            "decisions",
+            "delivery",
+            "failure",
+            "guardrail",
+            "lessons",
+            "runtime"
+          ],
+          "source_field": "questions[7].answer",
+          "value": "Keep explicit no-action decisions for lessons 004 and 005 because their existing controls operated. Register SAGE-LESSON-20260730-001 for the repeated generated-helper runtime-import failure and create a high-priority guardrail action requiring py_compile plus an executable runtime self-test before delivery."
+        },
+        {
+          "matched_terms": [
+            "delivery",
+            "failure",
+            "human",
+            "learning",
+            "lesson",
+            "not"
+          ],
+          "source_field": "questions[8].answer",
+          "value": "Delivery measurement improved because the repository now has a canonical recorder and close path. Operations remained safe with a closed gate and zero cluster mutation. Recurring cost was estimated unchanged, while human cost remains unavailable. Retrospective review identified one repeated failure pattern and converted it into a lesson and action, but one session still does not prove reduced rework, faster delivery, or sustained learning."
+        },
+        {
+          "matched_terms": [
+            "delivery",
+            "evidence",
+            "failure",
+            "lesson",
+            "lessons",
+            "not"
+          ],
+          "source_field": "feedback_planes.learning.summary",
+          "value": "Lessons 004 and 005 were used and no failure was classified as known by the live recorder. Retrospective review found that the missing-import root cause repeated within the session because no runtime-self-test lesson or control existed. The raw recorder metrics remain preserved and the session still does not prove that evidence use reduced rework or delivery time."
+        },
+        {
+          "matched_terms": [
+            "corrections",
+            "guardrail",
+            "lesson",
+            "lessons",
+            "validation"
+          ],
+          "source_field": "summary",
+          "value": "The pilot established a canonical repository-owned measurement and session-close path, but 14 failed command events and 22 manual corrections show substantial validation friction. Retrospective review identified the generated-helper missing-import defect as a recurrent root cause: FAIL-007 introduced the pattern and FAIL-010 repeated it before a control existed. Existing controls for lessons 004 and 005 remain adequate; a new lesson and high-priority runtime-validation guardrail action address the recurrence. No maturity or evidence-learning claim is supported by one session."
+        },
+        {
+          "matched_terms": [
+            "failure",
+            "not",
+            "runtime",
+            "validation"
+          ],
+          "source_field": "control_decisions[2].rationale",
+          "value": "The same unresolved runtime import failure occurred more than once because syntax-only validation did not execute the failing reporting path."
+        }
+      ],
+      "confidence": {
+        "basis": "not-recorded",
+        "source_field": "",
+        "value": "not-recorded"
+      },
+      "evidence_ref": "SAGE-REVIEW-20260730-001",
+      "origins": [
+        "experience_inventory_projection",
+        "intent_projection",
+        "open_canonical_retrieval"
+      ],
+      "recency": {
+        "basis": "explicit-source-field",
+        "source_field": "recorded_at",
+        "value": "2026-07-30T22:39:12-05:00"
+      },
+      "record_path": "",
+      "source_path": "sage-post-session-review-registry.json",
+      "source_type": "post_session_review",
+      "status": "",
+      "title": "The pilot established a canonical repository-owned measurement and session-close path, but 14 failed command events and 22 manual corrections show substantial validation friction. Retrospective review identified the generated-helper missing-import defect as a recurrent root cause: FAIL-007 introduced the pattern and FAIL-010 repeated it before a control existed. Existing controls for lessons 004 and 005 remain adequate; a new lesson and high-priority runtime-validation guardrail action address the recurrence. No maturity or evidence-learning claim is supported by one session."
+    }
+  ],
+  "schema_version": "1.0",
+  "semantic_use": "LLM may derive themes and hypotheses; SAGE validates citations and epistemic boundaries but does not validate semantic truth."
+}

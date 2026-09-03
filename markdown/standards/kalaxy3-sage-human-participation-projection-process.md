@@ -108,3 +108,33 @@ the canonical result object or change its immutable retrieval basis.
 A recovery that restores an older checkpoint must migrate the complete input
 contract atomically. Adding only new fields while leaving obsolete query fields
 is an invalid partial migration and must fail before retrieval.
+
+## Semantic experience synthesis
+
+Canonical retrieval and semantic judgment have different responsibilities.
+
+SAGE first supplies a bounded governed experience corpus. The corpus may combine
+a broad canonical retrieval snapshot with canonical evidence already surfaced
+by intent-relative or experience-inventory projections. The corpus must declare
+that it is bounded and must not claim exhaustiveness.
+
+An LLM may then:
+
+- derive human-meaningful experience themes from that corpus;
+- judge whether retrieved experience is directly relevant, analogous, weak or
+  uncertain, contradictory, or provides no useful support for a current intent;
+- explain the judgment and identify assumptions, unknowns, and implications;
+- propose innovations that are not supported by prior experience.
+
+Every material LLM-derived experience or applicability claim must cite governed
+evidence actually present in the bounded corpus. Intent applicability citations
+must also have been retrieved for that intent area.
+
+SAGE validates citation resolution, evidence identity, allowed epistemic status,
+and authority boundaries. SAGE does **not** claim that deterministic validation
+makes an LLM semantic judgment true. LLM-derived themes and applicability
+judgments remain `llm_derived`; novel alternatives remain `llm_proposed`.
+
+Absence of direct experience is not a refusal condition. The LLM may innovate
+beyond SAGE's experience, and the Architect decides whether a historical lesson,
+analogy, experiment, or novel proposal becomes part of the objective path.
