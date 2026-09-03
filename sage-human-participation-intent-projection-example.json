@@ -1,0 +1,208 @@
+{
+  "architect_intent": {
+    "authority": "Architect",
+    "epistemic_status": "architect_intent",
+    "statement": "Demonstrate that Kalaxy3/SAGE can take a meaningful first-party change from stakeholder intent through portable build, exact artifact promotion, live runtime verification, and learning without depending on a particular development machine or workflow engine."
+  },
+  "authority_contract": {
+    "decision": "Architect selects objectives and trade-offs",
+    "experience": "SAGE retrieves and preserves provenance",
+    "innovation": "LLM proposes beyond experience"
+  },
+  "human_decisions": [
+    {
+      "authority": "Architect",
+      "decision": "Choose whether to buy a small amount of cluster/readiness information before authorizing the full end-to-end episode.",
+      "decision_type": "scope_and_risk_tradeoff"
+    },
+    {
+      "authority": "Architect",
+      "decision": "Choose the meaningful first-party workload/change whose stakeholder value justifies the end-to-end proof.",
+      "decision_type": "product_value_and_scope"
+    }
+  ],
+  "llm_innovations": [
+    {
+      "epistemic_status": "llm_proposed",
+      "experience_dependency": "not_required",
+      "proposal": "Use a meaningful first-party SAGE experience change as the end-to-end workload rather than inventing a disposable demonstration application.",
+      "why": "Would make delivery proof and stakeholder-visible value part of the same episode."
+    },
+    {
+      "epistemic_status": "llm_proposed",
+      "experience_dependency": "not_required",
+      "proposal": "Before committing to the full live episode, run a bounded readiness check that asks only whether the current cluster and delivery path can support the intended proof.",
+      "why": "High information gain if cluster readiness is uncertain; avoids broad infrastructure hardening without evidence."
+    },
+    {
+      "epistemic_status": "llm_proposed",
+      "experience_dependency": "analogous_lessons_may_apply",
+      "proposal": "Treat newly discovered infrastructure deficiency as relevant only when it blocks or materially risks the stakeholder outcome.",
+      "why": "Preserves the 80/20 objective rather than turning the proof into a cluster modernization project."
+    }
+  ],
+  "projection_type": "intent_relative_experience_and_innovation",
+  "relevant_experience": [
+    {
+      "applicability": "requires_contextual_judgment",
+      "area": "portable_delivery",
+      "evidence_candidates": [],
+      "experience_claim": "not_inferred_from_retrieval_alone",
+      "llm_relevance_hypothesis": "Potential direct or analogous experience; applicability must still be judged.",
+      "question": "Which evidence candidates may transfer to portable build and exact promotion?",
+      "retrieval_status": "no_bounded_catalog_match"
+    },
+    {
+      "applicability": "requires_contextual_judgment",
+      "area": "runtime_access",
+      "evidence_candidates": [
+        {
+          "epistemic_status": "retrieved_evidence_candidate",
+          "record": {
+            "evidence_id": "SAGE-K3-GUARDRAIL-20260731-001",
+            "source_path": "markdown/governance/kalaxy3-actionable-guardrail-recovery-evidence.md",
+            "status": "validated",
+            "summary": "Documents the reusable SAGE actionable-failure framework, centralized-logging lifecycle recovery, vault-tolerant metadata handling, and live seven-node Loki validation.",
+            "title": "Actionable Guardrail Recovery and Active Centralized Logging Runtime Validation Evidence"
+          },
+          "retrieval_match_count": 1
+        },
+        {
+          "epistemic_status": "retrieved_evidence_candidate",
+          "record": {
+            "evidence_id": "SAGE-K3-GUARDRAIL-20260731-002",
+            "source_path": "markdown/governance/kalaxy3-actionable-guardrail-ci-portability-evidence.md",
+            "status": "validated",
+            "summary": "Documents the three post-publication CI repairs that separated repository authority from runtime prerequisites and made PR 5 source-only guardrails pass without weakening operator-runtime validation.",
+            "title": "PR #5 CI Portability Repair and Source-Only Guardrail Validation Evidence"
+          },
+          "retrieval_match_count": 1
+        },
+        {
+          "epistemic_status": "retrieved_evidence_candidate",
+          "record": {
+            "evidence_id": "SAGE-K3-OBS-20260728-002",
+            "source_path": "markdown/operations/kalaxy3-centralized-logging-deployment-evidence.md",
+            "status": "validated",
+            "summary": "Documents activating and deploying Loki and Fluent Bit, correcting Grafana datasource reconciliation, and validating storage, all-node collection, Grafana health, and queryable logs.",
+            "title": "Centralized Logging Activation, Deployment, Correction, and Runtime Validation Evidence"
+          },
+          "retrieval_match_count": 1
+        },
+        {
+          "epistemic_status": "retrieved_evidence_candidate",
+          "record": {
+            "evidence_id": "SAGE-K3-OBS-20260804-001",
+            "source_path": "markdown/verification/kalaxy3-centralized-logging-runtime-validation-evidence.md",
+            "status": "validated",
+            "summary": "Validates Loki and Fluent Bit across all seven Kalaxy3 nodes, preserves failed operator paths, and records the repository-governed recovery and cluster guardrails.",
+            "title": "Active Centralized Logging Runtime Validation and SAGE-Governed Recovery Evidence"
+          },
+          "retrieval_match_count": 1
+        }
+      ],
+      "experience_claim": "not_inferred_from_retrieval_alone",
+      "llm_relevance_hypothesis": "Potential runtime/security experience; current readiness remains a separate question.",
+      "question": "Which evidence candidates may transfer to live zero-trust verification?",
+      "retrieval_status": "repository_evidence_candidates_found"
+    },
+    {
+      "applicability": "requires_contextual_judgment",
+      "area": "recovery_and_operator_effort",
+      "evidence_candidates": [
+        {
+          "epistemic_status": "retrieved_evidence_candidate",
+          "record": {
+            "evidence_id": "SAGE-K3-OBS-20260804-001",
+            "source_path": "markdown/verification/kalaxy3-centralized-logging-runtime-validation-evidence.md",
+            "status": "validated",
+            "summary": "Validates Loki and Fluent Bit across all seven Kalaxy3 nodes, preserves failed operator paths, and records the repository-governed recovery and cluster guardrails.",
+            "title": "Active Centralized Logging Runtime Validation and SAGE-Governed Recovery Evidence"
+          },
+          "retrieval_match_count": 2
+        },
+        {
+          "epistemic_status": "retrieved_evidence_candidate",
+          "record": {
+            "evidence_id": "LEGACY-K3-3C12332A51",
+            "source_path": "markdown/installation/longhorn-kubecost-intel-node-preparation.md",
+            "status": "historical",
+            "summary": "Project: Kalaxy3 Date: July 17, 2026 Status: Ansible design checkpoint before completing the MinIO changes Document path: markdown/installation/longhorn-kubecost-intel-node-preparation.md",
+            "title": "Longhorn, Kubecost, and Intel Node Preparation"
+          },
+          "retrieval_match_count": 1
+        },
+        {
+          "epistemic_status": "retrieved_evidence_candidate",
+          "record": {
+            "evidence_id": "SAGE-K3-GOVERNANCE-20260726-002",
+            "source_path": "markdown/governance/kalaxy3-sage-guardrail-gap-observability-pause-evidence.md",
+            "status": "validated",
+            "summary": "Documents the machine-local Helm escape path, the missing preventive SAGE controls, and the decision to checkpoint and pause centralized logging until repository and admission guardrails are implemented.",
+            "title": "SAGE Guardrail Gap Discovery and Centralized Logging Work Pause"
+          },
+          "retrieval_match_count": 1
+        },
+        {
+          "epistemic_status": "retrieved_evidence_candidate",
+          "record": {
+            "evidence_id": "SAGE-K3-GUARDRAIL-20260731-001",
+            "source_path": "markdown/governance/kalaxy3-actionable-guardrail-recovery-evidence.md",
+            "status": "validated",
+            "summary": "Documents the reusable SAGE actionable-failure framework, centralized-logging lifecycle recovery, vault-tolerant metadata handling, and live seven-node Loki validation.",
+            "title": "Actionable Guardrail Recovery and Active Centralized Logging Runtime Validation Evidence"
+          },
+          "retrieval_match_count": 1
+        }
+      ],
+      "experience_claim": "not_inferred_from_retrieval_alone",
+      "llm_relevance_hypothesis": "Potential evidence for avoiding replay and needless operator round trips.",
+      "question": "Which evidence candidates may transfer to low-intervention recovery?",
+      "retrieval_status": "repository_evidence_candidates_found"
+    }
+  ],
+  "stakeholder_concerns": [
+    "meaningful user-visible outcome",
+    "reliable delivery and recovery",
+    "machine and executor portability",
+    "security and zero-trust access",
+    "operator effort and avoidable intervention",
+    "evidence-backed confidence and learning",
+    "runtime readiness sufficient for the intended proof"
+  ],
+  "tactical_options": [
+    {
+      "candidate": "bounded_cluster_and_delivery_readiness_check",
+      "effort": "small",
+      "epistemic_status": "llm_proposed",
+      "expected_stakeholder_value": "Reduces uncertainty about whether the live proof is currently feasible.",
+      "information_gain": "high",
+      "reversibility": "high",
+      "risk": "May reveal a genuine blocker that changes the next objective."
+    },
+    {
+      "candidate": "execute_meaningful_first_party_end_to_end_change_now",
+      "effort": "medium",
+      "epistemic_status": "llm_proposed",
+      "expected_stakeholder_value": "Produces the strongest direct proof if current infrastructure is already sufficient.",
+      "information_gain": "high",
+      "reversibility": "medium",
+      "risk": "Could mix product proof with avoidable infrastructure diagnosis if readiness is weaker than assumed."
+    },
+    {
+      "candidate": "broaden_cluster_hardening_before_proof",
+      "effort": "large",
+      "epistemic_status": "llm_proposed",
+      "expected_stakeholder_value": "Could improve runtime robustness.",
+      "information_gain": "low_to_medium",
+      "reversibility": "medium",
+      "risk": "High chance of solving infrastructure concerns that are not material blockers to the intended proof."
+    }
+  ],
+  "unresolved_questions": [
+    "Is the current Kalaxy3 cluster sufficiently ready to host the intended live proof without unrelated hardening?",
+    "Which first-party change creates enough stakeholder-visible value to make the end-to-end proof meaningful?",
+    "Which historical evidence is directly transferable versus merely analogous to this exact objective?",
+    "What runtime evidence is portable in Git and what remains available only on particular executors?"
+  ]
+}

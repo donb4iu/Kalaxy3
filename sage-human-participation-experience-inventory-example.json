@@ -1,0 +1,95 @@
+{
+  "areas": [
+    {
+      "area": "artifact_identity_and_promotion",
+      "evidence_candidates": [],
+      "experience_claim": "not_inferred_from_retrieval_alone",
+      "llm_relevance_hypothesis": "Likely relevant to reproducibility and portable delivery.",
+      "question": "What accumulated evidence is available around building once and promoting the same artifact?",
+      "retrieval_status": "no_bounded_catalog_match"
+    },
+    {
+      "area": "git_github_recovery",
+      "evidence_candidates": [
+        {
+          "epistemic_status": "retrieved_evidence_candidate",
+          "record": {
+            "evidence_id": "LEGACY-K3-3C12332A51",
+            "source_path": "markdown/installation/longhorn-kubecost-intel-node-preparation.md",
+            "status": "historical",
+            "summary": "Project: Kalaxy3 Date: July 17, 2026 Status: Ansible design checkpoint before completing the MinIO changes Document path: markdown/installation/longhorn-kubecost-intel-node-preparation.md",
+            "title": "Longhorn, Kubecost, and Intel Node Preparation"
+          },
+          "retrieval_match_count": 1
+        },
+        {
+          "epistemic_status": "retrieved_evidence_candidate",
+          "record": {
+            "evidence_id": "SAGE-K3-GOVERNANCE-20260726-002",
+            "source_path": "markdown/governance/kalaxy3-sage-guardrail-gap-observability-pause-evidence.md",
+            "status": "validated",
+            "summary": "Documents the machine-local Helm escape path, the missing preventive SAGE controls, and the decision to checkpoint and pause centralized logging until repository and admission guardrails are implemented.",
+            "title": "SAGE Guardrail Gap Discovery and Centralized Logging Work Pause"
+          },
+          "retrieval_match_count": 1
+        },
+        {
+          "epistemic_status": "retrieved_evidence_candidate",
+          "record": {
+            "evidence_id": "SAGE-K3-GUARDRAIL-20260731-001",
+            "source_path": "markdown/governance/kalaxy3-actionable-guardrail-recovery-evidence.md",
+            "status": "validated",
+            "summary": "Documents the reusable SAGE actionable-failure framework, centralized-logging lifecycle recovery, vault-tolerant metadata handling, and live seven-node Loki validation.",
+            "title": "Actionable Guardrail Recovery and Active Centralized Logging Runtime Validation Evidence"
+          },
+          "retrieval_match_count": 1
+        },
+        {
+          "epistemic_status": "retrieved_evidence_candidate",
+          "record": {
+            "evidence_id": "SAGE-K3-OBS-20260804-001",
+            "source_path": "markdown/verification/kalaxy3-centralized-logging-runtime-validation-evidence.md",
+            "status": "validated",
+            "summary": "Validates Loki and Fluent Bit across all seven Kalaxy3 nodes, preserves failed operator paths, and records the repository-governed recovery and cluster guardrails.",
+            "title": "Active Centralized Logging Runtime Validation and SAGE-Governed Recovery Evidence"
+          },
+          "retrieval_match_count": 1
+        }
+      ],
+      "experience_claim": "not_inferred_from_retrieval_alone",
+      "llm_relevance_hypothesis": "Likely relevant to reducing operator intervention and stale workflow assumptions.",
+      "question": "What accumulated evidence is available around recovery when Git or GitHub advances independently?",
+      "retrieval_status": "repository_evidence_candidates_found"
+    },
+    {
+      "area": "zero_trust_runtime",
+      "evidence_candidates": [],
+      "experience_claim": "not_inferred_from_retrieval_alone",
+      "llm_relevance_hypothesis": "Likely relevant to external user access and security.",
+      "question": "What accumulated evidence is available around externally reachable zero-trust runtime behavior?",
+      "retrieval_status": "no_bounded_catalog_match"
+    },
+    {
+      "area": "objective_execution_and_learning",
+      "evidence_candidates": [
+        {
+          "epistemic_status": "retrieved_evidence_candidate",
+          "record": {
+            "evidence_id": "LEGACY-K3-D2AEC96351",
+            "source_path": "markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md",
+            "status": "historical",
+            "summary": "Status: Architect-owned epic; implementation not yet started Product intent: improve stakeholder participation and tactical attention allocation Execution model: existing governed SAGE objective-execution methodology remains authoritative Architecture-explorer status: separate technical due-diligence deliverable, not the first product priority",
+            "title": "SAGE Human Participation Adapter \u2014 Architect Epic"
+          },
+          "retrieval_match_count": 2
+        }
+      ],
+      "experience_claim": "not_inferred_from_retrieval_alone",
+      "llm_relevance_hypothesis": "Likely relevant to governed delivery and learning from the episode.",
+      "question": "What accumulated evidence is available around objective-sized execution and learning?",
+      "retrieval_status": "repository_evidence_candidates_found"
+    }
+  ],
+  "epistemic_rule": "Catalog matches are evidence candidates, not proof of competence.",
+  "projection_type": "experience_inventory"
+}

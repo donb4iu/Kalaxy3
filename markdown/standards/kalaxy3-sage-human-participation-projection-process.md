@@ -59,3 +59,31 @@ Advance to a UI slice only when:
 If the projection remains technically correct but incomprehensible to a
 knowledgeable stakeholder, treat that as failure of the read model rather than
 as a presentation-only defect.
+
+## Experience-informed help does not bound innovation
+
+The Human Participation Adapter must not treat absence of prior SAGE experience as
+a reason that SAGE cannot help.
+
+Two entry modes are supported conceptually:
+
+1. **Experience inventory** — "What are you prepared to help with?"
+2. **Intent-relative analysis** — "Given this intent, what relevant experience
+   exists and what new possibilities should be considered?"
+
+Repository evidence retrieval establishes evidence candidates only. A retrieval
+match does not by itself establish competence, transferability, or applicability.
+
+When relevant experience exists, SAGE preserves and presents it. When experience
+is partial, analogous, or absent, the LLM may still propose novel requirements,
+architectures, experiments, or solution paths from broader knowledge. Those
+proposals remain explicitly `llm_proposed` until evidence or Architect authority
+changes their status.
+
+The operating contract is:
+
+**experience informs -> LLM innovates -> SAGE reconciles/proves what it can ->
+Architect decides**
+
+SAGE's evidenced experience envelope improves its priors; it is not a hard
+solution-space boundary.
