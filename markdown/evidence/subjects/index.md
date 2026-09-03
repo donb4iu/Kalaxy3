@@ -8,6 +8,7 @@
 - [Centralized logging cost baseline](centralized-logging-cost-baseline.md)
 - [Centralized observability logging](centralized-observability-logging.md)
 - [Grafana operations observability](grafana-operations-observability.md)
+- [Human Participation / Experience Intelligence](human-participation-experience-intelligence.md)
 - [Intel Node pi Administrative Access Evidence](intel-node-pi-administrative-access-evidence.md)
 - [K3s API High Availability](k3s-api-high-availability.md)
 - [K3s etcd Baseline Backup Evidence](k3s-etcd-baseline-backup-evidence.md)

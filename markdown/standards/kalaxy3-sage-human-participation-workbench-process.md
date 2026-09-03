@@ -60,3 +60,62 @@ read-only state under the existing MkDocs/static publication surface.
 This is intentionally an 80/20 product slice. A later live workbench may add a
 runtime LLM interaction path or objective initiation only after those authority
 and evidence boundaries are separately proven.
+
+## Generic experience intelligence
+
+The workbench must not depend on a curated list of showcase episodes.
+
+A repository-derived experience graph supplies raw browsable entities and
+explicit identifier relationships for all discovered governed records within
+the bounded machine-readable source set.
+
+Optional human narration is augmentation only. If no narration exists, the raw
+governed entity remains fully inspectable.
+
+### Role interaction
+
+The Architect defines intent/end state, constraints and consequential choices;
+the LLM may innovate beyond prior SAGE experience; SAGE reconciles proposals
+against evidence, experience, authority, guardrails and executable capability;
+executors/external systems perform work; later learning records consequences.
+
+The browser may display role interaction only from explicit provenance.
+Missing attribution remains unknown.
+
+LLM innovation is displayed separately from prior experience and Architect
+intent so the product does not collapse innovation into current SAGE
+capabilities.
+
+### Bidirectional navigation
+
+Every discovered relationship is navigable in both directions.
+
+Semantic relationships are kept distinct from generic identifier references. A
+generic reference cannot be presented as evidence of causal contribution.
+
+### Current standing
+
+Age alone cannot make evidence stale.
+
+Standing changes only when explicit status or relationships record
+supersession, contradiction, invalidation, staleness or context limitation.
+
+### Historical effort and repeat cost
+
+Linked failures, lessons, evidence and actions may be displayed as historical
+path signals.
+
+These counts are never future-cost estimates.
+
+Any statement that a future comparable path should be easier, safer or faster
+is interpretive/predictive until a later comparable episode demonstrates the
+effect.
+
+### Optional narration
+
+Narration metadata may explain what an entity means, what it enables, why it
+matters, historical effort context, reusable value created, expected repeat
+effect and limits.
+
+The expected repeat effect must retain an interpretive or proposed epistemic
+status rather than being rendered as demonstrated evidence.

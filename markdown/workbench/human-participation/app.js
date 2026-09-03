@@ -1,8 +1,13 @@
 (() => {
   "use strict";
 
-  const state = window.KALAXY3_WORKBENCH_STATE;
+  const workbench = window.KALAXY3_WORKBENCH_STATE;
+  const graph = window.KALAXY3_EXPERIENCE_GRAPH;
+  const narrationRoot = window.KALAXY3_NARRATION || { entries: {} };
+  const narration = narrationRoot.entries || {};
   const root = document.getElementById("app");
+
+  const byId = new Map((graph.entities || []).map((item) => [item.id, item]));
 
   function el(tag, className, text) {
     const node = document.createElement(tag);
@@ -18,16 +23,8 @@
     return parent;
   }
 
-  function badge(label, kind) {
-    return el("span", `badge badge-${kind || "neutral"}`, label);
-  }
-
-  function list(items, className = "plain-list") {
-    const ul = el("ul", className);
-    (items || []).forEach((item) => {
-      ul.appendChild(el("li", "", item));
-    });
-    return ul;
+  function badge(label, kind = "neutral") {
+    return el("span", `badge badge-${kind}`, label);
   }
 
   function titleCase(value) {
@@ -36,52 +33,10 @@
       .replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 
-  function evidenceDetails(records) {
-    const details = el("details", "evidence-details");
-    const summary = el(
-      "summary",
-      "",
-      `Inspect evidence (${(records || []).length})`
-    );
-    details.appendChild(summary);
-
-    (records || []).forEach((record) => {
-      const card = el("article", "evidence-card");
-      append(
-        card,
-        badge("Evidence", "evidence"),
-        el("h5", "", record.title || record.evidence_ref),
-        el("p", "mono evidence-ref", record.evidence_ref),
-        el("p", "source-path", record.source_path || "")
-      );
-
-      const facts = record.applicable_facts || [];
-      if (facts.length) {
-        card.appendChild(el("p", "mini-label", "Applicable facts"));
-        const factList = el("ul", "fact-list");
-        facts.forEach((fact) => {
-          factList.appendChild(el("li", "", fact.value || ""));
-        });
-        card.appendChild(factList);
-      }
-
-      const meta = el("div", "meta-row");
-      if (record.status) meta.appendChild(badge(record.status, "neutral"));
-      if (record.confidence && record.confidence.value) {
-        meta.appendChild(
-          badge(`confidence: ${record.confidence.value}`, "neutral")
-        );
-      }
-      if (record.recency && record.recency.value) {
-        meta.appendChild(
-          badge(`recency: ${record.recency.value}`, "neutral")
-        );
-      }
-      card.appendChild(meta);
-      details.appendChild(card);
-    });
-
-    return details;
+  function list(items, className = "plain-list") {
+    const ul = el("ul", className);
+    (items || []).forEach((item) => ul.appendChild(el("li", "", item)));
+    return ul;
   }
 
   function sectionHeading(kicker, title, description) {
@@ -95,283 +50,559 @@
     return block;
   }
 
-  function renderHero() {
-    const section = el("section", "hero panel");
-    const objective = state.objective;
+  function homePanel(href, title, body, meta) {
+    const link = el("a", "home-panel");
+    link.href = href;
     append(
-      section,
-      el("p", "eyebrow", "Current Architect objective"),
-      el("h2", "", objective.statement),
-      append(
-        el("div", "meta-row"),
-        badge("Architect", "architect"),
-        badge("read only", "neutral"),
-        badge("stakeholder UI proof", "neutral")
+      link,
+      el("p", "mini-label", meta),
+      el("h3", "", title),
+      el("p", "", body),
+      el("span", "panel-link", "Explore →")
+    );
+    return link;
+  }
+
+  function renderHome() {
+    const section = el("section", "panel");
+    section.id = "home";
+    section.appendChild(
+      sectionHeading(
+        "Start anywhere",
+        "Explore SAGE through outcomes and accumulated experience",
+        "These are peer entry points into the same governed relationship " +
+          "network. There is no required reading order."
+      )
+    );
+
+    const grid = el("div", "home-grid");
+    append(
+      grid,
+      homePanel(
+        "#experiences",
+        "Objectives & experiences",
+        "What has been attempted or accomplished, what it cost to discover, " +
+          "what was learned, and what should be reusable next time.",
+        "What SAGE has helped accomplish and learn"
       ),
+      homePanel(
+        "#capabilities",
+        "Capabilities",
+        "What kinds of problems SAGE has accumulated useful experience " +
+          "addressing and where those capabilities came from.",
+        "What SAGE can help with"
+      ),
+      homePanel(
+        "#current",
+        "Current objective",
+        "Which prior experience appears relevant now, what remains uncertain, " +
+          "and what new possibilities exist beyond experience.",
+        "What matters right now"
+      ),
+      homePanel(
+        "#judgment",
+        "Human judgment",
+        "Consequential choices, their evidence, downstream implications, " +
+          "debt, and whether later learning changed the assessment.",
+        "Where judgment shaped outcomes"
+      ),
+      homePanel(
+        "#interaction",
+        "Role interaction",
+        "See how Architect intent, LLM innovation, SAGE reconciliation, " +
+          "execution, evidence and learning combined to produce an outcome.",
+        "How the work came together"
+      )
+    );
+    section.appendChild(grid);
+
+    const searchWrap = el("div", "search-wrap");
+    const label = el("label", "mini-label", "Find anything in experience");
+    label.htmlFor = "global-search";
+    const input = el("input", "search-input");
+    input.id = "global-search";
+    input.type = "search";
+    input.placeholder = "Search IDs, titles, types, status, source paths…";
+    input.autocomplete = "off";
+    append(searchWrap, label, input);
+    section.appendChild(searchWrap);
+
+    input.addEventListener("input", () => {
+      const term = input.value.trim().toLowerCase();
+      document.querySelectorAll("[data-search-text]").forEach((node) => {
+        const haystack = node.getAttribute("data-search-text") || "";
+        node.hidden = term !== "" && !haystack.includes(term);
+      });
+    });
+
+    return section;
+  }
+
+  function standingBadge(standing) {
+    const state = standing?.state || "unknown";
+    let kind = "neutral";
+    if (["superseded", "contradicted", "invalidated"].includes(state)) {
+      kind = "contradictory";
+    }
+    if (["context_limited", "potentially_stale"].includes(state)) {
+      kind = "warning";
+    }
+    return badge(titleCase(state), kind);
+  }
+
+  function narrationBlock(entity) {
+    const note = narration[entity.id];
+    if (!note) {
+      return append(
+        el("div", "raw-mode-note"),
+        badge("Raw governed view", "sage-derived"),
+        el(
+          "p",
+          "",
+          "No optional human-language narration is attached to this entity. " +
+            "The relationships and metadata below remain fully inspectable."
+        )
+      );
+    }
+
+    const block = el("div", "narration-block");
+    append(
+      block,
+      badge("Optional LLM narration", "llm-derived"),
+      el("p", "mini-label", "What this means"),
+      el("p", "lead", note.what_this_means),
+      el("p", "mini-label", "What it enables"),
+      el("p", "", note.what_it_enables),
+      el("p", "mini-label", "Why it matters"),
+      el("p", "", note.why_it_matters)
+    );
+
+    if (note.historical_effort_context) {
+      append(
+        block,
+        el("p", "mini-label", "Historical effort"),
+        el("p", "", note.historical_effort_context)
+      );
+    }
+    if (note.reusable_value_created) {
+      append(
+        block,
+        el("p", "mini-label", "Reusable value created"),
+        el("p", "", note.reusable_value_created)
+      );
+    }
+    if (note.expected_repeat_effect) {
+      const repeat = el("div", "repeat-effect");
+      append(
+        repeat,
+        badge("Predicted repeat effect", "llm-proposed"),
+        el("p", "", note.expected_repeat_effect)
+      );
+      block.appendChild(repeat);
+    }
+    if ((note.limits || []).length) {
+      block.appendChild(el("p", "mini-label", "Limits"));
+      block.appendChild(list(note.limits));
+    }
+    return block;
+  }
+
+  function pathSignals(entity) {
+    const entries = Object.entries(entity.path_signals || {});
+    const box = el("div", "signals");
+    append(
+      box,
+      el("p", "mini-label", "Observed path signals"),
       el(
         "p",
-        "supporting-copy",
-        "This surface separates accumulated evidence, semantic interpretation, " +
-          "new possibilities, uncertainty, and human authority."
+        "signal-disclaimer",
+        "Historical linked-record counts. They are not a future effort estimate."
       )
     );
-    return section;
-  }
-
-  function renderLegend() {
-    const section = el("section", "legend panel");
-    section.appendChild(
-      sectionHeading(
-        "How to read this",
-        "Epistemic identity stays visible",
-        "A label tells you what kind of claim you are looking at."
-      )
-    );
-    const grid = el("div", "legend-grid");
-    state.epistemic_legend.forEach((item) => {
-      const card = el("article", "legend-item");
-      append(
-        card,
-        badge(item.label, item.id),
-        el("p", "", item.meaning)
-      );
-      grid.appendChild(card);
+    if (!entries.length) {
+      box.appendChild(el("p", "muted", "No linked path signals found."));
+      return box;
+    }
+    const row = el("div", "signal-row");
+    entries.forEach(([kind, count]) => {
+      row.appendChild(badge(`${titleCase(kind)}: ${count}`, "neutral"));
     });
-    section.appendChild(grid);
-    return section;
+    box.appendChild(row);
+    return box;
   }
 
-  function renderThemes() {
-    const section = el("section", "panel");
-    section.appendChild(
-      sectionHeading(
-        "1 / Experience",
-        "What can SAGE help me with?",
-        "Themes are LLM-derived from a bounded governed experience corpus; " +
-          "each one links back to the evidence used."
+  function roleInteractionBlock(entity) {
+    const block = el("div", "role-block");
+    append(
+      block,
+      el("p", "mini-label", "How this came together"),
+      el(
+        "p",
+        "muted",
+        "Only explicit role provenance is shown. Missing attribution remains unknown."
       )
     );
 
-    const grid = el("div", "card-grid");
-    state.experience_themes.forEach((theme) => {
-      const card = el("article", "content-card");
+    const roles = entity.role_interaction || [];
+    if (!roles.length) {
+      block.appendChild(
+        el("p", "muted", "No explicit role attribution found for this episode.")
+      );
+      return block;
+    }
+
+    const lane = el("div", "role-lane");
+    roles.forEach((item) => {
+      const card = el("article", "role-card");
+      let kind = "neutral";
+      if (item.role === "Architect") kind = "architect";
+      if (item.role === "LLM") kind = "llm-proposed";
+      if (item.role === "SAGE") kind = "sage-derived";
       append(
         card,
-        append(
-          el("div", "card-topline"),
-          badge("LLM-derived", "llm-derived")
-        ),
-        el("h3", "", titleCase(theme.theme)),
-        el("p", "lead", theme.what_the_experience_suggests),
-        el("p", "mini-label", "Why this theme"),
-        el("p", "", theme.why_this_theme)
+        badge(item.role, kind),
+        el("p", "", item.title),
+        el("a", "mono tiny role-link", item.entity_id)
       );
+      card.querySelector("a").href =
+        `#entity-${encodeURIComponent(item.entity_id)}`;
+      lane.appendChild(card);
+    });
+    block.appendChild(lane);
+    return block;
+  }
 
-      if ((theme.limits || []).length) {
-        card.appendChild(el("p", "mini-label", "Limits"));
-        card.appendChild(list(theme.limits));
+  function rawFields(entity) {
+    const details = el("details", "raw-details");
+    details.appendChild(el("summary", "", "Inspect governed metadata"));
+    const table = el("dl", "metadata-grid");
+    Object.entries(entity.raw_fields || {}).forEach(([key, value]) => {
+      table.appendChild(el("dt", "", titleCase(key)));
+      table.appendChild(
+        el(
+          "dd",
+          "",
+          Array.isArray(value) ? value.join(", ") : String(value)
+        )
+      );
+    });
+    if (!Object.keys(entity.raw_fields || {}).length) {
+      details.appendChild(el("p", "muted", "No compact scalar metadata."));
+    } else {
+      details.appendChild(table);
+    }
+    return details;
+  }
+
+  function entityLink(entity, relation) {
+    const link = el("a", "relation-link");
+    link.href = `#entity-${encodeURIComponent(entity.id)}`;
+    append(
+      link,
+      badge(titleCase(relation), "neutral"),
+      el("span", "", entity.title || entity.id),
+      el("span", "mono tiny", entity.id)
+    );
+    return link;
+  }
+
+  function relationList(entity, direction) {
+    const edges = entity[direction] || [];
+    const wrap = el("div", "relation-group");
+    wrap.appendChild(
+      el(
+        "p",
+        "mini-label",
+        direction === "incoming"
+          ? "What points here / downstream use"
+          : "Where this points / upstream context"
+      )
+    );
+    if (!edges.length) {
+      wrap.appendChild(el("p", "muted", "No explicit relationships found."));
+      return wrap;
+    }
+
+    const semantic = edges.filter((edge) => edge.semantic);
+    const generic = edges.filter((edge) => !edge.semantic);
+
+    if (semantic.length) {
+      const bucket = el("div", "relation-bucket");
+      bucket.appendChild(el("p", "relation-label", "Semantic relationships"));
+      semantic.slice(0, 30).forEach((edge) => {
+        const targetId = direction === "incoming" ? edge.source : edge.target;
+        const target = byId.get(targetId);
+        if (target) bucket.appendChild(entityLink(target, edge.relation));
+      });
+      wrap.appendChild(bucket);
+    }
+
+    if (generic.length) {
+      const details = el("details", "reference-details");
+      details.appendChild(
+        el("summary", "", `Other explicit references (${generic.length})`)
+      );
+      generic.slice(0, 50).forEach((edge) => {
+        const targetId = direction === "incoming" ? edge.source : edge.target;
+        const target = byId.get(targetId);
+        if (target) details.appendChild(entityLink(target, "reference"));
+      });
+      wrap.appendChild(details);
+    }
+    return wrap;
+  }
+
+  function entityCard(entity) {
+    const card = el("article", "entity-card");
+    card.id = `entity-${entity.id}`;
+    card.setAttribute(
+      "data-search-text",
+      [
+        entity.id,
+        entity.title,
+        entity.entity_type,
+        entity.status,
+        ...(entity.source_paths || []),
+      ]
+        .join(" ")
+        .toLowerCase()
+    );
+
+    append(
+      card,
+      append(
+        el("div", "card-topline"),
+        badge(titleCase(entity.entity_type), "sage-derived"),
+        standingBadge(entity.current_standing),
+        narration[entity.id]
+          ? badge("Explained", "llm-derived")
+          : badge("Raw", "neutral")
+      ),
+      el("h3", "", entity.title),
+      el("p", "mono entity-id", entity.id),
+      narrationBlock(entity),
+      entity.is_episode ? roleInteractionBlock(entity) : null,
+      pathSignals(entity)
+    );
+
+    const standing = el("div", "standing-note");
+    append(
+      standing,
+      el("p", "mini-label", "Current standing"),
+      el("p", "", titleCase(entity.current_standing?.state || "unknown")),
+      el("p", "muted", entity.current_standing?.basis || "")
+    );
+    card.appendChild(standing);
+
+    const relations = el("div", "relation-columns");
+    append(
+      relations,
+      relationList(entity, "outgoing"),
+      relationList(entity, "incoming")
+    );
+    card.appendChild(relations);
+
+    const sources = el("details", "raw-details");
+    sources.appendChild(
+      el("summary", "", `Source provenance (${entity.source_paths.length})`)
+    );
+    sources.appendChild(list(entity.source_paths, "source-list"));
+    card.appendChild(sources);
+    card.appendChild(rawFields(entity));
+    return card;
+  }
+
+  function paginatedEntities(items, sectionId, batch = 20) {
+    const wrap = el("div", "entity-list");
+    let visible = batch;
+
+    function draw() {
+      wrap.textContent = "";
+      items.slice(0, visible).forEach((item) => {
+        wrap.appendChild(entityCard(item));
+      });
+      if (visible < items.length) {
+        const button = el(
+          "button",
+          "show-more",
+          `Show ${Math.min(batch, items.length - visible)} more`
+        );
+        button.type = "button";
+        button.addEventListener("click", () => {
+          visible += batch;
+          draw();
+          document.getElementById(sectionId)?.scrollIntoView({
+            block: "start",
+          });
+        });
+        wrap.appendChild(button);
       }
+    }
 
-      card.appendChild(evidenceDetails(theme.evidence || []));
-      grid.appendChild(card);
-    });
-    section.appendChild(grid);
+    draw();
+    return wrap;
+  }
+
+  function entitySection(id, kicker, title, description, items) {
+    const section = el("section", "panel");
+    section.id = id;
+    section.appendChild(sectionHeading(kicker, title, description));
+    section.appendChild(
+      el("p", "section-count", `${items.length} discovered`)
+    );
+    section.appendChild(paginatedEntities(items, id));
     return section;
   }
 
-  function relationshipBadge(value) {
-    const label = titleCase(value);
-    let kind = "neutral";
-    if (value === "directly_relevant") kind = "direct";
-    if (value === "analogous") kind = "analogous";
-    if (value === "contradictory") kind = "contradictory";
-    return badge(label, kind);
-  }
-
-  function renderApplicability() {
+  function renderCurrentObjective() {
     const section = el("section", "panel");
+    section.id = "current";
     section.appendChild(
       sectionHeading(
-        "2 / Intent",
-        "Given this objective, what matters?",
-        "Semantic transfer judgments explain relevance, assumptions, unknowns, " +
-          "and implications without turning them into demonstrated facts."
+        "Current objective",
+        "What matters right now",
+        "Architect intent defines the desired future state. Relevant experience " +
+          "and LLM innovation inform how we might get there."
       )
     );
 
-    const grid = el("div", "card-grid");
-    state.intent_applicability.forEach((item) => {
-      const card = el("article", "content-card");
+    const objective = workbench.objective;
+    append(
+      section,
+      badge("Architect intent", "architect"),
+      el("h3", "current-objective", objective.statement)
+    );
+
+    const grid = el("div", "current-grid");
+    (workbench.intent_applicability || []).forEach((item) => {
+      const card = el("article", "summary-card");
       append(
         card,
-        append(
-          el("div", "card-topline"),
-          badge("LLM-derived", "llm-derived"),
-          relationshipBadge(item.semantic_relationship)
-        ),
-        el("h3", "", titleCase(item.intent_area)),
-        el("p", "lead", item.why),
+        badge("LLM-derived experience interpretation", "llm-derived"),
+        el("h4", "", titleCase(item.intent_area)),
+        badge(titleCase(item.semantic_relationship), "neutral"),
+        el("p", "", item.why),
         el("p", "mini-label", "Implication"),
         el("p", "", item.implication)
       );
-
-      if ((item.assumptions || []).length) {
-        card.appendChild(el("p", "mini-label", "Assumptions"));
-        card.appendChild(list(item.assumptions));
-      }
-
       if ((item.unknowns || []).length) {
-        card.appendChild(el("p", "mini-label", "Still unknown"));
+        card.appendChild(el("p", "mini-label", "Unknowns"));
         card.appendChild(list(item.unknowns, "unknown-list"));
       }
-
-      card.appendChild(
-        append(
-          el("div", "authority-strip"),
-          badge("Architect judgment required", "architect"),
-          el(
-            "span",
-            "",
-            "Transfer is a human decision, not an automatic promotion."
-          )
-        )
-      );
-      card.appendChild(evidenceDetails(item.evidence || []));
       grid.appendChild(card);
     });
     section.appendChild(grid);
+
+    const innovation = el("div", "innovation-zone");
+    append(
+      innovation,
+      el("p", "mini-label", "LLM innovation beyond prior experience"),
+      el(
+        "p",
+        "muted",
+        "These are proposed possibilities, not SAGE facts or Architect decisions."
+      )
+    );
+    const proposals = el("div", "current-grid");
+    (workbench.innovation_beyond_experience || []).forEach((item) => {
+      const card = el("article", "summary-card");
+      append(
+        card,
+        badge("LLM-proposed", "llm-proposed"),
+        el("h4", "", item.proposal),
+        el("p", "", item.why)
+      );
+      proposals.appendChild(card);
+    });
+    innovation.appendChild(proposals);
+    section.appendChild(innovation);
+
     return section;
   }
 
-  function renderHumanJudgment() {
+  function renderJudgment(decisionEntities) {
     const section = el("section", "panel");
+    section.id = "judgment";
     section.appendChild(
       sectionHeading(
-        "3 / Participation",
-        "Where is my judgment valuable?",
-        "SAGE exposes choices and the LLM can propose beyond experience; " +
-          "neither silently becomes authority."
+        "Human judgment",
+        "Where judgment shaped outcomes",
+        "Human authority is visible without assuming the judgment was always " +
+          "correct. Downstream relationships and debt remain inspectable when " +
+          "the governed records preserve them."
       )
     );
 
-    const columns = el("div", "decision-grid");
-
-    const decisions = el("div", "decision-column");
-    append(
-      decisions,
-      append(
-        el("div", "column-heading"),
-        badge("Architect", "architect"),
-        el("h3", "", "Decisions that remain yours")
-      )
-    );
-    state.architect_decisions.forEach((item) => {
-      const card = el("article", "decision-card");
+    const current = el("div", "decision-grid");
+    (workbench.architect_decisions || []).forEach((item) => {
+      const card = el("article", "summary-card");
       append(
         card,
-        el("p", "lead", item.decision),
+        badge("Architect", "architect"),
+        el("h4", "", item.decision),
         badge(titleCase(item.decision_type), "neutral")
       );
-      decisions.appendChild(card);
+      current.appendChild(card);
     });
+    section.appendChild(current);
 
-    const innovations = el("div", "decision-column");
-    append(
-      innovations,
-      append(
-        el("div", "column-heading"),
-        badge("LLM-proposed", "llm-proposed"),
-        el("h3", "", "Possibilities beyond prior experience")
-      )
-    );
-    state.innovation_beyond_experience.forEach((item) => {
-      const card = el("article", "decision-card");
-      append(
-        card,
-        el("p", "lead", item.proposal),
-        el("p", "", item.why),
-        badge(
-          `experience dependency: ${item.experience_dependency}`,
-          "neutral"
+    if (decisionEntities.length) {
+      section.appendChild(
+        sectionHeading(
+          "Repository decision lineage",
+          "Governed decision records",
+          "Raw decision records can be investigated even when no narration has " +
+            "been generated."
         )
       );
-      innovations.appendChild(card);
-    });
-
-    append(columns, decisions, innovations);
-    section.appendChild(columns);
-    return section;
-  }
-
-  function renderUnknowns() {
-    const section = el("section", "panel uncertainty-panel");
-    section.appendChild(
-      sectionHeading(
-        "Uncertainty",
-        "What we should not pretend to know",
-        "Unknowns and unavailable evidence stay visible instead of being " +
-          "filled in by inference."
-      )
-    );
-
-    section.appendChild(list(state.unknowns, "unknown-list"));
-
-    if ((state.evidence_availability || []).length) {
-      const availability = el("div", "availability-grid");
-      state.evidence_availability.forEach((item) => {
-        const card = el("article", "availability-card");
-        append(
-          card,
-          el("p", "mini-label", titleCase(item.source_type)),
-          badge(titleCase(item.availability), "neutral")
-        );
-        availability.appendChild(card);
-      });
-      section.appendChild(availability);
+      section.appendChild(paginatedEntities(decisionEntities, "judgment", 10));
     }
     return section;
   }
 
-  function renderProvenance() {
-    const section = el("section", "provenance panel");
+  function renderInteraction(episodes) {
+    const section = el("section", "panel");
+    section.id = "interaction";
     section.appendChild(
       sectionHeading(
-        "Provenance",
-        "Why this surface is inspectable",
-        "The workbench is a presentation of persisted projections, not a new " +
-          "source of truth."
+        "Role interaction",
+        "How the work came together",
+        "Architect intent, LLM innovation, SAGE reconciliation, execution and " +
+          "learning are different contributions. This view shows only role " +
+          "attribution preserved by provenance."
       )
     );
 
-    const grid = el("div", "provenance-grid");
-    const values = [
-      ["Corpus SHA-256", state.provenance.semantic_corpus_sha256],
-      [
-        "Evidence citations resolved",
-        state.provenance.evidence_citations_resolved,
-      ],
-      [
-        "SAGE claims semantic truth",
-        state.provenance.semantic_truth_validated_by_sage,
-      ],
-      ["Authority", state.provenance.architect_authority],
-    ];
-
-    values.forEach(([label, value]) => {
-      const card = el("article", "provenance-item");
-      append(
-        card,
-        el("p", "mini-label", label),
-        el("p", label === "Corpus SHA-256" ? "mono" : "", value)
-      );
-      grid.appendChild(card);
+    const model = el("div", "interaction-model");
+    [
+      ["Architect", "Defines intent, end state, constraints, trade-offs and consequential approvals.", "architect"],
+      ["LLM", "Widens the solution space with alternatives, architecture, critique, experiments and innovation.", "llm-proposed"],
+      ["SAGE", "Reconciles proposals with evidence, experience, authority, guardrails, unknowns and executable capability.", "sage-derived"],
+      ["Executor / external systems", "Perform governed work and emit observable results and receipts.", "neutral"],
+      ["Learning", "Compares expectation with outcome and records reusable insight, debt, staleness and next-time effects.", "evidence"]
+    ].forEach(([role, body, kind]) => {
+      const card = el("article", "role-model-card");
+      append(card, badge(role, kind), el("p", "", body));
+      model.appendChild(card);
     });
-    section.appendChild(grid);
+    section.appendChild(model);
+
+    const attributed = episodes.filter(
+      (item) => (item.role_interaction || []).length
+    );
+    section.appendChild(
+      sectionHeading(
+        "Recorded interaction",
+        "Episodes with explicit role provenance",
+        `${attributed.length} episodes currently expose at least one explicit role attribution.`
+      )
+    );
+    section.appendChild(paginatedEntities(attributed, "interaction", 10));
     return section;
   }
 
   function render() {
-    if (!state || state.interaction_mode !== "read_only") {
+    if (!workbench || !graph || workbench.interaction_mode !== "read_only") {
       root.appendChild(
         el(
           "p",
@@ -382,15 +613,62 @@
       return;
     }
 
+    const entities = graph.entities || [];
+    const episodes = entities.filter((item) => item.is_episode);
+    const capabilities = entities.filter(
+      (item) => item.entity_type === "capability"
+    );
+    const decisions = entities.filter(
+      (item) => item.entity_type === "decision"
+    );
+    const learning = entities.filter((item) =>
+      ["causal_insight", "lesson", "failure", "review", "candidate"].includes(
+        item.entity_type
+      )
+    );
+    const evidence = entities.filter(
+      (item) => item.entity_type === "evidence"
+    );
+
     append(
       root,
-      renderHero(),
-      renderLegend(),
-      renderThemes(),
-      renderApplicability(),
-      renderHumanJudgment(),
-      renderUnknowns(),
-      renderProvenance()
+      renderHome(),
+      entitySection(
+        "experiences",
+        "Objectives & experiences",
+        "What SAGE has helped accomplish and learn",
+        "Every discovered governed objective/episode is available in raw form. " +
+          "Selected entities may add optional plain-English narration without " +
+          "changing the canonical record.",
+        episodes
+      ),
+      entitySection(
+        "capabilities",
+        "Capabilities",
+        "What SAGE can help with",
+        "Browse capability records and follow their links back to the work that " +
+          "created, reused or referenced them.",
+        capabilities
+      ),
+      renderCurrentObjective(),
+      renderJudgment(decisions),
+      renderInteraction(episodes),
+      entitySection(
+        "learning",
+        "Learning",
+        "Causal insights, lessons, failures and reviews",
+        "Incomplete or partially supported learning remains visible. Explicit " +
+          "supersession, contradiction and later reuse use the same relationship model.",
+        learning
+      ),
+      entitySection(
+        "evidence",
+        "Evidence multiplier",
+        "Evidence and where it has been used",
+        "Each record can be investigated in both directions: what it references " +
+          "and what later records point back to it.",
+        evidence
+      )
     );
   }
 

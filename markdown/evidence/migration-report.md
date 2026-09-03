@@ -9,6 +9,7 @@ inferred metadata was present in the original evidence.
 
 | Record | Class | Metadata | Migration status | Primary gap |
 |---|---|---|---|---|
+| [Human Participation / Experience Intelligence — Next Iteration](../architecture/kalaxy3-sage-human-participation-experience-intelligence-iteration.md) | legacy-evidence | inferred | not-started | Curate title, summary, dates, and ownership |
 | [Human Participation Adapter — Architect Epic](../architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md) | legacy-evidence | inferred | not-started | Curate title, summary, dates, and ownership |
 | [Human Participation Introspection-Contract Audit](../architecture/sage-human-participation-introspection-contract-audit.md) | legacy-evidence | inferred | not-started | Curate title, summary, dates, and ownership |
 | [Kubecost Homelab Cost Calibration, Network Measurement, and Shared Provider-C...](../installation/kalaxy3-kubecost-calibration-sage-evidence.md) | sage-legacy | inferred | recommended | Curate title, summary, dates, and ownership |
@@ -35,6 +36,7 @@ inferred metadata was present in the original evidence.
 ## Reconciliation warnings
 
 - CURATION: markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md needs registry review
+- CURATION: markdown/architecture/kalaxy3-sage-human-participation-experience-intelligence-iteration.md needs registry review
 - CURATION: markdown/architecture/sage-human-participation-introspection-contract-audit.md needs registry review
 - CURATION: markdown/installation/k3s-api-ha-kube-vip.md needs registry review
 - CURATION: markdown/installation/k3s-etcd-baseline-backup-evidence.md needs registry review
@@ -57,6 +59,7 @@ inferred metadata was present in the original evidence.
 - CURATION: markdown/operations/kalaxy3-sage-canonical-metadata-contract-evidence.md needs registry review
 - CURATION: markdown/operations/kalaxy3-sage-evidence-publication-process-evidence.md needs registry review
 - LEGACY: markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md indexed as legacy-evidence with inferred metadata
+- LEGACY: markdown/architecture/kalaxy3-sage-human-participation-experience-intelligence-iteration.md indexed as legacy-evidence with inferred metadata
 - LEGACY: markdown/architecture/sage-human-participation-introspection-contract-audit.md indexed as legacy-evidence with inferred metadata
 - LEGACY: markdown/installation/k3s-api-ha-kube-vip.md indexed as legacy-evidence with inferred metadata
 - LEGACY: markdown/installation/k3s-etcd-baseline-backup-evidence.md indexed as legacy-evidence with inferred metadata

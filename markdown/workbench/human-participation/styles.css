@@ -344,3 +344,248 @@ body {
     background: rgba(178, 132, 0, 0.05);
   }
 }
+
+.sticky-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  gap: 8px;
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto 18px;
+  padding: 10px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.sticky-nav a {
+  flex: 0 0 auto;
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.77rem;
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.home-panel {
+  display: block;
+  min-height: 190px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  background: var(--panel-2);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.home-panel:hover,
+.sticky-nav a:hover {
+  border-color: var(--accent);
+}
+
+.panel-link {
+  color: var(--accent);
+  font-weight: 740;
+}
+
+.search-wrap {
+  display: grid;
+  gap: 7px;
+  margin-top: 22px;
+}
+
+.search-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+}
+
+.entity-list {
+  display: grid;
+  gap: 16px;
+}
+
+.entity-card {
+  scroll-margin-top: 86px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  padding: 20px;
+  background: var(--panel-2);
+}
+
+.entity-card h3 {
+  margin: 11px 0 4px;
+  font-size: 1.18rem;
+}
+
+.entity-id {
+  margin: 0 0 14px;
+  color: var(--muted);
+}
+
+.narration-block,
+.raw-mode-note,
+.standing-note,
+.signals,
+.repeat-effect,
+.role-block,
+.innovation-zone {
+  margin-top: 14px;
+  border-left: 3px solid var(--line);
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.narration-block {
+  border-left-color: var(--llm-derived);
+}
+
+.repeat-effect,
+.innovation-zone {
+  border-left-color: var(--llm-proposed);
+}
+
+.role-block {
+  border-left-color: var(--architect);
+}
+
+.raw-mode-note p,
+.signal-disclaimer,
+.muted {
+  color: var(--muted);
+}
+
+.signal-row,
+.card-topline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.role-lane,
+.interaction-model {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.role-card,
+.role-model-card {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 12px;
+  background: var(--panel);
+}
+
+.role-link {
+  display: block;
+  margin-top: 6px;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.relation-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.relation-group,
+.relation-bucket {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.relation-link {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.relation-link:hover {
+  border-color: var(--accent);
+}
+
+.metadata-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.35fr) minmax(0, 1fr);
+  gap: 7px 14px;
+  margin-top: 12px;
+}
+
+.metadata-grid dt {
+  color: var(--muted);
+  font-size: 0.79rem;
+  font-weight: 700;
+}
+
+.metadata-grid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.show-more {
+  justify-self: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 9px 15px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.show-more:hover {
+  border-color: var(--accent);
+}
+
+.current-grid,
+.decision-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.summary-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  background: var(--panel-2);
+}
+
+.badge-warning {
+  color: var(--architect);
+}
+
+@media (max-width: 760px) {
+  .home-grid,
+  .relation-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .metadata-grid {
+    grid-template-columns: 1fr;
+  }
+}

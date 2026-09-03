@@ -1,8 +1,28 @@
 {
-  "catalog_fingerprint": "65887eefe39527cf3d1b935e149972d426ab9936b0a4544a580006a146b61cf4",
+  "catalog_fingerprint": "98a1fedc61ea35a72a8fc4843f26d3644ab4b8aeb29fcdf6476b593b0b266a6a",
   "catalog_schema_version": "1.0",
-  "record_count": 41,
+  "record_count": 42,
   "records": [
+    {
+      "completed_at": "not-captured",
+      "confidence": "low",
+      "evidence_id": "LEGACY-K3-79A86BD80D",
+      "metadata_source": "inferred",
+      "migration_status": "not-started",
+      "nav_order": 500,
+      "nav_section": "architecture",
+      "nav_title": "Human Participation / Experience Intelligence \u2014 Next Iteration",
+      "owner": "not-captured",
+      "primary_subject": "Human Participation / Experience Intelligence",
+      "record_class": "legacy-evidence",
+      "schema_version": "not-applicable",
+      "source_path": "markdown/architecture/kalaxy3-sage-human-participation-experience-intelligence-iteration.md",
+      "status": "historical",
+      "summary": "The Human Participation Workbench should not require a newcomer to understand SAGE before they can understand what SAGE has helped accomplish or why its accumulated experience matters.",
+      "tags": [],
+      "title": "Human Participation / Experience Intelligence \u2014 Next Iteration",
+      "valid_as_of": "not-captured"
+    },
     {
       "completed_at": "2026-09-02T01:20:20-05:00",
       "confidence": "low",
@@ -1014,6 +1034,7 @@
   "sage_current_schema": "1.2",
   "warnings": [
     "CURATION: markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md needs registry review",
+    "CURATION: markdown/architecture/kalaxy3-sage-human-participation-experience-intelligence-iteration.md needs registry review",
     "CURATION: markdown/architecture/sage-human-participation-introspection-contract-audit.md needs registry review",
     "CURATION: markdown/installation/k3s-api-ha-kube-vip.md needs registry review",
     "CURATION: markdown/installation/k3s-etcd-baseline-backup-evidence.md needs registry review",
@@ -1036,6 +1057,7 @@
     "CURATION: markdown/operations/kalaxy3-sage-canonical-metadata-contract-evidence.md needs registry review",
     "CURATION: markdown/operations/kalaxy3-sage-evidence-publication-process-evidence.md needs registry review",
     "LEGACY: markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md indexed as legacy-evidence with inferred metadata",
+    "LEGACY: markdown/architecture/kalaxy3-sage-human-participation-experience-intelligence-iteration.md indexed as legacy-evidence with inferred metadata",
     "LEGACY: markdown/architecture/sage-human-participation-introspection-contract-audit.md indexed as legacy-evidence with inferred metadata",
     "LEGACY: markdown/installation/k3s-api-ha-kube-vip.md indexed as legacy-evidence with inferred metadata",
     "LEGACY: markdown/installation/k3s-etcd-baseline-backup-evidence.md indexed as legacy-evidence with inferred metadata",
