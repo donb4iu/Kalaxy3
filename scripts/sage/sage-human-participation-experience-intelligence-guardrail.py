@@ -49,6 +49,34 @@ def main() -> int:
     episodes = [item for item in graph["entities"] if item["is_episode"]]
     assert episodes, "generic episode discovery produced no episodes"
 
+    forbidden_sources = [
+        item
+        for item in graph["sources_scanned"]
+        if Path(item).name.startswith("sage-human-participation-")
+    ]
+    assert not forbidden_sources, (
+        "derived Human Participation projections must not feed raw experience: "
+        + ", ".join(forbidden_sources)
+    )
+
+    action_002 = next(
+        item
+        for item in graph["entities"]
+        if item["id"] == "SAGE-ACTION-20260815-002"
+    )
+    assert action_002["entity_type"] == "action"
+    assert action_002["is_episode"] is True
+
+    false_context_limits = [
+        edge
+        for edge in graph["relationships"]
+        if edge["relation"] == "context_limit"
+        and ".contexts[" in edge["field_path"]
+    ]
+    assert not false_context_limits, (
+        "ordinary contexts must not be interpreted as standing limits"
+    )
+
     narrated = set(narration["entries"])
     discovered = {item["id"] for item in graph["entities"]}
     assert narrated.issubset(discovered)
@@ -97,6 +125,9 @@ def main() -> int:
     print("PASS historical effort is not rendered as future repeat cost")
     print("PASS predicted repeat effect remains LLM-proposed")
     print("PASS role interaction requires explicit provenance")
+    print("PASS derived Human Participation projections cannot self-feed raw experience")
+    print("PASS specific governed identity outranks generic id projection")
+    print("PASS ordinary contexts are applicability, not staleness")
     print("PASS LLM innovation remains distinct from Architect intent and SAGE state")
     print("PASS read-only/no-network browser boundary")
     print("Kalaxy3 experience-intelligence guardrail: PASS")

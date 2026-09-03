@@ -72,32 +72,89 @@ ROLE_LABELS = {
     "external": "External system",
 }
 
-RELATION_TERMS = (
-    ("superseded_by", "superseded_by"),
-    ("supersedes", "supersedes"),
-    ("invalidated_by", "invalidated_by"),
-    ("invalidates", "invalidates"),
-    ("contradicted_by", "contradicted_by"),
-    ("contradicts", "contradicts"),
-    ("stale", "staleness"),
-    ("context", "context_limit"),
-    ("evidence", "evidence"),
-    ("support", "supports"),
-    ("contribut", "contributes"),
-    ("influenc", "influences"),
-    ("inform", "informs"),
-    ("reuse", "reuses"),
-    ("depend", "depends_on"),
-    ("parent", "parent"),
-    ("child", "child"),
-    ("decision", "decision"),
-    ("lesson", "lesson"),
-    ("failure", "failure"),
-    ("action", "action"),
-    ("objective", "objective"),
+ROOT_EXPERIENCE_FILES = (
+    "sage-actionable-failure-registry.json",
+    "sage-actionable-failures.json",
+    "sage-active-session-registry.json",
+    "sage-capability-intelligence.json",
+    "sage-change-candidate-lifecycle-registry.json",
+    "sage-change-candidate-registry.json",
+    "sage-continuous-improvement-baseline-registry.json",
+    "sage-feedback-baseline-registry.json",
+    "sage-improvement-actions.json",
+    "sage-lessons.json",
+    "sage-post-session-review-registry.json",
+    "sage-session-improvement-registry.json",
+    "sage-thin-slice.json",
+    "sage-workflow-primitives.json",
 )
 
-SEMANTIC_RELATIONS = {item[1] for item in RELATION_TERMS}
+TYPE_PRIORITY = {
+    "record": 0,
+    "candidate": 1,
+    "observation": 2,
+    "session": 3,
+    "review": 4,
+    "failure": 5,
+    "lesson": 6,
+    "causal_insight": 7,
+    "capability": 8,
+    "decision": 9,
+    "evidence": 10,
+    "request": 11,
+    "objective": 12,
+    "action": 13,
+}
+
+FIELD_RELATIONS = {
+    "superseded_by": "superseded_by",
+    "supersedes": "supersedes",
+    "invalidated_by": "invalidated_by",
+    "invalidates": "invalidates",
+    "contradicted_by": "contradicted_by",
+    "contradicts": "contradicts",
+    "stale_because": "staleness",
+    "staleness_evidence": "staleness",
+    "context_limit": "context_limit",
+    "context_limited_by": "context_limit",
+    "contexts": "applies_in_context",
+    "context_ids": "applies_in_context",
+    "evidence_id": "evidence",
+    "evidence_ids": "evidence",
+    "evidence_references": "evidence",
+    "supporting_evidence": "evidence",
+    "source_evidence": "evidence",
+    "source_evidence_ids": "evidence",
+    "first_evidence": "evidence",
+    "latest_evidence": "evidence",
+    "lesson_id": "lesson",
+    "lesson_ids": "lesson",
+    "source_lessons": "lesson",
+    "action_id": "action",
+    "action_ids": "action",
+    "source_actions": "action",
+    "objective_id": "objective",
+    "objective_ids": "objective",
+    "request_id": "request",
+    "decision_id": "decision",
+    "decision_ids": "decision",
+    "capability_id": "capability",
+    "capability_ids": "capability",
+    "parent_id": "parent",
+    "parent_ids": "parent",
+    "child_id": "child",
+    "child_ids": "child",
+    "depends_on": "depends_on",
+    "requires": "depends_on",
+    "contributes_to": "contributes",
+    "contribution_to": "contributes",
+    "informed_by": "informed_by",
+    "informs": "informs",
+    "reused_by": "reused_by",
+    "reuses": "reuses",
+}
+
+SEMANTIC_RELATIONS = set(FIELD_RELATIONS.values())
 
 
 def load_json(path: Path) -> Any:
@@ -106,8 +163,12 @@ def load_json(path: Path) -> Any:
 
 
 def source_paths(repo: Path) -> list[Path]:
-    """Return bounded governed JSON sources."""
-    paths = sorted(repo.glob("sage-*.json"))
+    """Return bounded governed experience sources."""
+    paths = [
+        repo / name
+        for name in ROOT_EXPERIENCE_FILES
+        if (repo / name).exists()
+    ]
     catalog = repo / "markdown/evidence/catalog.json"
     if catalog.exists():
         paths.append(catalog)
@@ -255,6 +316,12 @@ def merge_entities(records: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any
         if source not in existing["source_paths"]:
             existing["source_paths"].append(source)
         existing["_records"].append(record["_record"])
+        if TYPE_PRIORITY.get(record["entity_type"], 0) > TYPE_PRIORITY.get(
+            existing["entity_type"],
+            0,
+        ):
+            existing["entity_type"] = record["entity_type"]
+            existing["json_path"] = record["json_path"]
         if existing["title"] == entity_id and record["title"] != entity_id:
             existing["title"] = record["title"]
         if not existing["status"] and record["status"]:
@@ -272,12 +339,11 @@ def merge_entities(records: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any
 
 
 def relation_type(path: str) -> str:
-    """Classify only explicit field-path semantics."""
-    lowered = path.lower().replace("-", "_")
-    for needle, relation in RELATION_TERMS:
-        if needle in lowered:
-            return relation
-    return "references"
+    """Classify relation from the explicit leaf field only."""
+    leaf = path.rsplit(".", 1)[-1]
+    leaf = re.sub(r"\[\d+\]$", "", leaf)
+    leaf = leaf.lower().replace("-", "_")
+    return FIELD_RELATIONS.get(leaf, "references")
 
 
 def extract_strings(

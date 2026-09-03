@@ -47,14 +47,23 @@ def main() -> int:
     require_text(
         ROOT / "index.html",
         "Human Participation Workbench",
-        "Read-only proof",
+        "Read-only experience intelligence",
+        "Objectives &amp; experiences",
+        "Capabilities",
+        "Current objective",
+        "Human judgment",
+        "Role interaction",
     )
     require_text(
         ROOT / "app.js",
-        "What can SAGE help me with?",
-        "Given this objective, what matters?",
-        "Where is my judgment valuable?",
-        "Inspect evidence",
+        "What SAGE can help with",
+        "What matters right now",
+        "Where judgment shaped outcomes",
+        "How the work came together",
+        "Evidence multiplier",
+        "Raw governed view",
+        "Optional LLM narration",
+        "LLM innovation beyond prior experience",
     )
     forbid_text(
         ROOT / "app.js",
@@ -75,6 +84,12 @@ def main() -> int:
     state_js = (ROOT / "state.js").read_text(encoding="utf-8")
     assert state_js.startswith("window.KALAXY3_WORKBENCH_STATE = ")
 
+    graph_js = (ROOT / "graph.js").read_text(encoding="utf-8")
+    assert graph_js.startswith("window.KALAXY3_EXPERIENCE_GRAPH = ")
+
+    narration_js = (ROOT / "narration.js").read_text(encoding="utf-8")
+    assert narration_js.startswith("window.KALAXY3_NARRATION = ")
+
     assert any(
         item["semantic_relationship"] == "directly_relevant"
         for item in state["intent_applicability"]
@@ -86,7 +101,9 @@ def main() -> int:
     assert state["provenance"]["semantic_truth_validated_by_sage"] is False
     assert state["provenance"]["evidence_citations_resolved"] is True
 
-    print("PASS stakeholder-first three-question surface")
+    print("PASS stakeholder-first peer navigation surface")
+    print("PASS raw governed and optional narration payload boundaries")
+    print("PASS role interaction and LLM innovation remain explicit")
     print("PASS read-only browser boundary")
     print("PASS no network or mutation controls")
     print("PASS evidence drill-down preserved")

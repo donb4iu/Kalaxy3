@@ -119,3 +119,12 @@ effect and limits.
 
 The expected repeat effect must retain an interpretive or proposed epistemic
 status rather than being rendered as demonstrated evidence.
+
+### Projection-source and relationship safety
+
+The experience graph must not consume its own generated Human Participation
+output or unrelated policy/configuration files as accumulated experience.
+Relationship semantics come from explicit leaf-field contracts. Ordinary
+`contexts` membership means applicability, not evidence staleness. When a
+specific governed identity and generic `id` refer to the same record, the
+specific identity wins.

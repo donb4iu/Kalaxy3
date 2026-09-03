@@ -1,10 +1,10 @@
 {
-  "catalog_fingerprint": "98a1fedc61ea35a72a8fc4843f26d3644ab4b8aeb29fcdf6476b593b0b266a6a",
+  "catalog_fingerprint": "199824d77df1ea94111fb6376ca90efebfb77a49c18affc8ab04fd3d795920da",
   "catalog_schema_version": "1.0",
   "record_count": 42,
   "records": [
     {
-      "completed_at": "not-captured",
+      "completed_at": "2026-09-03T01:19:07-05:00",
       "confidence": "low",
       "evidence_id": "LEGACY-K3-79A86BD80D",
       "metadata_source": "inferred",
@@ -21,7 +21,7 @@
       "summary": "The Human Participation Workbench should not require a newcomer to understand SAGE before they can understand what SAGE has helped accomplish or why its accumulated experience matters.",
       "tags": [],
       "title": "Human Participation / Experience Intelligence \u2014 Next Iteration",
-      "valid_as_of": "not-captured"
+      "valid_as_of": "2026-09-03"
     },
     {
       "completed_at": "2026-09-02T01:20:20-05:00",

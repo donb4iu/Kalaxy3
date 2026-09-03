@@ -220,3 +220,17 @@ It does **not** introduce:
 - inferred causal links unsupported by repository relationships;
 - inferred role attribution unsupported by repository provenance;
 - opaque aggregate maturity or value scores.
+
+## Projection correction after first persisted slice
+
+Post-persistence inspection showed that the first generic projection overreached
+semantically: it could consume its own Human Participation projections, infer
+relationship meaning from broad JSON-path substring matches, conflate ordinary
+context applicability with staleness, and preserve a generic `id` type when a
+more specific governed identity existed elsewhere.
+
+The corrected projection uses bounded experience sources plus canonical
+evidence, excludes its own output, classifies relationships from explicit leaf
+fields, treats `contexts` as applicability rather than staleness, prefers
+specific governed identity over generic `id`, and requires idempotent
+regeneration.
