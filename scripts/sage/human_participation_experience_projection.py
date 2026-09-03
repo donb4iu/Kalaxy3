@@ -1,150 +1,123 @@
-"""Experience-aware, read-only SAGE human-participation projections."""
+"""Experience + innovation projection using canonical SAGE retrieval."""
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
-MAX_RECORDS = 4
+from human_participation_canonical_experience import (
+    retrieve_profile,
+    supported_candidates,
+    weak_candidates,
+)
 
 
-def load_object(path: Path) -> dict[str, Any]:
-    """Load a JSON object."""
-    with path.open(encoding="utf-8") as handle:
-        value = json.load(handle)
-    if not isinstance(value, dict):
-        raise ValueError(f"{path} must contain a JSON object")
-    return value
-
-
-def scalar_text(value: Any) -> str:
-    """Flatten bounded scalar content for deterministic matching."""
-    if isinstance(value, dict):
-        return " ".join(scalar_text(child) for child in value.values())
-    if isinstance(value, list):
-        return " ".join(scalar_text(child) for child in value[:100])
-    if isinstance(value, (str, int, float, bool)):
-        return str(value)
-    return ""
-
-
-def candidate_dicts(value: Any) -> list[dict[str, Any]]:
-    """Collect bounded dictionary candidates from a JSON catalog."""
-    found: list[dict[str, Any]] = []
-    if isinstance(value, dict):
-        text = scalar_text(value)
-        if 2 <= len(value) <= 40 and 20 <= len(text) <= 6000:
-            found.append(value)
-        for child in value.values():
-            found.extend(candidate_dicts(child))
-    elif isinstance(value, list):
-        for child in value[:1000]:
-            found.extend(candidate_dicts(child))
-    return found
-
-
-def compact_record(record: dict[str, Any]) -> dict[str, Any]:
-    """Keep useful provenance fields without copying whole records."""
-    preferred = [
-        "evidence_id", "id", "title", "subject", "status", "path",
-        "source_path", "recorded_at", "date", "summary", "description",
+def source_availability(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Project canonical repository source availability."""
+    return [
+        {
+            "source_type": item["source_type"],
+            "source_path": item["path"],
+            "availability": "available",
+            "records_loaded": item["records_loaded"],
+        }
+        for item in payload.get("sources", [])
     ]
-    compact = {key: record[key] for key in preferred if key in record}
-    if compact:
-        return compact
-    return {key: record[key] for key in sorted(record)[:8]}
 
 
-def retrieve(
-    catalog: dict[str, Any],
-    terms: list[str],
-) -> list[dict[str, Any]]:
-    """Return deterministic keyword-matched evidence candidates."""
-    ranked: list[tuple[int, str, dict[str, Any]]] = []
-    for record in candidate_dicts(catalog):
-        text = scalar_text(record).lower()
-        score = sum(1 for term in terms if term.lower() in text)
-        if not score:
-            continue
-        compact = compact_record(record)
-        identity = json.dumps(compact, sort_keys=True, default=str)
-        ranked.append((score, identity, compact))
-    ranked.sort(key=lambda item: (-item[0], item[1]))
-    return unique_matches(ranked)
-
-
-def unique_matches(
-    ranked: list[tuple[int, str, dict[str, Any]]],
-) -> list[dict[str, Any]]:
-    """Deduplicate and bound retrieval results."""
-    unique: dict[str, dict[str, Any]] = {}
-    for score, identity, compact in ranked:
-        if identity not in unique:
-            unique[identity] = {
-                "retrieval_match_count": score,
-                "epistemic_status": "retrieved_evidence_candidate",
-                "record": compact,
-            }
-        if len(unique) >= MAX_RECORDS:
-            break
-    return list(unique.values())
-
-
-def inventory_area(
-    catalog: dict[str, Any],
-    query: dict[str, Any],
+def project_profile(
+    repo: Path,
+    profile: dict[str, Any],
 ) -> dict[str, Any]:
-    """Project one bounded experience area."""
-    matches = retrieve(catalog, list(query["terms"]))
+    """Project one canonical experience profile."""
+    bundle = retrieve_profile(repo, profile)
+    payload = bundle["canonical_payload"]
+    candidates = supported_candidates(bundle)
+
     return {
-        "area": query["area"],
-        "question": query["question"],
+        "area": profile["area"],
+        "question": profile["question"],
+        "assessment_context": profile["assessment_context"],
+        "retrieval_request": payload["request"],
+        "retrieval_algorithm": payload["algorithm_version"],
+        "retrieval_basis_sha256": payload["retrieval_basis_sha256"],
+        "retrieval_basis_preserved": bundle[
+            "retrieval_basis_preserved"
+        ],
+        "policy_sha256": payload["policy_sha256"],
+        "source_availability": source_availability(payload),
         "retrieval_status": (
-            "repository_evidence_candidates_found"
-            if matches else "no_bounded_catalog_match"
+            "canonical_experience_candidates_found"
+            if candidates else "no_supported_experience_candidate"
         ),
-        "experience_claim": "not_inferred_from_retrieval_alone",
-        "evidence_candidates": matches,
-        "llm_relevance_hypothesis": query.get(
+        "experience_claim": "not_inferred_from_retrieval_score",
+        "experience_candidates": candidates,
+        "reviewed_weak_candidates": weak_candidates(bundle),
+        "reconsideration_summary": bundle["reconsideration_summary"],
+        "llm_relevance_hypothesis": profile.get(
             "llm_relevance_hypothesis"
         ),
     }
 
 
-def build_inventory(
-    seed: dict[str, Any],
-    catalog: dict[str, Any],
-) -> dict[str, Any]:
-    """Build the experience-inventory entry mode."""
-    areas = [
-        inventory_area(catalog, query)
-        for query in seed["experience_inventory_queries"]
+def local_source_visibility() -> list[dict[str, Any]]:
+    """Expose bounded executor-local experience availability."""
+    root = Path.home() / ".local/state/kalaxy3"
+    checks = {
+        "objective_episode": root / "sage-objective-execution",
+        "causal_observation": (
+            root / "sage-objective-execution"
+            / "path-critic-observations"
+        ),
+        "runtime_receipts": root / "sage-e2e-zero-trust",
+    }
+    return [
+        {
+            "source_type": source_type,
+            "availability": (
+                "available_local_only"
+                if path.exists()
+                else "unavailable_on_this_executor"
+            ),
+            "source_path": str(path),
+            "canonical_repository_retrieval": False,
+        }
+        for source_type, path in checks.items()
     ]
+
+
+def build_inventory(
+    repo: Path,
+    seed: dict[str, Any],
+) -> dict[str, Any]:
+    """Build 'what are you prepared to help with?'."""
     return {
         "projection_type": "experience_inventory",
         "epistemic_rule": (
-            "Catalog matches are evidence candidates, not proof of competence."
+            "Canonical retrieval surfaces governed experience; "
+            "retrieval score is not competence or transferability."
         ),
-        "areas": areas,
+        "areas": [
+            project_profile(repo, profile)
+            for profile in seed["experience_inventory_queries"]
+        ],
+        "supplemental_experience_sources": local_source_visibility(),
     }
 
 
 def build_intent_projection(
+    repo: Path,
     seed: dict[str, Any],
-    catalog: dict[str, Any],
 ) -> dict[str, Any]:
-    """Build intent-relative experience plus innovation."""
-    experience = []
-    for query in seed["intent_experience_queries"]:
-        item = inventory_area(catalog, query)
-        item["applicability"] = "requires_contextual_judgment"
-        experience.append(item)
+    """Build intent-relative experience plus LLM innovation."""
     return {
         "projection_type": "intent_relative_experience_and_innovation",
         "architect_intent": seed["architect_intent"],
         "stakeholder_concerns": seed["stakeholder_concerns"],
-        "relevant_experience": experience,
+        "relevant_experience": [
+            project_profile(repo, profile)
+            for profile in seed["intent_experience_queries"]
+        ],
         "llm_innovations": seed["llm_innovations"],
         "unresolved_questions": seed["unresolved_questions"],
         "human_decisions": seed["human_decisions"],
@@ -154,12 +127,33 @@ def build_intent_projection(
             "innovation": "LLM proposes beyond experience",
             "decision": "Architect selects objectives and trade-offs",
         },
+        "supplemental_experience_sources": local_source_visibility(),
     }
 
 
 def validate_seed(seed: dict[str, Any]) -> list[str]:
-    """Validate epistemic and authority boundaries in the working seed."""
+    """Validate canonical retrieval, authority, and innovation boundaries."""
     errors: list[str] = []
+    profiles = (
+        seed.get("experience_inventory_queries", [])
+        + seed.get("intent_experience_queries", [])
+    )
+    for profile in profiles:
+        if not profile.get("retrieval_request"):
+            errors.append(
+                f"{profile.get('area', '?')} lacks retrieval_request"
+            )
+        if "terms" in profile:
+            errors.append(
+                f"{profile.get('area', '?')} retains obsolete terms field"
+            )
+        if profile.get("assessment_context") not in {
+            "experience_inventory",
+            "intent_transfer",
+        }:
+            errors.append(
+                f"{profile.get('area', '?')} lacks assessment_context"
+            )
     for item in seed.get("llm_innovations", []):
         if item.get("epistemic_status") != "llm_proposed":
             errors.append("LLM innovations must remain llm_proposed")
@@ -173,17 +167,21 @@ def validate_seed(seed: dict[str, Any]) -> list[str]:
 
 
 def forbid_opaque_scores(value: Any, path: str = "") -> list[str]:
-    """Reject aggregate priority/ranking scores."""
+    """Reject product priority scores while allowing retrieval scores."""
     errors: list[str] = []
     if isinstance(value, dict):
         for key, child in value.items():
             here = f"{path}.{key}" if path else key
             if key.lower() in {
-                "priority_score", "overall_score", "rank_score"
+                "priority_score",
+                "overall_score",
+                "rank_score",
             }:
                 errors.append(f"opaque score forbidden at {here}")
             errors.extend(forbid_opaque_scores(child, here))
     elif isinstance(value, list):
         for index, child in enumerate(value):
-            errors.extend(forbid_opaque_scores(child, f"{path}[{index}]"))
+            errors.extend(
+                forbid_opaque_scores(child, f"{path}[{index}]")
+            )
     return errors

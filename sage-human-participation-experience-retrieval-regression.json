@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "projection_checkpoint": "8cc15b29feecd7e19a5b15f322c16bf9e06c76e0",
+  "regressions": [
+    {
+      "observation": "projection-local catalog matching missed known artifact-promotion and zero-trust experience",
+      "required_correction": "use canonical repository evidence retrieval across governed sources"
+    },
+    {
+      "observation": "first canonical adapter mutated the immutable retrieval basis",
+      "required_correction": "wrap relationship metadata outside canonical result objects"
+    },
+    {
+      "observation": "first recovery restored the old seed and added assessment_context but did not replace terms with retrieval_request",
+      "required_correction": "write the complete canonical retrieval seed atomically"
+    }
+  ],
+  "acceptance": {
+    "seed_contract": "every experience profile contains retrieval_request and assessment_context and no obsolete terms field",
+    "retrieval_basis": "unchanged before and after evidence reconsideration",
+    "artifact_identity_and_promotion": "canonical non-weak candidate required and SAGE-ACTION-20260815-002 must be present",
+    "zero_trust_runtime": "canonical non-weak candidate required",
+    "intent_transferability": "must remain requires-revalidation until contextual judgment",
+    "retrieval_score": "relevance only; never competence, maturity, applicability, or product priority"
+  }
+}

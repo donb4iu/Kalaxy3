@@ -87,3 +87,24 @@ Architect decides**
 
 SAGE's evidenced experience envelope improves its priors; it is not a hard
 solution-space boundary.
+
+## Canonical experience retrieval and seed contract
+
+Human-participation experience profiles must provide a complete canonical
+retrieval request. Projection-local keyword `terms` are not a substitute for
+the repository-owned evidence-retrieval path.
+
+Each profile declares whether it is being used for:
+
+- `experience_inventory` — evidence that SAGE has accumulated relevant
+  experience in a bounded area; or
+- `intent_transfer` — evidence that may transfer to the current stakeholder
+  intent and therefore remains subject to revalidation.
+
+Relationship metadata such as `direct`, `analogous`, `weakly_related`, and
+`contradictory` wraps canonical retrieval results. It must not be inserted into
+the canonical result object or change its immutable retrieval basis.
+
+A recovery that restores an older checkpoint must migrate the complete input
+contract atomically. Adding only new fields while leaving obsolete query fields
+is an invalid partial migration and must fail before retrieval.

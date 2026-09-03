@@ -17,47 +17,82 @@
   "experience_inventory_queries": [
     {
       "area": "artifact_identity_and_promotion",
-      "question": "What accumulated evidence is available around building once and promoting the same artifact?",
-      "terms": ["artifact", "promotion", "digest"],
-      "llm_relevance_hypothesis": "Likely relevant to reproducibility and portable delivery."
+      "question": "What accumulated experience can SAGE surface around building once and promoting the same exact artifact?",
+      "assessment_context": "experience_inventory",
+      "retrieval_request": "Retrieve repository engineering experience about immutable artifact promotion without rebuild, exact OCI digest identity, multi-architecture artifact provenance, target publication, executor neutrality, and SAGE-ACTION-20260815-002. Preserve validated evidence, lessons, failures, improvement actions, exact applicable facts, and provenance.",
+      "direct_terms": ["SAGE-ACTION-20260815-002", "immutable artifact", "promotion", "digest", "OCI"],
+      "analogous_terms": ["provenance", "executor", "multi-architecture", "rebuild"],
+      "direct_min_hits": 2,
+      "limit": 15,
+      "llm_relevance_hypothesis": "Potential direct experience with reproducible portable delivery; transferability still requires contextual judgment."
     },
     {
       "area": "git_github_recovery",
-      "question": "What accumulated evidence is available around recovery when Git or GitHub advances independently?",
-      "terms": ["checkpoint", "promotion", "recovery"],
-      "llm_relevance_hypothesis": "Likely relevant to reducing operator intervention and stale workflow assumptions."
+      "question": "What accumulated experience can SAGE surface around recovery when Git or GitHub advances independently?",
+      "assessment_context": "experience_inventory",
+      "retrieval_request": "Retrieve repository engineering experience about checkpoint promotion recovery, observed-state reconciliation, GitHub pull requests, externally advanced Git state, stale continuation boundaries, operator intervention, mutation replay, and semantic closeout.",
+      "direct_terms": ["checkpoint promotion", "recovery", "GitHub", "observed state", "pull request"],
+      "analogous_terms": ["operator", "continuation", "reconcile", "external"],
+      "direct_min_hits": 2,
+      "limit": 15,
+      "llm_relevance_hypothesis": "Potential experience in reducing stale workflow assumptions and unnecessary operator intervention."
     },
     {
       "area": "zero_trust_runtime",
-      "question": "What accumulated evidence is available around externally reachable zero-trust runtime behavior?",
-      "terms": ["zero-trust", "Cloudflare", "MFA"],
-      "llm_relevance_hypothesis": "Likely relevant to external user access and security."
+      "question": "What accumulated experience can SAGE surface around externally reachable zero-trust runtime behavior?",
+      "assessment_context": "experience_inventory",
+      "retrieval_request": "Retrieve repository engineering experience about Kalaxy3 zero-trust runtime validation, Cloudflare access, MFA, negative-access proof, externally reachable runtime, security boundary verification, and sage.donb4iu.com.",
+      "direct_terms": ["zero trust", "Cloudflare", "MFA", "runtime", "negative access"],
+      "analogous_terms": ["access", "security", "external", "ingress"],
+      "direct_min_hits": 2,
+      "limit": 15,
+      "llm_relevance_hypothesis": "Potential direct runtime/security experience; present readiness remains a separate question."
     },
     {
       "area": "objective_execution_and_learning",
-      "question": "What accumulated evidence is available around objective-sized execution and learning?",
-      "terms": ["objective", "execution", "causal"],
-      "llm_relevance_hypothesis": "Likely relevant to governed delivery and learning from the episode."
+      "question": "What accumulated experience can SAGE surface around objective-sized execution and learning?",
+      "assessment_context": "experience_inventory",
+      "retrieval_request": "Retrieve repository engineering experience about objective execution, objective-sized planning, approval atomicity, correction versus replan, path critic observations, causal evidence, operator round trips, and learning from completed objective episodes.",
+      "direct_terms": ["objective execution", "causal", "path critic"],
+      "analogous_terms": ["approval", "correction", "replan", "round trip"],
+      "direct_min_hits": 2,
+      "limit": 15,
+      "llm_relevance_hypothesis": "Potential experience with governed execution and reusable learning."
     }
   ],
   "intent_experience_queries": [
     {
       "area": "portable_delivery",
-      "question": "Which evidence candidates may transfer to portable build and exact promotion?",
-      "terms": ["artifact", "promotion", "executor", "digest"],
-      "llm_relevance_hypothesis": "Potential direct or analogous experience; applicability must still be judged."
+      "question": "Which accumulated experience may apply to portable build and exact promotion for this intent?",
+      "assessment_context": "intent_transfer",
+      "retrieval_request": "Retrieve repository engineering experience relevant to a strategic objective requiring portable build, immutable exact OCI artifact promotion without rebuild, executor neutrality, multi-architecture provenance, target digest verification, and runtime delivery.",
+      "direct_terms": ["artifact", "promotion", "digest", "executor", "immutable"],
+      "analogous_terms": ["provenance", "multi architecture", "runtime", "delivery"],
+      "direct_min_hits": 2,
+      "limit": 15,
+      "llm_relevance_hypothesis": "Direct or analogous delivery experience may transfer, but applicability is not inferred from retrieval."
     },
     {
       "area": "runtime_access",
-      "question": "Which evidence candidates may transfer to live zero-trust verification?",
-      "terms": ["zero-trust", "runtime", "Cloudflare"],
-      "llm_relevance_hypothesis": "Potential runtime/security experience; current readiness remains a separate question."
+      "question": "Which accumulated experience may apply to live zero-trust verification for this intent?",
+      "assessment_context": "intent_transfer",
+      "retrieval_request": "Retrieve repository engineering experience relevant to live zero-trust runtime verification, Cloudflare access, MFA, negative-access validation, external user access, runtime health, and security evidence.",
+      "direct_terms": ["zero trust", "Cloudflare", "MFA", "runtime"],
+      "analogous_terms": ["security", "access", "validation", "external"],
+      "direct_min_hits": 2,
+      "limit": 15,
+      "llm_relevance_hypothesis": "Runtime/security experience may transfer; current cluster readiness still requires current evidence."
     },
     {
       "area": "recovery_and_operator_effort",
-      "question": "Which evidence candidates may transfer to low-intervention recovery?",
-      "terms": ["recovery", "checkpoint", "operator"],
-      "llm_relevance_hypothesis": "Potential evidence for avoiding replay and needless operator round trips."
+      "question": "Which accumulated experience may apply to low-intervention recovery for this intent?",
+      "assessment_context": "intent_transfer",
+      "retrieval_request": "Retrieve repository engineering experience relevant to recovery with low operator intervention, observed external state, checkpoint promotion, GitHub continuation, mutation replay avoidance, correction versus replan, and operator round-trip reduction.",
+      "direct_terms": ["recovery", "operator", "checkpoint", "GitHub"],
+      "analogous_terms": ["correction", "replan", "continuation", "external"],
+      "direct_min_hits": 2,
+      "limit": 15,
+      "llm_relevance_hypothesis": "Recovery experience may help reduce unnecessary human intervention without prescribing the current path."
     }
   ],
   "llm_innovations": [
@@ -70,7 +105,7 @@
     {
       "proposal": "Before committing to the full live episode, run a bounded readiness check that asks only whether the current cluster and delivery path can support the intended proof.",
       "epistemic_status": "llm_proposed",
-      "why": "High information gain if cluster readiness is uncertain; avoids broad infrastructure hardening without evidence.",
+      "why": "High information gain if runtime readiness is uncertain; avoids broad infrastructure hardening without evidence.",
       "experience_dependency": "not_required"
     },
     {
@@ -83,12 +118,12 @@
   "unresolved_questions": [
     "Is the current Kalaxy3 cluster sufficiently ready to host the intended live proof without unrelated hardening?",
     "Which first-party change creates enough stakeholder-visible value to make the end-to-end proof meaningful?",
-    "Which historical evidence is directly transferable versus merely analogous to this exact objective?",
-    "What runtime evidence is portable in Git and what remains available only on particular executors?"
+    "Which retrieved experience is directly transferable versus analogous to this exact objective?",
+    "Which runtime and objective-episode evidence exists only on particular executors and is therefore unavailable to canonical repository retrieval?"
   ],
   "human_decisions": [
     {
-      "decision": "Choose whether to buy a small amount of cluster/readiness information before authorizing the full end-to-end episode.",
+      "decision": "Choose whether to buy a small amount of current cluster/readiness information before authorizing the full end-to-end episode.",
       "authority": "Architect",
       "decision_type": "scope_and_risk_tradeoff"
     },

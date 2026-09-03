@@ -1,72 +1,124 @@
 #!/usr/bin/env python3
-"""Self-test experience plus innovation boundaries."""
+"""Self-test canonical experience relationship and seed semantics."""
 
 from __future__ import annotations
 
+from copy import deepcopy
+
+from human_participation_canonical_experience import (
+    apply_finalization,
+    finalization,
+    relationship,
+)
 from human_participation_experience_projection import (
-    build_intent_projection,
-    build_inventory,
     forbid_opaque_scores,
     validate_seed,
 )
+from sage_evidence_retrieval import retrieval_basis_sha256
 
 
-def fixture_seed() -> dict:
-    """Return a valid working seed."""
+def result_fixture() -> dict:
+    """Return one canonical-result-shaped fixture."""
     return {
-        "architect_intent": {"statement": "Improve outcome X"},
-        "stakeholder_concerns": ["reliability"],
-        "experience_inventory_queries": [{
-            "area": "delivery",
-            "question": "Delivery experience?",
-            "terms": ["artifact", "promotion"],
+        "rank": 1,
+        "source_type": "evidence",
+        "identifier": "E1",
+        "title": "Artifact promotion",
+        "source_path": "catalog.json",
+        "record_path": "",
+        "status": "validated",
+        "score": 10,
+        "matched_terms": ["artifact", "promotion"],
+        "matched_groups": [],
+        "reasons": ["fixture"],
+        "confidence": {
+            "value": "not-recorded",
+            "source_field": "",
+            "basis": "not-recorded",
+        },
+        "applicable_facts": [{
+            "source_field": "summary",
+            "value": "artifact promotion",
+            "matched_terms": ["artifact", "promotion"],
         }],
-        "intent_experience_queries": [{
-            "area": "delivery",
-            "question": "Relevant delivery experience?",
-            "terms": ["artifact"],
-        }],
-        "llm_innovations": [{
-            "proposal": "Try a new path",
-            "epistemic_status": "llm_proposed",
-        }],
-        "unresolved_questions": ["Which path is limiting?"],
-        "human_decisions": [{
-            "decision": "Choose trade-off",
-            "authority": "Architect",
-        }],
-        "tactical_options": [{
-            "candidate": "experiment",
-            "epistemic_status": "llm_proposed",
-        }],
+        "source_section": {
+            "record_field": "summary",
+            "navigation_section": "",
+            "source_document": "",
+        },
+        "recency": {
+            "value": "",
+            "source_field": "",
+            "basis": "not-recorded",
+        },
+        "disposition": "pending",
+        "disposition_rationale": "",
+        "applicability": "pending",
+        "value_effect": "pending",
+        "alternative_effect": "pending",
+        "augmentations": [],
+        "additional_acceptance_criteria": [],
+        "reconsideration_trigger": "",
     }
 
 
 def main() -> int:
-    """Exercise match, no-match, and authority semantics."""
-    catalog = {
-        "records": [{
-            "id": "E1",
-            "title": "Artifact promotion validation",
-            "summary": "Promotion preserved artifact identity.",
-        }]
+    """Prove wrapper and seed migration boundaries."""
+    profile = {
+        "direct_terms": ["artifact", "promotion", "digest"],
+        "analogous_terms": ["provenance", "executor"],
+        "direct_min_hits": 2,
     }
-    seed = fixture_seed()
-    assert not validate_seed(seed)
-    inventory = build_inventory(seed, catalog)
-    area = inventory["areas"][0]
-    assert area["retrieval_status"] == (
-        "repository_evidence_candidates_found"
+    item = result_fixture()
+    relation = relationship(item, profile)
+    assert relation["experience_relationship"] == "direct"
+
+    payload = {
+        "schema_version": "1.1",
+        "algorithm_version": "fixture",
+        "request": "fixture",
+        "policy_sha256": "fixture",
+        "sources": [],
+        "results": [item],
+    }
+    payload["retrieval_basis_sha256"] = retrieval_basis_sha256(payload)
+    before = payload["retrieval_basis_sha256"]
+
+    finalized = deepcopy(payload)
+    apply_finalization(
+        finalized["results"][0],
+        finalization("direct", "experience_inventory"),
     )
-    assert area["experience_claim"] == "not_inferred_from_retrieval_alone"
-    intent = build_intent_projection(seed, catalog)
-    assert intent["llm_innovations"][0]["epistemic_status"] == "llm_proposed"
-    assert intent["human_decisions"][0]["authority"] == "Architect"
-    assert not forbid_opaque_scores([inventory, intent])
-    seed["experience_inventory_queries"][0]["terms"] = ["never-found-term"]
-    no_match = build_inventory(seed, catalog)["areas"][0]
-    assert no_match["retrieval_status"] == "no_bounded_catalog_match"
-    print("SAGE experience + innovation projection self-test: PASS")
+    assert retrieval_basis_sha256(finalized) == before
+    assert "experience_relationship" not in finalized["results"][0]
+
+    valid_seed = {
+        "experience_inventory_queries": [{
+            "area": "x",
+            "retrieval_request": "retrieve x",
+            "assessment_context": "experience_inventory",
+        }],
+        "intent_experience_queries": [],
+        "llm_innovations": [{"epistemic_status": "llm_proposed"}],
+        "tactical_options": [{"epistemic_status": "llm_proposed"}],
+        "human_decisions": [{"authority": "Architect"}],
+    }
+    assert not validate_seed(valid_seed)
+
+    old_seed = deepcopy(valid_seed)
+    profile = old_seed["experience_inventory_queries"][0]
+    profile.pop("retrieval_request")
+    profile["terms"] = ["x"]
+    assert validate_seed(old_seed)
+
+    assert not forbid_opaque_scores({"retrieval_score": 42})
+    assert forbid_opaque_scores({"priority_score": 42})
+
+    print("PASS relationship metadata stays outside canonical result")
+    print("PASS finalization preserves immutable retrieval basis")
+    print("PASS obsolete projection-local seed format is rejected")
+    print("PASS canonical retrieval seed is required")
+    print("SAGE canonical experience relationship self-test: PASS")
     return 0
 
 
