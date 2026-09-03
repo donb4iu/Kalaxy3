@@ -1,0 +1,193 @@
+{
+  "schema_version": "1.0",
+  "projection_type": "human-participation-attention",
+  "source_commit": "1bdff086804751f45f99dcfe4b77e6b9ce652496",
+  "source_objective": "human-participation-introspection-contract-audit",
+  "questions": {
+    "what_should_i_care_about": [
+      {
+        "statement": "Human-participation concepts remain context-only and must be normalized or projected before presentation can treat them as structured state.",
+        "epistemic_status": "derived",
+        "concepts": [
+          "stakeholder_concerns",
+          "participant_contribution",
+          "strategic_reach_leverage",
+          "information_gain",
+          "evidence_availability"
+        ],
+        "source_refs": [
+          {
+            "source_type": "audit_result",
+            "source_ref": "markdown/architecture/sage-human-participation-introspection-contract-audit.json",
+            "availability": "available"
+          }
+        ]
+      },
+      {
+        "statement": "The bounded audit found no concept wholly absent from the scanned authority.",
+        "epistemic_status": "derived",
+        "scope_limit": "bounded scanned authority only",
+        "concepts": [],
+        "source_refs": [
+          {
+            "source_type": "audit_result",
+            "source_ref": "markdown/architecture/sage-human-participation-introspection-contract-audit.json",
+            "availability": "available"
+          }
+        ]
+      }
+    ],
+    "where_do_you_need_me": [
+      {
+        "decision": "Decide whether context-only concepts can be normalized deterministically or require minimal first-class representation.",
+        "authority": "Architect",
+        "status": "decision_required",
+        "epistemic_status": "documented",
+        "source_refs": [
+          {
+            "source_type": "audit_result",
+            "source_ref": "markdown/architecture/sage-human-participation-introspection-contract-audit.json",
+            "availability": "available"
+          },
+          {
+            "source_type": "architect_intent",
+            "source_ref": "markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md",
+            "availability": "available"
+          }
+        ]
+      }
+    ],
+    "where_should_we_spend_next_unit_of_effort": [
+      {
+        "candidate": "build_read_only_projection",
+        "disposition": "current_80_20_path",
+        "epistemic_status": "documented",
+        "strategic_reach": [
+          "stakeholder comprehension",
+          "decision quality",
+          "tactical attention allocation"
+        ],
+        "uncertainty_reduced": [
+          "stakeholder_concerns",
+          "participant_contribution",
+          "strategic_reach_leverage",
+          "information_gain",
+          "evidence_availability"
+        ],
+        "information_gain": "Tests whether existing semantics can support a useful human experience before UI investment.",
+        "source_refs": [
+          {
+            "source_type": "audit_result",
+            "source_ref": "markdown/architecture/sage-human-participation-introspection-contract-audit.json",
+            "availability": "available"
+          },
+          {
+            "source_type": "architect_intent",
+            "source_ref": "markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md",
+            "availability": "available"
+          }
+        ]
+      },
+      {
+        "candidate": "add_first_class_schema_for_all_context_only_concepts",
+        "disposition": "not_yet_justified",
+        "epistemic_status": "derived",
+        "reason": "The audit found contextual support and no wholly absent concept; normalization must fail before broader schema work is justified.",
+        "source_refs": [
+          {
+            "source_type": "audit_result",
+            "source_ref": "markdown/architecture/sage-human-participation-introspection-contract-audit.json",
+            "availability": "available"
+          }
+        ]
+      },
+      {
+        "candidate": "start_ui_implementation",
+        "disposition": "deferred",
+        "epistemic_status": "documented",
+        "reason": "The Architect epic requires the read/introspection contract to be proven before UI implementation.",
+        "source_refs": [
+          {
+            "source_type": "architect_intent",
+            "source_ref": "markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md",
+            "availability": "available"
+          }
+        ]
+      }
+    ]
+  },
+  "epistemic_context": {
+    "coverage": {
+      "stakeholder_concerns": "documented_context",
+      "strategic_objectives": "structured_explicit",
+      "participant_authority": "structured_explicit",
+      "participant_contribution": "documented_context",
+      "current_target_capability": "structured_explicit",
+      "evidence_provenance": "structured_explicit",
+      "prediction_hypothesis": "structured_explicit",
+      "uncertainty_unknown": "structured_explicit",
+      "contradiction_conflict": "structured_explicit",
+      "known_omission_deferral": "structured_explicit",
+      "tactical_opportunity": "structured_explicit",
+      "effort_reversibility": "structured_explicit",
+      "strategic_reach_leverage": "documented_context",
+      "information_gain": "documented_context",
+      "objective_episode_replay": "structured_explicit",
+      "evidence_availability": "documented_context"
+    },
+    "context_only_concepts": [
+      "evidence_availability",
+      "information_gain",
+      "participant_contribution",
+      "stakeholder_concerns",
+      "strategic_reach_leverage"
+    ],
+    "candidate_first_class_gaps": []
+  },
+  "provenance_issues": [
+    {
+      "issue": "architect_intent_catalog_classification_requires_review",
+      "epistemic_status": "observed",
+      "detail": [
+        {
+          "completed_at": "not-captured",
+          "confidence": "low",
+          "evidence_id": "LEGACY-K3-D2AEC96351",
+          "metadata_source": "inferred",
+          "migration_status": "not-started",
+          "nav_order": 500,
+          "nav_section": "architecture",
+          "nav_title": "Human Participation Adapter \u2014 Architect Epic",
+          "owner": "not-captured",
+          "primary_subject": "SAGE Human Participation Adapter",
+          "record_class": "legacy-evidence",
+          "schema_version": "not-applicable",
+          "source_path": "markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md",
+          "status": "historical",
+          "summary": "Status: Architect-owned epic; implementation not yet started Product intent: improve stakeholder participation and tactical attention allocation Execution model: existing governed SAGE objective-execution methodology remains authoritative Architecture-explorer status: separate technical due-diligence deliverable, not the first product priority",
+          "tags": [],
+          "title": "SAGE Human Participation Adapter \u2014 Architect Epic",
+          "valid_as_of": "not-captured"
+        }
+      ]
+    }
+  ],
+  "runtime_evidence_inventory": {
+    "state_root_available": true,
+    "families": [
+      {
+        "family": "sage-branch-lifecycle",
+        "json_records": 28
+      },
+      {
+        "family": "sage-checkpoint-promotion",
+        "json_records": 35
+      },
+      {
+        "family": "sage-failure-retrieval",
+        "json_records": 5
+      }
+    ],
+    "episodes": []
+  }
+}

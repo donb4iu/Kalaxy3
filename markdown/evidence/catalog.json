@@ -1,5 +1,5 @@
 {
-  "catalog_fingerprint": "1bf2c13fbf0d5a0e816cb01cc16c31c6887ff5cbc309708a33d214f106725ba0",
+  "catalog_fingerprint": "65887eefe39527cf3d1b935e149972d426ab9936b0a4544a580006a146b61cf4",
   "catalog_schema_version": "1.0",
   "record_count": 41,
   "records": [
@@ -24,7 +24,7 @@
       "valid_as_of": "2026-09-02"
     },
     {
-      "completed_at": "not-captured",
+      "completed_at": "2026-09-02T22:10:00-05:00",
       "confidence": "low",
       "evidence_id": "LEGACY-K3-FC175F71D0",
       "metadata_source": "inferred",
@@ -41,7 +41,7 @@
       "summary": "Purpose: determine what SAGE can truthfully project before UI work.",
       "tags": [],
       "title": "SAGE Human Participation Introspection-Contract Audit",
-      "valid_as_of": "not-captured"
+      "valid_as_of": "2026-09-02"
     },
     {
       "completed_at": "2026-07-25T21:01:00-05:00",
