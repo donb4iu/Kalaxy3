@@ -54,6 +54,7 @@
     "markdown/evidence/subjects/sage-evidence-catalog.md",
     "markdown/evidence/subjects/sage-generated-helper-runtime-validation.md",
     "markdown/evidence/subjects/sage-human-participation-adapter.md",
+    "markdown/evidence/subjects/sage-human-participation-introspection.md",
     "markdown/evidence/subjects/sage-record-schema.md",
     "markdown/evidence/subjects/ubuntu-installation.md",
     "markdown/evidence/subjects/ubuntu-node-provisioning.md"

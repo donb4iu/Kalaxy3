@@ -1,0 +1,450 @@
+{
+  "audit_type": "sage-human-participation-introspection-contract",
+  "recorded_at": "2026-09-03T03:09:51.236465+00:00",
+  "host_provenance": {
+    "hostname": "Donalds-MacBook-Pro.local",
+    "platform": "macOS-14.6-arm64-arm-64bit-Mach-O",
+    "machine": "arm64"
+  },
+  "scope": {
+    "repository_sources_scanned": [
+      "sage-capability-intelligence.json",
+      "sage-thin-slice.json",
+      "sage-change-authority.json",
+      "sage-improvement-actions.json",
+      "sage-lessons.json",
+      "sage-post-session-review-registry.json",
+      "sage-continuous-improvement-policy.json",
+      "sage-recovery-policy.json",
+      "sage-checkpoint-promotion-policy.json",
+      "markdown/standards/sage-capability-intelligence-schema-v1.0.json",
+      "markdown/standards/kalaxy3-sage-capability-intelligence-process.md",
+      "markdown/standards/sage-thin-slice-schema-v1.0.json",
+      "markdown/standards/kalaxy3-sage-thin-slice-process.md",
+      "markdown/standards/kalaxy3-sage-causal-evidence-process.md",
+      "markdown/standards/kalaxy3-sage-intent-to-outcome-process.md",
+      "markdown/standards/kalaxy3-sage-continuous-improvement-process.md",
+      "markdown/standards/kalaxy3-sage-operating-contract.md",
+      "markdown/evidence/catalog.json",
+      "markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md"
+    ],
+    "local_state_root": "~/.local/state/kalaxy3",
+    "local_state_is_authority": false
+  },
+  "coverage": [
+    {
+      "concept": "stakeholder_concerns",
+      "status": "documented_context",
+      "structured_hits": [],
+      "contextual_hits": [
+        "sage-change-authority.json:860: \"wider participation\",",
+        "sage-improvement-actions.json:880: \"Human participant roles include stakeholder/sponsor/product owner, architect/engineer, operator, and reviewer/approver; the same human may ",
+        "sage-improvement-actions.json:884: \"The LLM is a first-class contributor of external/world knowledge, state-of-practice patterns, alternatives, critique, risk identification, ",
+        "sage-improvement-actions.json:894: \"Beyond mandatory gates, SAGE preserves a provenance-backed multidimensional outcome vector against human-owned intent, requirements, constr",
+        "sage-improvement-actions.json:911: \"Measure effectiveness, efficiency, correctness/quality, reliability, time to validated outcome, human effort, cost, rework, recurrence, aut",
+        "sage-improvement-actions.json:1002: \"Human participant roles include stakeholder/sponsor/product owner, architect/engineer, operator, and reviewer/approver; the same human may ",
+        "sage-improvement-actions.json:1006: \"The LLM is a first-class contributor of external/world knowledge, state-of-practice patterns, alternatives, critique, risk identification, ",
+        "sage-improvement-actions.json:1016: \"Beyond mandatory gates, SAGE preserves a provenance-backed multidimensional outcome vector against human-owned intent, requirements, constr"
+      ]
+    },
+    {
+      "concept": "strategic_objectives",
+      "status": "structured_explicit",
+      "structured_hits": [
+        "sage-capability-intelligence.json::policy.mission",
+        "sage-thin-slice.json::measures[0].target",
+        "sage-thin-slice.json::measures[1].target",
+        "sage-thin-slice.json::measures[2].target",
+        "sage-thin-slice.json::measures[3].target",
+        "sage-thin-slice.json::measures[4].target",
+        "sage-thin-slice.json::measures[5].target",
+        "sage-thin-slice.json::measures[6].target"
+      ],
+      "contextual_hits": [
+        "sage-capability-intelligence.json:6: \"mission\": \"Make Kalaxy3 LLM-driven capability mutation more effective, predictable, reproducible, less costly, and less error-prone through",
+        "sage-capability-intelligence.json:219: \"mission_outcomes\": [",
+        "sage-capability-intelligence.json:270: \"mission_outcome_ids\": [",
+        "sage-capability-intelligence.json:390: \"mission_outcome_ids\": [",
+        "sage-capability-intelligence.json:502: \"mission_outcome_ids\": [",
+        "sage-capability-intelligence.json:625: \"mission_outcome_ids\": [",
+        "sage-capability-intelligence.json:758: \"mission_outcome_ids\": [",
+        "sage-capability-intelligence.json:868: \"mission_outcome_ids\": ["
+      ]
+    },
+    {
+      "concept": "participant_authority",
+      "status": "structured_explicit",
+      "structured_hits": [
+        "markdown/evidence/catalog.json::records[0].owner",
+        "markdown/evidence/catalog.json::records[10].owner",
+        "markdown/evidence/catalog.json::records[11].owner",
+        "markdown/evidence/catalog.json::records[12].owner",
+        "markdown/evidence/catalog.json::records[13].owner",
+        "markdown/evidence/catalog.json::records[14].owner",
+        "markdown/evidence/catalog.json::records[15].owner",
+        "markdown/evidence/catalog.json::records[16].owner"
+      ],
+      "contextual_hits": [
+        "sage-capability-intelligence.json:6: \"mission\": \"Make Kalaxy3 LLM-driven capability mutation more effective, predictable, reproducible, less costly, and less error-prone through",
+        "sage-capability-intelligence.json:8: \"SAGE is a decision partner, not the sole authority.\",",
+        "sage-capability-intelligence.json:58: \"a critical capability changes without validation and recovery authority\",",
+        "sage-capability-intelligence.json:96: \"authority_id\": \"operator-intent\",",
+        "sage-capability-intelligence.json:101: \"Authority is valid only inside its declared scope and context.\"",
+        "sage-capability-intelligence.json:106: \"authority_id\": \"repository-desired-state\",",
+        "sage-capability-intelligence.json:107: \"scope\": \"Version-controlled target, policy, and mutation authority.\",",
+        "sage-capability-intelligence.json:111: \"Authority is valid only inside its declared scope and context.\""
+      ]
+    },
+    {
+      "concept": "participant_contribution",
+      "status": "documented_context",
+      "structured_hits": [],
+      "contextual_hits": [
+        "sage-thin-slice.json:50: \"sage_contribution\": \"Preserve the literal objective and connect it to repository, observability, storage, validation, and evidence authorit",
+        "sage-thin-slice.json:51: \"human_contribution\": \"The operator defined the desired outcome and retained authority over activation and Git boundaries.\",",
+        "sage-thin-slice.json:61: \"sage_contribution\": \"Expose the authority gap instead of treating successful deployment as sufficient evidence.\",",
+        "sage-thin-slice.json:62: \"human_contribution\": \"The operator accepted the pause and required repository-owned guardrails before proceeding.\",",
+        "sage-thin-slice.json:72: \"sage_contribution\": \"Prefer reusable repository mechanisms, preserve exact scope, and keep deployment state distinct from reviewable code.\"",
+        "sage-thin-slice.json:73: \"human_contribution\": \"Engineering judgment resolved repository and platform details while keeping activation closed.\",",
+        "sage-thin-slice.json:83: \"sage_contribution\": \"Keep the deployment path tied to declared repository state and validate semantic outcomes rather than command success ",
+        "sage-thin-slice.json:84: \"human_contribution\": \"The operator executed controlled boundaries and supplied runtime interpretation when the deployed system differed fro"
+      ]
+    },
+    {
+      "concept": "current_target_capability",
+      "status": "structured_explicit",
+      "structured_hits": [
+        "sage-capability-intelligence.json::picture.capabilities",
+        "sage-thin-slice.json::measures[0].target",
+        "sage-thin-slice.json::measures[1].target",
+        "sage-thin-slice.json::measures[2].target",
+        "sage-thin-slice.json::measures[3].target",
+        "sage-thin-slice.json::measures[4].target",
+        "sage-thin-slice.json::measures[5].target",
+        "sage-thin-slice.json::measures[6].target"
+      ],
+      "contextual_hits": [
+        "sage-change-authority.json:845: \"current capability state\",",
+        "sage-change-authority.json:913: \"Preserve the versioned mission, target, and current capability picture.\",",
+        "markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md:37: - evidenced current capability;",
+        "markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md:169: - mission / target / current state;"
+      ]
+    },
+    {
+      "concept": "evidence_provenance",
+      "status": "structured_explicit",
+      "structured_hits": [
+        "sage-capability-intelligence.json::picture.capabilities[0].assertions[0].evidence_refs",
+        "sage-capability-intelligence.json::picture.capabilities[0].assertions[1].evidence_refs",
+        "sage-capability-intelligence.json::picture.capabilities[0].current_dimensions.cost-efficiency.evidence_refs",
+        "sage-capability-intelligence.json::picture.capabilities[0].current_dimensions.evidence-confidence.evidence_refs",
+        "sage-capability-intelligence.json::picture.capabilities[0].current_dimensions.functional-outcome.evidence_refs",
+        "sage-capability-intelligence.json::picture.capabilities[0].current_dimensions.operational-maturity.evidence_refs",
+        "sage-capability-intelligence.json::picture.capabilities[0].current_dimensions.rebuild-forward-readiness.evidence_refs",
+        "sage-capability-intelligence.json::picture.capabilities[0].current_dimensions.runtime-health.evidence_refs"
+      ],
+      "contextual_hits": [
+        "sage-capability-intelligence.json:21: \"evidence-confidence\",",
+        "sage-capability-intelligence.json:196: \"authority_id\": \"sage-evidence\",",
+        "sage-capability-intelligence.json:197: \"scope\": \"Context-qualified evidence, lessons, failures, predictions, and outcomes.\",",
+        "sage-capability-intelligence.json:230: \"title\": \"Recoverable evidence-informed successor evolution\"",
+        "sage-capability-intelligence.json:237: \"outcome_id\": \"outcome.evidence-informed-economics\",",
+        "sage-capability-intelligence.json:238: \"title\": \"Evidence-informed cost and resource decisions\"",
+        "sage-capability-intelligence.json:254: \"implementation_policy\": \"evidence-selected-not-frozen\"",
+        "sage-capability-intelligence.json:280: \"evidence-confidence\": 100,"
+      ]
+    },
+    {
+      "concept": "prediction_hypothesis",
+      "status": "structured_explicit",
+      "structured_hits": [
+        "markdown/standards/sage-thin-slice-schema-v1.0.json::properties.alternatives",
+        "sage-capability-intelligence.json::decision_cycle.branches[0].prediction",
+        "sage-capability-intelligence.json::decision_cycle.branches[1].prediction",
+        "sage-capability-intelligence.json::decision_cycle.branches[2].prediction",
+        "sage-capability-intelligence.json::decision_cycle.branches[3].prediction",
+        "sage-capability-intelligence.json::policy.prediction",
+        "sage-thin-slice.json::alternatives"
+      ],
+      "contextual_hits": [
+        "sage-capability-intelligence.json:6: \"mission\": \"Make Kalaxy3 LLM-driven capability mutation more effective, predictable, reproducible, less costly, and less error-prone through",
+        "sage-capability-intelligence.json:13: \"Predictions are immutable, staged, and scalar-neutral.\",",
+        "sage-capability-intelligence.json:73: \"prediction\": {",
+        "sage-capability-intelligence.json:197: \"scope\": \"Context-qualified evidence, lessons, failures, predictions, and outcomes.\",",
+        "sage-capability-intelligence.json:207: \"scope\": \"Explicit synthesis, alternatives, ranking, and prediction.\",",
+        "sage-capability-intelligence.json:246: \"title\": \"Comparable alternative futures and intelligent effort direction\"",
+        "sage-capability-intelligence.json:755: \"title\": \"SAGE evidence, retrieval, prediction, failure, and learning foundation\",",
+        "sage-capability-intelligence.json:779: \"rationale\": \"Evidence, lessons, failures, predictions, and outcomes are repository-owned.\","
+      ]
+    },
+    {
+      "concept": "uncertainty_unknown",
+      "status": "structured_explicit",
+      "structured_hits": [
+        "markdown/evidence/catalog.json::records[0].confidence",
+        "markdown/evidence/catalog.json::records[10].confidence",
+        "markdown/evidence/catalog.json::records[11].confidence",
+        "markdown/evidence/catalog.json::records[12].confidence",
+        "markdown/evidence/catalog.json::records[13].confidence",
+        "markdown/evidence/catalog.json::records[14].confidence",
+        "markdown/evidence/catalog.json::records[15].confidence",
+        "markdown/evidence/catalog.json::records[16].confidence"
+      ],
+      "contextual_hits": [
+        "sage-capability-intelligence.json:12: \"No opaque composite score may hide unknowns or blockers.\",",
+        "sage-capability-intelligence.json:21: \"evidence-confidence\",",
+        "sage-capability-intelligence.json:28: \"unknown\",",
+        "sage-capability-intelligence.json:252: \"confidence\": \"medium\",",
+        "sage-capability-intelligence.json:280: \"evidence-confidence\": 100,",
+        "sage-capability-intelligence.json:290: \"confidence\": \"high\",",
+        "sage-capability-intelligence.json:297: \"confidence\": \"medium\",",
+        "sage-capability-intelligence.json:304: \"confidence\": \"high\","
+      ]
+    },
+    {
+      "concept": "contradiction_conflict",
+      "status": "structured_explicit",
+      "structured_hits": [
+        "sage-capability-intelligence.json::picture.conflicts"
+      ],
+      "contextual_hits": [
+        "sage-capability-intelligence.json:60: \"active mutation authorities conflict\"",
+        "sage-capability-intelligence.json:93: \"silent_conflict_resolution_allowed\": false,",
+        "sage-capability-intelligence.json:977: \"conflicts\": [",
+        "sage-capability-intelligence.json:979: \"conflict_id\": \"K3-CONFLICT-20260801-001\",",
+        "sage-change-authority.json:914: \"Preserve consulted authority assertions and visible conflicts.\",",
+        "sage-improvement-actions.json:903: \"Track activity-level responsibility assignments and authority boundaries, including Accountable Owner, Responsible, Contributor, Authority-",
+        "sage-improvement-actions.json:1025: \"Track activity-level responsibility assignments and authority boundaries, including Accountable Owner, Responsible, Contributor, Authority-",
+        "sage-improvement-actions.json:1139: \"desired_outcome\": \"SAGE bears the burden of understanding human intent and governed SAGE artifacts while the human Architect retains author"
+      ]
+    },
+    {
+      "concept": "known_omission_deferral",
+      "status": "structured_explicit",
+      "structured_hits": [
+        "sage-capability-intelligence.json::federation.authorities[0].limitations",
+        "sage-capability-intelligence.json::federation.authorities[10].limitations",
+        "sage-capability-intelligence.json::federation.authorities[11].limitations",
+        "sage-capability-intelligence.json::federation.authorities[1].limitations",
+        "sage-capability-intelligence.json::federation.authorities[2].limitations",
+        "sage-capability-intelligence.json::federation.authorities[3].limitations",
+        "sage-capability-intelligence.json::federation.authorities[4].limitations",
+        "sage-capability-intelligence.json::federation.authorities[5].limitations"
+      ],
+      "contextual_hits": [
+        "sage-capability-intelligence.json:100: \"limitations\": [",
+        "sage-capability-intelligence.json:110: \"limitations\": [",
+        "sage-capability-intelligence.json:120: \"limitations\": [",
+        "sage-capability-intelligence.json:130: \"limitations\": [",
+        "sage-capability-intelligence.json:140: \"limitations\": [",
+        "sage-capability-intelligence.json:150: \"limitations\": [",
+        "sage-capability-intelligence.json:160: \"limitations\": [",
+        "sage-capability-intelligence.json:170: \"limitations\": ["
+      ]
+    },
+    {
+      "concept": "tactical_opportunity",
+      "status": "structured_explicit",
+      "structured_hits": [
+        "sage-continuous-improvement-policy.json::registries.improvement_actions"
+      ],
+      "contextual_hits": [
+        "sage-change-authority.json:336: \"Preserve ranked candidates and deterministic score reasons.\",",
+        "sage-change-authority.json:337: \"Finalize every candidate disposition with rationale.\",",
+        "sage-change-authority.json:354: \"candidate registry\",",
+        "sage-change-authority.json:370: \"improvement action\",",
+        "sage-change-authority.json:399: \"sage-change-candidate-\",",
+        "sage-change-authority.json:403: \"markdown/standards/sage-change-candidate-schema-\",",
+        "sage-change-authority.json:408: \"scripts/sage/sage-candidate\",",
+        "sage-change-authority.json:413: \"sage-change-candidate-lifecycle-\","
+      ]
+    },
+    {
+      "concept": "effort_reversibility",
+      "status": "structured_explicit",
+      "structured_hits": [
+        "sage-capability-intelligence.json::decision_cycle.branches[0].prediction.effort",
+        "sage-capability-intelligence.json::decision_cycle.branches[0].prediction.reversibility",
+        "sage-capability-intelligence.json::decision_cycle.branches[1].prediction.effort",
+        "sage-capability-intelligence.json::decision_cycle.branches[1].prediction.reversibility",
+        "sage-capability-intelligence.json::decision_cycle.branches[2].prediction.effort",
+        "sage-capability-intelligence.json::decision_cycle.branches[2].prediction.reversibility",
+        "sage-capability-intelligence.json::decision_cycle.branches[3].prediction.effort",
+        "sage-capability-intelligence.json::decision_cycle.branches[3].prediction.reversibility"
+      ],
+      "contextual_hits": [
+        "sage-capability-intelligence.json:246: \"title\": \"Comparable alternative futures and intelligent effort direction\"",
+        "sage-capability-intelligence.json:1031: \"Human engineering effort is not measurable by helper runtime.\",",
+        "sage-capability-intelligence.json:1052: \"effort\": [",
+        "sage-capability-intelligence.json:1054: \"subject\": \"engineering_effort\",",
+        "sage-capability-intelligence.json:1123: \"reversibility\": \"high\",",
+        "sage-capability-intelligence.json:1139: \"actual_effort\": [",
+        "sage-capability-intelligence.json:1141: \"subject\": \"engineering_effort\",",
+        "sage-capability-intelligence.json:1145: \"rationale\": \"Automation runtime does not measure human engineering effort.\""
+      ]
+    },
+    {
+      "concept": "strategic_reach_leverage",
+      "status": "documented_context",
+      "structured_hits": [],
+      "contextual_hits": [
+        "sage-improvement-actions.json:894: \"Beyond mandatory gates, SAGE preserves a provenance-backed multidimensional outcome vector against human-owned intent, requirements, constr",
+        "sage-improvement-actions.json:911: \"Measure effectiveness, efficiency, correctness/quality, reliability, time to validated outcome, human effort, cost, rework, recurrence, aut",
+        "sage-improvement-actions.json:1016: \"Beyond mandatory gates, SAGE preserves a provenance-backed multidimensional outcome vector against human-owned intent, requirements, constr",
+        "sage-improvement-actions.json:1033: \"Measure effectiveness, efficiency, correctness/quality, reliability, time to validated outcome, human effort, cost, rework, recurrence, aut",
+        "markdown/standards/kalaxy3-sage-intent-to-outcome-process.md:384: observations with context, rationale, expected benefit, affected components,",
+        "markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md:44: - expected benefit;",
+        "markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md:106: - expected benefit;"
+      ]
+    },
+    {
+      "concept": "information_gain",
+      "status": "documented_context",
+      "structured_hits": [],
+      "contextual_hits": [
+        "markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md:49: - information gain.",
+        "markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md:112: - information gain."
+      ]
+    },
+    {
+      "concept": "objective_episode_replay",
+      "status": "structured_explicit",
+      "structured_hits": [
+        "sage-improvement-actions.json::actions[0].history",
+        "sage-improvement-actions.json::actions[10].history",
+        "sage-improvement-actions.json::actions[11].history",
+        "sage-improvement-actions.json::actions[12].history",
+        "sage-improvement-actions.json::actions[13].history",
+        "sage-improvement-actions.json::actions[14].history",
+        "sage-improvement-actions.json::actions[15].history",
+        "sage-improvement-actions.json::actions[16].history"
+      ],
+      "contextual_hits": [
+        "sage-capability-intelligence.json:10: \"Repository, runtime, telemetry, economics, and history remain separate.\",",
+        "sage-capability-intelligence.json:14: \"Rebuild-forward continuity protects outcomes, not exact replay.\",",
+        "sage-improvement-actions.json:29: \"history\": [",
+        "sage-improvement-actions.json:115: \"history\": [",
+        "sage-improvement-actions.json:156: \"history\": [",
+        "sage-improvement-actions.json:212: \"history\": [",
+        "sage-improvement-actions.json:265: \"history\": [",
+        "sage-improvement-actions.json:358: \"history\": ["
+      ]
+    },
+    {
+      "concept": "evidence_availability",
+      "status": "documented_context",
+      "structured_hits": [],
+      "contextual_hits": [
+        "sage-improvement-actions.json:908: \"Track workflow/decision observability coverage separately from infrastructure/application observability and measure missing instrumentation",
+        "sage-improvement-actions.json:1030: \"Track workflow/decision observability coverage separately from infrastructure/application observability and measure missing instrumentation",
+        "markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md:85: Unavailable evidence remains unavailable."
+      ]
+    }
+  ],
+  "coverage_disposition": {
+    "reuse": [
+      "strategic_objectives",
+      "participant_authority",
+      "current_target_capability",
+      "evidence_provenance",
+      "prediction_hypothesis",
+      "uncertainty_unknown",
+      "contradiction_conflict",
+      "known_omission_deferral",
+      "tactical_opportunity",
+      "effort_reversibility",
+      "objective_episode_replay"
+    ],
+    "normalize_or_project": [
+      "stakeholder_concerns",
+      "participant_contribution",
+      "strategic_reach_leverage",
+      "information_gain",
+      "evidence_availability"
+    ],
+    "candidate_gap": []
+  },
+  "epic_catalog_projection": [
+    {
+      "completed_at": "not-captured",
+      "confidence": "low",
+      "evidence_id": "LEGACY-K3-D2AEC96351",
+      "metadata_source": "inferred",
+      "migration_status": "not-started",
+      "nav_order": 500,
+      "nav_section": "architecture",
+      "nav_title": "Human Participation Adapter \u2014 Architect Epic",
+      "owner": "not-captured",
+      "primary_subject": "SAGE Human Participation Adapter",
+      "record_class": "legacy-evidence",
+      "schema_version": "not-applicable",
+      "source_path": "markdown/architecture/kalaxy3-sage-capability-intelligence-human-participation-epic.md",
+      "status": "historical",
+      "summary": "Status: Architect-owned epic; implementation not yet started Product intent: improve stakeholder participation and tactical attention allocation Execution model: existing governed SAGE objective-execution methodology remains authoritative Architecture-explorer status: separate technical due-diligence deliverable, not the first product priority",
+      "tags": [],
+      "title": "SAGE Human Participation Adapter \u2014 Architect Epic",
+      "valid_as_of": "not-captured"
+    }
+  ],
+  "runtime_evidence_inventory": {
+    "state_root_available": true,
+    "families": [
+      {
+        "family": "sage-branch-lifecycle",
+        "json_records": 28
+      },
+      {
+        "family": "sage-checkpoint-promotion",
+        "json_records": 35
+      },
+      {
+        "family": "sage-failure-retrieval",
+        "json_records": 5
+      }
+    ],
+    "episodes": []
+  },
+  "proposed_read_contract": {
+    "query_context": [
+      "perspective",
+      "stakeholder_concerns",
+      "strategic_objectives"
+    ],
+    "attention_items": [
+      "claim_refs",
+      "why_now",
+      "affected_concerns",
+      "uncertainty"
+    ],
+    "human_decisions": [
+      "decision",
+      "authority",
+      "tradeoffs",
+      "evidence_refs"
+    ],
+    "tactical_opportunities": [
+      "expected_benefit",
+      "strategic_reach",
+      "evidence_strength",
+      "uncertainty",
+      "effort",
+      "reversibility",
+      "dependencies",
+      "information_gain"
+    ],
+    "claims": [
+      "epistemic_status",
+      "source_type",
+      "source_ref",
+      "confidence",
+      "availability"
+    ],
+    "episodes": [
+      "participants",
+      "authority_transitions",
+      "actual_path",
+      "outcomes",
+      "learning"
+    ]
+  }
+}

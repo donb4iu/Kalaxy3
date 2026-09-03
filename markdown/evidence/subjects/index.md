@@ -32,6 +32,7 @@
 - [SAGE evidence catalog](sage-evidence-catalog.md)
 - [SAGE generated-helper runtime validation](sage-generated-helper-runtime-validation.md)
 - [SAGE Human Participation Adapter](sage-human-participation-adapter.md)
+- [SAGE Human Participation Introspection](sage-human-participation-introspection.md)
 - [SAGE-record-schema](sage-record-schema.md)
 - [Ubuntu Installation](ubuntu-installation.md)
 - [Ubuntu Node Provisioning](ubuntu-node-provisioning.md)
