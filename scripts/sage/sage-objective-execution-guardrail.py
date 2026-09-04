@@ -22,6 +22,11 @@ def main() -> int:
     standard = STANDARD.read_text(encoding="utf-8")
 
     required = (
+        "architecture_evaluation_required",
+        "architecture_evaluation_service",
+        "architecture_evaluation",
+        "architecture_evaluation_sha256",
+        "validate_architecture_evaluation",
         "sage-objective-execution-plan",
         "sage-objective-execution-approval",
         "material-objective-path",

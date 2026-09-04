@@ -17,6 +17,11 @@ from workflow import (
     PrimitiveCatalog,
     WorkflowError,
 )
+from architecture_approval import (
+    evaluation_sha256,
+    service_contract as architecture_evaluation_service,
+    validate_evaluation as validate_architecture_evaluation,
+)
 from workflows.branch_lifecycle import continue_branch_lifecycle
 import tempfile
 
@@ -1232,6 +1237,10 @@ def _planning_critic_request(
 ) -> dict[str, Any]:
     """Build the pre-approval architecture/path critic surface."""
     return {
+        "architecture_evaluation_required": True,
+        "architecture_evaluation_service": (
+            architecture_evaluation_service()
+        ),
         "schema_version": "1.0",
         "record_type": (
             "sage-llm-path-critic-request"
@@ -1492,6 +1501,16 @@ def _validate_planning_critic_observation(
                 f"requires {name}"
             )
 
+    validate_architecture_evaluation(
+        observation.get("architecture_evaluation"),
+        objective_id=str(
+            request.get("objective_id", "")
+        ),
+        decision_surface_sha256=str(
+            request.get("plan_sha256", "")
+        ),
+    )
+
 
 def validate_critic_observation(
     request: Mapping[str, Any],
@@ -1698,8 +1717,20 @@ def _write_approval(
         critic_request,
         observation,
     )
+    architecture_evaluation = observation[
+        "architecture_evaluation"
+    ]
+    architecture_digest = evaluation_sha256(
+        architecture_evaluation
+    )
 
     approval = {
+        "architecture_evaluation": (
+            architecture_evaluation
+        ),
+        "architecture_evaluation_sha256": (
+            architecture_digest
+        ),
         "schema_version": "1.0",
         "record_type": (
             "sage-objective-execution-approval"
@@ -2043,6 +2074,83 @@ def run_closeout_objective(
 def _fixture_planning_observation() -> dict[str, Any]:
     """Return one valid planning-time architecture critique fixture."""
     return {
+        "architecture_evaluation": {
+            "schema_version": "1.0",
+            "record_type": (
+                "sage-llm-architecture-approval-evaluation"
+            ),
+            "producer_class": "llm-architecture-evaluator",
+            "authority": "advisory",
+            "objective_id": "SAGE-ACTION-FIXTURE",
+            "decision_surface_sha256": "a" * 64,
+            "framework_guided_not_bound": True,
+            "broad_solution_space_evaluated": True,
+            "current_sage_capability_not_solution_boundary": True,
+            "lenses_considered": [
+                {
+                    "lens": "WAR/reliability",
+                    "materiality": "material",
+                    "rationale": (
+                        "Recovery behavior affects objective fitness."
+                    ),
+                },
+                {
+                    "lens": "CAF/governance",
+                    "materiality": "material",
+                    "rationale": (
+                        "Authority boundaries are material to approval."
+                    ),
+                },
+                {
+                    "lens": "architecture-technology-fitness",
+                    "materiality": "material",
+                    "rationale": (
+                        "Delegation ownership is architectural."
+                    ),
+                },
+            ],
+            "additional_lenses": [
+                "architecture-technology-fitness"
+            ],
+            "alternative_assessment": (
+                "Compared semantic delegation with SAGE-owned "
+                "mechanical orchestration."
+            ),
+            "material_findings": [
+                {
+                    "service_area": (
+                        "architecture-technology-and-platform-fitness"
+                    ),
+                    "finding": (
+                        "Delegate Git mechanics while retaining "
+                        "semantic authority."
+                    ),
+                    "epistemic_status": "derived",
+                    "expected_decision_impact": (
+                        "Avoid duplicated lifecycle ownership."
+                    ),
+                    "measurable_indicators": [
+                        "sage_mechanical_phase_graph_persisted"
+                    ],
+                }
+            ],
+            "unknowns_and_limits": [],
+            "decision_influence": {
+                "risks_exposed": [
+                    "duplicated lifecycle ownership"
+                ],
+                "alternatives_widened": [
+                    "semantic delegation"
+                ],
+                "assumptions_challenged": [
+                    "SAGE must own Git chronology"
+                ],
+                "information_gain": (
+                    "Separated objective semantics from mechanics."
+                ),
+            },
+            "recommendation": "retain",
+        },
         "record_type": (
             "sage-path-critic-causal-observation"
         ),

@@ -555,3 +555,29 @@ observation extends the derived projection while preserving the original episode
 digest and the exact critic request that evaluated it. This keeps learning
 revisitable without breaking the evidence chain or granting the critic mutation
 or migration authority.
+
+### Independent LLM architecture evaluation before material approval
+
+A material architecture or objective-path decision must receive an independent
+LLM architecture-fitness evaluation before Architect approval. The reusable
+service is defined by
+`kalaxy3-sage-architecture-approval-evaluation-process.md`.
+
+The existing planning path critic remains a specialized critique of execution
+path, ownership boundaries, and architecture/technology fit. It is also the
+first enforced transport for the broader architecture evaluation, rather than a
+parallel approval workflow.
+
+WAR and CAF seed the evaluation aperture but do not bound it. The LLM may
+introduce other fit-for-purpose lenses, challenge the proposed representation,
+engine, platform, ownership boundary, operating model, human factors, or other
+material concerns, and propose alternatives beyond current SAGE capabilities.
+
+SAGE validates exact decision-surface binding, advisory authority, provenance
+shape, and explicit uncertainty. It does not promote the LLM's semantic
+judgment to truth. The Architect retains approval authority.
+
+Routine implementation-local correction remains delegated inside the approved
+objective, authority, scope, constraints, risk, and outcome envelope. A true
+replan or other material architecture decision returns through evaluation and
+Architect approval.
