@@ -27,7 +27,8 @@
     "scripts/sage/workflows/intent_to_outcome.py",
     "scripts/sage/workflows/operating_contract.py",
     "scripts/sage/workflows/improvement_action_transition.py",
-    "scripts/sage/sage-improvement-action-transition.py"
+    "scripts/sage/sage-improvement-action-transition.py",
+    "scripts/sage/workflows/objective_execution.py"
   ],
   "behavior": {
     "stable_failure_identity_required": true,
@@ -36,6 +37,14 @@
     "duplicate_reentry_for_same_fingerprint_forbidden": true,
     "accepted_control_failure_requires_successor_boundary": true,
     "remote_main_ancestry_required": false,
-    "accepted_control_failure_requires_evidence_assertion": true
+    "accepted_control_failure_requires_evidence_assertion": true,
+    "implementation_local_recovery_reuses_existing_approval": true,
+    "recurrence_alone_does_not_require_architect_reentry": true,
+    "architect_attention_requires_material_decision_surface_change": true,
+    "implementation_local_recovery_requires_progress_evidence": true,
+    "non_converging_recovery_must_exit_local_loop": true,
+    "non_convergence_requires_consumed_implementation_local_repair": true,
+    "implementation_local_recovery_requires_material_progress_evidence": true,
+    "progress_fingerprint_change_alone_is_not_progress": true
   }
 }

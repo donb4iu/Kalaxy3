@@ -76,7 +76,34 @@ Current registered owners are:
 
 - `sage.request-execution` → `sage-request-execute.py --recovery-decision`;
 - `sage.improvement-action-transition` →
-  `sage-improvement-action-transition.py --recovery-decision`.
+  `sage-improvement-action-transition.py --recovery-decision`; and
+- `sage.objective-execution` →
+  `sage-objective-execution.py recover --recovery-decision`.
+
+For objective execution, an implementation-local repair remains inside the exact
+material objective-path approval already recorded for that execution. Recovery
+records the existing approval digest and `architect_approval_reused=true`; the
+repair attempt is not a new approval atom and does not require an Architect
+round trip. Architect attention is required only when recovery selects a material
+governance re-entry, an evidenced accepted-control successor boundary, or a
+non-converging local recovery whose consumed correction produced no new progress
+evidence. Recurrence by itself is evidence, not a material decision-surface change.
+A consumed planning, semantic, or other governance re-entry does not by itself constitute a failed local repair. Non-convergence is evaluated only after an implementation-local repair decision has itself become the latest matching recovery step and the same failure recurs without material progress.
+
+
+Implementation-local recovery is permitted only while it demonstrates bounded
+convergence. SAGE compares value-producing progress evidence independently from
+the governing-condition fingerprint: a recurrence after a consumed local repair may remain local only when new evidence
+demonstrates material objective-relevant movement toward validated completion. A
+changed progress fingerprint alone is not progress: changed bytes, a different
+error, command execution without verification, incidental local-state changes, or
+equivalent-path cycling cannot reset non-convergence. The same recurrence without
+new material verified progress is non-converging and must exit the local loop.
+This is not a fixed retry-count policy. The comparison asks whether the prior
+repair materially advanced validated execution evidence. The recovery decision
+must evaluate any already-authorized alternative evidenced by the current
+composition; when no such alternative is evidenced, the local loop stops at a
+governed Architect boundary rather than retrying the same repair indefinitely.
 
 Each owner validates its own repair regression and, on first consumption,
 records the immutable recovery consumption receipt without performing repository
@@ -142,8 +169,12 @@ Every recovery decision records:
 - selected next-boundary disposition;
 - owning component and control;
 - prevented duplicate re-entry;
-- successor escalation; and
+- successor escalation;
+- whether Architect attention is required;
+- avoided Architect recovery round trips for implementation-local repair; and
 - required evidence and operator/Architect boundary.
 
-These fields make recurrence precision, prevented loops, consumed governance
-changes, operator steps, and avoidable rework measurable.
+Objective execution additionally records whether the existing material-path
+approval was reused and the approval digest that governed the correction. These
+fields make recurrence precision, prevented loops, consumed governance changes,
+operator steps, Architect-attention economy, and avoidable rework measurable.

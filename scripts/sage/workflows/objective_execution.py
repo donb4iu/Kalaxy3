@@ -461,6 +461,12 @@ def _episode(
     """Build one comparable objective episode after successful closeout."""
     baseline = int(plan.get("baseline_round_trips", 0) or 0)
     steps = len(execution.get("actual_path", []))
+    corrections = list(execution.get("local_corrections", []))
+    avoided_recovery_round_trips = sum(
+        int(item.get("avoided_architect_recovery_round_trips", 0) or 0)
+        for item in corrections
+        if isinstance(item, Mapping)
+    )
     return {
         "schema_version": "1.0",
         "record_type": "sage-objective-episode",
@@ -481,6 +487,10 @@ def _episode(
             "baseline_round_trips": baseline,
             "actual_objective_approvals": 1,
             "routine_followup_interventions": 0,
+            "implementation_local_corrections": len(corrections),
+            "avoided_architect_recovery_round_trips": (
+                avoided_recovery_round_trips
+            ),
             "avoided_round_trips": max(0, baseline - 1),
         },
         "repository_lineage": lifecycle.get("repository_lineage_post"),
@@ -695,6 +705,33 @@ def _objective_recovery_authority(
     }
 
 
+def _objective_recovery_progress(
+    execution: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Return material verified objective progress for recovery comparison.
+
+    Mere command execution, changed bytes, result paths, or a different error do
+    not count as convergence. Only verified objective-path steps are projected,
+    using semantic execution identity rather than incidental local-state paths.
+    """
+    actual_path = execution.get("actual_path", [])
+    if not isinstance(actual_path, list):
+        actual_path = []
+    verified = []
+    for item in actual_path:
+        if not isinstance(item, Mapping) or item.get("status") != "verified":
+            continue
+        verified.append({
+            "phase": item.get("phase"),
+            "boundary": item.get("boundary"),
+            "proposal_id": item.get("proposal_id"),
+            "command_sha256": item.get("command_sha256"),
+            "execution_model": item.get("execution_model"),
+            "repository_lineage": item.get("repository_lineage"),
+        })
+    return {"verified_objective_steps": verified}
+
+
 def _recovery_attempt_dir(execution: Mapping[str, Any]) -> Path:
     """Create the next append-only objective recovery directory."""
     state_dir = Path(str(execution["plan"])).expanduser().resolve().parent
@@ -795,7 +832,7 @@ def _decide_objective_recovery(
         "approval_sha256": execution.get("approval_sha256"),
         "classification": "implementation-local-correction",
     }
-    return decide_next_boundary(
+    decision = decide_next_boundary(
         identity=identity,
         post_retrieval=post_retrieval,
         governing_evidence=evidence,
@@ -805,7 +842,39 @@ def _decide_objective_recovery(
         control_action_id=None,
         control_action_status=None,
         accepted_control_failure=None,
+        progress_evidence=_objective_recovery_progress(execution),
     )
+    return _bind_objective_approval_reuse(decision, execution)
+
+
+def _bind_objective_approval_reuse(
+    decision: Mapping[str, Any],
+    execution: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Bind local recovery to the existing material objective approval.
+
+    Args:
+        decision: Shared recovery next-boundary decision.
+        execution: Current objective execution state.
+
+    Returns:
+        Recovery decision with objective approval-reuse evidence.
+    """
+    payload = json.loads(json.dumps(decision))
+    local = (
+        payload.get("disposition") == "repair"
+        and payload.get("next_boundary") == "implementation-local"
+    )
+    payload["objective_approval"] = {
+        "approval_sha256": execution.get("approval_sha256"),
+        "approval_atomicity": "material-objective-path",
+        "recovery_attempt_approval_atomicity": "existing-material-objective-path",
+        "architect_approval_reused": local,
+        "architect_attention_required": payload.get(
+            "architect_attention_required", True
+        ),
+    }
+    return payload
 
 
 def _persist_objective_recovery_decision(
@@ -884,6 +953,15 @@ def _validate_objective_recovery_decision(
     )
     if not identity_sha or not fingerprint:
         raise WorkflowError("objective recovery identity is invalid")
+    approval = decision.get("objective_approval", {})
+    if not isinstance(approval, Mapping):
+        raise WorkflowError("objective recovery approval evidence is invalid")
+    if approval.get("approval_atomicity") != "material-objective-path":
+        raise WorkflowError("objective recovery approval atomicity drifted")
+    if approval.get("architect_approval_reused") is not True:
+        raise WorkflowError("objective recovery did not reuse Architect approval")
+    if decision.get("architect_attention_required") is not False:
+        raise WorkflowError("implementation-local recovery requests Architect attention")
     return identity_sha, fingerprint
 
 
@@ -1012,17 +1090,35 @@ def _record_local_correction(
     execution: dict[str, Any],
     error: Exception,
     decision_path: Path,
+    decision: Mapping[str, Any],
     consumed: Mapping[str, Any],
 ) -> None:
     """Persist verified implementation-local correction evidence."""
+    approval = decision.get("objective_approval", {})
+    metrics = decision.get("metrics", {})
     execution["local_corrections"].append(
         {
             "classification": "implementation-local-correction",
             "error": _objective_failure_text(error),
             "recovery_decision": str(decision_path),
             "recovery_consumption": consumed.get("consumption"),
-            "validation_output_sha256": (
-                consumed.get("validation_output_sha256")
+            "validation_output_sha256": consumed.get(
+                "validation_output_sha256"
+            ),
+            "architect_approval_reused": approval.get(
+                "architect_approval_reused"
+            ),
+            "recovery_attempt_approval_atomicity": approval.get(
+                "recovery_attempt_approval_atomicity"
+            ),
+            "objective_execution_approval_sha256": approval.get(
+                "approval_sha256"
+            ),
+            "architect_attention_required": decision.get(
+                "architect_attention_required"
+            ),
+            "avoided_architect_recovery_round_trips": metrics.get(
+                "avoided_architect_recovery_round_trips", 0
             ),
         }
     )
@@ -1103,6 +1199,7 @@ def _recover_local_failure(
         execution,
         error,
         decision_path,
+        decision,
         consumed,
     )
     return True
@@ -2282,6 +2379,27 @@ def _fixture_post_episode_observation() -> dict[str, Any]:
     }
 
 
+def _self_test_delegated_recovery_approval() -> None:
+    """Verify local recovery reuses the existing objective approval."""
+    decision = {
+        "disposition": "repair",
+        "next_boundary": "implementation-local",
+        "architect_attention_required": False,
+        "metrics": {"avoided_architect_recovery_round_trips": 1},
+    }
+    execution = {"approval_sha256": "a" * 64}
+    bound = _bind_objective_approval_reuse(decision, execution)
+    approval = bound.get("objective_approval", {})
+    if approval.get("architect_approval_reused") is not True:
+        raise RuntimeError("local recovery did not reuse objective approval")
+    if approval.get("recovery_attempt_approval_atomicity") != (
+        "existing-material-objective-path"
+    ):
+        raise RuntimeError("recovery attempt became a new approval atom")
+    if bound.get("architect_attention_required") is not False:
+        raise RuntimeError("local recovery incorrectly requests Architect attention")
+
+
 def self_test() -> None:
     """Exercise active objective and planning-critic semantics."""
     if (
@@ -2362,3 +2480,4 @@ def self_test() -> None:
         _fixture_planning_observation(),
     )
     _self_test_episode_projection()
+    _self_test_delegated_recovery_approval()

@@ -429,8 +429,9 @@ def decide_next_boundary(
     control_action_id: str | None,
     control_action_status: str | None,
     accepted_control_failure: Mapping[str, Any] | None,
+    progress_evidence: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Choose one recovery boundary from stable recurrence evidence."""
+    """Choose one recovery boundary from recurrence and progress evidence."""
     conditions = post_retrieval.get("governing_conditions", {})
     fingerprint = governing_fingerprint(governing_evidence)
     prior = list(previous)
@@ -448,6 +449,12 @@ def decide_next_boundary(
         control_action_id=control_action_id,
     )
     accepted_failure = failure_assertion is not None
+    progress_sha = digest_value(dict(progress_evidence or {}))
+    non_converging = _non_converging_recovery(
+        same=same,
+        consumed=consumed,
+        progress_sha=progress_sha,
+    )
     disposition, boundary = _select_disposition(
         same=same,
         consumed=consumed,
@@ -455,6 +462,11 @@ def decide_next_boundary(
         requested=requested,
         accepted_control_failure=accepted_failure,
         control_action_status=control_action_status,
+        non_converging=non_converging,
+    )
+    attention_required = _architect_attention_required(
+        disposition=disposition,
+        boundary=boundary,
     )
     control = {
         "action_id": control_action_id,
@@ -474,7 +486,58 @@ def decide_next_boundary(
         owning_component=owning_component,
         owning_control=control,
         requested=requested,
+        architect_attention_required=attention_required,
+        progress_sha=progress_sha,
+        non_converging=non_converging,
+        accepted_control_failure=accepted_failure,
     )
+
+
+def _non_converging_recovery(
+    *,
+    same: list[Mapping[str, Any]],
+    consumed: bool,
+    progress_sha: str,
+) -> bool:
+    """Return whether a consumed local repair recurred without progress.
+
+    A consumed governance/planning re-entry is not itself a failed local repair.
+    Non-convergence begins only after the latest matching decision was an
+    implementation-local repair and that repair's progress evidence is unchanged.
+    """
+    if not same or not consumed:
+        return False
+    latest = same[-1]
+    if (
+        latest.get("disposition") != "repair"
+        or latest.get("next_boundary") != "implementation-local"
+    ):
+        return False
+    evidence = latest.get("governing_evidence", {})
+    if not isinstance(evidence, Mapping):
+        return False
+    previous_progress = str(evidence.get("recovery_progress_sha256", ""))
+    return bool(previous_progress and previous_progress == progress_sha)
+
+
+def _architect_attention_required(
+    *,
+    disposition: str,
+    boundary: str,
+) -> bool:
+    """Return whether recovery crosses a material Architect boundary.
+
+    Args:
+        disposition: Selected recovery disposition.
+        boundary: Selected next boundary.
+
+    Returns:
+        True only when recovery requires new material governance attention.
+    """
+    if disposition == "successor-action":
+        return True
+    return disposition == "governance-reentry" and boundary != "implementation-local"
+
 
 def _select_disposition(
     *,
@@ -484,6 +547,7 @@ def _select_disposition(
     requested: str,
     accepted_control_failure: bool,
     control_action_status: str | None,
+    non_converging: bool,
 ) -> tuple[str, str]:
     """Select one disposition from recurrence and governing evidence."""
 
@@ -494,6 +558,8 @@ def _select_disposition(
         and accepted_control_failure
         and control_action_status in ACCEPTED_CONTROL_STATUSES
     ):
+        return "successor-action", "architect-decision"
+    if non_converging:
         return "successor-action", "architect-decision"
     if same:
         return "repair", "implementation-local"
@@ -515,6 +581,10 @@ def _decision_payload(
     owning_component: str,
     owning_control: Mapping[str, Any],
     requested: str,
+    architect_attention_required: bool,
+    progress_sha: str,
+    non_converging: bool,
+    accepted_control_failure: bool,
 ) -> dict[str, Any]:
     """Build the versioned recovery next-boundary payload."""
 
@@ -531,14 +601,24 @@ def _decision_payload(
         "classification": "recurrence" if prior else "new",
         "previous_failure_references": references,
         "governing_conditions": dict(post_retrieval.get("governing_conditions", {})),
-        "governing_evidence": dict(governing_evidence),
+        "governing_evidence": {
+            **dict(governing_evidence),
+            "recovery_progress_sha256": progress_sha,
+        },
         "governing_condition_fingerprint": fingerprint,
         "governing_change_consumed": consumed,
         "disposition": disposition,
         "next_boundary": boundary,
         "owning_component": owning_component,
         "owning_control": dict(owning_control),
-        "reason": _reason(disposition, requested, bool(prior)),
+        "architect_attention_required": architect_attention_required,
+        "reason": _reason(
+            disposition,
+            requested,
+            bool(prior),
+            non_converging=non_converging,
+            accepted_control_failure=accepted_control_failure,
+        ),
         "required_evidence": _required_evidence(),
         "mutation_authority": "repository-workflow",
         "operator_boundary": _operator_boundary(
@@ -546,17 +626,40 @@ def _decision_payload(
             owning_component,
             str(owning_control.get("action_id") or "") or None,
         ),
-        "metrics": _metrics(disposition, bool(prior)),
+        "metrics": _metrics(
+            disposition,
+            bool(prior),
+            architect_attention_required,
+            non_converging=non_converging,
+        ),
     }
 
 
-def _metrics(disposition: str, recurred: bool) -> dict[str, bool]:
-    """Return observable recovery-decision metrics."""
+def _metrics(
+    disposition: str,
+    recurred: bool,
+    architect_attention_required: bool,
+    *,
+    non_converging: bool,
+) -> dict[str, bool | int]:
+    """Return observable recovery-decision metrics.
 
+    Args:
+        disposition: Selected recovery disposition.
+        recurred: Whether the stable failure identity was previously observed.
+        architect_attention_required: Whether a new material boundary is needed.
+
+    Returns:
+        Recovery metrics suitable for continuous-improvement aggregation.
+    """
+    local_repair = disposition == "repair" and not architect_attention_required
     return {
         "recurrence_detected": recurred,
         "prevented_duplicate_reentry": disposition == "over-governance-blocked",
         "successor_escalation": disposition == "successor-action",
+        "architect_attention_required": architect_attention_required,
+        "avoided_architect_recovery_round_trips": 1 if local_repair else 0,
+        "non_convergence_detected": non_converging,
     }
 
 def _required_evidence() -> list[str]:
@@ -575,6 +678,9 @@ def _reason(
     disposition: str,
     requested_boundary: str,
     recurred: bool,
+    *,
+    non_converging: bool,
+    accepted_control_failure: bool,
 ) -> str:
     """Render one concise deterministic recovery reason.
 
@@ -587,16 +693,24 @@ def _reason(
         Human-readable reason consistent with recurrence classification.
     """
 
+    if disposition == "successor-action" and non_converging:
+        return (
+            "A consumed implementation-local recovery recurred with unchanged "
+            "progress evidence; the local loop is non-converging and must exit. "
+            "No already-authorized alternative is evidenced by this recovery "
+            "decision, so a governed Architect boundary is required."
+        )
     if disposition == "repair":
         if recurred:
             return (
                 "The failure recurred without a new governing-condition "
                 "fingerprint; repair, regression, and revalidation stay "
-                "implementation-local."
+                "implementation-local under existing governing authority."
             )
         return (
             "The failure is new and does not require governance re-entry; "
-            "repair, regression, and revalidation stay implementation-local."
+            "repair, regression, and revalidation stay implementation-local "
+            "under existing governing authority."
         )
     reasons = {
         "over-governance-blocked": (

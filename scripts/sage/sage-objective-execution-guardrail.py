@@ -48,6 +48,11 @@ def main() -> int:
         "repeated_graph_or_state_machine_pattern",
         "alternative_representation_or_engine",
         "objective_equivalent_path",
+        "architect_approval_reused",
+        "recovery_attempt_approval_atomicity",
+        "avoided_architect_recovery_round_trips",
+        "_objective_recovery_progress",
+        "progress_evidence=",
     )
     for marker in required:
         if marker not in workflow:
