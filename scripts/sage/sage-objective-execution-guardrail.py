@@ -22,6 +22,11 @@ def main() -> int:
     standard = STANDARD.read_text(encoding="utf-8")
 
     required = (
+        "architecture_evaluation_required",
+        "architecture_evaluation_service",
+        "architecture_evaluation",
+        "architecture_evaluation_sha256",
+        "validate_architecture_evaluation",
         "sage-objective-execution-plan",
         "sage-objective-execution-approval",
         "material-objective-path",
@@ -43,6 +48,11 @@ def main() -> int:
         "repeated_graph_or_state_machine_pattern",
         "alternative_representation_or_engine",
         "objective_equivalent_path",
+        "architect_approval_reused",
+        "recovery_attempt_approval_atomicity",
+        "avoided_architect_recovery_round_trips",
+        "_objective_recovery_progress",
+        "progress_evidence=",
     )
     for marker in required:
         if marker not in workflow:
