@@ -15,7 +15,7 @@ when an existing SAGE authority boundary requires it.
 
 ## MVP behavior
 
-The MVP is a content-addressed immutable object store under SAGE local state.
+The original MVP proved the content-addressed immutable object model under SAGE local state. That location is no longer an authority boundary: machine-local state is cache, projection, execution, or recovery state only.
 Each fact records the objective, semantic fact type, producer identity, an
 authority reference, the result of validating any bound SAGE authority receipt,
 zero or more causal predecessor fact IDs, evidence references, collision-safe
@@ -166,6 +166,70 @@ engine and does not require existing workflows to be rewritten before they
 can participate. Migration is incremental: a workflow may first contribute
 facts that reference its existing receipts and bind its existing authority
 receipt.
+
+
+## Machine-neutral causal authority
+
+SAGE-owned causal semantic facts that contribute to objective truth use the
+repository-backed `sage-causal-evidence-authority/` object store as the first
+machine-neutral durable authority. The content-addressed object representation
+is unchanged. A newly written worktree object is only a candidate. A committed or pushed
+feature-branch object also remains a candidate. It becomes canonical only when
+that exact content-addressed fact is reachable from the synchronized canonical
+`main` lineage. Git remains the durability,
+distribution, history, and reconstruction mechanism for this bounded slice;
+the causal graph does not create a second Git chronology.
+
+The default CLI therefore reads and writes the repository-backed authority
+store. `~/.local/state/kalaxy3/sage-causal-evidence-cache` is explicitly a
+disposable per-machine projection/cache. `cache-rebuild` deletes and reconstructs
+that cache from the authoritative object set and verifies content equality.
+Losing the local cache must never erase, supersede, invalidate, or create
+canonical causal truth.
+
+Canonical reads fail closed unless the CLI is running from a clean `main`
+checkout where `HEAD == origin/main` and the locally known `origin/main`
+matches the remote `origin/main`. The check uses the existing `git.inspect`
+primitive. This prevents uncommitted files, feature-branch facts, locally
+modified projection code, or a stale local remote-tracking ref from changing
+objective truth. `project`, `verify`, `lineage`, and `cache-rebuild` are
+canonical-read operations when the default store is used.
+
+An explicit `--root` selects a non-authoritative sandbox/test store and does
+not establish canonical objective truth. `record` may write a candidate fact
+into the repository-backed store on a working branch; its command result marks
+that fact `candidate-until-canonical-main-integration`.
+
+This first slice deliberately requires a clean canonical-main workspace for
+authoritative queries instead of teaching SAGE another Git-object reader. If
+that operational constraint creates material recurring operator cost or blocks
+needed concurrent/query behavior, that measured burden is a reconsideration
+trigger for a later repository-snapshot reader or different durable store.
+
+### Delegated evidence authority
+
+Proof owned by another system remains owned by that system. A causal fact may
+carry an optional structured `delegated_authority` reference with:
+
+- `authority_system`: the native authority, such as Git, GitHub Actions, an OCI
+  registry, a runtime platform, monitoring, or Vault;
+- `immutable_identity`: the authority's immutable object/run/artifact identity;
+- `verification_semantics`: how the referenced identity is proven;
+- `retrieval_reference`: where the authority can be queried or attested.
+
+The reference is provenance, not authority. It cannot make a fact readiness-
+eligible by itself. Existing SAGE authority validation remains required for any
+stronger derived claim. The graph stores the semantic relationship and durable
+reference; it does not copy Git history, workflow logs, registry objects,
+monitoring datasets, secrets, or another authority's native evidence merely to
+make a workstation-local duplicate.
+
+The first convergence slice deliberately keeps the current lightweight
+content-addressed representation. A database, graph engine, event store, or
+workflow-engine migration requires later measured evidence that scale, query
+cost, concurrency, or consistency needs materially justify the added
+architecture.
+
 
 ## Remaining limitations
 
