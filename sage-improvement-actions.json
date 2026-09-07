@@ -1873,7 +1873,7 @@
                     "sha256": "4a1db5e5cffef35321c29bdcc1011d0450522b68e71b40c70d8d6d321387697d"
                 }
             ],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "Architect",
             "priority": "high",
             "target_control_type": "automation",
@@ -1910,6 +1910,19 @@
                         "action:SAGE-ACTION-20260815-002",
                         "action:SAGE-ACTION-20260827-001",
                         "action:SAGE-ACTION-20260829-001",
+                        "architect-directive:2026-09-07:machine-neutral-causal-authority"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-09-06T23:42:55-05:00",
+                    "actor": "Architect",
+                    "reason": "Architect already approved the post-Action-002 retain-with-bounded-convergence direction: SAGE-owned causal semantic facts must be authoritative in a durable machine-neutral store, externally owned proof remains authoritative in its native systems through immutable delegated references, and per-machine SAGE state is non-authoritative cache, projection, execution, or recovery state. The registered action at commit 75174e17e0032b84a996ab5e402a9fcde15813d3 preserves that exact approved scope; no material path change requires another Architect decision.",
+                    "evidence_references": [
+                        "commit:75174e17e0032b84a996ab5e402a9fcde15813d3",
                         "architect-directive:2026-09-07:machine-neutral-causal-authority"
                     ]
                 }
