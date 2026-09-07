@@ -1859,6 +1859,74 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260907-001",
+            "title": "Make SAGE causal authority machine-neutral",
+            "source_lessons": [],
+            "source_sessions": [],
+            "source_records": [
+                {
+                    "record_type": "capability-gap",
+                    "record_id": "SAGE-GAP-20260907-MACHINE-NEUTRAL-CAUSAL-AUTHORITY",
+                    "schema_version": "1.1",
+                    "sha256": "4a1db5e5cffef35321c29bdcc1011d0450522b68e71b40c70d8d6d321387697d"
+                }
+            ],
+            "current_status": "accepted",
+            "owner": "Architect",
+            "priority": "high",
+            "target_control_type": "automation",
+            "desired_outcome": "Converge the existing causal-evidence architecture so SAGE-owned semantic facts are authoritative in a durable machine-neutral store. Externally owned proof remains authoritative in Git, GitHub Actions, artifact registries, runtime platforms, monitoring, Vault, or other native systems and is represented in SAGE through durable authority, immutable identity, verification-semantics, and retrieval/attestation references rather than duplicate evidence. Per-machine SAGE state is cache, projection, execution, or recovery state only; its loss cannot erase or alter objective truth. Preserve the existing causal model, roles, guardrails, historical lineage, revisitable projections, and workflow compatibility. Do not require a graph/database technology migration unless later measured evidence justifies one.",
+            "acceptance_criteria": [
+                "Every SAGE-owned causal semantic fact that contributes to objective truth has a durable machine-neutral authoritative identity and storage location independent of the initiating workstation or executor.",
+                "Externally owned proof is represented by a durable delegated authority reference containing the authoritative system, immutable evidence identity, verification semantics, and retrieval or attestation reference; SAGE does not become a duplicate authority for that proof.",
+                "Deleting all per-machine causal-evidence state and rebuilding from authoritative SAGE facts plus delegated references produces the same current derived objective view and causal lineage.",
+                "Per-machine ~/.local/state causal data is explicitly classified as cache, projection, execution, or recovery state and cannot by itself create, erase, supersede, or alter canonical semantic truth.",
+                "Correction, supersession, invalidation, applicability, and prior knowable-state history remain reconstructable across the persistence convergence.",
+                "The earned implementation evidence for SAGE-ACTION-20260827-001 and revisitable-projection semantics remain valid; migration is incremental rather than a big-bang workflow rewrite.",
+                "A delegated proof that becomes unavailable or unverifiable fails closed only for claims that require that proof; its historical reference and related causal observations are not silently erased.",
+                "The current lightweight append-only causal representation remains the default. A graph database, event store, workflow engine, or other technology migration requires separate measurable evidence of material scale, query, concurrency, or consistency benefit."
+            ],
+            "measurement_plan": [
+                "Persist one representative objective's SAGE-owned semantic facts in the machine-neutral authority and reconstruct its derived view from a clean second workspace or executor.",
+                "Delete the local causal-evidence cache/projection, rebuild it, and compare canonical fact identities, lineage, and derived outcome with the pre-deletion view.",
+                "Bind representative Git/GitHub or artifact evidence through a delegated authority reference and prove SAGE can validate the claim without storing a second authoritative copy of the proof.",
+                "Exercise one unavailable or invalid delegated proof reference and prove affected stronger claims fail closed while historical causal facts and observations remain preserved.",
+                "Exercise supersession or invalidation before and after the persistence convergence and prove both historical knowable states remain reconstructable.",
+                "Measure operator rework caused by workstation-local evidence dependencies before and after convergence; target zero required truth-recovery steps after loss of local state.",
+                "Record storage/query/concurrency measurements and retain the current representation unless those measurements establish a material case for another persistence technology."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-09-06T23:33:33-05:00",
+                    "actor": "Architect",
+                    "reason": "Register the Architect-approved post-Action-002 machine-neutral causal-authority convergence as a successor objective without rewriting the already-implemented causal-evidence action.",
+                    "evidence_references": [
+                        "action:SAGE-ACTION-20260815-002",
+                        "action:SAGE-ACTION-20260827-001",
+                        "action:SAGE-ACTION-20260829-001",
+                        "architect-directive:2026-09-07:machine-neutral-causal-authority"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-09-06T23:42:55-05:00",
+                    "actor": "Architect",
+                    "reason": "Architect already approved the post-Action-002 retain-with-bounded-convergence direction: SAGE-owned causal semantic facts must be authoritative in a durable machine-neutral store, externally owned proof remains authoritative in its native systems through immutable delegated references, and per-machine SAGE state is non-authoritative cache, projection, execution, or recovery state. The registered action at commit 75174e17e0032b84a996ab5e402a9fcde15813d3 preserves that exact approved scope; no material path change requires another Architect decision.",
+                    "evidence_references": [
+                        "commit:75174e17e0032b84a996ab5e402a9fcde15813d3",
+                        "architect-directive:2026-09-07:machine-neutral-causal-authority"
+                    ]
+                }
+            ]
         }
     ]
 }

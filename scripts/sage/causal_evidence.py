@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import tempfile
 import time
 from dataclasses import dataclass
@@ -134,6 +135,114 @@ def _validate_relation_shape(
         raise CausalEvidenceError(
             "fact-superseded dependencies must be target_fact_id then replacement_fact_id"
         )
+
+
+
+DELEGATED_AUTHORITY_FIELDS = (
+    "authority_system",
+    "immutable_identity",
+    "verification_semantics",
+    "retrieval_reference",
+)
+
+
+
+def validate_canonical_repository_snapshot(
+    *,
+    branch: str,
+    head: str,
+    local_main_head: str,
+    remote_main_head: str,
+    changed_paths: Sequence[str],
+) -> dict[str, Any]:
+    """Fail closed unless this workspace exactly represents canonical main."""
+
+    values = {
+        "branch": branch,
+        "head": head,
+        "local_main_head": local_main_head,
+        "remote_main_head": remote_main_head,
+    }
+    for label, value in values.items():
+        if not isinstance(value, str) or not value.strip():
+            raise CausalEvidenceError(
+                f"canonical repository {label} is invalid"
+            )
+
+    for label in ("head", "local_main_head", "remote_main_head"):
+        value = values[label]
+        if (
+            len(value) != 40
+            or any(ch not in "0123456789abcdef" for ch in value)
+        ):
+            raise CausalEvidenceError(
+                f"canonical repository {label} is not a Git SHA-1"
+            )
+
+    if branch != "main":
+        raise CausalEvidenceError(
+            "canonical causal truth requires the main branch"
+        )
+
+    if head != local_main_head:
+        raise CausalEvidenceError(
+            "canonical causal truth requires HEAD == origin/main"
+        )
+
+    if local_main_head != remote_main_head:
+        raise CausalEvidenceError(
+            "canonical causal truth requires local origin/main "
+            "to match remote origin/main"
+        )
+
+    changed = tuple(
+        sorted(
+            {
+                item.strip()
+                for item in changed_paths
+                if isinstance(item, str) and item.strip()
+            }
+        )
+    )
+    if changed:
+        raise CausalEvidenceError(
+            "canonical causal truth requires a clean repository; "
+            f"changed_paths={list(changed)}"
+        )
+
+    return {
+        "schema_version": "1.0",
+        "record_type": "sage-causal-repository-authority",
+        "canonical": True,
+        "branch": branch,
+        "head": head,
+        "local_main_head": local_main_head,
+        "remote_main_head": remote_main_head,
+        "changed_paths": [],
+    }
+
+
+def _normalize_delegated_authority(
+    value: Mapping[str, Any] | None,
+) -> dict[str, str] | None:
+    """Normalize a durable reference to proof owned by another authority."""
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise CausalEvidenceError(
+            "delegated_authority must be an object or null"
+        )
+    if set(value) != set(DELEGATED_AUTHORITY_FIELDS):
+        raise CausalEvidenceError(
+            "delegated_authority fields are invalid"
+        )
+    return {
+        field: _require_string(
+            value.get(field),
+            f"delegated_authority.{field}",
+        )
+        for field in DELEGATED_AUTHORITY_FIELDS
+    }
 
 
 def evidence_descriptor(path: Path) -> dict[str, str]:
@@ -339,6 +448,7 @@ class CausalEvidenceStore:
         producer: Mapping[str, str],
         authority_reference: str,
         authority_validation: Mapping[str, Any],
+        delegated_authority: Mapping[str, Any] | None,
         dependencies: Sequence[str],
         evidence_references: Sequence[str],
         evidence_files: Sequence[Mapping[str, str]],
@@ -380,6 +490,11 @@ class CausalEvidenceStore:
                 authority_reference,
                 "authority_reference",
             ),
+            **(
+                {"delegated_authority": _normalize_delegated_authority(delegated_authority)}
+                if delegated_authority is not None
+                else {}
+            ),
             "authority_validation": {
                 "validated": validated,
                 "receipt": dict(receipt) if receipt is not None else None,
@@ -405,6 +520,7 @@ class CausalEvidenceStore:
         producer: Mapping[str, str],
         authority_reference: str,
         authority_receipt: Path | None = None,
+        delegated_authority: Mapping[str, Any] | None = None,
         dependencies: Sequence[str] = (),
         evidence_references: Sequence[str] = (),
         evidence_paths: Sequence[Path] = (),
@@ -433,6 +549,7 @@ class CausalEvidenceStore:
             producer=producer,
             authority_reference=authority_reference,
             authority_validation=authority,
+            delegated_authority=delegated_authority,
             dependencies=normalized_dependencies,
             evidence_references=evidence_references,
             evidence_files=descriptors,
@@ -523,6 +640,7 @@ class CausalEvidenceStore:
             producer=identity.get("producer", {}),
             authority_reference=identity.get("authority_reference"),
             authority_validation=identity.get("authority_validation", {}),
+            delegated_authority=identity.get("delegated_authority"),
             dependencies=identity.get("dependencies", ()),
             evidence_references=identity.get("evidence_references", ()),
             evidence_files=identity.get("evidence_files", ()),
@@ -754,6 +872,56 @@ class CausalEvidenceStore:
             "objective_id": target["identity"]["objective_id"],
             "facts": ordered,
         }
+
+
+
+def rebuild_cache(
+    authoritative_root: Path,
+    cache_root: Path,
+) -> dict[str, Any]:
+    """Rebuild disposable local projection data from authoritative facts."""
+    source = CausalEvidenceStore(authoritative_root)
+    before = source.verify()
+
+    destination = cache_root.expanduser().resolve()
+    if destination == source.root:
+        raise CausalEvidenceError(
+            "cache root must differ from authoritative root"
+        )
+
+    objects = destination / "objects"
+    if objects.exists():
+        shutil.rmtree(objects)
+    objects.mkdir(parents=True, exist_ok=True)
+
+    for path in sorted(source.objects.glob("*.json")):
+        shutil.copyfile(path, objects / path.name)
+
+    cache = CausalEvidenceStore(destination)
+    after = cache.verify()
+
+    source_files = {
+        path.name: _sha256_file(path)
+        for path in sorted(source.objects.glob("*.json"))
+    }
+    cache_files = {
+        path.name: _sha256_file(path)
+        for path in sorted(cache.objects.glob("*.json"))
+    }
+    if source_files != cache_files:
+        raise CausalEvidenceError(
+            "rebuilt cache does not match authoritative fact objects"
+        )
+
+    return {
+        "schema_version": "1.0",
+        "record_type": "sage-causal-evidence-cache-rebuild",
+        "authoritative_root": str(source.root),
+        "cache_root": str(cache.root),
+        "fact_count": before["fact_count"],
+        "cache_fact_count": after["fact_count"],
+        "content_equal": True,
+    }
 
 
 def _fixture_authority_receipt(
@@ -1071,6 +1239,98 @@ def self_test() -> None:
 
         store.verify()
 
+
+    delegated = store.record(
+        objective_id="SAGE-ACTION-FIXTURE",
+        fact_type="delegated-authority-observation",
+        producer=producer,
+        authority_reference="fixture:delegated-authority",
+        delegated_authority={
+            "authority_system": "git",
+            "immutable_identity": "commit:" + ("a" * 40),
+            "verification_semantics": "git-object-identity",
+            "retrieval_reference": "origin",
+        },
+    )
+    delegated_identity = delegated.payload["identity"]
+    if delegated_identity["delegated_authority"]["authority_system"] != "git":
+        raise RuntimeError(
+            "delegated authority reference was not preserved"
+        )
+    if delegated_identity["authority_validation"]["validated"] is not False:
+        raise RuntimeError(
+            "delegated authority reference incorrectly created authority"
+        )
+
+    cache_result = rebuild_cache(root, root / "cache")
+    if (
+        cache_result["content_equal"] is not True
+        or cache_result["fact_count"] != cache_result["cache_fact_count"]
+    ):
+        raise RuntimeError(
+            "local causal cache did not rebuild from authoritative facts"
+        )
+
+
+    canonical_sha = "a" * 40
+    canonical = validate_canonical_repository_snapshot(
+        branch="main",
+        head=canonical_sha,
+        local_main_head=canonical_sha,
+        remote_main_head=canonical_sha,
+        changed_paths=(),
+    )
+    if canonical.get("canonical") is not True:
+        raise RuntimeError(
+            "canonical repository authority was not recognized"
+        )
+
+    invalid_canonical_cases = (
+        {
+            "branch": "feature/candidate",
+            "head": canonical_sha,
+            "local_main_head": canonical_sha,
+            "remote_main_head": canonical_sha,
+            "changed_paths": (),
+        },
+        {
+            "branch": "main",
+            "head": "b" * 40,
+            "local_main_head": canonical_sha,
+            "remote_main_head": canonical_sha,
+            "changed_paths": (),
+        },
+        {
+            "branch": "main",
+            "head": canonical_sha,
+            "local_main_head": canonical_sha,
+            "remote_main_head": "b" * 40,
+            "changed_paths": (),
+        },
+        {
+            "branch": "main",
+            "head": canonical_sha,
+            "local_main_head": canonical_sha,
+            "remote_main_head": canonical_sha,
+            "changed_paths": (
+                "sage-causal-evidence-authority/objects/candidate.json",
+            ),
+        },
+    )
+
+    for case in invalid_canonical_cases:
+        try:
+            validate_canonical_repository_snapshot(**case)
+        except CausalEvidenceError:
+            pass
+        else:
+            raise RuntimeError(
+                "non-canonical repository state was accepted"
+            )
+
+    print("PASS canonical causal reads require synchronized clean main")
+    print("PASS structured delegated authority remains non-authorizing provenance")
+    print("PASS disposable local cache rebuilds exactly from authoritative facts")
     print("PASS mere authority_reference cannot satisfy derived readiness")
     print("PASS existing authority.reconcile receipt validation gates objective truth")
     print("PASS complete authority receipt for another objective fails closed")

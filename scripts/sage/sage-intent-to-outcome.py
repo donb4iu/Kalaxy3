@@ -506,6 +506,68 @@ def self_test() -> int:
         "PASS runtime not applicable remains distinct from runtime success "
         "while promotion remains applicable"
     )
+
+    root_action = {
+        "action_id": "SAGE-ACTION-ROOT-RUNTIME-APPLICABILITY-FIXTURE",
+        "desired_outcome": (
+            "Preserve explicit runtime applicability for a repository-only "
+            "root objective."
+        ),
+        "acceptance_criteria": [
+            "Runtime applicability remains explicit and does not fabricate "
+            "a parent objective."
+        ],
+        "measurement_plan": [
+            "Verify runtime-N/A routes directly to governed promotion "
+            "without runtime-success evidence."
+        ],
+    }
+    root_applicability_state = json.loads(
+        json.dumps(applicability_state)
+    )
+    root_applicability_state["action_id"] = root_action["action_id"]
+    root_applicability_state["objective_id"] = root_action["action_id"]
+    root_applicability_state["delivery_applicability"][
+        "parent_objective_id"
+    ] = None
+
+    root_applicability_route = build_objective_route(
+        root_action,
+        root_applicability_state,
+        route_manifest,
+    )
+
+    if root_applicability_route.get("parent_objective_id") is not None:
+        raise RuntimeError(
+            "root runtime applicability fabricated a parent objective"
+        )
+    if (
+        root_applicability_route.get("next_governed_boundary")
+        != "promotion"
+    ):
+        raise RuntimeError(
+            "root runtime-N/A objective did not preserve promotion routing"
+        )
+    if (
+        root_applicability_route.get("integration_state", {}).get(
+            "runtime_applicability"
+        )
+        != "not-applicable-to-bounded-slice"
+    ):
+        raise RuntimeError(
+            "root runtime applicability disposition was not preserved"
+        )
+    if (
+        root_applicability_route.get("assurance", {}).get(
+            "runtime_evidence_mapped"
+        )
+        is not False
+    ):
+        raise RuntimeError(
+            "root runtime-N/A objective manufactured runtime evidence"
+        )
+
+    print("PASS root and nested objectives preserve explicit runtime applicability semantics")
     print("PASS objective route exposes evidence reconsideration and implementation-generation supersession lineage")
     print("PASS unfinished pre-mutation candidate can accumulate related corrections before checkpoint")
     print("PASS live operator-review boundary remains fail-closed")
