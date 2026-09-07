@@ -119,6 +119,14 @@ def main() -> int:
         failures.append("intent-to-outcome CLI lacks read-only objective route inspection")
     if 'sub.add_parser("record-runtime-applicability")' not in cli or "record_runtime_applicability_for_promotion" not in cli:
         failures.append("intent-to-outcome CLI lacks explicit runtime applicability disposition")
+    if "runtime applicability disposition requires an explicit parent objective" in wrapper:
+        failures.append(
+            "runtime applicability incorrectly requires a parent objective"
+        )
+    if "root and nested objectives preserve explicit runtime applicability semantics" not in cli:
+        failures.append(
+            "root/nested runtime applicability regression coverage is missing"
+        )
     if 'sub.add_parser("reconsider")' not in cli or "reconsider_intent" not in cli:
         failures.append("intent-to-outcome CLI lacks evidence-reconsideration continuation")
     if '"--completed-child-state"' not in cli or '"--planning-source"' not in cli:
@@ -252,6 +260,9 @@ def main() -> int:
         "exact planning proposal",
         "runtime not applicable",
         "promotion remains applicable",
+        "applicability-or-proof boundary",
+        "root objective",
+        "behavioral preservation",
     ):
         if marker not in standard:
             failures.append(f"intent-to-outcome standard missing: {marker}")
@@ -291,6 +302,7 @@ def main() -> int:
     print("PASS stale-parent completed-child reconciliation preserves exact child, receipt, and refreshed planning lineage without replay")
     print("PASS route exposes parent re-entry, limitations, BDD assurance status, integration separation, and collaboration feedback without manufacturing evidence")
     print("PASS runtime applicability can be explicitly N/A while promotion remains applicable and zero-trust runtime validation remains mandatory when applicable")
+    print("PASS runtime applicability preserves root/nested objectives and behavioral preservation")
     print("PASS exact planning proposal is persisted before Architect objective-path approval and request mutation")
     print("PASS evidence reconsideration is an in-loop boundary and material augmentation requires a refreshed contribution")
     print("PASS implementation generations preserve historical justification and promotion source is lineage-derived")

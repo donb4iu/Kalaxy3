@@ -2210,10 +2210,6 @@ def record_runtime_applicability_for_promotion(
         )
 
     parent_objective = _parent_reentry_objective(action)
-    if not isinstance(parent_objective, str) or not parent_objective:
-        raise WorkflowError(
-            "runtime applicability disposition requires an explicit parent objective"
-        )
 
     iteration = _current_iteration(state)
     candidate_head = iteration.get("candidate_head")
@@ -2242,8 +2238,8 @@ def record_runtime_applicability_for_promotion(
             "applicability": "applicable",
             "status": "pending",
             "reason": (
-                "Promotion remains required to prove the approved "
-                "post-promotion branch-closeout objective path."
+                "Promotion remains required to integrate the source-validated "
+                "candidate through the governed canonical integration path."
             ),
             "actor": "Architect",
         },

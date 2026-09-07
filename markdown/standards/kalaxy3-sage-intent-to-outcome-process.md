@@ -467,6 +467,21 @@ A later candidate iteration clears the prior candidate's delivery-applicability
 disposition. Runtime or promotion applicability never transfers automatically
 between candidate generations.
 
+The `runtime-validation` boundary is an **applicability-or-proof boundary**, not
+a universal deployment-test assertion. A **root objective** may legitimately
+have no parent re-entry objective. Absence of a parent does not invalidate an
+explicit Architect runtime-N/A disposition; nested objectives preserve their
+explicit parent re-entry when one exists. Applicability remains an explicit
+governed decision and is not inferred solely from changed paths or objective
+identity.
+
+Generic orchestration changes carry a **behavioral preservation** obligation.
+Before specialized lifecycle behavior is replaced by a generalized path,
+regression evidence must cover representative prior successful paths, including
+repository-only runtime-N/A candidates and deployed runtime-required candidates.
+Generalization must not erase applicability distinctions that were previously
+semantically meaningful.
+
 
 ### Objective-architecture correction: semantic closeout and planning critique
 
