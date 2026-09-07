@@ -1347,7 +1347,7 @@
                     "sha256": "210adedc2f6283f76e74554368a9920fe8a7edb162e7919229719e1af52938b5"
                 }
             ],
-            "current_status": "validated",
+            "current_status": "measured",
             "owner": "Architect",
             "priority": "high",
             "target_control_type": "automation",
@@ -1427,6 +1427,19 @@
                         "promotion-receipt:/Users/donbuddenbaum/.local/state/kalaxy3/sage-artifact-promotion/github-run-32449512923/promotion-receipt.json",
                         "runtime-receipt:/Users/donbuddenbaum/.local/state/kalaxy3/sage-e2e-zero-trust/runtime-final.json",
                         "runtime-receipt-sha256:e2dd55135e351ef4e4b3ca4fc249c44b79b85170cb1706870e7a9927a1536339"
+                    ]
+                },
+                {
+                    "sequence": 5,
+                    "from_status": "validated",
+                    "to_status": "measured",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-09-06T22:34:22-05:00",
+                    "actor": "Architect",
+                    "reason": "Action-002 measurement is complete. M1 and M2 retain historically validated delegated authoritative proof without requiring local duplication; M3 is not currently applicable because runtime invalidation becomes actionable only after runtime applicability and evidence are earned, while relevant causal observations remain retained; M4 and M5 are demonstrated; M6 is demonstrated by the external SAGE experience with its human-factor findings preserved separately as improvement evidence. No measurement gap remains.",
+                    "evidence_references": [
+                        "markdown/evidence-artifacts/SAGE-ACTION-20260815-002-PROVENANCE/action-002-closeout-measurement-and-convergence-finding.json",
+                        "commit:b86f23ba5d6f681657126e319909f53e5dfecc37"
                     ]
                 }
             ]
