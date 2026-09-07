@@ -1,0 +1,69 @@
+{
+    "lesson_id": "SAGE-LESSON-CANDIDATE-20260907-LLM-AGENT-CONTEXT-001",
+    "title": "Use SAGE-owned context for LLM role-agent handoffs while preserving Architect-LLM intent collaboration",
+    "status": "identified",
+    "contexts": [
+        "sage-orchestration",
+        "capability-intelligence",
+        "continuous-improvement",
+        "repository-governance",
+        "intent-to-outcome"
+    ],
+    "match_terms": [
+        "llm role",
+        "role-agent",
+        "agent context",
+        "shared context",
+        "context pollution",
+        "objective drift",
+        "architect llm",
+        "fresh invocation",
+        "directed graph"
+    ],
+    "path_prefixes": [
+        "scripts/sage/",
+        "markdown/standards/",
+        "markdown/governance/"
+    ],
+    "failure_signature": "A long-lived LLM conversation implicitly carries state across multiple SAGE responsibilities, allowing unaccepted model interpretations and task-level discoveries to become cross-role context and displace the Architect-owned objective or authoritative evidence.",
+    "symptoms": [
+        "Small functional changes expand into many process or platform iterations.",
+        "Architect repeatedly restores objective focus or asks for functional progress.",
+        "Task-level defects become active work without deterministic objective impact.",
+        "Prior LLM narrative gains authority through conversational persistence.",
+        "Existing successful SAGE/Kalaxy3 evidence is underused or reinterpreted.",
+        "More iterations produce little externally exposable objective value."
+    ],
+    "root_cause": "The working hypothesis is that conversational continuity is being used as an implicit shared-state mechanism for multiple LLM-delivered SAGE roles instead of SAGE explicitly constructing role-relevant authoritative context and governed handoffs.",
+    "known_resolution": [
+        "Preserve the persistent Architect-LLM relationship at the intent layer.",
+        "Have SAGE assemble role-specific authoritative context for specialized LLM invocations.",
+        "Do not automatically propagate unaccepted LLM narrative between role-agents.",
+        "Use governed outputs and handoffs as cross-role state.",
+        "Test complete conversation wipe and role reconstruction from SAGE state.",
+        "Adopt graph-based role routing only if experiment evidence demonstrates need."
+    ],
+    "preventive_control": [
+        "Do not treat conversation history alone as authoritative cross-agent state.",
+        "Preserve source/provenance distinctions in role context.",
+        "Require objective-level relevance before task defects alter active work.",
+        "Do not invalidate accepted historical success or current WIP solely because a new architecture is proposed."
+    ],
+    "preflight_detection": [
+        "Compare fresh role-agent runs with accumulated-context and contaminated-context controls.",
+        "Measure Architect interventions needed to restore objective or context.",
+        "Verify a downstream role can continue after complete LLM-context loss using SAGE state only.",
+        "Verify prior successful evidence remains recognized and useful current capability is reused where applicable."
+    ],
+    "first_evidence": [
+        "architect-dialogue:2026-09-07-llm-role-context-architecture",
+        "case:kalaxy2-cloudflare-prior-art",
+        "case:sage-ui-24-examples-list",
+        "case:sage-recent-objective-drift"
+    ],
+    "latest_evidence": [
+        "checkpoint:SAGE-CHECKPOINT-20260907-LLM-AGENT-CONTEXT-001"
+    ],
+    "recurrence_count": null,
+    "automation_status": "manual"
+}

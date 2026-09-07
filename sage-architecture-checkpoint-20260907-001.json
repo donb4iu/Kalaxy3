@@ -1,0 +1,43 @@
+{
+    "schema_version": "1.0",
+    "checkpoint_id": "SAGE-CHECKPOINT-20260907-LLM-AGENT-CONTEXT-001",
+    "status": "architect-directed-milestone",
+    "recorded_at": "2026-09-07",
+    "production_change_authorized": false,
+    "directed_graph_authorized": false,
+    "current_wip_invalidated": false,
+    "current_wip_future_state_eligibility": "Current Kalaxy3/SAGE WIP and existing capability remain evidence and candidate future-state inputs unless later objective-level evidence supports replacement, retirement, or incompatibility.",
+    "architecture_hypothesis": {
+        "architect_llm_context": "Persistent intent-level collaboration is preserved for efficiency, challenge, architectural exploration, and judgment.",
+        "sage_agent_context": "SAGE owns authoritative shared state and constructs role-specific context for fresh/disposable LLM agents delivering SAGE capabilities.",
+        "context_isolation": "Unaccepted narrative from one LLM role does not automatically become context for another role.",
+        "orchestration": "A directed role/capability graph remains a candidate if evidence shows deterministic role selection and handoff are required."
+    },
+    "compatibility_policy": {
+        "historical_success_remains_valid": true,
+        "existing_capability_reconsidered_not_discarded": true,
+        "incremental_migration_preferred": true,
+        "big_bang_rewrite_required": false,
+        "wip_branch_state_may_contribute_to_future_state": true
+    },
+    "required_experiment": [
+        "long-lived conversational baseline",
+        "persistent Architect-LLM intent plus SAGE-owned isolated role-agent context",
+        "stateless Architect interaction control",
+        "contaminated role-agent context control",
+        "context-wipe reconstruction",
+        "cross-role governed handoff",
+        "historical compatibility",
+        "existing SAGE capability reuse",
+        "objective-focus comparison"
+    ],
+    "external_view_requirement": "Architect approval for production evolution requires independently inspectable evidence understandable without SAGE-internal state vocabulary or historical chat context.",
+    "lesson_candidate": "SAGE-LESSON-CANDIDATE-20260907-LLM-AGENT-CONTEXT-001",
+    "repository_binding": {
+        "branch": "feature/sage-action-20260907-001-path-neutral-causal-identity",
+        "head": "2d1bd1591fa2b4e47297763f786e3feeb39a415d",
+        "upstream": "2d1bd1591fa2b4e47297763f786e3feeb39a415d",
+        "working_tree_status_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "working_tree_dirty": false
+    }
+}
