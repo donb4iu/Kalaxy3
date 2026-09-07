@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0",
+  "record_type": "sage-governance-observation",
+  "evidence_id": "SAGE-EVIDENCE-20260907-DOD-BOUNDING-001",
+  "title": "Preserve objective Definition of Done against evidence-driven scope expansion",
+  "status": "architect-accepted-observation",
+  "recorded_at": "2026-09-07",
+  "observation": "New defects, unknowns, experiments, or adjacent capabilities must not silently expand the approved Definition of Done. Additional work belongs in the active objective only when evidence establishes it is necessary to achieve or prove that objective, or when the Architect explicitly changes the objective.",
+  "reasoning": [
+    "Agent-isolation evidence was sufficient to support the current design direction; proving unrelated UI discovery, implementation, or every future agent use case would not change that decision.",
+    "The 24-example replay informs objective focus, but implementing that UI change belongs to the resumed SAGE thin slice rather than agent-isolation validation.",
+    "The delegated 'find it' path is a legitimate future use case, but testing it now is less efficient than the Architect supplying the known target and there is no evidence it would change the current architecture decision.",
+    "Further contamination sensitivity testing could characterize drift but would not change the currently available remediation, so it should remain evidence for future root-cause analysis."
+  ],
+  "governing_principles": [
+    "Definition of Done is objective-scoped and Architect-owned; discovery does not modify it.",
+    "Evidence may justify reconsidering the DoD, but changing the DoD is an explicit objective-level decision.",
+    "A discovered condition becomes active work only when it deterministically affects achieving or proving the active objective, or the Architect explicitly delegates or authorizes it.",
+    "Otherwise preserve the observation with provenance and continue; recording evidence creates no deployment, promotion, invalidation, remediation, migration, or implementation obligation.",
+    "The 80/20 rule applies to the objective and decision-relevant proof, not exhaustive characterization of every discovered phenomenon."
+  ],
+  "feature_resumption_semantics": {
+    "retrieve_relevant_observations": true,
+    "automatic_scope_inclusion": false,
+    "rule": "When a deferred or paused feature resumes, surface relevant observations and lessons as decision context. Relevance creates a consideration obligation, not automatic scope.",
+    "dispositions": [
+      "use now because it materially helps the resumed objective",
+      "retain as background evidence",
+      "defer again",
+      "promote into a separate objective",
+      "discard as no longer applicable"
+    ]
+  },
+  "future_reconsideration_triggers": [
+    "A future SAGE failure identifies conversational-context drift as a plausible root cause and quantifying sensitivity would inform a different control.",
+    "A future objective requires delegated target discovery because the Architect cannot efficiently identify the target.",
+    "A resumed feature encounters an observation whose impact on objective achievement or proof becomes deterministic.",
+    "Repeated comparable observations show that an omitted capability materially reduces objective success, efficiency, or Architect control."
+  ],
+  "non_effects": [
+    "Does not expand the agent-isolation milestone Definition of Done.",
+    "Does not make the 24-example UI implementation part of agent-isolation validation.",
+    "Does not authorize delegated 'find it' discovery.",
+    "Does not authorize additional contamination stress testing.",
+    "Does not invalidate existing Kalaxy3/SAGE WIP or accepted capability.",
+    "Does not authorize production orchestration or directed-graph changes."
+  ]
+}
