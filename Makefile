@@ -27,7 +27,7 @@ SAGE_OPERATING_CONTRACT_GUARDRAIL := $(PYTHON) scripts/sage/sage-operating-contr
 
 override export REQUEST := $(value REQUEST)
 
-.PHONY: help sage-preflight sage-changed sage-self-test \
+.PHONY: help sage-preflight sage-changed sage-self-test sage-lifecycle-contract-self-test \
         sage-discovery-guardrail sage-index-check \
         sage-improvement-policy-check sage-operating-contract-self-test \
         sage-operating-contract-guardrail sage-operating-contract-check \
@@ -47,9 +47,9 @@ help:
 	  '  make sage-candidate-self-test' \
 	  '  make sage-learning-self-test' \
 	  '  make sage-review-self-test' \
-	  '  SAGE_REQUEST="<request>" SAGE_ACTION_ID="<id>" SAGE_CONTRIBUTION="<contribution.zip>" make sage-action-bootstrap' \
-	  '  SAGE_REQUEST="<request>" SAGE_SOURCE="<source.zip>" make sage-request-plan' \
-	  '  SAGE_REQUEST="<request>" SAGE_PROPOSAL="<proposal.zip>" make sage-request-execute' \
+	  '  SAGE_REQUEST="<request>" SAGE_ACTION_ID="<id>" SAGE_CONTRIBUTION="<contribution.zip>" make sage-intent-to-outcome' \
+	  '  SAGE_REQUEST="<request>" SAGE_ACTION_ID="<id>" SAGE_CONTRIBUTION="<contribution.zip>" make sage-action-bootstrap  # semantic-bootstrap compatibility entry; returns to intent-to-outcome' \
+	  '  Component/debug interfaces: sage-request-plan, sage-request-execute (not external lifecycle continuations)' \
 	  '  SAGE_STATE="<state.json>" SAGE_OPERATOR_RESULT="<result.json>" make sage-request-continue' \
 	  '  SAGE_STATE="<state.json>" SAGE_ROUTINE_RECEIPT="<receipt.json>" make sage-request-continue-routine' \
 	  '  SAGE_REQUEST="<request>" SAGE_ACTION_ID="<id>" SAGE_TO_STATUS="<status>" SAGE_ACTOR="<actor>" SAGE_REASON="<reason>" SAGE_EVIDENCE_REFERENCE="<ref>" SAGE_COMMIT_MESSAGE="<message>" make sage-improvement-action-transition' \
@@ -68,10 +68,13 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-semantic-bootstrap-self-test sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-domain-capability-gap-approval-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test sage-intent-to-outcome-self-test sage-e2e-zero-trust-runtime-self-test sage-stage-receipt-self-test sage-artifact-promotion-self-test sage-architecture-approval-self-test
+sage-self-test: sage-lifecycle-contract-self-test sage-semantic-bootstrap-self-test sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-domain-capability-gap-approval-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test sage-intent-to-outcome-self-test sage-e2e-zero-trust-runtime-self-test sage-stage-receipt-self-test sage-artifact-promotion-self-test sage-architecture-approval-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 	python3 scripts/sage/sage-file-delivery-guardrail.py
+
+sage-lifecycle-contract-self-test:
+	$(PYTHON) scripts/sage/sage-lifecycle-contract-self-test.py
 
 sage-discovery-guardrail:
 	$(SAGE_DISCOVERY_GUARDRAIL)
@@ -550,6 +553,7 @@ sage-legacy-evidence-projection-guardrail:
 SAGE_E2E_INFRA_DIR := infrastructure/k3s-homelab
 
 .PHONY: sage-intent-to-outcome sage-intent-to-outcome-reconsider sage-intent-to-outcome-confirm \
+        sage-intent-to-outcome-adopt-source \
         sage-intent-to-outcome-adopt-request sage-intent-to-outcome-adopt-iteration \
         sage-intent-to-outcome-iterate sage-intent-to-outcome-continue \
         sage-intent-to-outcome-continue-planned sage-intent-to-outcome-continue-routine sage-intent-to-outcome-record-runtime \
@@ -566,6 +570,13 @@ sage-intent-to-outcome:
 	@test -n "$${SAGE_ACTION_ID:-}" || { echo 'SAGE_ACTION_ID is required'; exit 2; }
 	@test -n "$${SAGE_CONTRIBUTION:-}" || { echo 'SAGE_CONTRIBUTION is required'; exit 2; }
 	$(PYTHON) scripts/sage/sage-intent-to-outcome.py start --request "$$SAGE_REQUEST" --action-id "$$SAGE_ACTION_ID" --contribution "$$SAGE_CONTRIBUTION"
+
+
+sage-intent-to-outcome-adopt-source:
+	@test -n "$${SAGE_REQUEST:-}" || { echo 'SAGE_REQUEST is required'; exit 2; }
+	@test -n "$${SAGE_SOURCE:-}" || { echo 'SAGE_SOURCE is required'; exit 2; }
+	@test -n "$${SAGE_CONTRIBUTION:-}" || { echo 'SAGE_CONTRIBUTION is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py adopt-confirmed-source --request "$$SAGE_REQUEST" --planning-source "$$SAGE_SOURCE" --contribution "$$SAGE_CONTRIBUTION"
 
 sage-intent-to-outcome-reconsider:
 	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }

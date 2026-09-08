@@ -38,7 +38,7 @@ hand and never replays an already consumed Git lifecycle boundary.
 
 ## One-time bootstrap seam
 
-The first installation of this front door necessarily uses the already-established semantic-bootstrap, request-planning, and request-execution path. After the source exists in the repository, `adopt-request` may bind that in-flight request-execution state into the new parent lifecycle. This one-time bootstrap seam is explicit evidence, not a normal operating mode.
+A confirmed planning source produced by the lower-level semantic-bootstrap compatibility interface must re-enter this lifecycle **before** planning can advance toward mutation. `adopt-confirmed-source` validates the exact literal request, embedded Architect semantic authority, accepted action, and engineering-contribution payload; it then reuses request planning and pauses at the same `objective-path-decision-required` gate as the normal front door. Direct external `semantic-bootstrap → request-plan → request-execute` sequencing is invalid because it bypasses the lifecycle-owned authority boundary. Existing `adopt-request` remains only for historical in-flight request-execution state that predates this composition.
 
 ## Runtime evidence
 

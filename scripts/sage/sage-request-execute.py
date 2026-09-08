@@ -195,6 +195,69 @@ def _assert_recovery_recurrence(
     if repeated["next_boundary"] != "implementation-local":
         raise RuntimeError("consumed recurrence escaped implementation-local repair")
 
+
+    nonconverging_first = decide_next_boundary(
+        identity=identity,
+        post_retrieval={
+            "governing_conditions": {
+                "authority": False,
+                "scope": False,
+                "required_capability": False,
+                "safety_requirements": False,
+                "repository_owned_composition": False,
+                "approval_or_mutation_boundaries": False,
+            },
+            "disposition": "implementation-local-retry",
+            "required_reentry_boundary": "implementation-local",
+        },
+        governing_evidence={"repository_owned_composition_sha256": "b" * 64},
+        previous=(),
+        consumed_fingerprints=set(),
+        owning_component="sage.request-execution",
+        control_action_id="SAGE-ACTION-20260810-001",
+        control_action_status="accepted",
+        accepted_control_failure=None,
+        progress_evidence={},
+    )
+    nonconverging_prior = [{
+        **nonconverging_first,
+        "_path": "/tmp/nonconverging-first.json",
+    }]
+    nonconverging_fingerprint = str(
+        nonconverging_first["governing_condition_fingerprint"]
+    )
+    nonconverging_repeat = decide_next_boundary(
+        identity=identity,
+        post_retrieval={
+            "governing_conditions": {
+                "authority": False,
+                "scope": False,
+                "required_capability": False,
+                "safety_requirements": False,
+                "repository_owned_composition": False,
+                "approval_or_mutation_boundaries": False,
+            },
+            "disposition": "implementation-local-retry",
+            "required_reentry_boundary": "implementation-local",
+        },
+        governing_evidence={"repository_owned_composition_sha256": "b" * 64},
+        previous=nonconverging_prior,
+        consumed_fingerprints={nonconverging_fingerprint},
+        owning_component="sage.request-execution",
+        control_action_id="SAGE-ACTION-20260810-001",
+        control_action_status="accepted",
+        accepted_control_failure=None,
+        progress_evidence={},
+    )
+    if nonconverging_repeat["metrics"]["non_convergence_detected"] is not True:
+        raise RuntimeError("unchanged consumed local repair did not record non-convergence")
+    if nonconverging_repeat["disposition"] != "repair":
+        raise RuntimeError("non-convergence manufactured successor action without control-failure evidence")
+    if nonconverging_repeat["next_boundary"] != "implementation-local":
+        raise RuntimeError("non-convergence escaped implementation-local without control-failure evidence")
+    if nonconverging_repeat["architect_attention_required"] is not False:
+        raise RuntimeError("non-convergence manufactured Architect attention without control-failure evidence")
+
     assertion = build_accepted_control_failure_assertion(
         control_action_id="SAGE-ACTION-20260810-001",
         violated_obligation=(

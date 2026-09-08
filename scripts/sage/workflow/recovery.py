@@ -559,8 +559,6 @@ def _select_disposition(
         and control_action_status in ACCEPTED_CONTROL_STATUSES
     ):
         return "successor-action", "architect-decision"
-    if non_converging:
-        return "successor-action", "architect-decision"
     if same:
         return "repair", "implementation-local"
     if post_retrieval.get("disposition") == "governance-reentry":
@@ -693,14 +691,15 @@ def _reason(
         Human-readable reason consistent with recurrence classification.
     """
 
-    if disposition == "successor-action" and non_converging:
-        return (
-            "A consumed implementation-local recovery recurred with unchanged "
-            "progress evidence; the local loop is non-converging and must exit. "
-            "No already-authorized alternative is evidenced by this recovery "
-            "decision, so a governed Architect boundary is required."
-        )
     if disposition == "repair":
+        if recurred and non_converging:
+            return (
+                "The consumed implementation-local repair recurred without "
+                "verified progress, but no evidence demonstrates failure of the "
+                "accepted owning control. Non-convergence is recorded without "
+                "manufacturing an Architect successor boundary; correction, "
+                "regression, and revalidation remain implementation-local."
+            )
         if recurred:
             return (
                 "The failure recurred without a new governing-condition "

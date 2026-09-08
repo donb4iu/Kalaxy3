@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "record_type": "sage-break-glass-control-plane-repair",
+  "record_id": "SAGE-BREAK-GLASS-20260907-001",
+  "recorded_at": "2026-09-07T19:53:00-05:00",
+  "architect_disposition": "approved bounded direct repair because the normal SAGE control path is the failed subject",
+  "source_authority": {
+    "branch": "feature/sage-action-20260907-001-path-neutral-causal-identity",
+    "head": "b381ddf903dd355ba3d91631f87cb18ffb0be8f4",
+    "archive_sha256": "f6e56d64aad1d0565fc117c6169ac9e54dd60f7cc1ba1273a1a01f058cd27b66"
+  },
+  "observed_failure": {
+    "primary": "The lower-level request-planning CLI published request execution as the next external continuation even though request execution requires a checksum-bound Architect objective-path decision that had not been produced.",
+    "recovery": "After the exact retry, recovery classified unchanged local non-convergence as successor-action/Architect attention even though accepted_control_failure=false, producing a boundary its own improvement-action consumer rejected.",
+    "mutation_before_failure": false
+  },
+  "causal_analysis": [
+    "The objective-path authority gate was introduced as a use-case-local/front-door change rather than propagated as a lifecycle-wide producer/consumer invariant.",
+    "Component tests proved planning, the authority gate, execution, and front-door behavior individually but did not prove that every published route into mutation satisfied the gate.",
+    "This is evidence against persistent-LLM freelancing: local solutioning can be internally coherent while leaving other published compositions inconsistent."
+  ],
+  "repair_scope": [
+    "Return confirmed semantic-bootstrap sources to the intent-to-outcome lifecycle owner before planning-to-mutation progression.",
+    "Keep request-plan/request-execute as reusable component interfaces but remove their authority to advertise an external lifecycle continuation that bypasses objective-path approval.",
+    "Preserve the existing request-execution objective-path gate and exact proposal binding.",
+    "Restore the accepted recovery invariant that non-convergence/recurrence without evidence-backed accepted-control failure cannot create a successor Architect boundary.",
+    "Add a route-level lifecycle contract self-test spanning semantic bootstrap, planning, authority, execution, and recovery."
+  ],
+  "out_of_scope": [
+    "broad SAGE audit or redesign",
+    "proactive repair of other workflows not shown to fail",
+    "workflow-manager or Ollama deployment",
+    "unrelated causal-evidence work",
+    "GitOps or graph-engine adoption"
+  ],
+  "future_trigger": "If another later-added cross-cutting lifecycle invariant is found to have path-local implementation or incomplete route coverage, use this record as comparable evidence and consider a separate bounded systemic action only when recurrence justifies it.",
+  "reentry": "After deterministic validation passes, resume the original agent-isolation objective through the lifecycle-owned confirmed-source adoption boundary."
+}

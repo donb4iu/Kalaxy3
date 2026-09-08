@@ -18,6 +18,7 @@ from workflow import WorkflowError  # noqa: E402
 from workflows import intent_to_outcome as intent_workflow  # noqa: E402
 from workflow.recovery import governing_composition_digest  # noqa: E402
 from workflows.intent_to_outcome import (  # noqa: E402
+    adopt_confirmed_planning_source,
     adopt_iteration,
     adopt_request_execution,
     begin_candidate_iteration,
@@ -618,6 +619,11 @@ def parse_args() -> argparse.Namespace:
     confirm.add_argument("--dispositions", type=Path, required=True)
     confirm.add_argument("--actor", required=True)
 
+    adopt_source = sub.add_parser("adopt-confirmed-source")
+    adopt_source.add_argument("--request", required=True)
+    adopt_source.add_argument("--planning-source", type=Path, required=True)
+    adopt_source.add_argument("--contribution", type=Path, required=True)
+
     adopt = sub.add_parser("adopt-request")
     adopt.add_argument("--request", required=True)
     adopt.add_argument("--request-state", type=Path, required=True)
@@ -695,6 +701,13 @@ def main() -> int:
     elif args.command == "confirm":
         result = confirm_intent(
             args.repo, args.state, args.confirmation, args.dispositions, args.actor
+        )
+    elif args.command == "adopt-confirmed-source":
+        result = adopt_confirmed_planning_source(
+            args.repo,
+            args.request,
+            args.planning_source,
+            args.contribution,
         )
     elif args.command == "adopt-request":
         result = adopt_request_execution(args.repo, args.request, args.request_state)

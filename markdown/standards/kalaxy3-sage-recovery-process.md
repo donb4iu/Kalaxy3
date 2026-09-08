@@ -85,25 +85,24 @@ material objective-path approval already recorded for that execution. Recovery
 records the existing approval digest and `architect_approval_reused=true`; the
 repair attempt is not a new approval atom and does not require an Architect
 round trip. Architect attention is required only when recovery selects a material
-governance re-entry, an evidenced accepted-control successor boundary, or a
-non-converging local recovery whose consumed correction produced no new progress
-evidence. Recurrence by itself is evidence, not a material decision-surface change.
-A consumed planning, semantic, or other governance re-entry does not by itself constitute a failed local repair. Non-convergence is evaluated only after an implementation-local repair decision has itself become the latest matching recovery step and the same failure recurs without material progress.
+governance re-entry or an **evidenced accepted-control successor boundary**.
+Recurrence and non-convergence are evidence, not by themselves a material
+decision-surface change. A consumed planning, semantic, or other governance
+re-entry does not by itself constitute a failed local repair. Non-convergence is
+evaluated only after an implementation-local repair decision has itself become
+the latest matching recovery step and the same failure recurs without material
+progress.
 
-
-Implementation-local recovery is permitted only while it demonstrates bounded
-convergence. SAGE compares value-producing progress evidence independently from
-the governing-condition fingerprint: a recurrence after a consumed local repair may remain local only when new evidence
-demonstrates material objective-relevant movement toward validated completion. A
-changed progress fingerprint alone is not progress: changed bytes, a different
-error, command execution without verification, incidental local-state changes, or
-equivalent-path cycling cannot reset non-convergence. The same recurrence without
-new material verified progress is non-converging and must exit the local loop.
-This is not a fixed retry-count policy. The comparison asks whether the prior
-repair materially advanced validated execution evidence. The recovery decision
-must evaluate any already-authorized alternative evidenced by the current
-composition; when no such alternative is evidenced, the local loop stops at a
-governed Architect boundary rather than retrying the same repair indefinitely.
+Implementation-local recovery must record whether it is converging. SAGE compares
+value-producing progress evidence independently from the governing-condition
+fingerprint. Changed bytes, a different error, command execution without
+verification, incidental local-state changes, or equivalent-path cycling do not
+constitute progress. If a consumed local repair recurs without verified progress,
+SAGE records non-convergence and must not simply claim success or manufacture a
+new Architect successor boundary. The correction remains owned by the failed
+component unless separate evidence demonstrates that the accepted owning control
+violated its promised behavior. Only that evidence-backed control failure may
+enter the successor-action path described below.
 
 Each owner validates its own repair regression and, on first consumption,
 records the immutable recovery consumption receipt without performing repository

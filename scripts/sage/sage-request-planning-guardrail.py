@@ -215,6 +215,11 @@ def makefile_failures() -> list[str]:
         failures.append(
             "sage-guardrails lacks request-planning guardrail"
         )
+    cli_text = (ROOT / CLI_PATH).read_text(encoding="utf-8")
+    if "Next: execute the proposal through make sage-request-execute." in cli_text:
+        failures.append("request planner still advertises direct external request execution")
+    if "External continuation is owned by sage-intent-to-outcome" not in cli_text:
+        failures.append("request planner does not preserve lifecycle-owned continuation")
     return failures
 
 

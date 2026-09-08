@@ -97,16 +97,18 @@ The optional approved-gap-set input is therefore an explicit Architect authority
 ## Published interface
 
 Successful planning emits the unchanged
-`sage-request-execution-proposal-schema-v1.0.json` package consumed by
-`sage-request-execute.py`. Request execution therefore consumes a stable
-planning result instead of caller-authored capabilities and candidates.
+`sage-request-execution-proposal-schema-v1.0.json` package that is eventually
+consumed by `sage-request-execute.py`. That is a **component compatibility
+contract**, not an external lifecycle continuation. Planning returns the stable
+proposal to the owning SAGE lifecycle composition. The lifecycle owner must
+establish every mutation prerequisite, including the checksum-bound Architect
+objective-path decision, before request execution may be invoked.
 
-Normal usage is:
-
-```console
-SAGE_REQUEST="<literal request>" SAGE_SOURCE="<source.zip>" make sage-request-plan
-SAGE_REQUEST="<same literal request>" SAGE_PROPOSAL="<planned proposal.zip>" make sage-request-execute
-```
+Normal external progression is owned by `sage-intent-to-outcome`. The
+`sage-request-plan` and `sage-request-execute` CLIs remain reusable component and
+debug interfaces for repository-owned compositions, tests, and bounded recovery;
+a successful direct planning CLI invocation must not advertise request execution
+as its next external boundary.
 
 The planner records resolved authority, component selection, event logs, and a
 local closeout under the SAGE local-state directory.

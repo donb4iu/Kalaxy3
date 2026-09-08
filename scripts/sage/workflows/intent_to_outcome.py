@@ -7,11 +7,13 @@ import hashlib
 import json
 import os
 import re
+import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
-from workflow import AtomicFileWriter, PrimitiveCatalog, WorkflowError, load_improvement_action
+from workflow import AtomicFileWriter, CommandRunner, JsonlEventLogger, PrimitiveCatalog, WorkflowError, load_improvement_action
+from workflow.git_inspect import GitInspector
 from workflow.recovery import (
     governing_composition_digest,
     RECOVERY_CONSUMPTION_NAME,
@@ -33,6 +35,7 @@ from workflows.request_planning import (
 )
 from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap, reuse_confirmed_intent
 from request_execution import load_proposal
+from request_planning import SEMANTIC_UNDERSTANDING_NAME, load_source_bundle
 from semantic_understanding import load_engineering_contribution
 from sage_evidence_retrieval import (
     load_json as load_retrieval_json,
@@ -44,7 +47,7 @@ from sage_evidence_retrieval import (
 )
 
 WORKFLOW_ID = "sage.intent-to-outcome"
-WORKFLOW_VERSION = "0.4.4"
+WORKFLOW_VERSION = "0.4.5"
 PRIMITIVES_USED = (
     "catalog.registry",
     "file.atomic-preserve-mode",
@@ -1378,6 +1381,151 @@ def continue_planned_request(
         "state": str(state_path.expanduser().resolve()),
         "request_execution": execution,
     }
+
+
+
+def adopt_confirmed_planning_source(
+    repo: Path,
+    request: str,
+    planning_source: Path,
+    contribution_path: Path,
+) -> Mapping[str, Any]:
+    """Adopt one already-confirmed semantic source into the lifecycle owner.
+
+    This is the bootstrap/component compatibility seam.  It deliberately does
+    not re-run semantic confirmation, and it deliberately does not call request
+    execution.  The lifecycle owner validates the confirmed source, plans the
+    exact proposal, and then pauses at the normal objective-path decision gate.
+    """
+
+    resolved = repo.expanduser().resolve()
+    source = load_source_bundle(planning_source.expanduser().resolve(), request)
+    if source.semantic_authority is None:
+        raise WorkflowError(
+            "confirmed-source adoption requires Architect-confirmed semantic authority"
+        )
+
+    with zipfile.ZipFile(source.package_path) as archive:
+        try:
+            understanding = json.loads(archive.read(SEMANTIC_UNDERSTANDING_NAME))
+        except KeyError as error:
+            raise WorkflowError(
+                "confirmed planning source lacks semantic-understanding authority"
+            ) from error
+    if not isinstance(understanding, Mapping):
+        raise WorkflowError("confirmed planning source semantic understanding is invalid")
+    action_value = understanding.get("action")
+    if not isinstance(action_value, Mapping):
+        raise WorkflowError("confirmed planning source lacks accepted action authority")
+    action_id = str(action_value.get("action_id") or "")
+    if not action_id:
+        raise WorkflowError("confirmed planning source action identity is missing")
+    action = load_improvement_action(resolved, action_id)
+    if action.get("current_status") != "accepted":
+        raise WorkflowError(
+            f"{action_id} must remain accepted before confirmed-source adoption"
+        )
+
+    contribution = load_engineering_contribution(
+        contribution_path.expanduser().resolve()
+    )
+    contribution_by_path = {
+        item.path: item for item in contribution.source_files
+    }
+    for item in source.source_files:
+        candidate = contribution_by_path.get(item.path)
+        if candidate is None:
+            raise WorkflowError(
+                "confirmed planning source contains a path absent from the engineering contribution: "
+                + item.path
+            )
+        if candidate.sha256 != item.sha256 or candidate.mode != item.mode:
+            raise WorkflowError(
+                "confirmed planning source no longer matches engineering contribution payload: "
+                + item.path
+            )
+
+    directory = _new_state_directory()
+    logger = JsonlEventLogger(
+        directory / "confirmed-source-adoption-events.jsonl",
+        WORKFLOW_ID + ".confirmed-source-adoption",
+    )
+    runner = CommandRunner(
+        logger,
+        allowed_roots=(resolved, directory),
+    )
+    inspector = GitInspector(resolved, runner)
+    inspector.require_clean()
+    current_head = inspector.require_upstream_equal()
+    current_branch = inspector.branch()
+    source_repository = source.manifest.get("repository", {})
+    rebound_from: str | None = None
+    if (
+        not isinstance(source_repository, Mapping)
+        or source_repository.get("branch") != current_branch
+        or source_repository.get("head") != current_head
+    ):
+        rebound_from = str(source.package_path)
+        rebound = reuse_confirmed_intent(
+            resolved,
+            request,
+            source.package_path,
+            contribution.package_path,
+        )
+        source = load_source_bundle(Path(str(rebound["planning_source"])), request)
+
+    state_path = directory / "intent-to-outcome-state.json"
+    state = _new_intent_state(
+        action_id=action_id,
+        request=request,
+        contribution=contribution.package_path,
+        status="planning-source-ready",
+        semantic_state=None,
+        iteration_status="planning",
+        next_boundary="planning",
+    )
+    state["planning_source"] = str(source.package_path)
+    state["history"].append(
+        {
+            "stage": "confirmed-planning-source-adopted",
+            "iteration": 1,
+            "planning_source": str(source.package_path),
+            "planning_source_sha256": _file_sha256(source.package_path),
+            "semantic_understanding_sha256": source.semantic_authority.get(
+                "semantic_understanding_sha256"
+            ),
+            "semantic_confirmation_sha256": source.semantic_authority.get(
+                "semantic_confirmation_sha256"
+            ),
+            "engineering_contribution": str(contribution.package_path),
+            "engineering_contribution_sha256": contribution.package_sha256,
+            "repository_rebound_from": rebound_from,
+            "repository_branch": current_branch,
+            "repository_head": current_head,
+        }
+    )
+    _refresh_objective_route(resolved, state)
+    _persist(state_path, state)
+
+    proposal_path = (
+        Path("~/Downloads").expanduser()
+        / ("sage-request-proposal-" + datetime.now().strftime("%Y%m%d-%H%M%S") + ".zip")
+    )
+    planned = plan_request(
+        resolved,
+        request,
+        source.package_path,
+        proposal_path,
+    )
+    return _pause_for_objective_path_decision(
+        resolved,
+        state_path,
+        state,
+        planning_source=str(source.package_path),
+        planned=planned,
+        history_stage="adopted-semantic-plan-ready-for-objective-path-decision",
+    )
+
 
 
 def adopt_iteration(

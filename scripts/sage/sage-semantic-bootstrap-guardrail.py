@@ -72,6 +72,11 @@ def validate() -> list[str]:
         failures.append("request-planning self-test still relies on caller-style fixture source writer")
     if "default_planning_source_path" not in bootstrap_cli or "semantic-confirmation digest scopes default planning-source identity" not in bootstrap_cli:
         failures.append("semantic-bootstrap self-test does not cover distinct confirmed-slice planning-source identity")
+    if "sage-intent-to-outcome-adopt-source" not in workflow:
+        failures.append("semantic bootstrap does not hand confirmed planning source to lifecycle owner")
+    next_block = workflow[workflow.find("next_command ="):workflow.find("return {", workflow.find("next_command ="))]
+    if '"sage-request-plan"' in next_block:
+        failures.append("semantic bootstrap still publishes direct request-plan continuation")
     if "sage-source.json" not in domain or "may not author sage control artifact" not in domain.casefold():
         failures.append("engineering contribution does not reject external sage-source authorship")
     for marker in ("anti-goose-chase", "semantic confirmation is not feasibility", "bootstrap exception", "confirmed semantic authority", "semantic-confirmation digest", "multiple confirmed slices"):
@@ -105,7 +110,7 @@ def main() -> int:
     print("PASS semantic applicability is preserved separately from mutation authority")
     print("PASS split semantic authority is additive through planning-source v1.2")
     print("PASS repository-owned planning-source generation")
-    print("PASS existing planner/executor reuse")
+    print("PASS existing planner/executor reuse behind lifecycle-owned authority boundary")
     print("PASS confirmed semantic authority is bound into downstream planning")
     print("PASS semantic-confirmation digest scopes immutable planning-source identity")
     print("Kalaxy3 SAGE semantic bootstrap guardrail: PASS")

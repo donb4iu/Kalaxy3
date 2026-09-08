@@ -816,7 +816,7 @@ def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, a
         "status": "planning-source-generation-authorized",
         "basis": ["accepted improvement action", "Architect semantic confirmation", "sufficient planning-source feasibility"],
         "repository_mutation_authorized": False,
-        "downstream_authority": "sage-request-execute",
+        "downstream_authority": "sage.intent-to-outcome",
     }
     authorization_path = _write_json(writer, state_dir / "authorization.json", authorization)
     evidence = [
@@ -875,8 +875,9 @@ def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, a
             "env",
             f"SAGE_REQUEST={state['request']}",
             f"SAGE_SOURCE={source.package_path}",
+            f"SAGE_CONTRIBUTION={contribution.package_path}",
             "make",
-            "sage-request-plan",
+            "sage-intent-to-outcome-adopt-source",
         )
     )
     return {
@@ -884,6 +885,9 @@ def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, a
         "source": str(source.package_path),
         "planning_source": str(source.package_path),
         "state": str(state_path),
+        "action_id": str(state["action_id"]),
+        "contribution": str(contribution.package_path),
+        "next_boundary": "intent-to-outcome-adopt-confirmed-source",
         "next_command": next_command,
     }
 

@@ -671,8 +671,10 @@ def main() -> int:
     print(f"Component manifest: {result['component_manifest']}")
     print(f"Closeout: {result['closeout']}")
     print(f"State directory: {result['state_dir']}")
+    print("Lifecycle boundary: planning-component-complete")
     print(
-        "Next: execute the proposal through make sage-request-execute."
+        "External continuation is owned by sage-intent-to-outcome; "
+        "request execution requires objective-path authority."
     )
     return 0
 
