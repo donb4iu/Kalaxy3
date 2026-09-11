@@ -607,9 +607,8 @@ sage-intent-to-outcome-iterate:
 	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }
 	@test -n "$${SAGE_CONTRIBUTION:-}" || { echo 'SAGE_CONTRIBUTION is required'; exit 2; }
 	@test -n "$${SAGE_ITERATION_TRIGGER:-}" || { echo 'SAGE_ITERATION_TRIGGER is required'; exit 2; }
-	@test -n "$${SAGE_REENTRY_BOUNDARY:-}" || { echo 'SAGE_REENTRY_BOUNDARY is required'; exit 2; }
 	@test -n "$${SAGE_PARENT_CHECKPOINT:-}" || { echo 'SAGE_PARENT_CHECKPOINT is required'; exit 2; }
-	$(PYTHON) scripts/sage/sage-intent-to-outcome.py iterate --state "$$SAGE_INTENT_STATE" --contribution "$$SAGE_CONTRIBUTION" --trigger "$$SAGE_ITERATION_TRIGGER" --reentry-boundary "$$SAGE_REENTRY_BOUNDARY" --parent-checkpoint "$$SAGE_PARENT_CHECKPOINT" $${SAGE_APPROVED_GAP_SET:+--approved-gap-set "$$SAGE_APPROVED_GAP_SET"}
+	$(PYTHON) scripts/sage/sage-intent-to-outcome.py manage-iterate --state "$$SAGE_INTENT_STATE" --contribution "$$SAGE_CONTRIBUTION" --trigger "$$SAGE_ITERATION_TRIGGER" --parent-checkpoint "$$SAGE_PARENT_CHECKPOINT" $${SAGE_APPROVED_GAP_SET:+--approved-gap-set "$$SAGE_APPROVED_GAP_SET"}
 
 sage-intent-to-outcome-continue-planned:
 	@test -n "$${SAGE_INTENT_STATE:-}" || { echo 'SAGE_INTENT_STATE is required'; exit 2; }

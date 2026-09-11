@@ -41,6 +41,10 @@ from workflows.intent_to_outcome import (  # noqa: E402
     objective_route_snapshot,
     validate_runtime_receipt,
 )
+from workflows.llm_workflow_manager import (  # noqa: E402
+    manage_candidate_iteration,
+    self_test as workflow_manager_self_test,
+)
 
 
 def self_test() -> int:
@@ -592,6 +596,7 @@ def self_test() -> int:
         else:
             raise RuntimeError("runtime acceptance without candidate source commit did not fail closed")
     print("PASS runtime acceptance fails closed without candidate source lineage")
+    workflow_manager_self_test()
     print("PASS intent-to-outcome front door self-test")
     return 0
 
@@ -648,6 +653,14 @@ def parse_args() -> argparse.Namespace:
     iterate.add_argument("--parent-checkpoint", required=True)
     iterate.add_argument("--affected-obligation", action="append", default=[])
     iterate.add_argument("--approved-gap-set", type=Path)
+
+    managed = sub.add_parser("manage-iterate")
+    managed.add_argument("--state", type=Path, required=True)
+    managed.add_argument("--contribution", type=Path, required=True)
+    managed.add_argument("--trigger", required=True)
+    managed.add_argument("--parent-checkpoint", required=True)
+    managed.add_argument("--affected-obligation", action="append", default=[])
+    managed.add_argument("--approved-gap-set", type=Path)
 
     planned_continuation = sub.add_parser("continue-planned")
     planned_continuation.add_argument("--state", type=Path, required=True)
@@ -728,6 +741,16 @@ def main() -> int:
             args.contribution,
             trigger=args.trigger,
             reentry_boundary=args.reentry_boundary,
+            parent_checkpoint=args.parent_checkpoint,
+            affected_obligations=args.affected_obligation,
+            approved_gap_set=args.approved_gap_set,
+        )
+    elif args.command == "manage-iterate":
+        result = manage_candidate_iteration(
+            args.repo,
+            args.state,
+            args.contribution,
+            trigger=args.trigger,
             parent_checkpoint=args.parent_checkpoint,
             affected_obligations=args.affected_obligation,
             approved_gap_set=args.approved_gap_set,
