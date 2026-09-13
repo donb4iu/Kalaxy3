@@ -26,6 +26,7 @@
 - [SAGE actionable failures](sage-actionable-failures.md)
 - [SAGE CI portability](sage-ci-portability.md)
 - [SAGE cognition-plane architecture](sage-cognition-plane-architecture.md)
+- [SAGE cognition-plane evidence routing](sage-cognition-plane-evidence-routing.md)
 - [SAGE continuous improvement](sage-continuous-improvement.md)
 - [SAGE continuous improvement metrics pilot](sage-continuous-improvement-metrics-pilot.md)
 - [SAGE continuous-improvement closeout](sage-continuous-improvement-closeout.md)

@@ -12,14 +12,15 @@ with curated or inferred metadata and an explicit migration state.
 | Classification | Count |
 |---|---:|
 | legacy-evidence | 17 |
-| sage-current | 20 |
+| sage-current | 21 |
 | sage-legacy | 3 |
-| **Total** | **40** |
+| **Total** | **41** |
 
 ## Start here
 
 | Section | Record | Summary | Class | Status | Valid as of |
 |---|---|---|---|---|---|
+| decisions | [Route cognition-plane proof to bounded evidence retrieval](../decisions/kalaxy3-sage-cognition-evidence-retrieval-routing.md) | Records the SAGE routing boundary that missing prior-art, runtime-capacity, workload, storage, and endpoint evidence must be retrieved before fresh architecture innovation can lawfully proceed. | sage-current | implemented | 2026-09-13 |
 | architecture | [Establish SAGE cognition-plane responsibility boundaries](../architecture/kalaxy3-sage-cognition-plane-architecture-decision-evidence.md) | Records the Architect-owned cognition-plane architecture direction, preserves the motivating LLM candidate as advisory-only, and makes implementation and prior-art evidence gaps explicit. | sage-current | draft | 2026-09-13 |
 | governance | [Generated-helper runtime validation guardrail](../governance/kalaxy3-generated-helper-runtime-validation-evidence.md) | Validates the repository-owned generated-helper delivery composition, its failure recovery, exact runtime checks, and the remaining five-delivery measurement gate. | sage-current | validated | 2026-08-06 |
 | verification | [Validate active centralized logging](../verification/kalaxy3-centralized-logging-runtime-validation-evidence.md) | Validates Loki and Fluent Bit across all seven Kalaxy3 nodes, preserves failed operator paths, and records the repository-governed recovery and cluster guardrails. | sage-current | validated | 2026-08-04 |
@@ -31,7 +32,6 @@ with curated or inferred metadata and an explicit migration state.
 | governance | [Validate the first SAGE metrics pilot](../governance/kalaxy3-sage-metrics-pilot-evidence.md) | Documents the first repository-owned live SAGE metrics pilot, truthful null handling, scalar-neutral predictions, repository-only lifecycle validation, and closed deployment gate. | sage-current | validated | 2026-07-30 |
 | operations | [Migrate documentation publication to MkDocs Material](../operations/kalaxy3-mkdocs-material-publication-migration-evidence.md) | Documents the staged replacement of Daux with MkDocs Material, strict build and navigation validation, GitHub Pages publication, rollback, and remaining review gaps. | sage-current | validated | 2026-07-29 |
 | governance | [SAGE continuous-improvement foundation](../governance/kalaxy3-sage-continuous-improvement-foundation-evidence.md) | Documents the repository-owned SAGE continuous-improvement foundation, its staged lifecycle controls, validation results, preserved failures, and closed deployment gate. | sage-current | validated | 2026-07-29 |
-| verification | [Audit centralized logging SAGE evidence quality](../verification/kalaxy3-centralized-logging-sage-evidence-quality-audit.md) | Independently audits SAGE-K3-OBS-20260728-002 against the Kalaxy3 schema 1.2 quality contract and confirms it meets the generic SAGE prompt baseline while providing stronger specificity and traceability. | sage-current | validated | 2026-07-28 |
 
 ## Browse
 

@@ -2,6 +2,7 @@
 
 - [Architecture](architecture.md)
 - [Benchmarks](benchmarks.md)
+- [Decisions](decisions.md)
 - [Finops](finops.md)
 - [Governance](governance.md)
 - [Installation](installation.md)
