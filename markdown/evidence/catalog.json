@@ -1,8 +1,36 @@
 {
-  "catalog_fingerprint": "2383217080febca233b5639543c7eefa4af03c7134d411144b299d3ae70ac7ae",
+  "catalog_fingerprint": "3a2d50f271d4de819a6a9848789d48dbdd2574fe55d19a74f71084908ef26b27",
   "catalog_schema_version": "1.0",
-  "record_count": 39,
+  "record_count": 40,
   "records": [
+    {
+      "completed_at": "2026-09-13T13:04:00-05:00",
+      "confidence": "high",
+      "evidence_id": "SAGE-K3-COGNITION-20260913-001",
+      "metadata_source": "authoritative",
+      "migration_status": "current",
+      "nav_order": 640,
+      "nav_section": "architecture",
+      "nav_title": "Establish SAGE cognition-plane responsibility boundaries",
+      "owner": "Kalaxy3 Architect",
+      "primary_subject": "SAGE cognition-plane architecture",
+      "record_class": "sage-current",
+      "schema_version": "1.2",
+      "source_path": "markdown/architecture/kalaxy3-sage-cognition-plane-architecture-decision-evidence.md",
+      "status": "draft",
+      "summary": "Records the Architect-owned cognition-plane architecture direction, preserves the motivating LLM candidate as advisory-only, and makes implementation and prior-art evidence gaps explicit.",
+      "tags": [
+        "sage",
+        "cognition-plane",
+        "architecture",
+        "multi-agent",
+        "authority-boundary",
+        "causal-evidence",
+        "advisory-llm"
+      ],
+      "title": "Kalaxy3 SAGE Cognition-Plane Architecture Direction and Advisory Candidate Evidence",
+      "valid_as_of": "2026-09-13"
+    },
     {
       "completed_at": "2026-07-25T21:01:00-05:00",
       "confidence": "high",

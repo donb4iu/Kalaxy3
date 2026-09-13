@@ -7,6 +7,7 @@ navigation metadata.
 
 | Section | Record | Summary | Class | Status | Valid as of |
 |---|---|---|---|---|---|
+| architecture | [Establish SAGE cognition-plane responsibility boundaries](../architecture/kalaxy3-sage-cognition-plane-architecture-decision-evidence.md) | Records the Architect-owned cognition-plane architecture direction, preserves the motivating LLM candidate as advisory-only, and makes implementation and prior-art evidence gaps explicit. | sage-current | draft | 2026-09-13 |
 | benchmarks | [Capture pre-logging Kubecost baseline](../benchmarks/kalaxy3-pre-logging-kubecost-baseline-evidence.md) | Preserves checksum-verified 24-hour and 72-hour Kubecost control measurements before centralized logging changes cluster resource use and cost. | sage-current | validated | 2026-07-25 |
 | governance | [Preserve legacy evidence and generate navigation](../operations/kalaxy3-sage-legacy-evidence-navigation-evidence.md) | Adds strict navigation metadata for new SAGE records while preserving and indexing schema 1.0, schema 1.1, and pre-SAGE evidence without rewriting historical source files. | sage-current | validated | 2026-07-25 |
 | governance | [Validate interchangeable Kalaxy3 automation controllers](../operations/kalaxy3-controller-machine-portability-evidence.md) | Verifies that clean iMac and Mac mini controllers reproduce the same repository-managed Python and Ansible environment despite different system Python versions. | sage-current | validated | 2026-07-26 |
