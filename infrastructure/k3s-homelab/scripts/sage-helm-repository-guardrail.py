@@ -24,6 +24,7 @@ TRUSTED_REPOSITORIES: Final = {
     "headlamp": "https://kubernetes-sigs.github.io/headlamp/",
     "longhorn": "https://charts.longhorn.io",
     "metallb": "https://metallb.github.io/metallb",
+    "nvdp": "https://nvidia.github.io/k8s-device-plugin",
     "nfs": (
         "https://kubernetes-sigs.github.io/"
         "nfs-subdir-external-provisioner"

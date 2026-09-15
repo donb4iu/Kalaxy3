@@ -1,0 +1,107 @@
+---
+- name: Load NVIDIA and Helm locks
+  ansible.builtin.set_fact:
+    kalaxy3_nvidia_lock: >-
+      {{
+        lookup(
+          'ansible.builtin.file',
+          playbook_dir ~ '/../nvidia-platforms.json'
+        ) | from_json
+      }}
+    helm_chart_lock: >-
+      {{
+        lookup(
+          'ansible.builtin.file',
+          playbook_dir ~ '/../helm-chart-lock.json'
+        ) | from_json
+      }}
+
+- name: Require exact NVIDIA device-plugin chart lock
+  ansible.builtin.assert:
+    that:
+      - helm_chart_lock.charts.nvidia_device_plugin.version == '0.19.3'
+      - helm_chart_lock.charts.nvidia_device_plugin.chart == 'nvdp/nvidia-device-plugin'
+      - helm_chart_lock.charts.nvidia_device_plugin.release == 'nvidia-device-plugin'
+      - helm_chart_lock.charts.nvidia_device_plugin.namespace == 'nvidia-device-plugin'
+
+- name: Add locked NVIDIA device-plugin Helm repository
+  kubernetes.core.helm_repository:
+    name: nvdp
+    repo_url: https://nvidia.github.io/k8s-device-plugin
+    binary_path: "{{ playbook_dir }}/../.tools/helm"
+
+- name: Install the locked NVIDIA device plugin
+  kubernetes.core.helm:
+    name: "{{ helm_chart_lock.charts.nvidia_device_plugin.release }}"
+    chart_ref: "{{ helm_chart_lock.charts.nvidia_device_plugin.chart }}"
+    chart_version: "{{ helm_chart_lock.charts.nvidia_device_plugin.version }}"
+    release_namespace: "{{ helm_chart_lock.charts.nvidia_device_plugin.namespace }}"
+    create_namespace: true
+    kubeconfig: "{{ kalaxy3_kubeconfig }}"
+    binary_path: "{{ playbook_dir }}/../.tools/helm"
+    wait: true
+    wait_timeout: "10m"
+    values:
+      runtimeClassName: nvidia
+      migStrategy: none
+      failOnInitError: true
+      nfd:
+        enabled: false
+      gfd:
+        enabled: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kalaxy3.io/gpu-capable
+                    operator: In
+                    values:
+                      - "true"
+
+- name: Wait for one schedulable NVIDIA GPU on each declared GPU node
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kalaxy3_kubeconfig }}"
+    api_version: v1
+    kind: Node
+    name: "{{ item }}"
+  register: kalaxy3_gpu_node_state
+  until: >-
+    kalaxy3_gpu_node_state.resources | length == 1
+    and
+    (
+      kalaxy3_gpu_node_state.resources[0].status.allocatable['nvidia.com/gpu']
+      | default('0')
+      | int
+    ) == 1
+  retries: 60
+  delay: 5
+  loop:
+    - amd64-01
+    - amd64-02
+
+- name: Prove a real GPU container on each GPU node
+  ansible.builtin.include_tasks: nvidia-gpu-qualification.yml
+  loop:
+    - amd64-01
+    - amd64-02
+  loop_control:
+    loop_var: gpu_qualification_node
+
+- name: Reconcile proven GPU model labels
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kalaxy3_kubeconfig }}"
+    state: patched
+    definition:
+      apiVersion: v1
+      kind: Node
+      metadata:
+        name: "{{ item }}"
+        labels:
+          kalaxy3.io/gpu-capable: "true"
+          kalaxy3.io/gpu-vendor: nvidia
+          kalaxy3.io/gpu-model: >-
+            {{ hostvars[item].kalaxy3_node_labels['kalaxy3.io/gpu-model'] }}
+  loop:
+    - amd64-01
+    - amd64-02

@@ -731,3 +731,7 @@ sage-architecture-approval-self-test:
 
 sage-architecture-approval-guardrail:
 	$(PYTHON) scripts/sage/sage-architecture-approval-guardrail.py
+
+.PHONY: sage-intent-submit
+sage-intent-submit:
+	@python3 scripts/sage/sage-intent-front-door.py --request "$${SAGE_REQUEST:?SAGE_REQUEST is required}"

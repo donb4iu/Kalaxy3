@@ -1,0 +1,17 @@
+---
+- name: Converge NVIDIA GPU host capability
+  hosts: "amd64-01:amd64-02"
+  become: true
+  gather_facts: true
+  serial: 1
+  tasks:
+    - ansible.builtin.import_tasks: tasks/nvidia-gpu-host.yml
+
+- name: Expose and qualify NVIDIA GPUs in Kubernetes
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    kalaxy3_kubeconfig: "{{ playbook_dir }}/../kubeconfig-kalaxy3.yaml"
+  tasks:
+    - ansible.builtin.import_tasks: tasks/nvidia-device-plugin.yml
