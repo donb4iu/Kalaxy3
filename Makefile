@@ -68,7 +68,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-lifecycle-contract-self-test sage-semantic-bootstrap-self-test sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-domain-capability-gap-approval-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test sage-intent-to-outcome-self-test sage-e2e-zero-trust-runtime-self-test sage-stage-receipt-self-test sage-artifact-promotion-self-test sage-architecture-approval-self-test
+sage-self-test: sage-lifecycle-contract-self-test sage-semantic-bootstrap-self-test sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-domain-capability-gap-approval-self-test sage-request-execute-self-test sage-request-bootstrap-activate-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test sage-intent-to-outcome-self-test sage-e2e-zero-trust-runtime-self-test sage-stage-receipt-self-test sage-artifact-promotion-self-test sage-architecture-approval-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 	python3 scripts/sage/sage-file-delivery-guardrail.py
@@ -516,6 +516,20 @@ sage-request-execute-self-test:
 
 sage-request-execution-guardrail:
 	$(PYTHON) scripts/sage/sage-request-execution-guardrail.py
+
+
+.PHONY: sage-request-bootstrap-activate sage-request-bootstrap-activate-self-test
+
+sage-request-bootstrap-activate:
+	@test -n "$${SAGE_BOOTSTRAP_REQUEST_STATE:-}" || { echo 'SAGE_BOOTSTRAP_REQUEST_STATE is required'; exit 2; }
+	@test -n "$${SAGE_BOOTSTRAP_PROPOSAL:-}" || { echo 'SAGE_BOOTSTRAP_PROPOSAL is required'; exit 2; }
+	@test -n "$${SAGE_BOOTSTRAP_CONTRIBUTION:-}" || { echo 'SAGE_BOOTSTRAP_CONTRIBUTION is required'; exit 2; }
+	@test -n "$${SAGE_BOOTSTRAP_ARCHITECT_INTENT:-}" || { echo 'SAGE_BOOTSTRAP_ARCHITECT_INTENT is required'; exit 2; }
+	@test -n "$${SAGE_BOOTSTRAP_OBJECTIVE_DECISION:-}" || { echo 'SAGE_BOOTSTRAP_OBJECTIVE_DECISION is required'; exit 2; }
+	$(PYTHON) scripts/sage/sage-request-bootstrap-activate.py --repo "$${SAGE_BOOTSTRAP_TARGET_REPO:-.}" --request-state "$$SAGE_BOOTSTRAP_REQUEST_STATE" --proposal "$$SAGE_BOOTSTRAP_PROPOSAL" --contribution "$$SAGE_BOOTSTRAP_CONTRIBUTION" --architect-intent "$$SAGE_BOOTSTRAP_ARCHITECT_INTENT" --objective-decision "$$SAGE_BOOTSTRAP_OBJECTIVE_DECISION"
+
+sage-request-bootstrap-activate-self-test:
+	$(PYTHON) scripts/sage/sage-request-bootstrap-activate.py --self-test
 
 .PHONY: sage-checkpoint-promotion-self-test sage-checkpoint-promotion-guardrail
 .PHONY: sage-checkpoint-promote sage-checkpoint-promotion-continue
