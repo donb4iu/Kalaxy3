@@ -41,11 +41,27 @@ EXPECTED_CONTRIBUTION_ID = (
 )
 FAILURE_CONTEXT = "helm-platform"
 FAILURE_CWD = "infrastructure/k3s-homelab"
-FAILURE_COMMAND = ("make", "source-guardrails")
-FAILURE_MARKERS = (
-    "playbooks/tasks/nvidia-device-plugin.yml",
-    "lacks Helm binary_path",
-    "lacks isolated Helm environment",
+DEFERRED_FAILURES = (
+    (
+        ("make", "source-guardrails"),
+        (
+            "playbooks/tasks/nvidia-device-plugin.yml",
+            "lacks Helm binary_path",
+            "lacks isolated Helm environment",
+        ),
+    ),
+    (
+        ("make", "deployment-guardrail"),
+        (
+            "nvidia_device_plugin: installation task does not contain locked release "
+            "value 'nvidia-device-plugin'",
+            "nvidia_device_plugin: installation task does not contain locked chart "
+            "value 'nvdp/nvidia-device-plugin'",
+            "nvidia_device_plugin: installation task does not contain locked namespace "
+            "value 'nvidia-device-plugin'",
+            "nvidia_device_plugin: installation task lacks isolated Helm environment",
+        ),
+    ),
 )
 CANDIDATE_CORRECTION_PATH = (
     "infrastructure/k3s-homelab/playbooks/tasks/nvidia-device-plugin.yml"
@@ -53,6 +69,9 @@ CANDIDATE_CORRECTION_PATH = (
 CANDIDATE_CORRECTION_MARKERS = (
     'binary_path: "{{ helm_binary }}"',
     'environment: "{{ helm_environment }}"',
+    "release_name: nvidia-device-plugin",
+    "chart_ref: nvdp/nvidia-device-plugin",
+    "release_namespace: nvidia-device-plugin",
 )
 
 EXPECTED_SOURCE_SIGNATURE = (
@@ -569,37 +588,55 @@ def deduplicate_baseline_entries(
     return tuple(result)
 
 
+def deferred_failure_markers(entry: BaselineEntry) -> tuple[str, ...] | None:
+    """Return exact evidence markers for one permitted pre-stage failure.
+
+    Args:
+        entry: Failed baseline command identity.
+    """
+
+    if entry.context_id != FAILURE_CONTEXT:
+        return None
+    if entry.cwd.as_posix().endswith(FAILURE_CWD) is False:
+        return None
+    for command, markers in DEFERRED_FAILURES:
+        if entry.argv == command:
+            return markers
+    return None
+
+
 def is_deferred_failure(entry: BaselineEntry, output: str) -> bool:
-    """Return whether one failure is exactly the authorized starting-state defect.
+    """Return whether one failure is an exact authorized starting-state defect.
 
     Args:
         entry: Failed baseline command identity.
         output: Combined command output.
     """
 
-    if entry.context_id != FAILURE_CONTEXT:
-        return False
-    if entry.argv != FAILURE_COMMAND or entry.cwd.as_posix().endswith(FAILURE_CWD) is False:
-        return False
-    return all(marker in output for marker in FAILURE_MARKERS)
+    markers = deferred_failure_markers(entry)
+    return markers is not None and all(marker in output for marker in markers)
 
 
 def validate_baseline_observations(
     observations: Sequence[BaselineObservation],
-) -> BaselineObservation:
-    """Allow exactly one concrete contribution-bound starting-state failure.
+) -> tuple[BaselineObservation, ...]:
+    """Allow exactly the two evidence-proven candidate-correctable failures.
 
     Args:
         observations: Complete pre-stage baseline observations.
     """
 
-    failures = [item for item in observations if item.returncode != 0]
-    if len(failures) != 1:
-        raise BootstrapError("pre-stage baseline must have exactly one deferred failure")
-    failure = failures[0]
-    if not is_deferred_failure(failure.entry, failure.stdout + failure.stderr):
+    failures = tuple(item for item in observations if item.returncode != 0)
+    expected_commands = tuple(command for command, _markers in DEFERRED_FAILURES)
+    observed_commands = tuple(item.entry.argv for item in failures)
+    if observed_commands != expected_commands:
+        raise BootstrapError("pre-stage baseline deferred failure set drifted")
+    if any(
+        not is_deferred_failure(item.entry, item.stdout + item.stderr)
+        for item in failures
+    ):
         raise BootstrapError("pre-stage baseline failure is unrelated or unproven")
-    return failure
+    return failures
 
 
 def require_controller_origin(origin: str, phase: str) -> None:
@@ -705,8 +742,11 @@ def import_trusted_request_execution() -> Any:
     return trusted
 
 
-def run_pre_stage_baseline(context: Any, trusted: Any) -> BaselineObservation:
-    """Run every current baseline command and return the sole deferred failure.
+def run_pre_stage_baseline(
+    context: Any,
+    trusted: Any,
+) -> tuple[BaselineObservation, ...]:
+    """Run every current baseline command and return exact deferred failures.
 
     Args:
         context: Trusted request-execution context.
@@ -790,30 +830,47 @@ def stage_exact_candidate(context: Any, trusted: Any) -> dict[str, str]:
 
 
 def run_post_stage_baseline(context: Any, trusted: Any) -> dict[str, Any]:
-    """Require the exact deferred command and complete baseline to pass post-stage.
+    """Require both exact deferred commands and full baseline to pass post-stage.
 
     Args:
         context: Trusted request-execution context.
         trusted: Preloaded trusted request-execution module.
     """
 
-    entry = next(
-        item
-        for item in baseline_entries(context.repo, context.bundle.declared_paths)
-        if item.context_id == FAILURE_CONTEXT and item.argv == FAILURE_COMMAND
+    entries = baseline_entries(context.repo, context.bundle.declared_paths)
+    deferred_entries: list[BaselineEntry] = []
+    for command, _markers in DEFERRED_FAILURES:
+        entry = next(
+            (
+                item
+                for item in entries
+                if item.context_id == FAILURE_CONTEXT and item.argv == command
+            ),
+            None,
+        )
+        if entry is None:
+            raise BootstrapError("deferred baseline command disappeared")
+        deferred_entries.append(entry)
+    commands = tuple(
+        trusted.ValidationCommand(
+            f"Resolve exact deferred baseline: {entry.command_text}",
+            entry.argv,
+            3600.0,
+        )
+        for entry in deferred_entries
     )
-    result = trusted.ValidationPlan(
-        entry.cwd,
+    results = trusted.ValidationPlan(
+        deferred_entries[0].cwd,
         context.runner,
-        (trusted.ValidationCommand("Resolve exact deferred baseline", entry.argv, 3600.0),),
-    ).run()[0]
+        commands,
+    ).run()
     require_post_stage_baseline("pass")
     full = trusted.context_policy_validation(context, field="baseline")
     return {
         "label": "Context-derived baseline validation",
         "reference": "sage-change-authority.json",
         "status": "pass",
-        "deferred_command_sha256": result.output_sha256,
+        "deferred_command_sha256s": [item.output_sha256 for item in results],
         "sha256": full["sha256"],
     }
 
@@ -927,7 +984,7 @@ def activation_success(
     context: Any,
     trusted: Any,
     proposal_payload: Mapping[str, Any],
-    pre_failure: BaselineObservation,
+    pre_failures: Sequence[BaselineObservation],
 ) -> Mapping[str, Any]:
     """Commit repository content and persist pass-only continuation evidence.
 
@@ -935,7 +992,7 @@ def activation_success(
         context: Trusted request-execution context.
         trusted: Preloaded trusted request-execution module.
         proposal_payload: Existing governed Git boundary.
-        pre_failure: Exact deferred starting-state observation.
+        pre_failures: Exact deferred starting-state observations.
     """
 
     if context.transaction is None or context.proposal_path is None:
@@ -947,7 +1004,9 @@ def activation_success(
         trusted,
         "operator-review-required",
         {
-            "deferred_baseline_output_sha256": pre_failure.output_sha256,
+            "deferred_baseline_output_sha256s": [
+                item.output_sha256 for item in pre_failures
+            ],
             "operator_proposal": str(context.proposal_path),
             "request_execution_state": str(state),
             "validation": list(context.validation),
@@ -1011,13 +1070,13 @@ def activate(args: argparse.Namespace) -> Mapping[str, Any]:
     try:
         run_pre_mutation_actions(context, trusted, args.objective_decision)
         verify_target_authority(context)
-        pre_failure = run_pre_stage_baseline(context, trusted)
+        pre_failures = run_pre_stage_baseline(context, trusted)
         verify_target_authority(context)
         verify_proposal_bundle(context.bundle, args.proposal)
         verify_contribution(args.contribution, context.bundle)
         stage_exact_candidate(context, trusted)
         proposal_payload = run_post_mutation_actions(context, trusted)
-        return activation_success(context, trusted, proposal_payload, pre_failure)
+        return activation_success(context, trusted, proposal_payload, pre_failures)
     except Exception as error:
         activation_failure(context, trusted, error)
         raise
@@ -1071,6 +1130,78 @@ def fixture_observation(
     return BaselineObservation(entry, returncode, sha256_bytes(output.encode()), output, "")
 
 
+def authorized_baseline_observations() -> list[BaselineObservation]:
+    """Build the exact two-failure positive pre-stage fixture."""
+
+    return [
+        fixture_observation(
+            FAILURE_CONTEXT,
+            command,
+            2,
+            "\n".join(markers),
+        )
+        for command, markers in DEFERRED_FAILURES
+    ]
+
+
+def test_pre_stage_baseline_guards() -> None:
+    """Exercise the exact bounded two-failure pre-stage contract."""
+
+    unrelated = [
+        fixture_observation(
+            "repository-governance",
+            ("make", "sage-self-test"),
+            2,
+            "failure",
+        )
+    ]
+    expect_failure(
+        lambda: validate_baseline_observations(unrelated),
+        "deferred failure set drifted",
+    )
+    authorized = authorized_baseline_observations()
+    deferred = validate_baseline_observations(authorized)
+    if tuple(item.entry.argv for item in deferred) != tuple(
+        command for command, _markers in DEFERRED_FAILURES
+    ):
+        raise RuntimeError("authorized deferred baseline identities changed")
+    expect_failure(
+        lambda: validate_baseline_observations(authorized[:1]),
+        "deferred failure set drifted",
+    )
+    test_pre_stage_baseline_negative_extensions(authorized)
+
+
+def test_pre_stage_baseline_negative_extensions(
+    authorized: Sequence[BaselineObservation],
+) -> None:
+    """Reject additional failures and wrong evidence for expected failures."""
+
+    additional = list(authorized) + [
+        fixture_observation(
+            "repository-governance",
+            ("make", "sage-self-test"),
+            2,
+            "failure",
+        )
+    ]
+    expect_failure(
+        lambda: validate_baseline_observations(additional),
+        "deferred failure set drifted",
+    )
+    wrong_evidence = list(authorized)
+    wrong_evidence[1] = fixture_observation(
+        FAILURE_CONTEXT,
+        DEFERRED_FAILURES[1][0],
+        2,
+        "unrelated deployment failure",
+    )
+    expect_failure(
+        lambda: validate_baseline_observations(wrong_evidence),
+        "unrelated or unproven",
+    )
+
+
 def run_self_test() -> None:
     """Run deterministic positive and negative bootstrap authority tests."""
 
@@ -1090,20 +1221,7 @@ def run_self_test() -> None:
         lambda: require_controller_origin("candidate-package", "pre-stage"),
         "cannot be pre-validation authority",
     )
-    unrelated = [
-        fixture_observation(
-            "repository-governance",
-            ("make", "sage-self-test"),
-            2,
-            "failure",
-        )
-    ]
-    expect_failure(lambda: validate_baseline_observations(unrelated), "unrelated or unproven")
-    markers = "\n".join(FAILURE_MARKERS)
-    authorized = [fixture_observation(FAILURE_CONTEXT, FAILURE_COMMAND, 2, markers)]
-    deferred = validate_baseline_observations(authorized)
-    if deferred.entry.argv != FAILURE_COMMAND:
-        raise RuntimeError("authorized deferred baseline identity changed")
+    test_pre_stage_baseline_guards()
     expect_failure(
         lambda: require_git_continuation_receipts(
             [{"status": "failed"}], Path("/x"), Path("/y"), Path("/z")
