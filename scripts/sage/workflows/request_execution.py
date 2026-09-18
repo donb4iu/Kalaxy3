@@ -15,7 +15,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
-from request_execution import ProposalBundle, load_proposal, next_operator_boundary, validate_operator_result, validate_routine_git_lifecycle_receipt
+from request_execution import (
+    ProposalBundle,
+    ProposalError,
+    load_proposal,
+    next_operator_boundary,
+    validate_operator_result,
+    validate_routine_git_lifecycle_receipt,
+)
+from semantic_understanding import load_engineering_contribution
 from workflow import (
     AtomicFileTransaction,
     AtomicFileWriter,
@@ -37,6 +45,7 @@ from workflow import (
     SageDiscovery,
     ValidationCommand,
     ValidationPlan,
+    WorkflowCommandError,
     WorkflowError,
 )
 from workflow.diagnosis import classify_post_retrieval_continuation
@@ -108,6 +117,7 @@ class ExecutionContext:
     already_realized: bool = False
     baseline_safety: dict[str, tuple[tuple[str, str, str], ...]] | None = None
     context_baseline_validation: dict[str, Any] | None = None
+    deferred_baseline_validation: dict[str, Any] | None = None
     validation: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -182,6 +192,15 @@ def consume_recovery_decision(
         or decision.get("next_boundary") != "implementation-local"
     ):
         raise WorkflowError("request-execution recovery is not implementation-local repair")
+    metrics = decision.get("metrics", {})
+    if (
+        isinstance(metrics, Mapping)
+        and metrics.get("non_convergence_detected") is True
+    ):
+        raise WorkflowError(
+            "non-converging request-execution recovery is blocked until "
+            "material verified implementation-local progress is present"
+        )
     identity = decision.get("recovery_identity", {})
     identity_sha = str(identity.get("identity_sha256", ""))
     fingerprint = str(decision.get("governing_condition_fingerprint", ""))
@@ -906,9 +925,8 @@ def mutation_action(context: ExecutionContext) -> Mapping[str, str]:
 
     capture_python_safety_baseline(context)
     validate_python_payloads(context)
-    context.context_baseline_validation = context_policy_validation(
-        context,
-        field="baseline",
+    context.context_baseline_validation = (
+        _run_pre_candidate_baseline_validation(context)
     )
 
     already_realized, digests = _proposal_payload_already_realized(
@@ -946,6 +964,7 @@ def mutation_action(context: ExecutionContext) -> Mapping[str, str]:
         )
         return digests
 
+    _verify_deferred_candidate_binding(context)
     paths = tuple(
         context.repo / relative
         for relative in context.bundle.declared_paths
@@ -1020,11 +1039,7 @@ def validation_action(context: ExecutionContext) -> tuple[Any, ...]:
     """Execute required validation for mutation or exact canonical realization."""
 
     discovery = validation_discovery(context)
-    context_required = context_policy_validation(
-        context,
-        field="required",
-        changed=not context.already_realized,
-    )
+    context_required = _post_candidate_context_validation(context)
     commands = proposal_validation_commands(context)
     results = ValidationPlan(
         context.repo,
@@ -1306,6 +1321,170 @@ def _action_status(context: ExecutionContext, action_id: str) -> str | None:
     return None
 
 
+def _unique_progress_reference(
+    references: list[object],
+    prefix: str,
+    label: str,
+) -> str | None:
+    """Return one unique implementation-local provenance reference.
+
+    Args:
+        references: Proposal evidence references.
+        prefix: Required evidence-reference prefix.
+        label: Human-readable provenance label.
+
+    Returns:
+        The unique reference value, or None when no value is claimed.
+
+    Raises:
+        WorkflowError: If the reference is ambiguous or empty.
+    """
+
+    values = [
+        item[len(prefix):]
+        for item in references
+        if isinstance(item, str) and item.startswith(prefix)
+    ]
+    if not values:
+        return None
+    if len(values) != 1 or not values[0].strip():
+        raise WorkflowError(f"implementation-local {label} is ambiguous")
+    return values[0]
+
+
+def _implementation_local_progress_evidence(
+    context: ExecutionContext,
+) -> dict[str, Any]:
+    """Return verified local-candidate progress for the active context.
+
+    Args:
+        context: Request-execution context containing the validated proposal.
+    """
+    references = context.bundle.manifest.get("evidence_references", [])
+    if not isinstance(references, list):
+        raise WorkflowError("request-execution evidence references are invalid")
+    digest_ref = _unique_progress_reference(
+        references, "implementation-local-contribution-sha256:", "digest"
+    )
+    package_ref = _unique_progress_reference(
+        references, "implementation-local-contribution-package:", "package"
+    )
+    if digest_ref is None and package_ref is None:
+        return {}
+    if (
+        digest_ref is None
+        or package_ref is None
+        or re.fullmatch(r"[0-9a-f]{64}", digest_ref) is None
+    ):
+        raise WorkflowError("implementation-local progress provenance is incomplete")
+    try:
+        contribution = load_engineering_contribution(
+            Path(package_ref).expanduser().resolve()
+        )
+    except ProposalError as error:
+        raise WorkflowError(
+            f"implementation-local progress contribution is invalid: {error}"
+        ) from error
+    if contribution.package_sha256 != digest_ref:
+        raise WorkflowError("implementation-local progress contribution digest drifted")
+    proposal_signature = tuple(
+        (item.path, item.sha256, item.mode) for item in context.bundle.source_files
+    )
+    contribution_signature = tuple(
+        (item.path, item.sha256, item.mode) for item in contribution.source_files
+    )
+    if contribution_signature != proposal_signature:
+        raise WorkflowError(
+            "implementation-local progress payload does not match proposal"
+        )
+    return {
+        "implementation_local_contribution_sha256": digest_ref,
+        "proposal_source_signature_sha256": digest_value(proposal_signature),
+    }
+
+def _candidate_correction_binding(
+    context: ExecutionContext,
+) -> dict[str, Any]:
+    """Bind a deferred baseline failure to one exact engineering candidate."""
+
+    progress = _implementation_local_progress_evidence(context)
+    if not progress:
+        raise WorkflowError(
+            "baseline failure is not bound to a verified engineering contribution"
+        )
+    return {
+        "proposal_package_sha256": sha256_file(context.bundle.package_path),
+        "declared_scope_sha256": digest_value(context.bundle.declared_paths),
+        **progress,
+    }
+
+
+def _run_pre_candidate_baseline_validation(
+    context: ExecutionContext,
+) -> dict[str, Any]:
+    """Run baseline validation or defer only a contribution-bound command failure."""
+
+    try:
+        return context_policy_validation(context, field="baseline")
+    except WorkflowCommandError as error:
+        binding = _candidate_correction_binding(context)
+        deferred = {
+            "label": "Context-derived baseline validation",
+            "reference": "sage-change-authority.json",
+            "status": "candidate-correction-pending",
+            "failure_sha256": hashlib.sha256(
+                str(error).encode("utf-8")
+            ).hexdigest(),
+            "candidate_binding": binding,
+        }
+        context.deferred_baseline_validation = deferred
+        return deferred
+
+
+def _verify_deferred_candidate_binding(context: ExecutionContext) -> None:
+    """Fail closed if proposal or contribution identity drifts before staging."""
+
+    deferred = context.deferred_baseline_validation
+    if deferred is None:
+        return
+    expected = deferred.get("candidate_binding")
+    if expected != _candidate_correction_binding(context):
+        raise WorkflowError(
+            "deferred baseline candidate/proposal/contribution identity drifted"
+        )
+
+
+def _resolve_deferred_baseline_validation(
+    context: ExecutionContext,
+) -> None:
+    """Require the same baseline contract to pass after bounded staging."""
+
+    deferred = context.deferred_baseline_validation
+    if deferred is None:
+        return
+    _verify_deferred_candidate_binding(context)
+    post_candidate = context_policy_validation(context, field="baseline")
+    context.context_baseline_validation = {
+        **deferred,
+        "status": "pass-after-bounded-candidate",
+        "post_candidate_sha256": post_candidate["sha256"],
+    }
+    context.deferred_baseline_validation = None
+
+
+def _post_candidate_context_validation(
+    context: ExecutionContext,
+) -> dict[str, Any]:
+    """Resolve any deferred baseline and run the unchanged required gate."""
+
+    _resolve_deferred_baseline_validation(context)
+    return context_policy_validation(
+        context,
+        field="required",
+        changed=not context.already_realized,
+    )
+
+
 def _governing_evidence(context: ExecutionContext) -> dict[str, Any]:
     """Build stable evidence for all post-retrieval governing conditions."""
 
@@ -1436,6 +1615,7 @@ def _build_recovery_decision(
         control_action_id=control_id,
         control_action_status=status,
         accepted_control_failure=accepted_failure,
+        progress_evidence=_implementation_local_progress_evidence(context),
     )
     return post_retrieval, decision
 

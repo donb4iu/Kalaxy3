@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ kalaxy3_ollama_lock.service.namespace }}
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: kalaxy3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama-headless
+  namespace: {{ kalaxy3_ollama_lock.service.namespace }}
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: kalaxy3
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: ollama
+  ports:
+    - name: http
+      protocol: TCP
+      port: {{ kalaxy3_ollama_lock.service.api_port }}
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: {{ kalaxy3_ollama_lock.service.namespace }}
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: kalaxy3
+  annotations:
+    metallb.io/address-pool: {{ kalaxy3_ollama_lock.service.metallb_pool }}
+spec:
+  type: LoadBalancer
+  loadBalancerIP: {{ kalaxy3_ollama_lock.service.load_balancer_ip }}
+  loadBalancerSourceRanges:
+{% for source_range in kalaxy3_ollama_lock.service.load_balancer_source_ranges %}
+    - {{ source_range }}
+{% endfor %}
+  selector:
+    app.kubernetes.io/name: ollama
+  ports:
+    - name: http
+      protocol: TCP
+      port: {{ kalaxy3_ollama_lock.service.api_port }}
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ollama
+  namespace: {{ kalaxy3_ollama_lock.service.namespace }}
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: kalaxy3
+spec:
+  serviceName: ollama-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ollama
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ollama
+        app.kubernetes.io/part-of: kalaxy3
+    spec:
+      runtimeClassName: {{ kalaxy3_ollama_lock.runtime.class_name }}
+      nodeSelector:
+        kubernetes.io/hostname: {{ kalaxy3_ollama_lock.placement.target_node }}
+        kubernetes.io/arch: {{ kalaxy3_ollama_lock.placement.architecture }}
+        kalaxy3.io/gpu-capable: "{{ kalaxy3_ollama_lock.placement.gpu_capable_label }}"
+        kalaxy3.io/gpu-model: {{ kalaxy3_ollama_lock.placement.gpu_model_label }}
+      containers:
+        - name: ollama
+          image: {{ kalaxy3_ollama_lock.image.reference }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0:{{ kalaxy3_ollama_lock.service.api_port }}"
+          ports:
+            - name: http
+              containerPort: {{ kalaxy3_ollama_lock.service.api_port }}
+              protocol: TCP
+          resources:
+            limits:
+              nvidia.com/gpu: {{ kalaxy3_ollama_lock.runtime.gpu_limit }}
+          startupProbe:
+            httpGet:
+              path: /api/tags
+              port: http
+            failureThreshold: 60
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /api/tags
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          volumeMounts:
+            - name: ollama-models
+              mountPath: {{ kalaxy3_ollama_lock.storage.model_path }}
+  volumeClaimTemplates:
+    - metadata:
+        name: ollama-models
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: {{ kalaxy3_ollama_lock.storage.class_name }}
+        resources:
+          requests:
+            storage: {{ kalaxy3_ollama_lock.storage.size }}

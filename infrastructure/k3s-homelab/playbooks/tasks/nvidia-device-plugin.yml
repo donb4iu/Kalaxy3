@@ -1,5 +1,5 @@
 ---
-- name: Load NVIDIA and Helm locks
+- name: Load NVIDIA, Helm, and repository trust locks
   ansible.builtin.set_fact:
     kalaxy3_nvidia_lock: >-
       {{
@@ -15,32 +15,87 @@
           playbook_dir ~ '/../helm-chart-lock.json'
         ) | from_json
       }}
+    helm_repository_registry: >-
+      {{
+        lookup(
+          'ansible.builtin.file',
+          playbook_dir ~ '/../helm-repositories.json'
+        ) | from_json
+      }}
 
-- name: Require exact NVIDIA device-plugin chart lock
+- name: Select the trusted NVIDIA device-plugin repository
+  ansible.builtin.set_fact:
+    kalaxy3_nvdp_repositories: >-
+      {{
+        helm_repository_registry.repositories
+        | selectattr('name', 'equalto', 'nvdp')
+        | list
+      }}
+
+- name: Require exact NVIDIA device-plugin chart and repository locks
   ansible.builtin.assert:
     that:
       - helm_chart_lock.charts.nvidia_device_plugin.version == '0.19.3'
       - helm_chart_lock.charts.nvidia_device_plugin.chart == 'nvdp/nvidia-device-plugin'
       - helm_chart_lock.charts.nvidia_device_plugin.release == 'nvidia-device-plugin'
       - helm_chart_lock.charts.nvidia_device_plugin.namespace == 'nvidia-device-plugin'
+      - kalaxy3_nvdp_repositories | length == 1
+      - >-
+        kalaxy3_nvdp_repositories[0].url ==
+        'https://nvidia.github.io/k8s-device-plugin'
+      - >-
+        kalaxy3_nvdp_repositories[0].url_sha256 ==
+        '8844777aa1ff4085f0d287677d69c57b7ff7d662f44e811758719d887dd86903'
+
+- name: Define repository-local Helm isolation
+  ansible.builtin.set_fact:
+    helm_binary: "{{ playbook_dir }}/../.tools/helm"
+    helm_environment:
+      KUBECONFIG: "{{ kalaxy3_kubeconfig }}"
+      HELM_KUBEAPISERVER: ""
+      HELM_KUBECAFILE: ""
+      HELM_KUBECONTEXT: ""
+      HELM_KUBETOKEN: ""
+      HELM_NAMESPACE: ""
+      HELM_CONFIG_HOME: "{{ playbook_dir }}/../.helm/config"
+      HELM_CACHE_HOME: "{{ playbook_dir }}/../.helm/cache"
+      HELM_DATA_HOME: "{{ playbook_dir }}/../.helm/data"
+      HELM_PLUGINS: "{{ playbook_dir }}/../.helm/plugins"
+      HELM_REGISTRY_CONFIG: "{{ playbook_dir }}/../.helm/registry/config.json"
+      HELM_REPOSITORY_CONFIG: "{{ playbook_dir }}/../.helm/repositories.yaml"
+      HELM_REPOSITORY_CACHE: "{{ playbook_dir }}/../.helm/repository-cache"
+
+- name: Create repository-local Helm state directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ playbook_dir }}/../.helm/config"
+    - "{{ playbook_dir }}/../.helm/cache"
+    - "{{ playbook_dir }}/../.helm/data"
+    - "{{ playbook_dir }}/../.helm/plugins"
+    - "{{ playbook_dir }}/../.helm/registry"
+    - "{{ playbook_dir }}/../.helm/repository-cache"
 
 - name: Add locked NVIDIA device-plugin Helm repository
   kubernetes.core.helm_repository:
     name: nvdp
-    repo_url: https://nvidia.github.io/k8s-device-plugin
-    binary_path: "{{ playbook_dir }}/../.tools/helm"
+    repo_url: "{{ kalaxy3_nvdp_repositories[0].url }}"
+    binary_path: "{{ helm_binary }}"
+  environment: "{{ helm_environment }}"
 
 - name: Install the locked NVIDIA device plugin
   kubernetes.core.helm:
-    name: "{{ helm_chart_lock.charts.nvidia_device_plugin.release }}"
-    chart_ref: "{{ helm_chart_lock.charts.nvidia_device_plugin.chart }}"
+    release_name: nvidia-device-plugin
+    chart_ref: nvdp/nvidia-device-plugin
     chart_version: "{{ helm_chart_lock.charts.nvidia_device_plugin.version }}"
-    release_namespace: "{{ helm_chart_lock.charts.nvidia_device_plugin.namespace }}"
+    release_namespace: nvidia-device-plugin
     create_namespace: true
     kubeconfig: "{{ kalaxy3_kubeconfig }}"
-    binary_path: "{{ playbook_dir }}/../.tools/helm"
+    binary_path: "{{ helm_binary }}"
     wait: true
-    wait_timeout: "10m"
+    timeout: "10m"
     values:
       runtimeClassName: nvidia
       migStrategy: none
@@ -54,10 +109,12 @@
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: kalaxy3.io/gpu-capable
+                  - key: kubernetes.io/hostname
                     operator: In
                     values:
-                      - "true"
+                      - amd64-01
+                      - amd64-02
+  environment: "{{ helm_environment }}"
 
 - name: Wait for one schedulable NVIDIA GPU on each declared GPU node
   kubernetes.core.k8s_info:

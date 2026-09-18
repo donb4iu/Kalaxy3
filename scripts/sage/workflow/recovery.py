@@ -325,6 +325,19 @@ def bind_successor_operator_boundary(
     )
     if disposition != "successor-action" and not implementation_local:
         return payload
+    metrics = payload.get("metrics", {})
+    non_converging = (
+        implementation_local
+        and isinstance(metrics, Mapping)
+        and metrics.get("non_convergence_detected") is True
+    )
+    if non_converging:
+        payload["operator_boundary"] = {
+            "kind": "repository-workflow",
+            "command": None,
+            "decision": None,
+        }
+        return payload
     command = _bound_recovery_command(
         disposition=disposition,
         owning_component=str(payload.get("owning_component", "")),
@@ -653,7 +666,9 @@ def _metrics(
     local_repair = disposition == "repair" and not architect_attention_required
     return {
         "recurrence_detected": recurred,
-        "prevented_duplicate_reentry": disposition == "over-governance-blocked",
+        "prevented_duplicate_reentry": (
+            disposition == "over-governance-blocked" or non_converging
+        ),
         "successor_escalation": disposition == "successor-action",
         "architect_attention_required": architect_attention_required,
         "avoided_architect_recovery_round_trips": 1 if local_repair else 0,
@@ -697,8 +712,9 @@ def _reason(
                 "The consumed implementation-local repair recurred without "
                 "verified progress, but no evidence demonstrates failure of the "
                 "accepted owning control. Non-convergence is recorded without "
-                "manufacturing an Architect successor boundary; correction, "
-                "regression, and revalidation remain implementation-local."
+                "manufacturing an Architect successor boundary; the identical "
+                "retry remains suppressed until material, verifiable "
+                "implementation-local progress exists."
             )
         if recurred:
             return (

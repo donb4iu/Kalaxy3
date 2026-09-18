@@ -98,11 +98,13 @@ value-producing progress evidence independently from the governing-condition
 fingerprint. Changed bytes, a different error, command execution without
 verification, incidental local-state changes, or equivalent-path cycling do not
 constitute progress. If a consumed local repair recurs without verified progress,
-SAGE records non-convergence and must not simply claim success or manufacture a
-new Architect successor boundary. The correction remains owned by the failed
-component unless separate evidence demonstrates that the accepted owning control
-violated its promised behavior. Only that evidence-backed control failure may
-enter the successor-action path described below.
+SAGE records non-convergence and must not simply claim success, bind or emit the
+identical implementation-local retry, or manufacture a new Architect successor
+boundary. The correction remains owned by the failed component and the operator
+boundary stays fail-closed until checksum-bound implementation-local contribution
+provenance demonstrates a materially different candidate under the existing
+authority. Only separate evidence that the accepted owning control violated its
+promised behavior may enter the successor-action path described below.
 
 Each owner validates its own repair regression and, on first consumption,
 records the immutable recovery consumption receipt without performing repository

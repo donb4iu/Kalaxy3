@@ -1,0 +1,213 @@
+---
+- name: Deploy the locked Kalaxy3 Ollama GPU endpoint
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    kalaxy3_kubeconfig: "{{ playbook_dir }}/../kubeconfig-kalaxy3.yaml"
+  tasks:
+    - name: Load the repository Ollama lock
+      ansible.builtin.set_fact:
+        kalaxy3_ollama_lock: >-
+          {{
+            lookup(
+              'ansible.builtin.file',
+              playbook_dir ~ '/../ollama-platforms.json'
+            ) | from_json
+          }}
+
+    - name: Require the reviewed Ollama deployment lock
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_ollama_lock.schema_version == '1.0'
+          - kalaxy3_ollama_lock.image.version == '0.34.0'
+          - >-
+            kalaxy3_ollama_lock.image.reference ==
+            'docker.io/ollama/ollama@sha256:aa6f86f01fee264c81f1edd9083ebfb07c8116d95d8bedd1ad470874b66a40b4'
+          - kalaxy3_ollama_lock.placement.target_node == 'amd64-02'
+          - kalaxy3_ollama_lock.placement.architecture == 'amd64'
+          - kalaxy3_ollama_lock.placement.gpu_capable_label == 'true'
+          - kalaxy3_ollama_lock.placement.gpu_model_label == 'rtx-3060-lhr'
+          - kalaxy3_ollama_lock.runtime.class_name == 'nvidia'
+          - kalaxy3_ollama_lock.runtime.gpu_limit | int == 1
+          - kalaxy3_ollama_lock.storage.class_name == 'longhorn'
+          - kalaxy3_ollama_lock.storage.size == '60Gi'
+          - kalaxy3_ollama_lock.storage.model_path == '/root/.ollama'
+          - kalaxy3_ollama_lock.service.namespace == 'ollama'
+          - kalaxy3_ollama_lock.service.api_port | int == 11434
+          - kalaxy3_ollama_lock.service.metallb_pool == 'lan-pool'
+          - kalaxy3_ollama_lock.service.load_balancer_ip == '192.168.2.27'
+          - >-
+            kalaxy3_ollama_lock.k3s.expected_kubelet_version ==
+            'v1.36.2+k3s1'
+
+    - name: Read target GPU node state
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: v1
+        kind: Node
+        name: "{{ kalaxy3_ollama_lock.placement.target_node }}"
+      register: kalaxy3_ollama_node
+
+    - name: Require the qualified amd64-02 GPU contract
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_ollama_node.resources | length == 1
+          - >-
+            kalaxy3_ollama_node.resources[0].metadata.labels['kubernetes.io/arch'] ==
+            kalaxy3_ollama_lock.placement.architecture
+          - >-
+            kalaxy3_ollama_node.resources[0].metadata.labels['kalaxy3.io/gpu-capable'] ==
+            kalaxy3_ollama_lock.placement.gpu_capable_label
+          - >-
+            kalaxy3_ollama_node.resources[0].metadata.labels['kalaxy3.io/gpu-model'] ==
+            kalaxy3_ollama_lock.placement.gpu_model_label
+          - >-
+            kalaxy3_ollama_node.resources[0].status.nodeInfo.kubeletVersion ==
+            kalaxy3_ollama_lock.k3s.expected_kubelet_version
+          - >-
+            (
+              kalaxy3_ollama_node.resources[0].status.allocatable['nvidia.com/gpu']
+              | default('0')
+              | int
+            ) >= 1
+        fail_msg: >-
+          amd64-02 has not proven the repository GPU/K3s contract; refusing to
+          deploy Ollama.
+
+    - name: Require the NVIDIA RuntimeClass
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: node.k8s.io/v1
+        kind: RuntimeClass
+        name: "{{ kalaxy3_ollama_lock.runtime.class_name }}"
+      register: kalaxy3_ollama_runtime_class
+
+    - name: Require exactly one NVIDIA RuntimeClass
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_ollama_runtime_class.resources | length == 1
+
+    - name: Require the Longhorn StorageClass
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: storage.k8s.io/v1
+        kind: StorageClass
+        name: "{{ kalaxy3_ollama_lock.storage.class_name }}"
+      register: kalaxy3_ollama_storage_class
+
+    - name: Require exactly one Longhorn StorageClass
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_ollama_storage_class.resources | length == 1
+
+    - name: Require the configured MetalLB address pool
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: metallb.io/v1beta1
+        kind: IPAddressPool
+        namespace: metallb-system
+        name: "{{ kalaxy3_ollama_lock.service.metallb_pool }}"
+      register: kalaxy3_ollama_address_pool
+
+    - name: Require exactly one configured MetalLB address pool
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_ollama_address_pool.resources | length == 1
+
+    - name: Read existing Kubernetes services before IP claim
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: v1
+        kind: Service
+      register: kalaxy3_ollama_services
+
+    - name: Find existing claimants of the locked Ollama IP
+      ansible.builtin.set_fact:
+        kalaxy3_ollama_ip_claims: >-
+          {{
+            kalaxy3_ollama_services.resources
+            | selectattr('spec.loadBalancerIP', 'defined')
+            | selectattr(
+                'spec.loadBalancerIP',
+                'equalto',
+                kalaxy3_ollama_lock.service.load_balancer_ip
+              )
+            | list
+          }}
+
+    - name: Refuse a live LoadBalancer IP collision
+      ansible.builtin.assert:
+        that:
+          - >-
+            kalaxy3_ollama_ip_claims | length == 0
+            or
+            (
+              kalaxy3_ollama_ip_claims | length == 1
+              and
+              kalaxy3_ollama_ip_claims[0].metadata.namespace ==
+              kalaxy3_ollama_lock.service.namespace
+              and
+              kalaxy3_ollama_ip_claims[0].metadata.name == 'ollama'
+            )
+        fail_msg: >-
+          192.168.2.27 is already claimed by another Kubernetes Service;
+          refusing to overwrite the live allocation.
+
+    - name: Render the locked Ollama Kubernetes resources
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../manifests/ollama.yml.j2"
+        dest: /tmp/kalaxy3-ollama.yml
+        mode: "0600"
+
+    - name: Apply the locked Ollama Kubernetes resources
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        state: present
+        src: /tmp/kalaxy3-ollama.yml
+        apply: true
+
+    - name: Wait for the Ollama StatefulSet to become ready
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: apps/v1
+        kind: StatefulSet
+        namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+        name: ollama
+      register: kalaxy3_ollama_statefulset
+      until: >-
+        kalaxy3_ollama_statefulset.resources | length == 1
+        and
+        (
+          kalaxy3_ollama_statefulset.resources[0].status.readyReplicas
+          | default(0)
+          | int
+        ) == 1
+      retries: 120
+      delay: 5
+
+    - name: Require the Ollama model PVC to be Bound
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: v1
+        kind: PersistentVolumeClaim
+        namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+        name: ollama-models-ollama-0
+      register: kalaxy3_ollama_pvc
+      until: >-
+        kalaxy3_ollama_pvc.resources | length == 1
+        and
+        kalaxy3_ollama_pvc.resources[0].status.phase | default('') == 'Bound'
+      retries: 60
+      delay: 5
+
+    - name: Prove workstation/controller reachability of the Ollama API
+      ansible.builtin.uri:
+        url: "http://{{ kalaxy3_ollama_lock.service.load_balancer_ip }}:{{ kalaxy3_ollama_lock.service.api_port }}/api/tags"
+        method: GET
+        return_content: true
+        status_code: 200
+      register: kalaxy3_ollama_api
+      until: kalaxy3_ollama_api.status | default(0) == 200
+      retries: 60
+      delay: 5
