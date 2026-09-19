@@ -5,6 +5,7 @@
   connection: local
   gather_facts: false
   vars:
+    ansible_become: false
     kalaxy3_kubeconfig: "{{ playbook_dir }}/../kubeconfig-kalaxy3.yaml"
   tasks:
     - name: Require an explicitly selected model and digest
