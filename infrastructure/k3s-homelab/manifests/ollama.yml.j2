@@ -107,15 +107,19 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 30
           volumeMounts:
-            - name: ollama-models
+            - name: ollama-models-nfs
               mountPath: {{ kalaxy3_ollama_lock.storage.model_path }}
+      volumes:
+        - name: ollama-models-nfs
+          persistentVolumeClaim:
+            claimName: {{ kalaxy3_ollama_lock.storage.destination_pvc_name }}
   volumeClaimTemplates:
     - metadata:
         name: ollama-models
       spec:
         accessModes:
           - ReadWriteOnce
-        storageClassName: {{ kalaxy3_ollama_lock.storage.class_name }}
+        storageClassName: {{ kalaxy3_ollama_lock.storage.source_class_name }}
         resources:
           requests:
             storage: {{ kalaxy3_ollama_lock.storage.size }}

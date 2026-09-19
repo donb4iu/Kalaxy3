@@ -35,7 +35,7 @@
 
 - name: Verify expected NVIDIA PCI identity
   ansible.builtin.command:
-    argv: [lspci, -nn]
+    argv: [lspci, -nn, -v]
   register: kalaxy3_gpu_lspci
   changed_when: false
 
@@ -239,6 +239,8 @@
 - name: Verify NVIDIA container runtime executable
   ansible.builtin.command:
     argv: [nvidia-container-runtime, --version]
+  environment:
+    PATH: "/var/lib/rancher/k3s/data/current/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
   changed_when: false
 
 - name: Verify K3s generated NVIDIA runtime configuration

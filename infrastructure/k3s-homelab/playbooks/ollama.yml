@@ -30,7 +30,10 @@
           - kalaxy3_ollama_lock.placement.gpu_model_label == 'rtx-3060-lhr'
           - kalaxy3_ollama_lock.runtime.class_name == 'nvidia'
           - kalaxy3_ollama_lock.runtime.gpu_limit | int == 1
-          - kalaxy3_ollama_lock.storage.class_name == 'longhorn'
+          - kalaxy3_ollama_lock.storage.class_name == 'nfs-ssd'
+          - kalaxy3_ollama_lock.storage.source_class_name == 'longhorn'
+          - kalaxy3_ollama_lock.storage.source_pvc_name == 'ollama-models-ollama-0'
+          - kalaxy3_ollama_lock.storage.destination_pvc_name == 'ollama-models-ollama-0-nfs'
           - kalaxy3_ollama_lock.storage.size == '60Gi'
           - kalaxy3_ollama_lock.storage.model_path == '/root/.ollama'
           - kalaxy3_ollama_lock.service.namespace == 'ollama'
@@ -88,7 +91,7 @@
         that:
           - kalaxy3_ollama_runtime_class.resources | length == 1
 
-    - name: Require the Longhorn StorageClass
+    - name: Require the configured final Ollama StorageClass
       kubernetes.core.k8s_info:
         kubeconfig: "{{ kalaxy3_kubeconfig }}"
         api_version: storage.k8s.io/v1
@@ -96,7 +99,7 @@
         name: "{{ kalaxy3_ollama_lock.storage.class_name }}"
       register: kalaxy3_ollama_storage_class
 
-    - name: Require exactly one Longhorn StorageClass
+    - name: Require exactly one configured final Ollama StorageClass
       ansible.builtin.assert:
         that:
           - kalaxy3_ollama_storage_class.resources | length == 1
@@ -154,6 +157,9 @@
           192.168.2.27 is already claimed by another Kubernetes Service;
           refusing to overwrite the live allocation.
 
+    - name: Migrate Ollama model store to configured final storage
+      ansible.builtin.include_tasks: migrate-ollama-models.yml
+
     - name: Render the locked Ollama Kubernetes resources
       ansible.builtin.template:
         src: "{{ playbook_dir }}/../manifests/ollama.yml.j2"
@@ -192,7 +198,7 @@
         api_version: v1
         kind: PersistentVolumeClaim
         namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
-        name: ollama-models-ollama-0
+        name: "{{ kalaxy3_ollama_lock.storage.destination_pvc_name }}"
       register: kalaxy3_ollama_pvc
       until: >-
         kalaxy3_ollama_pvc.resources | length == 1

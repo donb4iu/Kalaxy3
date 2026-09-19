@@ -9,6 +9,7 @@
 
 - name: Expose and qualify NVIDIA GPUs in Kubernetes
   hosts: localhost
+  become: false
   connection: local
   gather_facts: false
   vars:

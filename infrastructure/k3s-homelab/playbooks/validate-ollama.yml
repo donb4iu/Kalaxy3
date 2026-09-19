@@ -105,7 +105,7 @@
         namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
         name: "{{ kalaxy3_ollama_old_pod_name }}"
         state: absent
-        wait: true
+        wait: false
 
     - name: Wait for the replacement Ollama pod
       kubernetes.core.k8s_info:

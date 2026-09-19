@@ -30,8 +30,11 @@
     "namespace": "ollama"
   },
   "storage": {
-    "class_name": "longhorn",
+    "class_name": "nfs-ssd",
     "model_path": "/root/.ollama",
-    "size": "60Gi"
+    "size": "60Gi",
+    "source_class_name": "longhorn",
+    "source_pvc_name": "ollama-models-ollama-0",
+    "destination_pvc_name": "ollama-models-ollama-0-nfs"
   }
 }
