@@ -1,7 +1,7 @@
 {
-  "catalog_fingerprint": "11ce4ae19da58d20c54a4aed658300b1ca104a74b451d0aa6229a250799e93dd",
+  "catalog_fingerprint": "a02c2a6486aa9e85870d336bcbcf92005923cd039ca0bbe066df0bf45e730118",
   "catalog_schema_version": "1.0",
-  "record_count": 41,
+  "record_count": 42,
   "records": [
     {
       "completed_at": "2026-09-13T13:04:00-05:00",
@@ -1022,6 +1022,36 @@
       ],
       "title": "External Audit of Centralized Logging SAGE Evidence Quality and Prompt Equivalence",
       "valid_as_of": "2026-07-28"
+    },
+    {
+      "completed_at": "2026-09-19T03:10:16-05:00",
+      "confidence": "high",
+      "evidence_id": "SAGE-K3-INFERENCE-20260919-001",
+      "metadata_source": "authoritative",
+      "migration_status": "current",
+      "nav_order": 680,
+      "nav_section": "verification",
+      "nav_title": "Validate GPT-OSS shared inference runtime",
+      "owner": "Kalaxy3 architecture",
+      "primary_subject": "GPT-OSS shared inference",
+      "record_class": "sage-current",
+      "schema_version": "1.2",
+      "source_path": "markdown/verification/gpt-oss-shared-inference-runtime-validation.md",
+      "status": "validated",
+      "summary": "Validates the governed GPT-OSS shared-inference runtime after two fail-closed controller corrections, including Longhorn-to-NFS-SSD model migration, exact model persistence, GPU execution, OpenWebUI health, and retained rollback storage.",
+      "tags": [
+        "sage",
+        "gpt-oss",
+        "ollama",
+        "openwebui",
+        "gpu",
+        "nfs-ssd",
+        "longhorn",
+        "runtime-validation",
+        "shared-inference"
+      ],
+      "title": "GPT-OSS Shared Inference Storage Migration, GPU Runtime, and OpenWebUI Validation Evidence",
+      "valid_as_of": "2026-09-19"
     }
   ],
   "registry_path": "markdown/evidence/legacy-record-registry.json",
