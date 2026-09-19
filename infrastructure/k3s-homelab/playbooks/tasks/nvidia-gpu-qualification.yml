@@ -1,0 +1,87 @@
+---
+- name: Remove stale GPU qualification pod for {{ gpu_qualification_node }}
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kalaxy3_kubeconfig }}"
+    api_version: v1
+    kind: Pod
+    namespace: nvidia-device-plugin
+    name: "kalaxy3-gpu-proof-{{ gpu_qualification_node }}"
+    state: absent
+    wait: true
+
+- name: Create GPU qualification pod for {{ gpu_qualification_node }}
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kalaxy3_kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: "kalaxy3-gpu-proof-{{ gpu_qualification_node }}"
+        namespace: nvidia-device-plugin
+      spec:
+        restartPolicy: Never
+        runtimeClassName: nvidia
+        nodeName: "{{ gpu_qualification_node }}"
+        containers:
+          - name: nvidia-smi
+            image: "{{ kalaxy3_nvidia_lock.qualification_image.reference }}"
+            imagePullPolicy: IfNotPresent
+            command:
+              - nvidia-smi
+              - --query-gpu=name,memory.total,driver_version
+              - --format=csv,noheader
+            resources:
+              limits:
+                nvidia.com/gpu: 1
+
+- name: Wait for GPU qualification pod completion on {{ gpu_qualification_node }}
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kalaxy3_kubeconfig }}"
+    api_version: v1
+    kind: Pod
+    namespace: nvidia-device-plugin
+    name: "kalaxy3-gpu-proof-{{ gpu_qualification_node }}"
+  register: kalaxy3_gpu_proof_pod
+  until: >-
+    kalaxy3_gpu_proof_pod.resources | length == 1
+    and
+    kalaxy3_gpu_proof_pod.resources[0].status.phase | default('') in
+    ['Succeeded', 'Failed']
+  retries: 60
+  delay: 5
+
+- name: Require GPU qualification pod success on {{ gpu_qualification_node }}
+  ansible.builtin.assert:
+    that:
+      - kalaxy3_gpu_proof_pod.resources[0].status.phase == 'Succeeded'
+    fail_msg: >-
+      GPU qualification pod failed on {{ gpu_qualification_node }}.
+
+- name: Read GPU qualification proof on {{ gpu_qualification_node }}
+  kubernetes.core.k8s_log:
+    kubeconfig: "{{ kalaxy3_kubeconfig }}"
+    namespace: nvidia-device-plugin
+    name: "kalaxy3-gpu-proof-{{ gpu_qualification_node }}"
+  register: kalaxy3_gpu_proof_log
+
+- name: Require expected GPU model in pod proof on {{ gpu_qualification_node }}
+  ansible.builtin.assert:
+    that:
+      - >-
+        hostvars[gpu_qualification_node].kalaxy3_nvidia_expected_name_contains
+        in
+        kalaxy3_gpu_proof_log.log
+    success_msg: >-
+      Kubernetes GPU proof {{ gpu_qualification_node }}:
+      {{ kalaxy3_gpu_proof_log.log | trim }}
+
+- name: Remove successful GPU qualification pod for {{ gpu_qualification_node }}
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kalaxy3_kubeconfig }}"
+    api_version: v1
+    kind: Pod
+    namespace: nvidia-device-plugin
+    name: "kalaxy3-gpu-proof-{{ gpu_qualification_node }}"
+    state: absent
+    wait: true

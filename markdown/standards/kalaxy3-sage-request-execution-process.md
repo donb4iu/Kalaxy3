@@ -139,11 +139,21 @@ repository-relative Python validator; unsupported command shapes fail closed
 rather than falling back to shell interpretation.
 
 Proposal-supplied safe `make sage-*` validations still run afterward as
-additional checks. A failure in either context-derived phase is a request
-execution failure; after a transaction has opened, the normal verified rollback
-and recovery path applies. This prevents a planning source from weakening the
-validation contract merely by omitting checks that discovery already knows are
-required.
+additional checks. Context-derived required validation remains an unconditional
+hard gate. Context-derived baseline validation also remains a hard gate unless
+its command fails before mutation and the exact proposal source signature is
+cryptographically identical to one contract-valid engineering contribution
+identified by checksum-bound implementation-local provenance. In that bounded
+case, the failure is recorded as candidate-correction-pending and may permit only
+the already-authorized candidate transaction to open. The executor re-verifies
+proposal, contribution, and declared-scope identity immediately before staging
+and again before post-candidate validation. The same context-derived baseline
+command must then pass with only those declared candidate bytes staged; otherwise
+the transaction fails and follows the normal verified rollback path. Required
+validation, supplemental validation, repository diff checks, Python safety,
+authority, and operator boundaries are unchanged. This exception therefore
+admits a pre-existing candidate-correctable failure as starting-state evidence
+without waiving unrelated existing failures or newly introduced failures.
 
 ## Proposal-bound Python safety baseline
 

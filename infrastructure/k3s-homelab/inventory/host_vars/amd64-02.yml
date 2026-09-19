@@ -19,13 +19,17 @@ kalaxy3_cost:
     enabled: true
     kubernetes_schedulable: false
     vendor: nvidia
-    model: rtx-3060-ti
+    model: rtx-3060-lhr
     memory_gib: 8
     count: 1
     purchase_price_usd: 500.00
     residual_value_usd: 350.00
     useful_life_months: 60
     average_incremental_watts: 0.00
+
+kalaxy3_nvidia_pci_device_id: "10de:2504"
+kalaxy3_nvidia_subsystem_id: "1462:397d"
+kalaxy3_nvidia_expected_name_contains: "NVIDIA GeForce RTX 3060"
 
 kalaxy3_node_labels:
   kalaxy3.io/hardware-class: intel-i5-11600-64gb
@@ -36,5 +40,5 @@ kalaxy3_node_labels:
   kalaxy3.io/storage-role: longhorn
   kalaxy3.io/gpu-capable: "true"
   kalaxy3.io/gpu-vendor: nvidia
-  kalaxy3.io/gpu-model: rtx-3060-ti
+  kalaxy3.io/gpu-model: rtx-3060-lhr
   kalaxy3.io/gpu-memory-gib: "8"

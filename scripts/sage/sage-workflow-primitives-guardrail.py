@@ -640,10 +640,14 @@ def validate_docs_and_authority() -> list[str]:
     else:
         json.loads(SCHEMA.read_text(encoding="utf-8"))
     github_source = (ROOT / "scripts/sage/workflow/github_inspect.py").read_text(encoding="utf-8")
+    if '"filter": "all"' not in github_source:
+        failures.append("github.inspect must enumerate all exact-source check suites")
+    if '"filter": "latest"' in github_source:
+        failures.append("github.inspect may not hide exact-source suites behind latest filtering")
     for marker in (
         "GitHubCheckRunSnapshot",
         "/check-runs",
-        '"filter": "latest"',
+        '"filter": "all"',
         "check_suite_id",
         "require_successful_check",
         "require_successful_checks",

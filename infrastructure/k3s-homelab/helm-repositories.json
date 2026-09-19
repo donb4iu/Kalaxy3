@@ -39,6 +39,11 @@
             "name": "longhorn",
             "url": "https://charts.longhorn.io",
             "url_sha256": "fb7e9a4773fc0b78c82a6905fc62e1a675b271aa1d6ed461a42068c3bcb93860"
+        },
+        {
+            "name": "nvdp",
+            "url": "https://nvidia.github.io/k8s-device-plugin",
+            "url_sha256": "8844777aa1ff4085f0d287677d69c57b7ff7d662f44e811758719d887dd86903"
         }
     ],
     "schema_version": "1.0"

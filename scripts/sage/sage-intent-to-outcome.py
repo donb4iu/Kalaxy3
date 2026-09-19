@@ -18,6 +18,7 @@ from workflow import WorkflowError  # noqa: E402
 from workflows import intent_to_outcome as intent_workflow  # noqa: E402
 from workflow.recovery import governing_composition_digest  # noqa: E402
 from workflows.intent_to_outcome import (  # noqa: E402
+    adopt_confirmed_planning_source,
     adopt_iteration,
     adopt_request_execution,
     begin_candidate_iteration,
@@ -39,6 +40,10 @@ from workflows.intent_to_outcome import (  # noqa: E402
     reconcile_completed_semantic_child,
     objective_route_snapshot,
     validate_runtime_receipt,
+)
+from workflows.llm_workflow_manager import (  # noqa: E402
+    manage_candidate_iteration,
+    self_test as workflow_manager_self_test,
 )
 
 
@@ -591,6 +596,7 @@ def self_test() -> int:
         else:
             raise RuntimeError("runtime acceptance without candidate source commit did not fail closed")
     print("PASS runtime acceptance fails closed without candidate source lineage")
+    workflow_manager_self_test()
     print("PASS intent-to-outcome front door self-test")
     return 0
 
@@ -618,6 +624,11 @@ def parse_args() -> argparse.Namespace:
     confirm.add_argument("--dispositions", type=Path, required=True)
     confirm.add_argument("--actor", required=True)
 
+    adopt_source = sub.add_parser("adopt-confirmed-source")
+    adopt_source.add_argument("--request", required=True)
+    adopt_source.add_argument("--planning-source", type=Path, required=True)
+    adopt_source.add_argument("--contribution", type=Path, required=True)
+
     adopt = sub.add_parser("adopt-request")
     adopt.add_argument("--request", required=True)
     adopt.add_argument("--request-state", type=Path, required=True)
@@ -642,6 +653,14 @@ def parse_args() -> argparse.Namespace:
     iterate.add_argument("--parent-checkpoint", required=True)
     iterate.add_argument("--affected-obligation", action="append", default=[])
     iterate.add_argument("--approved-gap-set", type=Path)
+
+    managed = sub.add_parser("manage-iterate")
+    managed.add_argument("--state", type=Path, required=True)
+    managed.add_argument("--contribution", type=Path, required=True)
+    managed.add_argument("--trigger", required=True)
+    managed.add_argument("--parent-checkpoint", required=True)
+    managed.add_argument("--affected-obligation", action="append", default=[])
+    managed.add_argument("--approved-gap-set", type=Path)
 
     planned_continuation = sub.add_parser("continue-planned")
     planned_continuation.add_argument("--state", type=Path, required=True)
@@ -696,6 +715,13 @@ def main() -> int:
         result = confirm_intent(
             args.repo, args.state, args.confirmation, args.dispositions, args.actor
         )
+    elif args.command == "adopt-confirmed-source":
+        result = adopt_confirmed_planning_source(
+            args.repo,
+            args.request,
+            args.planning_source,
+            args.contribution,
+        )
     elif args.command == "adopt-request":
         result = adopt_request_execution(args.repo, args.request, args.request_state)
     elif args.command == "adopt-iteration":
@@ -715,6 +741,16 @@ def main() -> int:
             args.contribution,
             trigger=args.trigger,
             reentry_boundary=args.reentry_boundary,
+            parent_checkpoint=args.parent_checkpoint,
+            affected_obligations=args.affected_obligation,
+            approved_gap_set=args.approved_gap_set,
+        )
+    elif args.command == "manage-iterate":
+        result = manage_candidate_iteration(
+            args.repo,
+            args.state,
+            args.contribution,
+            trigger=args.trigger,
             parent_checkpoint=args.parent_checkpoint,
             affected_obligations=args.affected_obligation,
             approved_gap_set=args.approved_gap_set,

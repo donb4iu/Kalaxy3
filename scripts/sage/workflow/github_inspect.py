@@ -316,7 +316,7 @@ class GitHubInspector:
         expected_name = self._string(check_name, "expected check-run name")
         payload = self._request_json(
             f"/repos/{self.owner}/{self.repository}/commits/{expected_sha}/check-runs",
-            {"check_name": str(expected_name), "filter": "latest", "per_page": "100"},
+            {"check_name": str(expected_name), "filter": "all", "per_page": "100"},
         )
         data = self._mapping(payload, "check-run list response")
         total = data.get("total_count")

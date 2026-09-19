@@ -1,0 +1,61 @@
+---
+- name: Deploy OpenWebUI
+  hosts: localhost
+  become: false
+  connection: local
+  gather_facts: false
+  vars:
+    ansible_become: false
+    kalaxy3_kubeconfig: "{{ playbook_dir }}/../kubeconfig-kalaxy3.yaml"
+  tasks:
+    - name: Render OpenWebUI manifest
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../manifests/openwebui.yml.j2"
+        dest: /tmp/openwebui.yml
+        mode: "0600"
+
+    - name: Apply OpenWebUI resources
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        state: present
+        src: /tmp/openwebui.yml
+        apply: true
+
+    - name: Wait for OpenWebUI Deployment to be ready
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: apps/v1
+        kind: Deployment
+        namespace: openwebui
+        name: openwebui
+      register: openwebui_deployment
+      until: openwebui_deployment.resources | length == 1 and openwebui_deployment.resources[0].status.availableReplicas | default(0) == 1
+      retries: 120
+      delay: 5
+
+    - name: Wait for OpenWebUI Service to have external IP
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: v1
+        kind: Service
+        namespace: openwebui
+        name: openwebui
+      register: openwebui_service
+      until: openwebui_service.resources | length == 1 and openwebui_service.resources[0].status.loadBalancer.ingress | length > 0
+      retries: 120
+      delay: 5
+
+    - name: Get OpenWebUI external IP
+      set_fact:
+        openwebui_external_ip: "{{ openwebui_service.resources[0].status.loadBalancer.ingress[0].ip | default(openwebui_service.resources[0].status.loadBalancer.ingress[0].hostname) }}"
+
+    - name: Verify OpenWebUI API health
+      ansible.builtin.uri:
+        url: "http://{{ openwebui_external_ip }}:80/health"
+        method: GET
+        return_content: true
+        status_code: 200
+      register: openwebui_health
+      until: openwebui_health.status == 200
+      retries: 60
+      delay: 5

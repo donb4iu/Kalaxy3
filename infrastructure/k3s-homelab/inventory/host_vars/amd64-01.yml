@@ -32,6 +32,10 @@ kalaxy3_cost:
     useful_life_months: 60
     average_incremental_watts: 0.00
 
+kalaxy3_nvidia_pci_device_id: "10de:2204"
+kalaxy3_nvidia_subsystem_id: "3842:3982"
+kalaxy3_nvidia_expected_name_contains: "NVIDIA GeForce RTX 3090"
+
 kalaxy3_node_labels:
   kalaxy3.io/hardware-class: intel-i5-11600-128gb
   kalaxy3.io/cost-profile: amd64-high-memory

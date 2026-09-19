@@ -1,0 +1,188 @@
+---
+- name: Read current Ollama StatefulSet before model-store migration
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kalaxy3_kubeconfig }}"
+    api_version: apps/v1
+    kind: StatefulSet
+    namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+    name: ollama
+  register: kalaxy3_ollama_existing_statefulset
+
+- name: Determine whether model-store migration is still required
+  ansible.builtin.set_fact:
+    kalaxy3_ollama_migration_required: >-
+      {{
+        kalaxy3_ollama_existing_statefulset.resources | length == 1
+        and
+        kalaxy3_ollama_lock.storage.destination_pvc_name not in
+        (
+          kalaxy3_ollama_existing_statefulset.resources[0].spec.template.spec.volumes
+          | default([])
+          | to_json
+        )
+      }}
+
+- name: Ensure distinct NFS-SSD destination PVC exists
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kalaxy3_kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: "{{ kalaxy3_ollama_lock.storage.destination_pvc_name }}"
+        namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: "{{ kalaxy3_ollama_lock.storage.class_name }}"
+        resources:
+          requests:
+            storage: "{{ kalaxy3_ollama_lock.storage.size }}"
+
+- name: Wait for NFS-SSD destination PVC to bind
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kalaxy3_kubeconfig }}"
+    api_version: v1
+    kind: PersistentVolumeClaim
+    namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+    name: "{{ kalaxy3_ollama_lock.storage.destination_pvc_name }}"
+  register: kalaxy3_ollama_destination_pvc
+  until: >-
+    kalaxy3_ollama_destination_pvc.resources | length == 1
+    and
+    kalaxy3_ollama_destination_pvc.resources[0].status.phase | default('') == 'Bound'
+  retries: 60
+  delay: 5
+
+- name: Migrate the authoritative model store while Ollama is quiesced
+  when: kalaxy3_ollama_migration_required | bool
+  block:
+    - name: Scale Ollama to zero before copying the source PVC
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: ollama
+            namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+          spec:
+            replicas: 0
+
+    - name: Wait until the Ollama pod is gone
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: v1
+        kind: Pod
+        namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+        label_selectors:
+          - app.kubernetes.io/name=ollama
+      register: kalaxy3_ollama_quiesced_pods
+      until: kalaxy3_ollama_quiesced_pods.resources | length == 0
+      retries: 60
+      delay: 5
+
+    - name: Remove stale copy pod from an interrupted prior attempt
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        state: absent
+        wait: false
+        definition:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: ollama-models-copy
+            namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+
+    - name: Copy the quiesced Longhorn model store to NFS-SSD
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: ollama-models-copy
+            namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+            labels:
+              app.kubernetes.io/name: ollama-models-copy
+              app.kubernetes.io/part-of: kalaxy3
+          spec:
+            nodeSelector:
+              kubernetes.io/hostname: "{{ kalaxy3_ollama_lock.placement.target_node }}"
+              kubernetes.io/arch: "{{ kalaxy3_ollama_lock.placement.architecture }}"
+            restartPolicy: Never
+            containers:
+              - name: copy
+                image: "{{ kalaxy3_ollama_lock.image.reference }}"
+                imagePullPolicy: IfNotPresent
+                command:
+                  - /bin/sh
+                  - -c
+                  - cp -a /source/. /destination/.
+                volumeMounts:
+                  - name: source-models
+                    mountPath: /source
+                    readOnly: true
+                  - name: destination-models
+                    mountPath: /destination
+            volumes:
+              - name: source-models
+                persistentVolumeClaim:
+                  claimName: "{{ kalaxy3_ollama_lock.storage.source_pvc_name }}"
+              - name: destination-models
+                persistentVolumeClaim:
+                  claimName: "{{ kalaxy3_ollama_lock.storage.destination_pvc_name }}"
+
+    - name: Wait for model-store copy to succeed
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: v1
+        kind: Pod
+        namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+        name: ollama-models-copy
+      register: kalaxy3_ollama_copy_pod
+      failed_when: >-
+        kalaxy3_ollama_copy_pod.resources | length == 1
+        and
+        kalaxy3_ollama_copy_pod.resources[0].status.phase | default('') == 'Failed'
+      until: >-
+        kalaxy3_ollama_copy_pod.resources | length == 1
+        and
+        kalaxy3_ollama_copy_pod.resources[0].status.phase | default('') == 'Succeeded'
+      retries: 120
+      delay: 5
+
+    - name: Remove completed model-store copy pod
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        state: absent
+        wait: false
+        definition:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: ollama-models-copy
+            namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+
+  rescue:
+    - name: Restore original Ollama workload after failed migration
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: ollama
+            namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+          spec:
+            replicas: 1
+
+    - name: Fail closed after restoring the original workload
+      ansible.builtin.fail:
+        msg: >-
+          Ollama model-store migration failed before cutover. The original
+          StatefulSet was restored and the Longhorn source PVC was preserved.

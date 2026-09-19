@@ -1,0 +1,19 @@
+{
+  "platforms": {
+    "ubuntu-24.04-amd64": {
+      "driver_package": "nvidia-driver-595-open",
+      "toolkit": {
+        "gpg_fingerprint": "C95B321B61E88C1809C4F759DDCAE044F796ECB0",
+        "gpg_key_url": "https://nvidia.github.io/libnvidia-container/gpgkey",
+        "repository_url": "https://nvidia.github.io/libnvidia-container/stable/deb/amd64",
+        "version": "1.20.0-1"
+      }
+    }
+  },
+  "qualification_image": {
+    "architecture": "linux-amd64",
+    "reference": "docker.io/nvidia/cuda@sha256:cf5ab24c3f5040a0ea5931658874c2158e606bf740f006809aa4bb9d3334016b",
+    "source_tag": "13.0.0-base-ubuntu24.04"
+  },
+  "schema_version": "1.0"
+}

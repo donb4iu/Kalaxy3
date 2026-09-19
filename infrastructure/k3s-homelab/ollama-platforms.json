@@ -1,0 +1,40 @@
+{
+  "image": {
+    "architecture": "linux-amd64",
+    "reference": "docker.io/ollama/ollama@sha256:aa6f86f01fee264c81f1edd9083ebfb07c8116d95d8bedd1ad470874b66a40b4",
+    "source_index_digest": "sha256:684d8674b4315fa18f4f0e973a118ec2652ed96f67563277839985175858e0ba",
+    "source_tag": "0.34.0",
+    "version": "0.34.0"
+  },
+  "k3s": {
+    "expected_kubelet_version": "v1.36.2+k3s1"
+  },
+  "placement": {
+    "architecture": "amd64",
+    "gpu_capable_label": "true",
+    "gpu_model_label": "rtx-3060-lhr",
+    "target_node": "amd64-02"
+  },
+  "runtime": {
+    "class_name": "nvidia",
+    "gpu_limit": 1
+  },
+  "schema_version": "1.0",
+  "service": {
+    "api_port": 11434,
+    "load_balancer_ip": "192.168.2.27",
+    "load_balancer_source_ranges": [
+      "192.168.2.0/24"
+    ],
+    "metallb_pool": "lan-pool",
+    "namespace": "ollama"
+  },
+  "storage": {
+    "class_name": "nfs-ssd",
+    "model_path": "/root/.ollama",
+    "size": "60Gi",
+    "source_class_name": "longhorn",
+    "source_pvc_name": "ollama-models-ollama-0",
+    "destination_pvc_name": "ollama-models-ollama-0-nfs"
+  }
+}

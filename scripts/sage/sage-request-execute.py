@@ -10,6 +10,7 @@ import sys
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import Any, Callable
 
 SAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SAGE_DIR))
@@ -194,6 +195,118 @@ def _assert_recovery_recurrence(
         raise RuntimeError("consumed recurrence falsely became accepted-control failure")
     if repeated["next_boundary"] != "implementation-local":
         raise RuntimeError("consumed recurrence escaped implementation-local repair")
+
+
+    nonconverging_first = decide_next_boundary(
+        identity=identity,
+        post_retrieval={
+            "governing_conditions": {
+                "authority": False,
+                "scope": False,
+                "required_capability": False,
+                "safety_requirements": False,
+                "repository_owned_composition": False,
+                "approval_or_mutation_boundaries": False,
+            },
+            "disposition": "implementation-local-retry",
+            "required_reentry_boundary": "implementation-local",
+        },
+        governing_evidence={"repository_owned_composition_sha256": "b" * 64},
+        previous=(),
+        consumed_fingerprints=set(),
+        owning_component="sage.request-execution",
+        control_action_id="SAGE-ACTION-20260810-001",
+        control_action_status="accepted",
+        accepted_control_failure=None,
+        progress_evidence={},
+    )
+    nonconverging_prior = [{
+        **nonconverging_first,
+        "_path": "/tmp/nonconverging-first.json",
+    }]
+    nonconverging_fingerprint = str(
+        nonconverging_first["governing_condition_fingerprint"]
+    )
+    nonconverging_repeat = decide_next_boundary(
+        identity=identity,
+        post_retrieval={
+            "governing_conditions": {
+                "authority": False,
+                "scope": False,
+                "required_capability": False,
+                "safety_requirements": False,
+                "repository_owned_composition": False,
+                "approval_or_mutation_boundaries": False,
+            },
+            "disposition": "implementation-local-retry",
+            "required_reentry_boundary": "implementation-local",
+        },
+        governing_evidence={"repository_owned_composition_sha256": "b" * 64},
+        previous=nonconverging_prior,
+        consumed_fingerprints={nonconverging_fingerprint},
+        owning_component="sage.request-execution",
+        control_action_id="SAGE-ACTION-20260810-001",
+        control_action_status="accepted",
+        accepted_control_failure=None,
+        progress_evidence={},
+    )
+    if nonconverging_repeat["metrics"]["non_convergence_detected"] is not True:
+        raise RuntimeError("unchanged consumed local repair did not record non-convergence")
+    if nonconverging_repeat["disposition"] != "repair":
+        raise RuntimeError("non-convergence manufactured successor action without control-failure evidence")
+    if nonconverging_repeat["next_boundary"] != "implementation-local":
+        raise RuntimeError("non-convergence escaped implementation-local without control-failure evidence")
+    if nonconverging_repeat["architect_attention_required"] is not False:
+        raise RuntimeError("non-convergence manufactured Architect attention without control-failure evidence")
+    blocked = bind_successor_operator_boundary(
+        nonconverging_repeat,
+        Path("/tmp/nonconverging-recovery-next-boundary.json"),
+    )
+    if blocked.get("operator_boundary", {}).get("command") is not None:
+        raise RuntimeError("non-converging recurrence emitted the identical retry")
+    if blocked["metrics"]["prevented_duplicate_reentry"] is not True:
+        raise RuntimeError(
+            "non-converging recurrence did not record duplicate prevention"
+        )
+
+    progressed = decide_next_boundary(
+        identity=identity,
+        post_retrieval={
+            "governing_conditions": {
+                "authority": False,
+                "scope": False,
+                "required_capability": False,
+                "safety_requirements": False,
+                "repository_owned_composition": False,
+                "approval_or_mutation_boundaries": False,
+            },
+            "disposition": "implementation-local-retry",
+            "required_reentry_boundary": "implementation-local",
+        },
+        governing_evidence={"repository_owned_composition_sha256": "b" * 64},
+        previous=nonconverging_prior,
+        consumed_fingerprints={nonconverging_fingerprint},
+        owning_component="sage.request-execution",
+        control_action_id="SAGE-ACTION-20260810-001",
+        control_action_status="accepted",
+        accepted_control_failure=None,
+        progress_evidence={
+            "implementation_local_contribution_sha256": "c" * 64,
+            "proposal_source_signature_sha256": "d" * 64,
+        },
+    )
+    if progressed["metrics"]["non_convergence_detected"] is not False:
+        raise RuntimeError("verified implementation-local progress remained blocked")
+    progressed = bind_successor_operator_boundary(
+        progressed,
+        Path("/tmp/progressed-recovery-next-boundary.json"),
+    )
+    if "sage-request-execute.py --recovery-decision" not in (
+        progressed.get("operator_boundary", {}).get("command") or ""
+    ):
+        raise RuntimeError(
+            "verified implementation-local progress did not resume request execution"
+        )
 
     assertion = build_accepted_control_failure_assertion(
         control_action_id="SAGE-ACTION-20260810-001",
@@ -389,6 +502,33 @@ def _idempotent_recovery_consumption_self_test() -> None:
                 raise RuntimeError("idempotent recovery did not revalidate on recurrence")
             if second.get("repository_mutation") is not False:
                 raise RuntimeError("idempotent recovery claimed repository mutation")
+
+            blocked_path = run_dir / "nonconverging-recovery-next-boundary.json"
+            blocked_payload = json.loads(decision_path.read_text(encoding="utf-8"))
+            blocked_payload["metrics"] = {"non_convergence_detected": True}
+            blocked_path.write_text(
+                json.dumps(blocked_payload) + "\n",
+                encoding="utf-8",
+            )
+            calls_before_block = runner.calls
+            try:
+                request_execution_workflow.consume_recovery_decision(
+                    root,
+                    blocked_path,
+                )
+            except request_execution_workflow.WorkflowError as error:
+                if "non-converging request-execution recovery" not in str(error):
+                    raise RuntimeError(
+                        f"unexpected non-convergence rejection: {error}"
+                    ) from error
+            else:
+                raise RuntimeError(
+                    "non-converging recovery consumer did not fail closed"
+                )
+            if runner.calls != calls_before_block:
+                raise RuntimeError(
+                    "blocked non-converging recovery still revalidated retry"
+                )
         finally:
             request_execution_workflow._request_execution_recovery_runtime = original_runtime
 
@@ -564,6 +704,282 @@ def _ancestry_regression_self_test() -> None:
         raise RuntimeError("frozen-main drift protection was not preserved")
 
 
+def _write_progress_contribution_fixture(
+    path: Path,
+    payload: bytes,
+) -> str:
+    """Write one contract-valid implementation-local contribution fixture.
+
+    Args:
+        path: Destination ZIP path.
+        payload: Fixture source payload.
+
+    Returns:
+        SHA-256 digest of the generated contribution package.
+    """
+
+    manifest = {
+        "schema_version": "1.0",
+        "contribution_id": "SAGE-SELFTEST-REQUEST-EXECUTION-PROGRESS",
+        "contributor": {"participant_class": "llm", "identity": "self-test"},
+        "summary": "Exercise verified implementation-local progress.",
+        "rationale": "Bind progress to a contract-valid candidate package.",
+        "assumptions": ["Fixture only."],
+        "alternatives": ["Unverified changed bytes are rejected."],
+        "files": [{"path": "fixture.txt", "mode": "0644"}],
+    }
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "engineering-contribution.json",
+            json.dumps(manifest, indent=2) + "\n",
+        )
+        archive.writestr("payload/fixture.txt", payload)
+    return digest(path.read_bytes())
+
+
+def _implementation_local_progress_evidence_self_test() -> None:
+    """Prove only contract-verified implementation-local provenance counts."""
+
+    import workflows.request_execution as request_execution_workflow  # noqa: PLC0415
+
+    request = "Implementation-local progress fixture"
+    payload = b"corrected fixture\n"
+    with tempfile.TemporaryDirectory(
+        prefix="sage-request-execute-progress-evidence-"
+    ) as raw:
+        root = Path(raw)
+        contribution = root / "contribution.zip"
+        contribution_sha = _write_progress_contribution_fixture(
+            contribution, payload
+        )
+        manifest = fixture_manifest(request, payload)
+        manifest["evidence_references"] = [
+            "implementation-local-contribution-sha256:" + contribution_sha,
+            "implementation-local-contribution-package:" + str(contribution),
+        ]
+        package = root / "proposal.zip"
+        write_fixture_package(package, manifest, payload)
+        bundle = load_proposal(package, request)
+        context = request_execution_workflow.ExecutionContext.__new__(
+            request_execution_workflow.ExecutionContext
+        )
+        context.bundle = bundle
+        progress = request_execution_workflow._implementation_local_progress_evidence(
+            context
+        )
+        if progress.get("implementation_local_contribution_sha256") != contribution_sha:
+            raise RuntimeError(
+                "implementation-local progress lost contribution identity"
+            )
+        if len(str(progress.get("proposal_source_signature_sha256", ""))) != 64:
+            raise RuntimeError("implementation-local progress lacks source signature")
+
+        manifest["evidence_references"] = [
+            "implementation-local-contribution-sha256:" + contribution_sha
+        ]
+        incomplete = root / "incomplete.zip"
+        write_fixture_package(incomplete, manifest, payload)
+        context.bundle = load_proposal(incomplete, request)
+        try:
+            request_execution_workflow._implementation_local_progress_evidence(
+                context
+            )
+        except request_execution_workflow.WorkflowError:
+            pass
+        else:
+            raise RuntimeError(
+                "incomplete local progress provenance did not fail closed"
+            )
+
+def _serial_gate_candidate_owned_self_test() -> None:
+    """Prove one candidate-owned baseline failure can stage then must pass."""
+
+    import workflows.request_execution as workflow  # noqa: PLC0415
+
+    class FixtureCommandError(RuntimeError):
+        """Represent one context-validation command failure."""
+
+    class FixtureContext:
+        """Provide only state consumed by serial-gate helpers."""
+
+    context = FixtureContext()
+    context.deferred_baseline_validation = None
+    context.context_baseline_validation = None
+    context.already_realized = False
+    binding = {"proposal_package_sha256": "a" * 64}
+    calls: list[tuple[str, bool]] = []
+    original_error = workflow.WorkflowCommandError
+    original_policy = workflow.context_policy_validation
+    original_binding = workflow._candidate_correction_binding
+    try:
+        workflow.WorkflowCommandError = FixtureCommandError
+        workflow._candidate_correction_binding = lambda _: dict(binding)
+        workflow.context_policy_validation = _serial_gate_pass_policy(
+            FixtureCommandError, calls
+        )
+        receipt = workflow._run_pre_candidate_baseline_validation(context)
+        if receipt.get("status") != "candidate-correction-pending":
+            raise RuntimeError("candidate-owned baseline failure did not defer")
+        required = workflow._post_candidate_context_validation(context)
+        if required.get("status") != "pass":
+            raise RuntimeError("required validation did not remain a hard gate")
+        if [item[0] for item in calls] != ["baseline", "baseline", "required"]:
+            raise RuntimeError("serial-gate validation order changed")
+    finally:
+        workflow.WorkflowCommandError = original_error
+        workflow.context_policy_validation = original_policy
+        workflow._candidate_correction_binding = original_binding
+
+
+def _serial_gate_pass_policy(
+    command_error: type[RuntimeError],
+    calls: list[tuple[str, bool]],
+) -> Callable[..., dict[str, str]]:
+    """Return a fixture policy that fails only the pre-candidate baseline."""
+
+    def policy(
+        context: object,
+        *,
+        field: str,
+        changed: bool = False,
+    ) -> dict[str, str]:
+        """Record validation order and return deterministic pass evidence."""
+
+        del context
+        calls.append((field, changed))
+        if len(calls) == 1:
+            raise command_error("pre-existing baseline failure")
+        return {"status": "pass", "sha256": "b" * 64}
+
+    return policy
+
+
+def _serial_gate_blocking_self_test() -> None:
+    """Prove unrelated or newly introduced failures still fail closed."""
+
+    import workflows.request_execution as workflow  # noqa: PLC0415
+
+    class FixtureCommandError(RuntimeError):
+        """Represent one validation command failure."""
+
+    class FixtureContext:
+        """Provide only state consumed by serial-gate helpers."""
+
+    for failure_field in ("baseline", "required"):
+        _exercise_serial_gate_block(workflow, FixtureCommandError, failure_field)
+
+
+def _exercise_serial_gate_block(
+    workflow: Any,
+    command_error: type[RuntimeError],
+    failure_field: str,
+) -> None:
+    """Require post-candidate baseline or required failure to propagate."""
+
+    class FixtureContext:
+        """Provide serial-gate state for one blocking case."""
+
+    context = FixtureContext()
+    context.deferred_baseline_validation = None
+    context.context_baseline_validation = None
+    context.already_realized = False
+    calls: list[str] = []
+    original_error = workflow.WorkflowCommandError
+    original_policy = workflow.context_policy_validation
+    original_binding = workflow._candidate_correction_binding
+    try:
+        workflow.WorkflowCommandError = command_error
+        workflow._candidate_correction_binding = lambda _: {"id": "stable"}
+        workflow.context_policy_validation = _serial_gate_block_policy(
+            command_error, calls, failure_field
+        )
+        workflow._run_pre_candidate_baseline_validation(context)
+        try:
+            workflow._post_candidate_context_validation(context)
+        except command_error:
+            pass
+        else:
+            raise RuntimeError(f"{failure_field} failure did not block")
+    finally:
+        workflow.WorkflowCommandError = original_error
+        workflow.context_policy_validation = original_policy
+        workflow._candidate_correction_binding = original_binding
+
+
+def _serial_gate_block_policy(
+    command_error: type[RuntimeError],
+    calls: list[str],
+    failure_field: str,
+) -> Callable[..., dict[str, str]]:
+    """Return a fixture that blocks after the bounded candidate is staged."""
+
+    def policy(
+        context: object,
+        *,
+        field: str,
+        changed: bool = False,
+    ) -> dict[str, str]:
+        """Fail the configured post-candidate gate."""
+
+        del context, changed
+        calls.append(field)
+        if len(calls) == 1 or field == failure_field:
+            raise command_error(f"{failure_field} validation failure")
+        return {"status": "pass", "sha256": "c" * 64}
+
+    return policy
+
+
+def _serial_gate_identity_self_test() -> None:
+    """Prove candidate identity drift and governing-boundary errors fail closed."""
+
+    import workflows.request_execution as workflow  # noqa: PLC0415
+
+    class FixtureContext:
+        """Provide deferred serial-gate state."""
+
+    context = FixtureContext()
+    context.deferred_baseline_validation = {
+        "candidate_binding": {"proposal_package_sha256": "d" * 64}
+    }
+    original_binding = workflow._candidate_correction_binding
+    try:
+        workflow._candidate_correction_binding = lambda _: {
+            "proposal_package_sha256": "e" * 64
+        }
+        try:
+            workflow._verify_deferred_candidate_binding(context)
+        except workflow.WorkflowError:
+            pass
+        else:
+            raise RuntimeError("candidate/proposal/contribution drift passed")
+        workflow._candidate_correction_binding = _serial_gate_boundary_failure(
+            workflow.WorkflowError
+        )
+        try:
+            workflow._verify_deferred_candidate_binding(context)
+        except workflow.WorkflowError:
+            pass
+        else:
+            raise RuntimeError("governing boundary failure was swallowed")
+    finally:
+        workflow._candidate_correction_binding = original_binding
+
+
+def _serial_gate_boundary_failure(
+    error_type: type[Exception],
+) -> Callable[[object], dict[str, str]]:
+    """Return a fixture binding that models an existing governed stop."""
+
+    def fail(context: object) -> dict[str, str]:
+        """Raise one authority, scope, or safety boundary failure."""
+
+        del context
+        raise error_type("authority/scope/safety boundary changed")
+
+    return fail
+
+
 def self_test() -> int:
     """Exercise positive and negative proposal-package runtime paths."""
 
@@ -571,6 +987,10 @@ def self_test() -> int:
     _recovery_boundary_self_test()
     _live_accepted_control_attribution_self_test()
     _idempotent_recovery_consumption_self_test()
+    _implementation_local_progress_evidence_self_test()
+    _serial_gate_candidate_owned_self_test()
+    _serial_gate_blocking_self_test()
+    _serial_gate_identity_self_test()
     _repair_recurrence_self_test()
     _diagnosis_recovery_self_test()
     _ancestry_regression_self_test()

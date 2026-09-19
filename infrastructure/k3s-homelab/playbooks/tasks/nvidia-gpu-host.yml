@@ -1,0 +1,253 @@
+---
+- name: Load the repository NVIDIA platform lock
+  ansible.builtin.set_fact:
+    kalaxy3_nvidia_lock: >-
+      {{
+        lookup(
+          'ansible.builtin.file',
+          playbook_dir ~ '/../nvidia-platforms.json'
+        ) | from_json
+      }}
+
+- name: Resolve the supported NVIDIA host platform
+  ansible.builtin.set_fact:
+    kalaxy3_nvidia_platform_key: >-
+      ubuntu-{{ ansible_distribution_version }}-amd64
+
+- name: Require the repository-supported NVIDIA host platform
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == 'Ubuntu'
+      - ansible_distribution_version == '24.04'
+      - ansible_architecture in ['x86_64', 'amd64']
+      - kalaxy3_nvidia_platform_key in kalaxy3_nvidia_lock.platforms
+      - kalaxy3_nvidia_pci_device_id is defined
+      - kalaxy3_nvidia_subsystem_id is defined
+      - kalaxy3_nvidia_expected_name_contains is defined
+    fail_msg: >-
+      {{ inventory_hostname }} is not described by the repository NVIDIA
+      qualification contract.
+
+- name: Select the locked NVIDIA host configuration
+  ansible.builtin.set_fact:
+    kalaxy3_nvidia_platform: >-
+      {{ kalaxy3_nvidia_lock.platforms[kalaxy3_nvidia_platform_key] }}
+
+- name: Verify expected NVIDIA PCI identity
+  ansible.builtin.command:
+    argv: [lspci, -nn, -v]
+  register: kalaxy3_gpu_lspci
+  changed_when: false
+
+- name: Require the declared NVIDIA device and subsystem
+  ansible.builtin.assert:
+    that:
+      - kalaxy3_nvidia_pci_device_id | lower in kalaxy3_gpu_lspci.stdout | lower
+      - kalaxy3_nvidia_subsystem_id | lower in kalaxy3_gpu_lspci.stdout | lower
+    fail_msg: >-
+      Live PCI identity on {{ inventory_hostname }} does not match repository
+      hardware identity.
+
+- name: Read Secure Boot state
+  ansible.builtin.command:
+    argv: [mokutil, --sb-state]
+  register: kalaxy3_secure_boot
+  changed_when: false
+
+- name: Require Secure Boot disabled for unattended driver convergence
+  ansible.builtin.assert:
+    that:
+      - "'SecureBoot disabled' in kalaxy3_secure_boot.stdout"
+    fail_msg: >-
+      Secure Boot is enabled on {{ inventory_hostname }}. Refusing unattended
+      NVIDIA driver mutation because MOK enrollment would cross an operator
+      authority boundary.
+
+- name: Inspect pre-convergence NVIDIA utility
+  ansible.builtin.stat:
+    path: /usr/bin/nvidia-smi
+  register: kalaxy3_nvidia_smi_before
+
+- name: Test pre-convergence NVIDIA driver when utility exists
+  ansible.builtin.command:
+    argv: [/usr/bin/nvidia-smi, -L]
+  register: kalaxy3_nvidia_driver_before
+  changed_when: false
+  failed_when: false
+  when: kalaxy3_nvidia_smi_before.stat.exists
+
+- name: Install kernel headers and repository-selected NVIDIA driver
+  ansible.builtin.apt:
+    name:
+      - "linux-headers-{{ ansible_kernel }}"
+      - "{{ kalaxy3_nvidia_platform.driver_package }}"
+    state: present
+    update_cache: true
+  register: kalaxy3_nvidia_driver_packages
+
+- name: Reboot after driver convergence when NVIDIA was not already usable
+  ansible.builtin.reboot:
+    reboot_timeout: 900
+    post_reboot_delay: 10
+  when: >-
+    kalaxy3_nvidia_driver_packages.changed
+    or
+    not kalaxy3_nvidia_smi_before.stat.exists
+    or
+    (
+      kalaxy3_nvidia_driver_before.rc | default(1)
+      != 0
+    )
+
+- name: Read qualified GPU identity
+  ansible.builtin.command:
+    argv:
+      - nvidia-smi
+      - --query-gpu=name,memory.total,driver_version
+      - --format=csv,noheader
+  register: kalaxy3_nvidia_identity
+  changed_when: false
+
+- name: Require the expected NVIDIA model after driver convergence
+  ansible.builtin.assert:
+    that:
+      - kalaxy3_nvidia_expected_name_contains in kalaxy3_nvidia_identity.stdout
+    fail_msg: >-
+      NVIDIA driver loaded on {{ inventory_hostname }}, but nvidia-smi identity
+      does not match the repository hardware contract.
+    success_msg: >-
+      Qualified {{ inventory_hostname }} GPU:
+      {{ kalaxy3_nvidia_identity.stdout | trim }}
+
+- name: Install NVIDIA repository prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - gnupg2
+    state: present
+    update_cache: false
+
+- name: Create NVIDIA repository staging directory
+  ansible.builtin.file:
+    path: /var/lib/kalaxy3/nvidia
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Download the NVIDIA repository signing key
+  ansible.builtin.get_url:
+    url: "{{ kalaxy3_nvidia_platform.toolkit.gpg_key_url }}"
+    dest: /var/lib/kalaxy3/nvidia/libnvidia-container-gpgkey.asc
+    owner: root
+    group: root
+    mode: "0644"
+  register: kalaxy3_nvidia_gpg_download
+
+- name: Inspect NVIDIA repository signing-key fingerprint
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --show-keys
+      - --with-colons
+      - /var/lib/kalaxy3/nvidia/libnvidia-container-gpgkey.asc
+  register: kalaxy3_nvidia_gpg_identity
+  changed_when: false
+
+- name: Require the repository-locked NVIDIA signing-key fingerprint
+  ansible.builtin.assert:
+    that:
+      - >-
+        kalaxy3_nvidia_platform.toolkit.gpg_fingerprint
+        in
+        (kalaxy3_nvidia_gpg_identity.stdout | upper | replace(':', ''))
+    fail_msg: >-
+      NVIDIA repository signing key does not match the repository lock.
+
+- name: Inspect installed NVIDIA apt keyring
+  ansible.builtin.stat:
+    path: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+  register: kalaxy3_nvidia_keyring
+
+- name: Install NVIDIA apt keyring
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --yes
+      - --dearmor
+      - --output
+      - /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+      - /var/lib/kalaxy3/nvidia/libnvidia-container-gpgkey.asc
+  when: >-
+    kalaxy3_nvidia_gpg_download.changed
+    or
+    not kalaxy3_nvidia_keyring.stat.exists
+  changed_when: true
+
+- name: Configure the stable NVIDIA Container Toolkit apt repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg]
+      {{ kalaxy3_nvidia_platform.toolkit.repository_url }} /
+    filename: nvidia-container-toolkit
+    state: present
+    update_cache: true
+
+- name: Install exact NVIDIA Container Toolkit package set
+  ansible.builtin.apt:
+    name:
+      - "nvidia-container-toolkit={{ kalaxy3_nvidia_platform.toolkit.version }}"
+      - "nvidia-container-toolkit-base={{ kalaxy3_nvidia_platform.toolkit.version }}"
+      - "libnvidia-container-tools={{ kalaxy3_nvidia_platform.toolkit.version }}"
+      - "libnvidia-container1={{ kalaxy3_nvidia_platform.toolkit.version }}"
+    state: present
+    allow_downgrade: false
+    update_cache: false
+  register: kalaxy3_nvidia_toolkit_packages
+
+- name: Inspect K3s generated NVIDIA runtime configuration
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -q
+      - nvidia-container-runtime
+      - /var/lib/rancher/k3s/agent/etc/containerd/config.toml
+  register: kalaxy3_nvidia_runtime_before
+  changed_when: false
+  failed_when: false
+
+- name: Restart K3s agent to discover NVIDIA runtime
+  ansible.builtin.systemd_service:
+    name: k3s-agent
+    state: restarted
+    daemon_reload: true
+  when: >-
+    kalaxy3_nvidia_toolkit_packages.changed
+    or
+    kalaxy3_nvidia_runtime_before.rc != 0
+
+- name: Wait for K3s agent after NVIDIA runtime discovery
+  ansible.builtin.systemd_service:
+    name: k3s-agent
+    state: started
+  register: kalaxy3_k3s_agent_state
+  until: kalaxy3_k3s_agent_state.status.ActiveState == 'active'
+  retries: 30
+  delay: 2
+
+- name: Verify NVIDIA container runtime executable
+  ansible.builtin.command:
+    argv: [nvidia-container-runtime, --version]
+  environment:
+    PATH: "/var/lib/rancher/k3s/data/current/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  changed_when: false
+
+- name: Verify K3s generated NVIDIA runtime configuration
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -n
+      - nvidia
+      - /var/lib/rancher/k3s/agent/etc/containerd/config.toml
+  changed_when: false

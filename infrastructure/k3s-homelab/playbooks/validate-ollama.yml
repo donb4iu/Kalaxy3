@@ -1,0 +1,237 @@
+---
+- name: Prove Ollama model persistence and GPU inference
+  hosts: localhost
+  become: false
+  connection: local
+  gather_facts: false
+  vars:
+    ansible_become: false
+    kalaxy3_kubeconfig: "{{ playbook_dir }}/../kubeconfig-kalaxy3.yaml"
+  tasks:
+    - name: Require an explicitly selected model and digest
+      ansible.builtin.assert:
+        that:
+          - ollama_validation_model is defined
+          - ollama_validation_model | string | length > 0
+          - ollama_validation_digest is defined
+          - (ollama_validation_digest | string) is match('^[0-9a-f]{64}$')
+        fail_msg: >-
+          Supply ollama_validation_model and its exact 64-character digest
+          after measuring amd64-02 capability; this role does not invent a
+          model choice.
+
+    - name: Load the repository Ollama lock
+      ansible.builtin.set_fact:
+        kalaxy3_ollama_lock: >-
+          {{
+            lookup(
+              'ansible.builtin.file',
+              playbook_dir ~ '/../ollama-platforms.json'
+            ) | from_json
+          }}
+
+    - name: Set the locked Ollama API base URL
+      ansible.builtin.set_fact:
+        kalaxy3_ollama_api_base: "http://{{ kalaxy3_ollama_lock.service.load_balancer_ip }}:{{ kalaxy3_ollama_lock.service.api_port }}"
+
+    - name: Pull the explicitly selected model
+      ansible.builtin.uri:
+        url: "{{ kalaxy3_ollama_api_base }}/api/pull"
+        method: POST
+        body_format: json
+        body:
+          model: "{{ ollama_validation_model }}"
+          stream: false
+        return_content: true
+        status_code: 200
+        timeout: 3600
+      register: kalaxy3_ollama_pull
+
+    - name: Require model pull success
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_ollama_pull.json.status == 'success'
+
+    - name: Read persisted model inventory after pull
+      ansible.builtin.uri:
+        url: "{{ kalaxy3_ollama_api_base }}/api/tags"
+        method: GET
+        return_content: true
+        status_code: 200
+      register: kalaxy3_ollama_tags_before_restart
+
+    - name: Require the selected exact model digest after pull
+      ansible.builtin.set_fact:
+        kalaxy3_ollama_model_matches_before: >-
+          {{
+            kalaxy3_ollama_tags_before_restart.json.models
+            | selectattr('digest', 'equalto', ollama_validation_digest)
+            | list
+          }}
+
+    - name: Require exactly one selected model digest before restart
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_ollama_model_matches_before | length == 1
+
+    - name: Read the current Ollama pod
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: v1
+        kind: Pod
+        namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+        label_selectors:
+          - app.kubernetes.io/name=ollama
+      register: kalaxy3_ollama_pod_before
+
+    - name: Require exactly one Ollama pod on amd64-02
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_ollama_pod_before.resources | length == 1
+          - >-
+            kalaxy3_ollama_pod_before.resources[0].spec.nodeName ==
+            kalaxy3_ollama_lock.placement.target_node
+
+    - name: Record the pre-restart Ollama pod identity
+      ansible.builtin.set_fact:
+        kalaxy3_ollama_old_pod_name: >-
+          {{ kalaxy3_ollama_pod_before.resources[0].metadata.name }}
+        kalaxy3_ollama_old_pod_uid: >-
+          {{ kalaxy3_ollama_pod_before.resources[0].metadata.uid }}
+
+    - name: Recreate the Ollama pod without deleting persistent storage
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: v1
+        kind: Pod
+        namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+        name: "{{ kalaxy3_ollama_old_pod_name }}"
+        state: absent
+        wait: false
+
+    - name: Wait for the replacement Ollama pod
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: v1
+        kind: Pod
+        namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+        label_selectors:
+          - app.kubernetes.io/name=ollama
+      register: kalaxy3_ollama_pod_after
+      until: >-
+        kalaxy3_ollama_pod_after.resources | length == 1
+        and
+        kalaxy3_ollama_pod_after.resources[0].metadata.uid !=
+        kalaxy3_ollama_old_pod_uid
+        and
+        (
+          kalaxy3_ollama_pod_after.resources[0].status.phase
+          | default('')
+        ) == 'Running'
+        and
+        (
+          kalaxy3_ollama_pod_after.resources[0].status.containerStatuses[0].ready
+          | default(false)
+        )
+      retries: 120
+      delay: 5
+
+    - name: Read model inventory after pod recreation
+      ansible.builtin.uri:
+        url: "{{ kalaxy3_ollama_api_base }}/api/tags"
+        method: GET
+        return_content: true
+        status_code: 200
+      register: kalaxy3_ollama_tags_after_restart
+      retries: 30
+      delay: 2
+      until: kalaxy3_ollama_tags_after_restart.status | default(0) == 200
+
+    - name: Select the expected persisted model digest after restart
+      ansible.builtin.set_fact:
+        kalaxy3_ollama_model_matches_after: >-
+          {{
+            kalaxy3_ollama_tags_after_restart.json.models
+            | selectattr('digest', 'equalto', ollama_validation_digest)
+            | list
+          }}
+
+    - name: Require exact model persistence across pod recreation
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_ollama_model_matches_after | length == 1
+
+    - name: Generate a non-streaming Ollama response and keep the model loaded
+      ansible.builtin.uri:
+        url: "{{ kalaxy3_ollama_api_base }}/api/generate"
+        method: POST
+        body_format: json
+        body:
+          model: "{{ ollama_validation_model }}"
+          prompt: "Reply with one short sentence confirming runtime execution."
+          stream: false
+          keep_alive: 10m
+        return_content: true
+        status_code: 200
+        timeout: 600
+      register: kalaxy3_ollama_generation
+
+    - name: Require successful Ollama generation
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_ollama_generation.json.done | bool
+          - kalaxy3_ollama_generation.json.response | string | length > 0
+          - kalaxy3_ollama_generation.json.eval_count | default(0) | int > 0
+
+    - name: Read Ollama running-model GPU accounting
+      ansible.builtin.uri:
+        url: "{{ kalaxy3_ollama_api_base }}/api/ps"
+        method: GET
+        return_content: true
+        status_code: 200
+      register: kalaxy3_ollama_ps_api
+
+    - name: Select the running exact model digest
+      ansible.builtin.set_fact:
+        kalaxy3_ollama_running_matches: >-
+          {{
+            kalaxy3_ollama_ps_api.json.models
+            | selectattr('digest', 'equalto', ollama_validation_digest)
+            | list
+          }}
+
+    - name: Require positive VRAM residency for the generated model
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_ollama_running_matches | length == 1
+          - kalaxy3_ollama_running_matches[0].size_vram | int > 0
+
+    - name: Capture Ollama processor allocation from inside the pod
+      kubernetes.core.k8s_exec:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+        pod: "{{ kalaxy3_ollama_pod_after.resources[0].metadata.name }}"
+        container: ollama
+        command: ollama ps
+      register: kalaxy3_ollama_ps_cli
+
+    - name: Require Ollama to report GPU participation
+      ansible.builtin.assert:
+        that:
+          - "'GPU' in kalaxy3_ollama_ps_cli.stdout"
+
+    - name: Capture NVIDIA compute-process evidence from the Ollama container
+      kubernetes.core.k8s_exec:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        namespace: "{{ kalaxy3_ollama_lock.service.namespace }}"
+        pod: "{{ kalaxy3_ollama_pod_after.resources[0].metadata.name }}"
+        container: ollama
+        command: >-
+          nvidia-smi --query-compute-apps=pid,process_name,used_gpu_memory
+          --format=csv,noheader
+      register: kalaxy3_ollama_nvidia_processes
+
+    - name: Require NVIDIA compute-process evidence after generation
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_ollama_nvidia_processes.stdout | trim | length > 0

@@ -48,3 +48,9 @@ Semantic confirmation must preserve more than context and file scope. The confir
 Planning obligations are typed. `capability` obligations identify a domain capability that downstream `component.select` must evaluate; `constraint`, `requirement`, `validation`, `measurement`, `feasibility`, `outcome`, and `lifecycle` obligations remain authoritative planning inputs without being misrepresented as components.
 
 The Architect disposition record may add explicit structured planning directives. A capability directive requires a stable `capability_id`; non-capability directives may not invent one. The confirmed semantic artifact, not the original LLM contribution, is the downstream authority.
+
+## Lifecycle handoff after semantic confirmation
+
+Semantic bootstrap owns interpretation, Architect semantic confirmation, feasibility sufficient for planning-source generation, and creation of the checksum-bound planning source. It does **not** own the external planning-to-mutation lifecycle. After confirmation, the published compatibility continuation returns the confirmed source and its engineering-contribution provenance to `sage-intent-to-outcome-adopt-source`. The intent-to-outcome composition validates that lineage, invokes request planning, persists the exact proposal, and stops at the objective-path decision gate before request execution.
+
+The lower-level `sage-request-plan` and `sage-request-execute` interfaces remain reusable repository components, but semantic bootstrap must not publish a direct external `request-plan → request-execute` sequence.

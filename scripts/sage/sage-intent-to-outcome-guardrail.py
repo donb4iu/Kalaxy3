@@ -41,6 +41,7 @@ def main() -> int:
         "continue_promotion",
         "validate_runtime_receipt",
         "begin_candidate_iteration",
+        "adopt_confirmed_planning_source",
         "continue_planned_request",
         "objective-path-decision-required",
         "candidate_iteration_entry_mode",
@@ -113,6 +114,8 @@ def main() -> int:
             failures.append(f"intent recovery-composition regression missing: {marker}")
     if '"--planning-source"' not in cli:
         failures.append("adopt-iteration CLI does not accept historical planning-source lineage")
+    if 'sub.add_parser("adopt-confirmed-source")' not in cli or "adopt_confirmed_planning_source" not in cli:
+        failures.append("intent-to-outcome CLI lacks confirmed-source lifecycle adoption")
     if 'sub.add_parser("continue-planned")' not in cli or "continue_planned_request" not in cli:
         failures.append("intent-to-outcome CLI lacks exact-proposal objective-path continuation")
     if 'sub.add_parser("route")' not in cli or "objective_route_snapshot" not in cli:
@@ -156,7 +159,7 @@ def main() -> int:
         for node in tree.body
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
     }
-    for function_name in ("confirm_intent", "begin_candidate_iteration"):
+    for function_name in ("confirm_intent", "begin_candidate_iteration", "adopt_confirmed_planning_source"):
         node = functions.get(function_name)
         if node is None:
             failures.append(f"missing front-door function: {function_name}")
