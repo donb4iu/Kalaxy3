@@ -1,6 +1,7 @@
 ---
 - name: Prove Ollama model persistence and GPU inference
   hosts: localhost
+  become: false
   connection: local
   gather_facts: false
   vars:

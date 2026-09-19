@@ -1,6 +1,7 @@
 ---
 - name: Deploy OpenWebUI
   hosts: localhost
+  become: false
   connection: local
   gather_facts: false
   vars:

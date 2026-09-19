@@ -1,6 +1,7 @@
 ---
 - name: Deploy the locked Kalaxy3 Ollama GPU endpoint
   hosts: localhost
+  become: false
   connection: local
   gather_facts: false
   vars:
