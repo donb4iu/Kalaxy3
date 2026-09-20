@@ -1996,6 +1996,62 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260920-002",
+            "title": "Bound fresh-role cognition to grounded implementation readiness",
+            "source_lessons": [],
+            "source_sessions": [],
+            "source_records": [
+                {
+                    "record_id": "LESSON-ARCHITECT-20260920-FRESH-ROLE-EPISTEMIC-READINESS",
+                    "record_type": "lesson",
+                    "schema_version": "1.0",
+                    "sha256": "1d7a9d18fd1921a8f286e67824f531992cd0c0321adecd1f1402e52170235493"
+                }
+            ],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "guardrail",
+            "desired_outcome": "SAGE permits fresh implementation generation only from a grounded, bounded, objectively testable implementation-ready recipe; missing knowledge/evidence/capability or material decisions return upstream without fabricated implementation evidence.",
+            "acceptance_criteria": [
+                "Fresh planning has exactly four governed dispositions: implementation-ready, knowledge-evidence-capability-gap, material-decision-required, and unsupported.",
+                "Only implementation-ready may proceed automatically into the fresh first-candidate generator.",
+                "Knowledge/evidence/capability gaps preserve what is missing, why it matters, what was considered, and what can close the gap.",
+                "Material decisions return evidence and alternatives to Architect authority without a fresh role selecting architecture.",
+                "Unsupported planning stops without generating an engineering contribution.",
+                "Fresh implementation recipes distinguish supplied evidence, model inference, assumptions, unknowns, validation and stop conditions.",
+                "Mechanically derivable SAGE semantics are computed deterministically rather than redundantly delegated to an LLM.",
+                "Model qualification is role-specific and provider/model quirks remain outside SAGE core semantic contracts.",
+                "Persistent-LLM fallback cannot masquerade as fresh-role provenance; fresh implementation and critic remain isolated and non-self-approving.",
+                "Regression tests reject a syntactically valid but unsupported or hallucinated implementation recipe.",
+                "Historical cognition-plane evidence remains unchanged and the waiting remote-access semantic-confirmation state is preserved."
+            ],
+            "measurement_plan": [
+                "Exercise and record all four readiness disposition paths.",
+                "Record whether unsupported/hallucinated recipe negative tests fail closed before contribution generation.",
+                "Record fresh-role provider/model/context provenance and deterministic normalization/correction rate.",
+                "Record no-persistent-fallback and fresh-critic isolation regression results.",
+                "Verify the remote-access semantic state/digest remains unchanged through this bounded correction."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-09-20T13:31:27-05:00",
+                    "actor": "Architect",
+                    "reason": "Register the Architect-approved fresh-role epistemic/readiness correction with portable lesson provenance; the legacy fresh plan demonstrated an actual repository-context gap.",
+                    "evidence_references": [
+                        "architect-request-sha256:756ba82ea4e114bf59b5a43df4120543412a6107c0839c8f2b3093eb20d01b79",
+                        "fresh-advisory-sha256:0f88c298ce729efd8ad9d226d9ff0248c07c0247b49b8971a4286de9c5268894",
+                        "portable-lesson-sha256:1d7a9d18fd1921a8f286e67824f531992cd0c0321adecd1f1402e52170235493",
+                        "remote-semantic-understanding-sha256:9de1a95ec32fb08e3f5c7ab2fd0c6ecba609bb88ca5f54a073fb1cb8d25134eb"
+                    ]
+                }
+            ]
         }
     ]
 }
