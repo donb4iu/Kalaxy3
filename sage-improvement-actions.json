@@ -2010,7 +2010,7 @@
                     "sha256": "1d7a9d18fd1921a8f286e67824f531992cd0c0321adecd1f1402e52170235493"
                 }
             ],
-            "current_status": "identified",
+            "current_status": "accepted",
             "owner": "repository-workflow",
             "priority": "high",
             "target_control_type": "guardrail",
@@ -2044,6 +2044,21 @@
                     "recorded_at": "2026-09-20T13:31:27-05:00",
                     "actor": "Architect",
                     "reason": "Register the Architect-approved fresh-role epistemic/readiness correction with portable lesson provenance; the legacy fresh plan demonstrated an actual repository-context gap.",
+                    "evidence_references": [
+                        "architect-request-sha256:756ba82ea4e114bf59b5a43df4120543412a6107c0839c8f2b3093eb20d01b79",
+                        "fresh-advisory-sha256:0f88c298ce729efd8ad9d226d9ff0248c07c0247b49b8971a4286de9c5268894",
+                        "portable-lesson-sha256:1d7a9d18fd1921a8f286e67824f531992cd0c0321adecd1f1402e52170235493",
+                        "remote-semantic-understanding-sha256:9de1a95ec32fb08e3f5c7ab2fd0c6ecba609bb88ca5f54a073fb1cb8d25134eb"
+                    ]
+                },
+                {
+                    "sequence": 2,
+                    "from_status": "identified",
+                    "to_status": "accepted",
+                    "transition_type": "status-transition",
+                    "recorded_at": "2026-09-20T13:33:50-05:00",
+                    "actor": "Architect",
+                    "reason": "Architect explicitly approved making fresh roles SAGE-bound and requiring faithful grounded recipes or explicit governed gaps.",
                     "evidence_references": [
                         "architect-request-sha256:756ba82ea4e114bf59b5a43df4120543412a6107c0839c8f2b3093eb20d01b79",
                         "fresh-advisory-sha256:0f88c298ce729efd8ad9d226d9ff0248c07c0247b49b8971a4286de9c5268894",
