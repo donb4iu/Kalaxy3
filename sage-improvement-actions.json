@@ -1927,6 +1927,61 @@
                     ]
                 }
             ]
+        },
+        {
+            "action_id": "SAGE-ACTION-20260920-001",
+            "title": "Enable secure remote access to shared Kalaxy inference",
+            "source_lessons": [],
+            "source_sessions": [],
+            "source_records": [
+                {
+                    "record_id": "LESSON-ARCHITECT-20260919-REMOTE-INFERENCE",
+                    "record_type": "lesson",
+                    "schema_version": "1.0",
+                    "sha256": "90b96697370d29b461723d3cff5fbce46b98bb8fdf3440ee38990ab32b74bb19"
+                }
+            ],
+            "current_status": "identified",
+            "owner": "repository-workflow",
+            "priority": "high",
+            "target_control_type": "automation",
+            "desired_outcome": "An authorized remote development Mac can use the existing shared Kalaxy inference environment through the approved private access path while LAN operation remains independent and the raw inference service is not publicly exposed.",
+            "acceptance_criteria": [
+                "Off-LAN authorized development reaches the private inference service through the approved private-hostname path while unrelated traffic remains on the intended VPN route.",
+                "SAGE invokes fresh inference through the private service path without Cloudflare-specific authentication headers and without persistent-LLM fallback.",
+                "Existing LAN inference remains unchanged and independent.",
+                "Remote OpenWebUI remains protected by interactive identity and MFA on its outbound-only application path.",
+                "Raw Ollama is not publicly reachable and no unmanaged inbound router port is introduced.",
+                "Disabling the private remote path removes remote access without disrupting LAN inference.",
+                "Revoking device trust removes remote development access.",
+                "Hardware-backed device registration is claimed only after current provider capability verification on the target Mac.",
+                "Persisted evidence is sanitized and excludes operational secrets or attack-enabling private identifiers."
+            ],
+            "measurement_plan": [
+                "Record pass/fail for private remote inference reachability.",
+                "Record pass/fail for ordinary SAGE fresh-role inference remotely.",
+                "Record pass/fail for unchanged LAN inference.",
+                "Record pass/fail for OpenWebUI identity/MFA enforcement.",
+                "Record negative proof that raw Ollama is not publicly reachable.",
+                "Record private-path disable and device-revocation behavior.",
+                "Record sanitized evidence and residual-risk disposition."
+            ],
+            "history": [
+                {
+                    "sequence": 1,
+                    "from_status": null,
+                    "to_status": "identified",
+                    "transition_type": "initial-registration",
+                    "recorded_at": "2026-09-20T11:30:12-05:00",
+                    "actor": "Architect",
+                    "reason": "Register the already-approved remote-development objective from its portable motivating lesson without fabricating Kalaxy3-local lesson or session lineage.",
+                    "evidence_references": [
+                        "architect-request-sha256:3d302b18a50590d8c9b1bc9c665be55769258fea81f468abf94cda4ff79ee5ad",
+                        "architecture-decision-sha256:7b73af18a5d7a8d9e3795b1208395c04c1f1518075ee80693d176255144f80ad",
+                        "portable-lesson-sha256:90b96697370d29b461723d3cff5fbce46b98bb8fdf3440ee38990ab32b74bb19"
+                    ]
+                }
+            ]
         }
     ]
 }
