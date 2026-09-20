@@ -68,7 +68,7 @@ sage-changed:
 	$(SAGE_PREFLIGHT) --changed
 	$(SAGE_LESSONS) --changed
 
-sage-self-test: sage-lifecycle-contract-self-test sage-semantic-bootstrap-self-test sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-domain-capability-gap-approval-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test sage-intent-to-outcome-self-test sage-e2e-zero-trust-runtime-self-test sage-stage-receipt-self-test sage-artifact-promotion-self-test sage-architecture-approval-self-test
+sage-self-test: sage-lifecycle-contract-self-test sage-semantic-bootstrap-self-test sage-index-self-test sage-actionable-failure-self-test sage-actionable-failure-guardrail sage-validator-runtime-self-test centralized-logging-runtime-source-self-test sage-yaml-metadata-source-self-test sage-evidence-retrieval-self-test sage-failure-retrieval-self-test sage-workflow-support-self-test sage-workflow-self-test sage-operating-contract-self-test sage-generated-helper-runtime-self-test sage-request-plan-self-test sage-domain-capability-gap-approval-self-test sage-request-execute-self-test sage-improvement-action-transition-self-test sage-thin-slice-self-test sage-intent-to-outcome-self-test sage-e2e-zero-trust-runtime-self-test sage-stage-receipt-self-test sage-artifact-promotion-self-test sage-architecture-approval-self-test sage-persistent-llm-objective-context-self-test
 	$(SAGE_PREFLIGHT) --self-test
 	$(SAGE_LESSONS) --self-test
 	python3 scripts/sage/sage-file-delivery-guardrail.py
@@ -129,7 +129,7 @@ sage-stage-guardrails: sage-self-test sage-semantic-bootstrap-guardrail sage-dis
                  sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail sage-checkpoint-promotion-guardrail sage-security-external-access-discovery-guardrail sage-legacy-evidence-projection-guardrail sage-intent-to-outcome-guardrail sage-e2e-zero-trust-source-guardrail sage-stage-contract-guardrail sage-artifact-promotion-guardrail sage-architecture-approval-guardrail
 	@echo "Kalaxy3 portable stage source guardrails: PASS"
 
-sage-guardrails: sage-stage-guardrails sage-e2e-zero-trust-controller-guardrail sage-workflow-support-guardrail sage-workflow-guardrail sage-operating-contract-guardrail
+sage-guardrails: sage-stage-guardrails sage-e2e-zero-trust-controller-guardrail sage-workflow-support-guardrail sage-workflow-guardrail sage-operating-contract-guardrail sage-persistent-llm-objective-context-guardrail
 	@echo "Kalaxy3 repository SAGE guardrails: PASS"
 
 sage-stage-receipt-self-test:
@@ -735,3 +735,11 @@ sage-architecture-approval-guardrail:
 .PHONY: sage-intent-submit
 sage-intent-submit:
 	@python3 scripts/sage/sage-intent-front-door.py --request "$${SAGE_REQUEST:?SAGE_REQUEST is required}"
+
+.PHONY: sage-persistent-llm-objective-context-self-test sage-persistent-llm-objective-context-guardrail
+
+sage-persistent-llm-objective-context-self-test:
+	$(PYTHON) scripts/sage/sage-persistent-llm-objective-context-guardrail.py --self-test
+
+sage-persistent-llm-objective-context-guardrail:
+	$(PYTHON) scripts/sage/sage-persistent-llm-objective-context-guardrail.py
