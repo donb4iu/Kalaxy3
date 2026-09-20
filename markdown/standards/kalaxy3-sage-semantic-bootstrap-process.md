@@ -54,3 +54,20 @@ The Architect disposition record may add explicit structured planning directives
 Semantic bootstrap owns interpretation, Architect semantic confirmation, feasibility sufficient for planning-source generation, and creation of the checksum-bound planning source. It does **not** own the external planning-to-mutation lifecycle. After confirmation, the published compatibility continuation returns the confirmed source and its engineering-contribution provenance to `sage-intent-to-outcome-adopt-source`. The intent-to-outcome composition validates that lineage, invokes request planning, persists the exact proposal, and stops at the objective-path decision gate before request execution.
 
 The lower-level `sage-request-plan` and `sage-request-execute` interfaces remain reusable repository components, but semantic bootstrap must not publish a direct external `request-plan → request-execute` sequence.
+
+## Fresh-role implementation-readiness boundary
+
+Planning cognition and implementation capability are separate states. A fresh
+planning advisory must carry one governed disposition from
+`implementation-ready`, `knowledge-evidence-capability-gap`,
+`material-decision-required`, or `unsupported`. SAGE validates that contract and
+derives the next lifecycle boundary deterministically.
+
+Only `implementation-ready` may enter the repository-owned first-candidate
+generator. The other dispositions return their gap, material choice, or
+unsupported condition upstream without fabricating an engineering contribution.
+The first-candidate generator revalidates the request-bound readiness artifact
+before invoking any implementation model.
+
+The readiness contract and its epistemic fields are defined in
+`markdown/standards/kalaxy3-sage-fresh-role-readiness.md`.

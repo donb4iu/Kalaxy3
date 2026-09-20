@@ -16,6 +16,12 @@ REQUIRED = (
     "markdown/standards/sage-semantic-understanding-schema-v1.0.json",
     "markdown/standards/sage-request-planning-source-schema-v1.1.json",
     "markdown/standards/sage-request-planning-source-schema-v1.2.json",
+    "scripts/sage/fresh_role_readiness.py",
+    "scripts/sage/workflows/fresh_candidate_generation.py",
+    "scripts/sage/sage-first-candidate-generate.py",
+    "scripts/sage/sage-intent-front-door.py",
+    "markdown/templates/sage-fresh-implementation-role-prompt.txt",
+    "markdown/standards/kalaxy3-sage-fresh-role-readiness.md",
 )
 
 
@@ -29,6 +35,11 @@ def validate() -> list[str]:
     cli = (ROOT / "scripts/sage/sage-request-plan.py").read_text(encoding="utf-8")
     bootstrap_cli = (ROOT / "scripts/sage/sage-action-bootstrap.py").read_text(encoding="utf-8")
     process = (ROOT / "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md").read_text(encoding="utf-8").casefold()
+    fresh = (ROOT / "scripts/sage/workflows/fresh_candidate_generation.py").read_text(encoding="utf-8")
+    fresh_cli = (ROOT / "scripts/sage/sage-first-candidate-generate.py").read_text(encoding="utf-8")
+    fresh_prompt = (ROOT / "markdown/templates/sage-fresh-implementation-role-prompt.txt").read_text(encoding="utf-8").casefold()
+    readiness = (ROOT / "scripts/sage/fresh_role_readiness.py").read_text(encoding="utf-8")
+    frontdoor = (ROOT / "scripts/sage/sage-intent-front-door.py").read_text(encoding="utf-8")
     markers = (
         "load_improvement_action",
         'action.get("current_status") != "accepted"',
@@ -74,6 +85,47 @@ def validate() -> list[str]:
         failures.append("semantic-bootstrap self-test does not cover distinct confirmed-slice planning-source identity")
     if "sage-intent-to-outcome-adopt-source" not in workflow:
         failures.append("semantic bootstrap does not hand confirmed planning source to lifecycle owner")
+    fresh_markers = (
+        "require_implementation_ready",
+        '"implementation_readiness"',
+        "repository_fresh_role_invoker",
+        "generate_first_candidate",
+        '"fresh_critic_required": True',
+        '"self_approved": False',
+        '"epistemic_basis"',
+    )
+    for marker in fresh_markers:
+        if marker not in fresh:
+            failures.append(f"first-candidate generation marker missing: {marker}")
+    for marker in ("--readiness", "--self-test"):
+        if marker not in fresh_cli:
+            failures.append(f"first-candidate CLI marker missing: {marker}")
+    for marker in (
+        "implementation-ready",
+        "knowledge-evidence-capability-gap",
+        "material-decision-required",
+        "unsupported",
+        "fresh-first-candidate-generation",
+        "persistent-collaborator-gap-closure",
+        "architect-decision",
+        "stop-unsupported",
+    ):
+        if marker not in readiness:
+            failures.append(f"fresh readiness contract marker missing: {marker}")
+    for marker in (
+        "implementation-readiness.json",
+        "build_readiness_record",
+        "readiness_disposition",
+    ):
+        if marker not in frontdoor:
+            failures.append(f"fresh intent readiness marker missing: {marker}")
+    for marker in (
+        "implementation readiness",
+        "epistemic_basis",
+        "do not approve your own work",
+    ):
+        if marker not in fresh_prompt:
+            failures.append(f"fresh implementation prompt marker missing: {marker}")
     next_block = workflow[workflow.find("next_command ="):workflow.find("return {", workflow.find("next_command ="))]
     if '"sage-request-plan"' in next_block:
         failures.append("semantic bootstrap still publishes direct request-plan continuation")
@@ -113,6 +165,9 @@ def main() -> int:
     print("PASS existing planner/executor reuse behind lifecycle-owned authority boundary")
     print("PASS confirmed semantic authority is bound into downstream planning")
     print("PASS semantic-confirmation digest scopes immutable planning-source identity")
+    print("PASS fresh planning has a governed four-way implementation-readiness gate")
+    print("PASS only implementation-ready can enter fresh first-candidate generation")
+    print("PASS unsupported repository grounding fails closed before implementation")
     print("Kalaxy3 SAGE semantic bootstrap guardrail: PASS")
     return 0
 
