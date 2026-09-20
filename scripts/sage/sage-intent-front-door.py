@@ -79,6 +79,7 @@ def invoke_ollama(endpoint, model, envelope):
     payload = {
         "model": model,
         "stream": False,
+        "format": "json",
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": json.dumps(envelope, sort_keys=True)},
