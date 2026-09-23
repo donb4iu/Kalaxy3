@@ -548,7 +548,7 @@
         "make sage-feedback-self-test",
         "make sage-session-self-test",
         "make sage-improvement-policy-check",
-        "make sage-guardrails",
+        "make sage-stage-guardrails",
         "make sage-operating-contract-check"
       ],
       "evidence_process": [
@@ -1115,7 +1115,7 @@
         "make sage-workflow-self-test",
         "make sage-workflow-guardrail",
         "make sage-self-test",
-        "make sage-guardrails",
+        "make sage-stage-guardrails",
         "make sage-index-check",
         "make sage-workflow-support-self-test",
         "make sage-workflow-support-guardrail",
@@ -1180,7 +1180,7 @@
         "make sage-semantic-bootstrap-self-test",
         "make sage-semantic-bootstrap-guardrail",
         "make sage-request-planning-guardrail",
-        "make sage-guardrails",
+        "make sage-stage-guardrails",
         "make sage-index-check",
         "make sage-operating-contract-check"
       ],

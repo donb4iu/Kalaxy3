@@ -29,7 +29,7 @@ from workflow import (
 )
 
 WORKFLOW_ID = "sage.semantic-bootstrap"
-WORKFLOW_VERSION = "0.4.3"
+WORKFLOW_VERSION = "0.4.4"
 PRIMITIVES_USED = (
     "catalog.registry",
     "logging.events",
@@ -41,7 +41,7 @@ PRIMITIVES_USED = (
     "sage.action-lifecycle",
 )
 SECRET_ENVIRONMENT_NAMES = ("GH_TOKEN", "GITHUB_TOKEN", "GITHUB_PAT", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "KUBECONFIG")
-DEFAULT_VALIDATIONS = ("sage-guardrails", "sage-index-check", "sage-operating-contract-check")
+DEFAULT_VALIDATIONS = ("sage-stage-guardrails", "sage-index-check", "sage-operating-contract-check")
 
 
 def _write_json(writer: AtomicFileWriter, path: Path, value: Mapping[str, Any]) -> Path:
