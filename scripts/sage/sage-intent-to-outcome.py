@@ -597,6 +597,39 @@ def self_test() -> int:
             raise RuntimeError("runtime acceptance without candidate source commit did not fail closed")
     print("PASS runtime acceptance fails closed without candidate source lineage")
     workflow_manager_self_test()
+
+    original_source_loader = intent_workflow.load_source_bundle
+
+    class _PromotionPlanningSourceFixture:
+        manifest = {
+            "repository": {
+                "branch": "feature/planning-lineage-fixture",
+                "head": "f" * 40,
+            }
+        }
+
+    try:
+        intent_workflow.load_source_bundle = (
+            lambda path, request: _PromotionPlanningSourceFixture()
+        )
+        branch = intent_workflow._promotion_source_branch(
+            {
+                "request": "fixture adopted confirmed planning source",
+                "semantic_state": None,
+                "planning_source": "/tmp/fixture-planning-source.zip",
+            }
+        )
+    finally:
+        intent_workflow.load_source_bundle = original_source_loader
+
+    if branch != "feature/planning-lineage-fixture":
+        raise RuntimeError(
+            "promotion did not resolve source branch from adopted planning-source lineage"
+        )
+    print(
+        "PASS promotion source branch resolves from adopted planning-source lineage"
+    )
+
     print("PASS intent-to-outcome front door self-test")
     return 0
 

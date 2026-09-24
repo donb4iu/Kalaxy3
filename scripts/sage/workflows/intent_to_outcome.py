@@ -47,7 +47,7 @@ from sage_evidence_retrieval import (
 )
 
 WORKFLOW_ID = "sage.intent-to-outcome"
-WORKFLOW_VERSION = "0.4.5"
+WORKFLOW_VERSION = "0.4.6"
 PRIMITIVES_USED = (
     "catalog.registry",
     "file.atomic-preserve-mode",
@@ -592,20 +592,47 @@ def _generation_route_state(state: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _promotion_source_branch(state: Mapping[str, Any]) -> str:
+    # Resolve promotion source from current governed repository lineage.
+    planning_source = state.get("planning_source")
+    if isinstance(planning_source, str) and planning_source:
+        request = state.get("request")
+        if not isinstance(request, str) or not request:
+            raise WorkflowError(
+                "promotion planning-source resolution requires the literal request"
+            )
+        source = load_source_bundle(
+            Path(planning_source).expanduser().resolve(),
+            request,
+        )
+        repository = source.manifest.get("repository")
+        if not isinstance(repository, Mapping):
+            raise WorkflowError(
+                "promotion planning source lacks repository lineage"
+            )
+        branch = repository.get("branch")
+        if isinstance(branch, str) and branch and branch != "main":
+            return branch
+        raise WorkflowError(
+            "promotion planning source does not preserve a non-main source branch"
+        )
+
     semantic_state = state.get("semantic_state")
     if isinstance(semantic_state, str) and semantic_state:
         path = Path(semantic_state).expanduser().resolve()
         try:
             child = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:
-            raise WorkflowError(f"semantic state is unreadable for promotion source resolution: {error}") from error
+            raise WorkflowError(
+                f"semantic state is unreadable for promotion source resolution: {error}"
+            ) from error
         repository = child.get("repository")
         if isinstance(repository, Mapping):
             branch = repository.get("branch")
             if isinstance(branch, str) and branch and branch != "main":
                 return branch
+
     raise WorkflowError(
-        "promotion source branch is not preserved in governed semantic lineage"
+        "promotion source branch is not preserved in governed planning or semantic lineage"
     )
 
 
