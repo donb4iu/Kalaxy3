@@ -210,16 +210,12 @@ def _run_orphan_reconciliation_fixture(
     before_state = state.read_bytes()
     before_decision = decision.read_bytes()
     original_binding = intent_workflow._reconciliation_proposal_binding
-    original_authority = intent_workflow._reconciliation_repository_authority
     original_refresh = intent_workflow._refresh_objective_route
 
     intent_workflow._reconciliation_proposal_binding = (
         lambda parent, bound_decision, expected_sha: _fixture_reconciliation_binding(
             contribution, parent, bound_decision, expected_sha
         )
-    )
-    intent_workflow._reconciliation_repository_authority = (
-        lambda *args, **kwargs: {"branch": "feature/fixture", "head": "a" * 40}
     )
     intent_workflow._refresh_objective_route = lambda *args, **kwargs: None
     state_sha = hashlib.sha256(before_state).hexdigest()
@@ -245,7 +241,6 @@ def _run_orphan_reconciliation_fixture(
         )
     finally:
         intent_workflow._reconciliation_proposal_binding = original_binding
-        intent_workflow._reconciliation_repository_authority = original_authority
         intent_workflow._refresh_objective_route = original_refresh
     return dict(result), before_decision
 

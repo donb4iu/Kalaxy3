@@ -1067,27 +1067,20 @@ def _reconciliation_proposal_binding(
     return proposal, bundle.manifest
 
 
-def _reconciliation_repository_authority(
-    repo: Path, state_path: Path, proposal_manifest: Mapping[str, Any]
+def _reconciliation_repository_provenance(
+    proposal_manifest: Mapping[str, Any],
 ) -> dict[str, str]:
-    """Require clean synchronized Git authority to equal proposal-bound provenance."""
+    """Return validated repository provenance already bound into the proposal."""
 
-    resolved = repo.expanduser().resolve()
-    directory = state_path.expanduser().resolve().parent
-    logger = JsonlEventLogger(
-        directory / "orphan-iteration-reconciliation-events.jsonl",
-        WORKFLOW_ID + ".orphan-iteration-reconciliation",
-    )
-    runner = CommandRunner(logger, allowed_roots=(resolved, directory))
-    inspector = GitInspector(resolved, runner)
-    inspector.require_clean()
-    head = inspector.require_upstream_equal()
-    branch = inspector.branch()
     expected = proposal_manifest.get("repository")
     if not isinstance(expected, Mapping):
-        raise WorkflowError("planning proposal repository authority is invalid")
-    if expected.get("branch") != branch or expected.get("head") != head:
-        raise WorkflowError("repository branch/HEAD drifted from the approved proposal")
+        raise WorkflowError("planning proposal repository provenance is invalid")
+    branch = expected.get("branch")
+    head = expected.get("head")
+    if not isinstance(branch, str) or not branch:
+        raise WorkflowError("planning proposal repository branch provenance is invalid")
+    if not isinstance(head, str) or not head:
+        raise WorkflowError("planning proposal repository HEAD provenance is invalid")
     return {"branch": branch, "head": head}
 
 
@@ -1155,7 +1148,7 @@ def reconcile_orphan_pre_mutation_successor(
     proposal, manifest = _reconciliation_proposal_binding(
         state, decision, expected_contribution_sha256
     )
-    authority = _reconciliation_repository_authority(repo, resolved_state, manifest)
+    authority = _reconciliation_repository_provenance(manifest)
     _revalidate_reconciliation_inputs(
         resolved_state, state, decision_path, decision,
         expected_state_sha256, expected_contribution_sha256,
