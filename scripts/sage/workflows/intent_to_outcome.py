@@ -47,7 +47,7 @@ from sage_evidence_retrieval import (
 )
 
 WORKFLOW_ID = "sage.intent-to-outcome"
-WORKFLOW_VERSION = "0.4.6"
+WORKFLOW_VERSION = "0.4.7"
 PRIMITIVES_USED = (
     "catalog.registry",
     "file.atomic-preserve-mode",
@@ -890,6 +890,288 @@ def _load_parent(path: Path) -> dict[str, Any]:
     if not request or value.get("request_sha256") != _request_digest(request):
         raise WorkflowError("intent-to-outcome request binding is invalid")
     return _ensure_iteration_contract(value)
+
+
+def _iteration_by_number(state: Mapping[str, Any], number: int) -> dict[str, Any]:
+    """Return one iteration record by exact iteration number."""
+
+    for item in state.get("iterations", []):
+        if isinstance(item, dict) and item.get("iteration") == number:
+            return item
+    raise WorkflowError(f"intent state iteration {number} is missing")
+
+
+def _next_iteration_number(state: Mapping[str, Any]) -> int:
+    """Allocate an iteration number without reusing preserved historical lineage."""
+
+    numbers = [
+        int(item.get("iteration", 0))
+        for item in state.get("iterations", [])
+        if isinstance(item, Mapping)
+    ]
+    return max(numbers, default=0) + 1
+
+
+def _require_sha256(path: Path, expected: str, label: str) -> str:
+    """Require one file to match an externally supplied exact SHA-256 digest."""
+
+    if re.fullmatch(r"[0-9a-f]{64}", expected) is None:
+        raise WorkflowError(f"{label} expected SHA-256 is invalid")
+    resolved = path.expanduser().resolve()
+    if not resolved.is_file():
+        raise WorkflowError(f"{label} is missing: {resolved}")
+    observed = _file_sha256(resolved)
+    if observed != expected:
+        raise WorkflowError(f"{label} changed since reconciliation evidence was recorded")
+    return observed
+
+
+def _orphan_predecessor_pair(state: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Validate the exact duplicate pre-mutation orphan-successor shape."""
+
+    if state.get("status") != "objective-path-decision-required":
+        raise WorkflowError("orphan reconciliation requires the preserved objective-path boundary")
+    orphan = _current_iteration(state)
+    number = int(orphan.get("iteration", 0))
+    if number < 2:
+        raise WorkflowError("orphan reconciliation requires a predecessor iteration")
+    predecessor = _iteration_by_number(state, number - 1)
+    orphan_shape = (
+        orphan.get("status"), orphan.get("next_boundary"),
+        orphan.get("entry_mode"), orphan.get("candidate_head"),
+    )
+    if orphan_shape != ("starting", "implementation-local", "inflight-supersession", None):
+        raise WorkflowError("current iteration is not a pre-mutation implementation-local orphan")
+    if orphan.get("recovery_consumption") is not None:
+        raise WorkflowError(
+            "implementation-local orphan unexpectedly carries recovery consumption"
+        )
+    if state.get("request_execution_state") is not None:
+        raise WorkflowError("pre-mutation orphan already has request-execution state")
+    if (
+        orphan.get("validation_state") != "pending"
+        or orphan.get("promotion_eligible") is not False
+    ):
+        raise WorkflowError("pre-mutation orphan validation or promotion state changed")
+    if orphan.get("invalidated_downstream_state") not in (None, []):
+        raise WorkflowError("pre-mutation orphan already invalidated downstream state")
+    if predecessor.get("status") != "superseded-in-progress":
+        raise WorkflowError("orphan predecessor is not the superseded in-progress candidate")
+    if predecessor.get("next_boundary") != "candidate-iteration":
+        raise WorkflowError("orphan predecessor supersession boundary is invalid")
+    for field in ("trigger", "parent_checkpoint", "affected_obligations", "entry_mode"):
+        if orphan.get(field) != predecessor.get(field):
+            raise WorkflowError(f"orphan successor is not an exact duplicate on {field}")
+    return predecessor, orphan
+
+
+def _predecessor_boundary_history(
+    state: Mapping[str, Any], predecessor: Mapping[str, Any], proposal: Path
+) -> None:
+    """Require preserved history proving the predecessor reached the approved boundary."""
+
+    number = int(predecessor["iteration"])
+    proposal_sha = _file_sha256(proposal)
+    ready = [
+        item for item in state.get("history", [])
+        if isinstance(item, Mapping)
+        and item.get("stage") == "candidate-iteration-ready-for-objective-path-decision"
+        and item.get("iteration") == number
+        and item.get("planning_proposal_sha256") == proposal_sha
+    ]
+    inherited = [
+        item for item in state.get("history", [])
+        if isinstance(item, Mapping)
+        and item.get("stage") == "implementation-local-objective-path-approval-inherited"
+        and item.get("iteration") == number
+        and item.get("corrected_planning_proposal_sha256") == proposal_sha
+        and item.get("approval_reused") is True
+        and item.get("material_decision_surface_changed") is False
+    ]
+    if len(ready) != 1 or len(inherited) != 1:
+        raise WorkflowError("predecessor objective-path lineage is missing or ambiguous")
+
+
+def _bound_reconciliation_decision(
+    state_path: Path,
+    state: Mapping[str, Any],
+    predecessor: Mapping[str, Any],
+    expected_sha256: str,
+) -> tuple[Path, dict[str, Any]]:
+    """Load the predecessor decision and verify request, objective, and proposal binding."""
+
+    number = int(predecessor["iteration"])
+    path = state_path.expanduser().resolve().parent / (
+        f"objective-path-decision-iteration-{number:03d}.json"
+    )
+    _require_sha256(path, expected_sha256, "objective-path decision")
+    decision = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(decision, dict):
+        raise WorkflowError("objective-path decision must be a JSON object")
+    if decision.get("request_sha256") != state.get("request_sha256"):
+        raise WorkflowError("objective-path decision request binding changed")
+    objective_id = state.get("objective_id") or state.get("action_id")
+    if decision.get("active_objective_id") != objective_id:
+        raise WorkflowError("objective-path decision objective binding changed")
+    disposition = decision.get("architect_disposition")
+    if not isinstance(disposition, Mapping) or disposition.get("status") != "approved":
+        raise WorkflowError("objective-path decision is not approved")
+    if (
+        disposition.get("authority") != "architect"
+        or disposition.get("basis") != "operator-supplied-to-governed-execution"
+    ):
+        raise WorkflowError("objective-path decision authority binding changed")
+    return path, decision
+
+
+def _reconciliation_proposal_binding(
+    state: Mapping[str, Any],
+    decision: Mapping[str, Any],
+    expected_contribution_sha256: str,
+) -> tuple[Path, Mapping[str, Any]]:
+    """Validate exact proposal, source, and contribution payload binding."""
+
+    proposal_value = state.get("planning_proposal")
+    source_value = state.get("planning_source")
+    contribution_value = state.get("contribution")
+    lineage_values = (proposal_value, source_value, contribution_value)
+    if not all(isinstance(value, str) and value for value in lineage_values):
+        raise WorkflowError(
+            "orphan reconciliation lost proposal/source/contribution lineage"
+        )
+    proposal = Path(str(proposal_value)).expanduser().resolve()
+    if decision.get("proposal_sha256") != _file_sha256(proposal):
+        raise WorkflowError("objective-path decision no longer matches the planning proposal")
+    validate_reusable_plan_lineage(str(state["request"]), Path(str(source_value)), proposal)
+    contribution_path = Path(str(contribution_value)).expanduser().resolve()
+    _require_sha256(contribution_path, expected_contribution_sha256, "engineering contribution")
+    contribution = load_engineering_contribution(contribution_path)
+    bundle = load_proposal(proposal, str(state["request"]))
+    expected = tuple(
+        (item.path, item.sha256, f"{item.mode:04o}")
+        for item in contribution.source_files
+    )
+    observed = tuple(
+        (
+            str(item.get("path", "")),
+            str(item.get("sha256", "")),
+            str(item.get("mode", "")),
+        )
+        for item in bundle.manifest.get("source_files", [])
+        if isinstance(item, Mapping)
+    )
+    if observed != expected:
+        raise WorkflowError(
+            "planning proposal no longer exactly matches the engineering contribution"
+        )
+    return proposal, bundle.manifest
+
+
+def _reconciliation_repository_authority(
+    repo: Path, state_path: Path, proposal_manifest: Mapping[str, Any]
+) -> dict[str, str]:
+    """Require clean synchronized Git authority to equal proposal-bound provenance."""
+
+    resolved = repo.expanduser().resolve()
+    directory = state_path.expanduser().resolve().parent
+    logger = JsonlEventLogger(
+        directory / "orphan-iteration-reconciliation-events.jsonl",
+        WORKFLOW_ID + ".orphan-iteration-reconciliation",
+    )
+    runner = CommandRunner(logger, allowed_roots=(resolved, directory))
+    inspector = GitInspector(resolved, runner)
+    inspector.require_clean()
+    head = inspector.require_upstream_equal()
+    branch = inspector.branch()
+    expected = proposal_manifest.get("repository")
+    if not isinstance(expected, Mapping):
+        raise WorkflowError("planning proposal repository authority is invalid")
+    if expected.get("branch") != branch or expected.get("head") != head:
+        raise WorkflowError("repository branch/HEAD drifted from the approved proposal")
+    return {"branch": branch, "head": head}
+
+
+def _revalidate_reconciliation_inputs(
+    state_path: Path, state: Mapping[str, Any], decision_path: Path,
+    decision: Mapping[str, Any], expected_state_sha256: str,
+    expected_contribution_sha256: str, expected_decision_sha256: str,
+) -> None:
+    """Recheck exact state, decision, source, proposal, and contribution before write."""
+
+    _require_sha256(state_path, expected_state_sha256, "intent-to-outcome state")
+    _require_sha256(decision_path, expected_decision_sha256, "objective-path decision")
+    _reconciliation_proposal_binding(
+        state, decision, expected_contribution_sha256
+    )
+
+
+
+def _apply_orphan_reconciliation(
+    repo: Path, state_path: Path, state: dict[str, Any],
+    predecessor: dict[str, Any], orphan: dict[str, Any], proposal: Path,
+    decision_path: Path, decision_sha256: str, authority: Mapping[str, str],
+) -> None:
+    """Persist the validated reconciliation while preserving orphan lineage."""
+
+    orphan["status"] = "reconciled-orphan-pre-mutation"
+    orphan["next_boundary"] = None
+    orphan["reconciled_to_iteration"] = int(predecessor["iteration"])
+    predecessor["status"] = "objective-path-decision"
+    predecessor["next_boundary"] = "objective-path-decision"
+    state["current_iteration"] = int(predecessor["iteration"])
+    state.setdefault("history", []).append({
+        "stage": "orphan-pre-mutation-successor-reconciled",
+        "orphan_iteration": orphan["iteration"],
+        "restored_iteration": predecessor["iteration"],
+        "planning_proposal_sha256": _file_sha256(proposal),
+        "objective_path_decision": str(decision_path),
+        "objective_path_decision_sha256": decision_sha256,
+        "repository": dict(authority),
+        "repository_mutation": False,
+    })
+    _refresh_objective_route(repo.expanduser().resolve(), state)
+    _persist(state_path, state)
+
+
+
+def reconcile_orphan_pre_mutation_successor(
+    repo: Path, state_path: Path, *, expected_state_sha256: str,
+    expected_contribution_sha256: str, expected_decision_sha256: str,
+) -> Mapping[str, Any]:
+    """Reconcile one exact duplicate implementation-local orphan without repository mutation."""
+
+    resolved_state = state_path.expanduser().resolve()
+    _require_sha256(resolved_state, expected_state_sha256, "intent-to-outcome state")
+    state = _load_parent(resolved_state)
+    predecessor, orphan = _orphan_predecessor_pair(state)
+    proposal_value = state.get("planning_proposal")
+    if not isinstance(proposal_value, str) or not proposal_value:
+        raise WorkflowError("orphan reconciliation has no preserved planning proposal")
+    proposal = Path(proposal_value).expanduser().resolve()
+    _predecessor_boundary_history(state, predecessor, proposal)
+    decision_path, decision = _bound_reconciliation_decision(
+        resolved_state, state, predecessor, expected_decision_sha256
+    )
+    proposal, manifest = _reconciliation_proposal_binding(
+        state, decision, expected_contribution_sha256
+    )
+    authority = _reconciliation_repository_authority(repo, resolved_state, manifest)
+    _revalidate_reconciliation_inputs(
+        resolved_state, state, decision_path, decision,
+        expected_state_sha256, expected_contribution_sha256,
+        expected_decision_sha256,
+    )
+    _apply_orphan_reconciliation(
+        repo, resolved_state, state, predecessor, orphan, proposal,
+        decision_path, expected_decision_sha256, authority,
+    )
+    return {
+        "status": state["status"], "state": str(resolved_state),
+        "current_iteration": state["current_iteration"],
+        "reconciled_orphan_iteration": orphan["iteration"],
+        "objective_path_decision": str(decision_path),
+        "next_boundary": "objective-path-decision",
+    }
 
 
 def reconcile_completed_semantic_child(
@@ -1842,7 +2124,7 @@ def begin_candidate_iteration(
                 }
             )
 
-    number = int(state["current_iteration"]) + 1
+    number = _next_iteration_number(state)
     iteration = _iteration_record(
         number,
         parent_checkpoint=parent_checkpoint.strip(),
@@ -1865,7 +2147,8 @@ def begin_candidate_iteration(
 
     resolved = repo.expanduser().resolve()
     _refresh_objective_route(resolved, state)
-    _persist(state_path.expanduser().resolve(), state)
+    if reentry_boundary != "implementation-local":
+        _persist(state_path.expanduser().resolve(), state)
     if reentry_boundary == "authority":
         iteration["status"] = "authority-review-required"
         iteration["invalidated_downstream_state"] = [

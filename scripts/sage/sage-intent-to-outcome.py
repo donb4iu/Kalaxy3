@@ -36,6 +36,7 @@ from workflows.intent_to_outcome import (  # noqa: E402
     record_runtime_applicability_for_promotion,
     reconsider_intent,
     reconcile_completed_request_child,
+    reconcile_orphan_pre_mutation_successor,
     reconcile_stale_parent_completed_request_child,
     reconcile_completed_semantic_child,
     objective_route_snapshot,
@@ -45,6 +46,241 @@ from workflows.llm_workflow_manager import (  # noqa: E402
     manage_candidate_iteration,
     self_test as workflow_manager_self_test,
 )
+
+
+def _orphan_fixture_artifacts(temp: Path) -> dict[str, object]:
+    """Write exact proposal, source, contribution, and Architect decision fixtures."""
+
+    request = "fixture orphan iteration request"
+    proposal = temp / "proposal.zip"
+    proposal.write_bytes(b"exact proposal bytes")
+    source = temp / "source.zip"
+    source.write_bytes(b"exact source bytes")
+    contribution = temp / "contribution.zip"
+    contribution.write_bytes(b"exact contribution bytes")
+    decision = temp / "objective-path-decision-iteration-002.json"
+    decision_value = {
+        "request_sha256": hashlib.sha256(request.encode()).hexdigest(),
+        "active_objective_id": "SAGE-ACTION-FIXTURE",
+        "proposal_sha256": hashlib.sha256(proposal.read_bytes()).hexdigest(),
+        "architect_disposition": {
+            "status": "approved",
+            "authority": "architect",
+            "basis": "operator-supplied-to-governed-execution",
+        },
+    }
+    decision.write_text(json.dumps(decision_value) + "\n", encoding="utf-8")
+    return {
+        "request": request,
+        "proposal": proposal,
+        "source": source,
+        "contribution": contribution,
+        "decision": decision,
+        "decision_value": decision_value,
+    }
+
+
+def _orphan_reconciliation_fixture(temp: Path) -> dict[str, object]:
+    """Create a minimal duplicate-successor state and exact decision fixture."""
+    fixture = _orphan_fixture_artifacts(temp)
+    common = {
+        "parent_checkpoint": "fixture-checkpoint",
+        "candidate_head": None,
+        "trigger": "fixture duplicate implementation-local correction",
+        "affected_obligations": ["fixture obligation"],
+        "validation_state": "pending",
+        "promotion_eligible": False,
+        "entry_mode": "inflight-supersession",
+    }
+    proposal_sha = fixture["decision_value"]["proposal_sha256"]
+    state_value = {
+        "record_type": "sage-intent-to-outcome-state",
+        "request": fixture["request"],
+        "request_sha256": fixture["decision_value"]["request_sha256"],
+        "action_id": "SAGE-ACTION-FIXTURE",
+        "objective_id": "SAGE-ACTION-FIXTURE",
+        "status": "objective-path-decision-required",
+        "current_iteration": 3,
+        "planning_source": str(fixture["source"]),
+        "planning_proposal": str(fixture["proposal"]),
+        "contribution": str(fixture["contribution"]),
+        "request_execution_state": None,
+        "iterations": [
+            dict(common, iteration=2, status="superseded-in-progress",
+                 next_boundary="candidate-iteration"),
+            dict(common, iteration=3, status="starting",
+                 next_boundary="implementation-local"),
+        ],
+        "history": [
+            {
+                "stage": "implementation-local-objective-path-approval-inherited",
+                "iteration": 2,
+                "corrected_planning_proposal_sha256": proposal_sha,
+                "approval_reused": True,
+                "material_decision_surface_changed": False,
+            },
+            {
+                "stage": "candidate-iteration-ready-for-objective-path-decision",
+                "iteration": 2,
+                "planning_proposal_sha256": proposal_sha,
+            },
+        ],
+    }
+    state = temp / "intent-to-outcome-state.json"
+    state.write_text(json.dumps(state_value, indent=4) + "\n", encoding="utf-8")
+    fixture["state"] = state
+    return fixture
+
+
+def _self_test_orphan_failure_atomic() -> None:
+    """Verify a late implementation-local planning failure cannot persist a successor."""
+
+    with tempfile.TemporaryDirectory(prefix="sage-orphan-atomic-") as raw:
+        fixture = _orphan_reconciliation_fixture(Path(raw))
+        state = Path(str(fixture["state"]))
+        value = json.loads(state.read_text(encoding="utf-8"))
+        value["current_iteration"] = 2
+        value["iterations"] = [value["iterations"][0]]
+        value["iterations"][0]["status"] = "objective-path-decision"
+        value["iterations"][0]["next_boundary"] = "objective-path-decision"
+        state.write_text(json.dumps(value, indent=4) + "\n", encoding="utf-8")
+        before = state.read_bytes()
+        original_reuse = intent_workflow.reuse_confirmed_intent
+        original_refresh = intent_workflow._refresh_objective_route
+        prior_env = intent_workflow.os.environ.get("SAGE_OBJECTIVE_PATH_DECISION")
+        intent_workflow.reuse_confirmed_intent = (
+            lambda *args, **kwargs: (_ for _ in ()).throw(
+                WorkflowError("fixture late planning failure")
+            )
+        )
+        intent_workflow._refresh_objective_route = lambda *args, **kwargs: None
+        intent_workflow.os.environ["SAGE_OBJECTIVE_PATH_DECISION"] = str(fixture["decision"])
+        try:
+            begin_candidate_iteration(
+                Path(raw) / "repo",
+                state,
+                Path(str(fixture["contribution"])),
+                trigger=value["iterations"][0]["trigger"],
+                reentry_boundary="implementation-local",
+                parent_checkpoint=value["iterations"][0]["parent_checkpoint"],
+                affected_obligations=(
+                    value["iterations"][0]["affected_obligations"]
+                ),
+            )
+        except WorkflowError:
+            pass
+        else:
+            raise RuntimeError("late implementation-local failure did not fail closed")
+        finally:
+            intent_workflow.reuse_confirmed_intent = original_reuse
+            intent_workflow._refresh_objective_route = original_refresh
+            if prior_env is None:
+                intent_workflow.os.environ.pop("SAGE_OBJECTIVE_PATH_DECISION", None)
+            else:
+                intent_workflow.os.environ["SAGE_OBJECTIVE_PATH_DECISION"] = prior_env
+        if state.read_bytes() != before:
+            raise RuntimeError(
+                "late implementation-local failure persisted orphan successor state"
+            )
+
+
+
+def _fixture_reconciliation_binding(
+    contribution: Path, parent: dict[str, object],
+    bound_decision: dict[str, object], expected_sha: str,
+) -> tuple[Path, dict[str, object]]:
+    """Exercise exact contribution and proposal digest gates in the fixture."""
+
+    intent_workflow._require_sha256(
+        contribution, expected_sha, "engineering contribution"
+    )
+    proposal = Path(str(parent["planning_proposal"]))
+    proposal_sha = hashlib.sha256(proposal.read_bytes()).hexdigest()
+    if bound_decision["proposal_sha256"] != proposal_sha:
+        raise WorkflowError("fixture proposal drift")
+    return proposal, {
+        "repository": {"branch": "feature/fixture", "head": "a" * 40}
+    }
+
+def _run_orphan_reconciliation_fixture(
+    repo: Path, state: Path, decision: Path, contribution: Path
+) -> tuple[dict[str, object], bytes]:
+    """Run drift rejection and exact reconciliation with bounded test doubles."""
+
+    before_state = state.read_bytes()
+    before_decision = decision.read_bytes()
+    original_binding = intent_workflow._reconciliation_proposal_binding
+    original_authority = intent_workflow._reconciliation_repository_authority
+    original_refresh = intent_workflow._refresh_objective_route
+
+    intent_workflow._reconciliation_proposal_binding = (
+        lambda parent, bound_decision, expected_sha: _fixture_reconciliation_binding(
+            contribution, parent, bound_decision, expected_sha
+        )
+    )
+    intent_workflow._reconciliation_repository_authority = (
+        lambda *args, **kwargs: {"branch": "feature/fixture", "head": "a" * 40}
+    )
+    intent_workflow._refresh_objective_route = lambda *args, **kwargs: None
+    state_sha = hashlib.sha256(before_state).hexdigest()
+    decision_sha = hashlib.sha256(before_decision).hexdigest()
+    contribution_sha = hashlib.sha256(contribution.read_bytes()).hexdigest()
+    try:
+        try:
+            reconcile_orphan_pre_mutation_successor(
+                repo, state, expected_state_sha256=state_sha,
+                expected_contribution_sha256="0" * 64,
+                expected_decision_sha256=decision_sha,
+            )
+        except WorkflowError:
+            pass
+        else:
+            raise RuntimeError("changed contribution bytes were accepted")
+        if state.read_bytes() != before_state:
+            raise RuntimeError("failed orphan reconciliation mutated parent state")
+        result = reconcile_orphan_pre_mutation_successor(
+            repo, state, expected_state_sha256=state_sha,
+            expected_contribution_sha256=contribution_sha,
+            expected_decision_sha256=decision_sha,
+        )
+    finally:
+        intent_workflow._reconciliation_proposal_binding = original_binding
+        intent_workflow._reconciliation_repository_authority = original_authority
+        intent_workflow._refresh_objective_route = original_refresh
+    return dict(result), before_decision
+
+
+def _self_test_orphan_reconciliation() -> None:
+    """Verify exact orphan reconciliation preserves approval and repository lineage."""
+
+    with tempfile.TemporaryDirectory(prefix="sage-orphan-reconcile-") as raw:
+        temp = Path(raw)
+        fixture = _orphan_reconciliation_fixture(temp)
+        state = Path(str(fixture["state"]))
+        contribution = Path(str(fixture["contribution"]))
+        decision = Path(str(fixture["decision"]))
+        repo = temp / "repo"
+        repo.mkdir()
+        marker = repo / "repository-marker.txt"
+        marker.write_text("unchanged\n", encoding="utf-8")
+        before_repo = marker.read_bytes()
+        result, before_decision = _run_orphan_reconciliation_fixture(
+            repo, state, decision, contribution
+        )
+        reconciled = json.loads(state.read_text(encoding="utf-8"))
+        if (
+            result.get("current_iteration") != 2
+            or intent_workflow._next_iteration_number(reconciled) != 4
+        ):
+            raise RuntimeError("orphan reconciliation did not restore predecessor")
+        if reconciled["iterations"][1]["status"] != "reconciled-orphan-pre-mutation":
+            raise RuntimeError("orphan historical lineage was silently discarded")
+        if decision.read_bytes() != before_decision:
+            raise RuntimeError("orphan reconciliation altered Architect decision bytes")
+        if marker.read_bytes() != before_repo:
+            raise RuntimeError("orphan reconciliation mutated repository content")
+        if (temp / "objective-path-decision-iteration-003.json").exists():
+            raise RuntimeError("orphan reconciliation invented a successor approval")
 
 
 def self_test() -> int:
@@ -596,6 +832,13 @@ def self_test() -> int:
         else:
             raise RuntimeError("runtime acceptance without candidate source commit did not fail closed")
     print("PASS runtime acceptance fails closed without candidate source lineage")
+    _self_test_orphan_failure_atomic()
+    print("PASS implementation-local candidate creation is failure-atomic before a valid boundary")
+    _self_test_orphan_reconciliation()
+    print(
+        "PASS exact orphan successor reconciliation restores the valid predecessor "
+        "and preserves lineage"
+    )
     workflow_manager_self_test()
 
     original_source_loader = intent_workflow.load_source_bundle
@@ -695,6 +938,12 @@ def parse_args() -> argparse.Namespace:
     managed.add_argument("--affected-obligation", action="append", default=[])
     managed.add_argument("--approved-gap-set", type=Path)
 
+    orphan_reconcile = sub.add_parser("reconcile-orphan-iteration")
+    orphan_reconcile.add_argument("--state", type=Path, required=True)
+    orphan_reconcile.add_argument("--expected-state-sha256", required=True)
+    orphan_reconcile.add_argument("--expected-contribution-sha256", required=True)
+    orphan_reconcile.add_argument("--expected-decision-sha256", required=True)
+
     planned_continuation = sub.add_parser("continue-planned")
     planned_continuation.add_argument("--state", type=Path, required=True)
 
@@ -787,6 +1036,14 @@ def main() -> int:
             parent_checkpoint=args.parent_checkpoint,
             affected_obligations=args.affected_obligation,
             approved_gap_set=args.approved_gap_set,
+        )
+    elif args.command == "reconcile-orphan-iteration":
+        result = reconcile_orphan_pre_mutation_successor(
+            args.repo,
+            args.state,
+            expected_state_sha256=args.expected_state_sha256,
+            expected_contribution_sha256=args.expected_contribution_sha256,
+            expected_decision_sha256=args.expected_decision_sha256,
         )
     elif args.command == "continue-planned":
         result = continue_planned_request(args.repo, args.state)
