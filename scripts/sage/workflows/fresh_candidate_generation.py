@@ -193,11 +193,22 @@ def _decode_utf8(payload: bytes, label: str) -> str:
         raise WorkflowError(f"fresh-role context is not UTF-8 text: {label}") from error
 
 
+def _context_source_file(path: Path) -> bool:
+    """Return whether a selected path is admissible source/evidence context."""
+    return (
+        "__pycache__" not in path.parts
+        and path.suffix not in {".pyc", ".pyo"}
+    )
 def _repository_file_records(
     repo: Path,
     paths: Sequence[Path],
 ) -> list[dict[str, str]]:
     """Describe and inline exact whitelisted repository bytes for the fresh role."""
+    paths = [
+        path
+        for path in paths
+        if _context_source_file(path)
+    ]
     records: list[dict[str, str]] = []
     for path in paths:
         payload = path.read_bytes()
@@ -329,6 +340,232 @@ def _selected_context(
     }
 
 
+def _candidate_scoped_selected_context(
+    selected: Mapping[str, Any],
+) -> dict[str, Any]:
+    # Project full SAGE discovery into one bounded implementation episode.
+    readiness_record = selected.get("implementation_readiness")
+    if not isinstance(readiness_record, Mapping):
+        raise WorkflowError(
+            "fresh candidate context lacks implementation readiness record"
+        )
+
+    if readiness_record.get("record_type") != "sage-implementation-readiness":
+        raise WorkflowError(
+            "fresh candidate implementation readiness record_type is invalid"
+        )
+
+    readiness = readiness_record.get("readiness")
+    if not isinstance(readiness, Mapping):
+        raise WorkflowError(
+            "fresh candidate implementation readiness payload is missing"
+        )
+
+    grounding = readiness.get("repository_grounding")
+    if not isinstance(grounding, list):
+        raise WorkflowError(
+            "implementation readiness repository_grounding is invalid"
+        )
+
+    grounding_paths: list[str] = []
+    for item in grounding:
+        if not isinstance(item, Mapping):
+            continue
+        item_path = item.get("path")
+        if (
+            isinstance(item_path, str)
+            and item_path
+            and item_path not in grounding_paths
+        ):
+            grounding_paths.append(item_path)
+
+    records = selected.get("repository_files")
+    if not isinstance(records, list):
+        raise WorkflowError("fresh candidate repository context is invalid")
+
+    projected_records: list[dict[str, Any]] = []
+    observed_paths: set[str] = set()
+
+    for grounding_path in grounding_paths:
+        prefix = grounding_path.rstrip("/") + "/"
+
+        for record in records:
+            if not isinstance(record, Mapping):
+                continue
+
+            path_value = record.get("path")
+            if not isinstance(path_value, str):
+                continue
+
+            if (
+                path_value != grounding_path
+                and not path_value.startswith(prefix)
+            ):
+                continue
+
+            if path_value in observed_paths:
+                continue
+
+            projected: dict[str, Any] = {
+                key: record[key]
+                for key in ("path", "sha256", "size_bytes")
+                if key in record
+            }
+
+            content = record.get("content")
+            if isinstance(content, str):
+                if len(content) <= 6000:
+                    projected["content"] = content
+                    projected["content_projection"] = "full"
+                else:
+                    projected["content"] = (
+                        content[:3000]
+                        + "\n\n"
+                        + "[... deterministic middle omission; "
+                          "full source bound by sha256 ...]"
+                        + "\n\n"
+                        + content[-3000:]
+                    )
+                    projected["content_projection"] = "head-tail"
+
+            projected_records.append(projected)
+            observed_paths.add(path_value)
+
+            if len(projected_records) >= 6:
+                break
+
+        if len(projected_records) >= 6:
+            break
+
+    # The canonical readiness contract permits implementation-ready when
+    # evidence grounding exists even if repository_grounding is empty.
+    if not projected_records and not grounding_paths:
+        for record in records[:6]:
+            if not isinstance(record, Mapping):
+                continue
+
+            path_value = record.get("path")
+            if not isinstance(path_value, str):
+                continue
+
+            projected = {
+                key: record[key]
+                for key in ("path", "sha256", "size_bytes")
+                if key in record
+            }
+
+            content = record.get("content")
+            if isinstance(content, str):
+                if len(content) <= 6000:
+                    projected["content"] = content
+                    projected["content_projection"] = "full"
+                else:
+                    projected["content"] = (
+                        content[:3000]
+                        + "\n\n"
+                        + "[... deterministic middle omission; "
+                          "full source bound by sha256 ...]"
+                        + "\n\n"
+                        + content[-3000:]
+                    )
+                    projected["content_projection"] = "head-tail"
+
+            projected_records.append(projected)
+
+    if grounding_paths and not projected_records:
+        raise WorkflowError(
+            "none of the readiness-grounded repository paths were available "
+            "to the fresh implementation context"
+        )
+
+    retrieval = selected.get("evidence_retrieval")
+    retrieval_summaries: list[dict[str, Any]] = []
+
+    if isinstance(retrieval, Mapping):
+        results = retrieval.get("results")
+        if isinstance(results, list):
+            for item in results[:8]:
+                if not isinstance(item, Mapping):
+                    continue
+
+                summary = {
+                    key: item[key]
+                    for key in (
+                        "identifier",
+                        "evidence_id",
+                        "record_type",
+                        "title",
+                        "summary",
+                        "score",
+                        "score_reasons",
+                        "disposition",
+                        "source_path",
+                        "path",
+                        "rationale",
+                    )
+                    if key in item
+                }
+
+                if summary:
+                    retrieval_summaries.append(summary)
+
+    source_digest = sha256_json(selected)
+
+    compact: dict[str, Any] = {
+        "architect_intent": selected.get("architect_intent"),
+        "architect_intent_source": selected.get("architect_intent_source"),
+        "action_record_sha256": selected.get("action_record_sha256"),
+        "literal_request": selected.get("literal_request"),
+        "implementation_readiness": {
+            "schema_version": readiness_record.get("schema_version"),
+            "record_type": readiness_record.get("record_type"),
+            "authority": readiness_record.get("authority"),
+            "request_sha256": readiness_record.get("request_sha256"),
+            "source_decision": readiness_record.get("source_decision"),
+            "disposition": readiness_record.get("disposition"),
+            "readiness": dict(readiness),
+            "status": readiness_record.get("status"),
+            "next_boundary": readiness_record.get("next_boundary"),
+        },
+        "implementation_readiness_sha256": selected.get(
+            "implementation_readiness_sha256"
+        ),
+        "contexts": selected.get("contexts"),
+        "repository_grounding_paths": grounding_paths,
+        "repository_files": projected_records,
+        "evidence_retrieval_summary": retrieval_summaries,
+        "role_prompt_sha256": selected.get("role_prompt_sha256"),
+        "contribution_schema_sha256": selected.get(
+            "contribution_schema_sha256"
+        ),
+        "output_contract": (
+            "exact contribution/result schema supplied separately at "
+            "the provider structured-output boundary"
+        ),
+        "persistent_llm_strawman": (
+            None
+            if selected.get("persistent_llm_strawman") is None
+            else {
+                "source_sha256": sha256_json(
+                    selected["persistent_llm_strawman"]
+                ),
+                "authority": "none",
+                "disposition_required": True,
+            }
+        ),
+        "source_context_sha256": source_digest,
+        "source_classes": selected.get("source_classes"),
+    }
+
+    encoded_size = len(stable_json(compact).encode("utf-8"))
+    if encoded_size > 60000:
+        raise WorkflowError(
+            "candidate-scoped fresh-role context exceeds conservative "
+            f"32K runtime budget: {encoded_size} bytes"
+        )
+
+    return compact
+
 def _prepare_context(
     repo: Path,
     action: Mapping[str, Any],
@@ -338,18 +575,22 @@ def _prepare_context(
     readiness_sha256: str,
     strawman: Mapping[str, Any] | None,
 ) -> tuple[dict[str, Any], str, Path]:
-    """Discover, retrieve, bind, and persist one fresh implementation context."""
+    """Discover, bind, persist, and project one bounded implementation context."""
     runner = _runtime(repo, state_dir)
     discovery = _discover(repo, request, runner)
+
     retrieval = retrieve_evidence(
         repo=repo,
         policy_path=repo / "sage-evidence-retrieval-policy.json",
         request=request,
     )
+
     retrieval_path = state_dir / "evidence-retrieval.json"
     write_retrieval_result(retrieval_path, retrieval)
+
     architect_intent_path = state_dir / ARCHITECT_INTENT_RECORD
     _persist_role_json(architect_intent_path, action)
+
     selected = _selected_context(
         repo,
         action,
@@ -361,10 +602,29 @@ def _prepare_context(
         strawman,
         sha256_file(architect_intent_path),
     )
-    digest = sha256_json(selected)
-    context = {"selected_context_sha256": digest, "selected_context": selected}
+
+    # Preserve the complete SAGE source basis separately.
+    source_context_path = state_dir / "fresh-role-source-context.json"
+    _persist_role_json(
+        source_context_path,
+        {
+            "source_context_sha256": sha256_json(selected),
+            "selected_context": selected,
+        },
+    )
+
+    # Hash exactly what the fresh model will actually receive.
+    candidate_selected = _candidate_scoped_selected_context(selected)
+    digest = sha256_json(candidate_selected)
+
+    context = {
+        "selected_context_sha256": digest,
+        "selected_context": candidate_selected,
+    }
+
     context_path = state_dir / "fresh-role-context.json"
     _persist_role_json(context_path, context)
+
     return context, digest, context_path
 
 
@@ -380,6 +640,84 @@ def _invocation_request(strawman: Mapping[str, Any] | None) -> dict[str, Any]:
         "persistent_llm_fallback_allowed": False,
         "fresh_critic_required": True,
     }
+
+
+
+def _schema_from_example(value: Any) -> dict[str, Any]:
+    """Derive provider-side structural JSON Schema from a valid SAGE fixture."""
+    if isinstance(value, bool):
+        return {"type": "boolean"}
+    if isinstance(value, str):
+        return {"type": "string"}
+    if isinstance(value, int):
+        return {"type": "integer"}
+    if isinstance(value, float):
+        return {"type": "number"}
+    if value is None:
+        return {}
+    if isinstance(value, Mapping):
+        properties = {
+            str(key): _schema_from_example(item)
+            for key, item in value.items()
+        }
+        record_type = value.get("record_type")
+        if isinstance(record_type, str) and "record_type" in properties:
+            properties["record_type"] = {
+                "type": "string",
+                "enum": [record_type],
+            }
+        return {
+            "type": "object",
+            "properties": properties,
+            "required": list(properties),
+            "additionalProperties": True,
+        }
+    if isinstance(value, list):
+        schema: dict[str, Any] = {"type": "array"}
+        if value:
+            schema["items"] = _schema_from_example(value[0])
+        return schema
+    return {}
+
+
+def _fresh_role_result_schema() -> dict[str, Any]:
+    """Publish the exact structural contract for one fresh implementation result."""
+    return _schema_from_example(_fixture_role_result("0" * 64))
+
+
+def invoke_fresh_candidate_json(
+    *,
+    envelope: Mapping[str, Any],
+    system_instruction: str,
+    endpoint: str,
+    model: str,
+    timeout_seconds: int = 180,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Invoke bounded implementation cognition using qualified GPT-OSS settings."""
+    result, receipt = invoke_ollama_json(
+        envelope=envelope,
+        system_instruction=system_instruction,
+        endpoint=endpoint,
+        model=model,
+        timeout_seconds=timeout_seconds,
+        response_format=_fresh_role_result_schema(),
+        think="low",
+        num_ctx=32768,
+        num_predict=4096,
+        temperature=0,
+    )
+
+    qualified_receipt = dict(receipt)
+    qualified_receipt["generation_policy"] = {
+        "response_format": "exact-json-schema",
+        "think": "low",
+        "num_ctx": 32768,
+        "num_predict": 4096,
+        "temperature": 0,
+        "context_projection": "candidate-scoped",
+        "semantic_validation": "sage-deterministic-role-result",
+    }
+    return result, qualified_receipt
 
 
 def _runtime_blocker(objective_id: str, reason: str) -> dict[str, Any]:
@@ -840,7 +1178,7 @@ def generate_first_candidate(
     strawman: Path | None = None,
     strawman_provenance: Path | None = None,
     runtime_resolver: RuntimeResolver = resolve_ollama_runtime,
-    provider_invoker: ProviderInvoker = invoke_ollama_json,
+    provider_invoker: ProviderInvoker = invoke_fresh_candidate_json,
     lifecycle_starter: LifecycleStarter = begin_intent,
 ) -> Mapping[str, Any]:
     """Create the first fresh contribution and enter the existing SAGE lifecycle."""
@@ -1065,15 +1403,76 @@ def _self_test_readiness_gate(root: Path) -> None:
         raise RuntimeError("unsupported repository grounding was accepted")
 
 
+def _self_test_generated_context_artifact_filter() -> None:
+    """Prove interpreter-generated caches never enter fresh-role context."""
+    with tempfile.TemporaryDirectory(
+        prefix="sage-context-artifact-filter-"
+    ) as raw:
+        repo = Path(raw)
+
+        source = repo / "scripts" / "sage" / "fixture.py"
+        cache = (
+            repo
+            / "scripts"
+            / "sage"
+            / "__pycache__"
+            / "fixture.cpython-314.pyc"
+        )
+
+        source.parent.mkdir(parents=True, exist_ok=True)
+        cache.parent.mkdir(parents=True, exist_ok=True)
+
+        source.write_text("VALUE = 1\n", encoding="utf-8")
+        cache.write_bytes(b"\xfd\x00\x01generated-python-cache")
+
+        records = _repository_file_records(repo, [source, cache])
+
+        if len(records) != 1:
+            raise RuntimeError(
+                "generated Python cache artifact entered fresh-role context"
+            )
+
+    print(
+        "PASS generated Python cache artifacts are excluded "
+        "from fresh-role context"
+    )
+
+def _self_test_structured_output_contract() -> None:
+    """Prove provider schema is exactly derived from the valid SAGE fixture."""
+    fixture = _fixture_role_result("0" * 64)
+    expected = _schema_from_example(fixture)
+    observed = _fresh_role_result_schema()
+
+    if observed != expected:
+        raise RuntimeError(
+            "fresh result provider schema differs from valid SAGE fixture"
+        )
+
+    record_type = (
+        observed.get("properties", {})
+        .get("record_type")
+    )
+    if record_type != {
+        "type": "string",
+        "enum": ["sage-fresh-implementation-result"],
+    }:
+        raise RuntimeError(
+            "fresh result schema does not bind implementation record type"
+        )
+
+
 def run_contract_self_test() -> None:
     """Exercise the corrected first-candidate adapter without provider mutation."""
+    _self_test_generated_context_artifact_filter()
     with tempfile.TemporaryDirectory(prefix="sage-first-candidate-") as raw:
         root = Path(raw)
         _self_test_readiness_gate(root)
+        _self_test_structured_output_contract()
         contribution = _self_test_result_and_receipt(root)
         _self_test_lifecycle(root, contribution)
         _self_test_runtime_blocker()
     print("PASS four implementation-readiness dispositions are deterministically validated")
+    print("PASS first-candidate provider output is constrained by the SAGE result fixture")
     print("PASS unsupported repository grounding cannot masquerade as implementation-ready")
     print("PASS first candidate uses repository build_invocation contract")
     print("PASS first candidate binds the Architect intent source projection")

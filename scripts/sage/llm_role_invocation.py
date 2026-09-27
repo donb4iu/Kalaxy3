@@ -116,6 +116,11 @@ def _request_payload(
     envelope: Mapping[str, Any],
     system_instruction: str,
     model: str,
+    response_format: str | Mapping[str, Any] = "json",
+    think: bool | str | None = None,
+    num_ctx: int | None = None,
+    num_predict: int | None = None,
+    temperature: float | int | None = None,
 ) -> bytes:
     """Build the provider wire request from one fresh invocation."""
     messages = [
@@ -132,24 +137,80 @@ def _request_payload(
     wire = {
         "model": model.strip(),
         "messages": messages,
-        "format": "json",
+        "format": response_format,
         "stream": False,
     }
+    if think is not None:
+        wire["think"] = think
+
+    options: dict[str, Any] = {}
+    if num_ctx is not None:
+        options["num_ctx"] = num_ctx
+    if num_predict is not None:
+        options["num_predict"] = num_predict
+    if temperature is not None:
+        options["temperature"] = temperature
+    if options:
+        wire["options"] = options
+
     return json.dumps(wire, separators=(",", ":")).encode("utf-8")
 
 
 def _decode_result(raw: bytes) -> tuple[dict[str, Any], Mapping[str, Any]]:
-    """Decode one provider response into a JSON role result."""
+    """Decode one provider response and preserve safe failure diagnostics."""
     try:
         outer = json.loads(raw.decode("utf-8"))
-        content = outer["message"]["content"]
-        result = json.loads(content)
-    except (UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError) as error:
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise RoleInvocationError(
-            "Ollama response did not contain a JSON role result"
+            "Ollama outer response was not valid JSON"
         ) from error
+
+    if not isinstance(outer, Mapping):
+        raise RoleInvocationError(
+            "Ollama outer response was not a JSON object"
+        )
+
+    message = outer.get("message")
+    content = message.get("content") if isinstance(message, Mapping) else None
+    thinking = message.get("thinking") if isinstance(message, Mapping) else None
+
+    diagnostic = {
+        "model": outer.get("model"),
+        "done": outer.get("done"),
+        "done_reason": outer.get("done_reason"),
+        "content_chars": len(content) if isinstance(content, str) else None,
+        "thinking_chars": len(thinking) if isinstance(thinking, str) else None,
+        "prompt_eval_count": outer.get("prompt_eval_count"),
+        "eval_count": outer.get("eval_count"),
+        "provider_error_present": bool(outer.get("error")),
+    }
+
+    if not isinstance(content, str):
+        raise RoleInvocationError(
+            "Ollama response contained no assistant content; "
+            "diagnostic=" + json.dumps(
+                diagnostic, sort_keys=True, separators=(",", ":")
+            )
+        )
+
+    try:
+        result = json.loads(content)
+    except json.JSONDecodeError as error:
+        raise RoleInvocationError(
+            "Ollama assistant content was not a JSON role result; "
+            "diagnostic=" + json.dumps(
+                diagnostic, sort_keys=True, separators=(",", ":")
+            )
+        ) from error
+
     if not isinstance(result, dict):
-        raise RoleInvocationError("role result must be a JSON object")
+        raise RoleInvocationError(
+            "role result must be a JSON object; "
+            "diagnostic=" + json.dumps(
+                diagnostic, sort_keys=True, separators=(",", ":")
+            )
+        )
+
     return result, outer
 
 
@@ -160,6 +221,11 @@ def invoke_ollama_json(
     endpoint: str,
     model: str,
     timeout_seconds: int = 180,
+    response_format: str | Mapping[str, Any] = "json",
+    think: bool | str | None = None,
+    num_ctx: int | None = None,
+    num_predict: int | None = None,
+    temperature: float | int | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Invoke one fresh role through Ollama /api/chat and return JSON plus receipt."""
     if not system_instruction.strip():
@@ -167,7 +233,16 @@ def invoke_ollama_json(
     if not model.strip():
         raise RoleInvocationError("Ollama model is required")
     base = normalize_ollama_endpoint(endpoint)
-    encoded = _request_payload(envelope, system_instruction, model)
+    encoded = _request_payload(
+        envelope,
+        system_instruction,
+        model,
+        response_format,
+        think,
+        num_ctx,
+        num_predict,
+        temperature,
+    )
     started_at = datetime.now().astimezone().isoformat(timespec="seconds")
     request = urllib.request.Request(
         base + "/api/chat",
