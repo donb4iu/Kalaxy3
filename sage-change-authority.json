@@ -1138,7 +1138,11 @@
         "semantic confirmation",
         "implementation bootstrap",
         "accepted action implementation",
-        "meaning feasibility authorization"
+        "meaning feasibility authorization",
+        "fresh implementation role",
+        "fresh candidate",
+        "first candidate generation",
+        "strawman disposition"
       ],
       "path_prefixes": [
         "scripts/sage/semantic_understanding.py",
@@ -1147,7 +1151,10 @@
         "scripts/sage/sage-semantic-bootstrap-guardrail.py",
         "markdown/standards/kalaxy3-sage-semantic-bootstrap",
         "markdown/standards/sage-engineering-contribution",
-        "markdown/standards/sage-semantic-understanding"
+        "markdown/standards/sage-semantic-understanding",
+        "scripts/sage/workflows/fresh_candidate_generation.py",
+        "scripts/sage/sage-first-candidate-generate.py",
+        "markdown/templates/sage-fresh-implementation-role-prompt.txt"
       ],
       "requires": [
         "repository-governance",
@@ -1169,7 +1176,10 @@
         "scripts/sage/sage-semantic-bootstrap-guardrail.py",
         "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md",
         "markdown/standards/sage-engineering-contribution-schema-v1.0.json",
-        "markdown/standards/sage-semantic-understanding-schema-v1.0.json"
+        "markdown/standards/sage-semantic-understanding-schema-v1.0.json",
+        "scripts/sage/workflows/fresh_candidate_generation.py",
+        "scripts/sage/sage-first-candidate-generate.py",
+        "markdown/templates/sage-fresh-implementation-role-prompt.txt"
       ],
       "baseline_checks": [
         "make sage-discovery-guardrail",
