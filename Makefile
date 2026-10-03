@@ -124,7 +124,7 @@ sage-operating-contract-guardrail:
 sage-operating-contract-check: sage-operating-contract-self-test sage-operating-contract-guardrail
 	@echo "Kalaxy3 SAGE operating contract: PASS"
 
-sage-stage-guardrails: sage-self-test sage-semantic-bootstrap-guardrail sage-discovery-guardrail sage-operating-contract-guardrail sage-capability-intelligence-guardrail sage-branch-lifecycle-self-test sage-branch-lifecycle-guardrail \
+sage-stage-guardrails: sage-llm-semantic-adapter-guardrail sage-self-test sage-semantic-bootstrap-guardrail sage-discovery-guardrail sage-operating-contract-guardrail sage-capability-intelligence-guardrail sage-branch-lifecycle-self-test sage-branch-lifecycle-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
                  sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail sage-checkpoint-promotion-guardrail sage-security-external-access-discovery-guardrail sage-legacy-evidence-projection-guardrail sage-intent-to-outcome-guardrail sage-e2e-zero-trust-source-guardrail sage-stage-contract-guardrail sage-artifact-promotion-guardrail sage-architecture-approval-guardrail
 	@echo "Kalaxy3 portable stage source guardrails: PASS"
@@ -743,3 +743,7 @@ sage-persistent-llm-objective-context-self-test:
 
 sage-persistent-llm-objective-context-guardrail:
 	$(PYTHON) scripts/sage/sage-persistent-llm-objective-context-guardrail.py
+
+.PHONY: sage-llm-semantic-adapter-guardrail
+sage-llm-semantic-adapter-guardrail:
+	$(PYTHON) scripts/sage/sage-llm-semantic-adapter-guardrail.py
