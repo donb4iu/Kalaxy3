@@ -16,11 +16,44 @@ REQUIRED = (
     "markdown/standards/sage-semantic-understanding-schema-v1.0.json",
     "markdown/standards/sage-request-planning-source-schema-v1.1.json",
     "markdown/standards/sage-request-planning-source-schema-v1.2.json",
+    "scripts/sage/fresh_role_readiness.py",
+    "scripts/sage/workflows/fresh_candidate_generation.py",
+    "scripts/sage/sage-first-candidate-generate.py",
+    "scripts/sage/sage-intent-front-door.py",
+    "markdown/templates/sage-fresh-implementation-role-prompt.txt",
+    "markdown/standards/kalaxy3-sage-fresh-role-readiness.md",
 )
 
 
 def validate() -> list[str]:
     failures = [f"semantic-bootstrap path missing: {item}" for item in REQUIRED if not (ROOT / item).is_file()]
+
+    frontdoor = (ROOT / "scripts/sage/sage-intent-front-door.py").read_text(
+        encoding="utf-8"
+    )
+    for required_marker in (
+        "def _advisory_schema()",
+        '"format": _advisory_schema()',
+        '"required": ["decision", "readiness"]',
+        '"additionalProperties": False',
+    ):
+        if required_marker not in frontdoor:
+            failures.append(
+                "fresh intent provider-enforced readiness schema missing: "
+                + required_marker
+            )
+
+    advisory_write = 'write_json(out / "advisory-decision.json", advisory)'
+    semantic_validation = "readiness = build_readiness_record("
+    if (
+        advisory_write not in frontdoor
+        or semantic_validation not in frontdoor
+        or frontdoor.index(advisory_write) > frontdoor.index(semantic_validation)
+    ):
+        failures.append(
+            "fresh advisory evidence is not persisted before semantic readiness validation"
+        )
+
     if failures:
         return failures
     workflow = (ROOT / "scripts/sage/workflows/semantic_bootstrap.py").read_text(encoding="utf-8")
@@ -29,6 +62,11 @@ def validate() -> list[str]:
     cli = (ROOT / "scripts/sage/sage-request-plan.py").read_text(encoding="utf-8")
     bootstrap_cli = (ROOT / "scripts/sage/sage-action-bootstrap.py").read_text(encoding="utf-8")
     process = (ROOT / "markdown/standards/kalaxy3-sage-semantic-bootstrap-process.md").read_text(encoding="utf-8").casefold()
+    fresh = (ROOT / "scripts/sage/workflows/fresh_candidate_generation.py").read_text(encoding="utf-8")
+    fresh_cli = (ROOT / "scripts/sage/sage-first-candidate-generate.py").read_text(encoding="utf-8")
+    fresh_prompt = (ROOT / "markdown/templates/sage-fresh-implementation-role-prompt.txt").read_text(encoding="utf-8").casefold()
+    readiness = (ROOT / "scripts/sage/fresh_role_readiness.py").read_text(encoding="utf-8")
+    frontdoor = (ROOT / "scripts/sage/sage-intent-front-door.py").read_text(encoding="utf-8")
     markers = (
         "load_improvement_action",
         'action.get("current_status") != "accepted"',
@@ -74,6 +112,58 @@ def validate() -> list[str]:
         failures.append("semantic-bootstrap self-test does not cover distinct confirmed-slice planning-source identity")
     if "sage-intent-to-outcome-adopt-source" not in workflow:
         failures.append("semantic bootstrap does not hand confirmed planning source to lifecycle owner")
+    fresh_markers = (
+        "require_implementation_ready",
+        '"implementation_readiness"',
+        "repository_fresh_role_invoker",
+        "generate_first_candidate",
+        '"fresh_critic_required": True',
+        '"self_approved": False',
+        '"epistemic_basis"',
+    )
+    for marker in fresh_markers:
+        if marker not in fresh:
+            failures.append(f"first-candidate generation marker missing: {marker}")
+    for marker in ("--readiness", "--self-test"):
+        if marker not in fresh_cli:
+            failures.append(f"first-candidate CLI marker missing: {marker}")
+    for marker in (
+        "implementation-ready",
+        "knowledge-evidence-capability-gap",
+        "material-decision-required",
+        "unsupported",
+        "fresh-first-candidate-generation",
+        "persistent-collaborator-gap-closure",
+        "architect-decision",
+        "stop-unsupported",
+    ):
+        if marker not in readiness:
+            failures.append(f"fresh readiness contract marker missing: {marker}")
+    for marker in (
+        "implementation-readiness.json",
+        "build_readiness_record",
+        "readiness_disposition",
+    ):
+        if marker not in frontdoor:
+            failures.append(f"fresh intent readiness marker missing: {marker}")
+    frontdoor_contract = frontdoor.casefold()
+    for marker in (
+        "json arrays containing only strings",
+        "repository_grounding is a json array of objects",
+        "material_decision_required is a json boolean",
+        "use an empty json array for an allowed list field with no values",
+    ):
+        if marker not in frontdoor_contract:
+            failures.append(
+                f"fresh intent producer/validator type contract missing: {marker}"
+            )
+    for marker in (
+        "implementation readiness",
+        "epistemic_basis",
+        "do not approve your own work",
+    ):
+        if marker not in fresh_prompt:
+            failures.append(f"fresh implementation prompt marker missing: {marker}")
     next_block = workflow[workflow.find("next_command ="):workflow.find("return {", workflow.find("next_command ="))]
     if '"sage-request-plan"' in next_block:
         failures.append("semantic bootstrap still publishes direct request-plan continuation")
@@ -92,6 +182,123 @@ def validate() -> list[str]:
     contexts = {item.get("id"): item for item in authority.get("contexts", []) if isinstance(item, dict)}
     if "semantic-understanding" not in contexts:
         failures.append("semantic-understanding change-authority context is missing")
+    frontdoor = (
+        ROOT / "scripts/sage/sage-intent-front-door.py"
+    ).read_text(encoding="utf-8")
+    for required_marker in (
+        "retrieve as retrieve_evidence",
+        "SageDiscovery.parse",
+        "_authority_files",
+        "_repository_file_records",
+        '"evidence-retrieval.json"',
+        '"pre-readiness-context.json"',
+        '"selected_context_sha256": selected_context_sha',
+        '"selected_context": selected_context',
+        "implementation_recipe must be an empty json array",
+    ):
+        if required_marker not in frontdoor:
+            failures.append(
+                "fresh readiness selected-context construction missing: "
+                + required_marker
+            )
+
+    selected_marker = '"selected_context": selected_context'
+    hash_marker = "context_sha = sha256_text(stable_json(envelope))"
+    if (
+        selected_marker not in frontdoor
+        or hash_marker not in frontdoor
+        or frontdoor.index(selected_marker) > frontdoor.index(hash_marker)
+    ):
+        failures.append(
+            "fresh readiness context identity does not bind selected context"
+        )
+
+    fresh_context_source = (
+        ROOT / "scripts/sage/workflows/fresh_candidate_generation.py"
+    ).read_text(encoding="utf-8")
+
+    for marker in (
+        "def _context_source_file(",
+        '"__pycache__"',
+        '".pyc"',
+        '".pyo"',
+        "_self_test_generated_context_artifact_filter",
+    ):
+        if marker not in fresh_context_source:
+            failures.append(
+                "fresh candidate context excludes generated Python "
+                "cache artifacts: missing " + marker
+            )
+    provider_source = (
+        ROOT / "scripts/sage/llm_role_invocation.py"
+    ).read_text(encoding="utf-8")
+    fresh_source = (
+        ROOT / "scripts/sage/workflows/fresh_candidate_generation.py"
+    ).read_text(encoding="utf-8")
+
+    for marker in (
+        'response_format: str | Mapping[str, Any] = "json"',
+        '"format": response_format',
+    ):
+        if marker not in provider_source:
+            failures.append(
+                "first-candidate provider structured-output contract missing: "
+                + marker
+            )
+
+    for marker in (
+        "def _fresh_role_result_schema(",
+        "def invoke_fresh_candidate_json(",
+        "response_format=_fresh_role_result_schema()",
+        "ProviderInvoker = invoke_fresh_candidate_json",
+        "_self_test_structured_output_contract",
+    ):
+        if marker not in fresh_source:
+            failures.append(
+                "first-candidate provider structured-output contract missing: "
+                + marker
+            )
+    provider_source = (
+        ROOT / "scripts/sage/llm_role_invocation.py"
+    ).read_text(encoding="utf-8")
+    fresh_source = (
+        ROOT / "scripts/sage/workflows/fresh_candidate_generation.py"
+    ).read_text(encoding="utf-8")
+
+    for marker in (
+        "think: bool | str | None = None",
+        'wire["think"] = think',
+    ):
+        if marker not in provider_source:
+            failures.append(
+                "first-candidate final-content channel contract missing: "
+                + marker
+            )
+
+    if 'think="low",' not in fresh_source:
+        failures.append(
+            "first-candidate final-content channel contract missing: "
+            "structured implementation role does not explicitly disable "
+            "surfaced thinking"
+        )
+    fresh_source = (
+        ROOT / "scripts/sage/workflows/fresh_candidate_generation.py"
+    ).read_text(encoding="utf-8")
+
+    for marker in (
+        'response_format=_fresh_role_result_schema()',
+        'think="low",',
+        'num_ctx=32768,',
+        'num_predict=4096,',
+        'temperature=0,',
+        '"generation_policy"',
+    ):
+        if marker not in fresh_source:
+            failures.append(
+                "first-candidate bounded generation policy missing: "
+                + marker
+            )
+
     return failures
 
 
@@ -113,6 +320,9 @@ def main() -> int:
     print("PASS existing planner/executor reuse behind lifecycle-owned authority boundary")
     print("PASS confirmed semantic authority is bound into downstream planning")
     print("PASS semantic-confirmation digest scopes immutable planning-source identity")
+    print("PASS fresh planning has a governed four-way implementation-readiness gate")
+    print("PASS only implementation-ready can enter fresh first-candidate generation")
+    print("PASS unsupported repository grounding fails closed before implementation")
     print("Kalaxy3 SAGE semantic bootstrap guardrail: PASS")
     return 0
 

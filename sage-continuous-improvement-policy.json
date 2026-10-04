@@ -481,7 +481,8 @@
         "direct_status_edits_forbidden": true,
         "registration_requires_source": true,
         "source_record_types": [
-            "capability-gap"
+            "capability-gap",
+            "lesson"
         ],
         "source_record_verification_required": true,
         "contract_amendment_allowed_statuses": [

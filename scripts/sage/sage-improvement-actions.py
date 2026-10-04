@@ -45,7 +45,7 @@ CONTRACT_FIELDS: Final = (
 )
 MUTABLE_CONTRACT_FIELDS: Final = CONTRACT_FIELDS[1:]
 SUPPORTED_REGISTRY_SCHEMA_VERSIONS: Final = ("1.1", "1.2")
-SOURCE_RECORD_TYPES: Final = ("capability-gap",)
+SOURCE_RECORD_TYPES: Final = ("capability-gap", "lesson")
 CORE_EVENT_FIELDS: Final = {
     "sequence",
     "from_status",
@@ -124,16 +124,26 @@ def validate_source_records(
         }:
             failures.append(f"{prefix} fields invalid")
             continue
-        if record.get("record_type") not in SOURCE_RECORD_TYPES:
+        record_type = record.get("record_type")
+        if record_type not in SOURCE_RECORD_TYPES:
             failures.append(f"{prefix} record_type invalid")
         record_id = str(record.get("record_id", ""))
-        if not re.fullmatch(
-            r"SAGE-GAP-[0-9]{8}-[A-Z0-9][A-Z0-9-]*",
-            record_id,
-        ):
-            failures.append(f"{prefix} record_id invalid")
-        if record.get("schema_version") != "1.1":
-            failures.append(f"{prefix} schema_version invalid")
+        if record_type == "capability-gap":
+            if not re.fullmatch(
+                r"SAGE-GAP-[0-9]{8}-[A-Z0-9][A-Z0-9-]*",
+                record_id,
+            ):
+                failures.append(f"{prefix} record_id invalid")
+            if record.get("schema_version") != "1.1":
+                failures.append(f"{prefix} schema_version invalid")
+        elif record_type == "lesson":
+            if not re.fullmatch(
+                r"LESSON-[A-Z0-9][A-Z0-9-]*",
+                record_id,
+            ):
+                failures.append(f"{prefix} record_id invalid")
+            if record.get("schema_version") != "1.0":
+                failures.append(f"{prefix} schema_version invalid")
         digest = str(record.get("sha256", ""))
         if not re.fullmatch(r"[0-9a-f]{64}", digest):
             failures.append(f"{prefix} sha256 invalid")
@@ -148,6 +158,55 @@ def source_record_descriptor(path: Path) -> dict[str, Any]:
     payload = load_json(path)
     if not isinstance(payload, dict):
         raise ValueError(f"source record {path} must be an object")
+    if payload.get("record_type") == "lesson":
+        required_fields = {
+            "schema_version",
+            "record_type",
+            "lesson_id",
+            "statement",
+            "source_class",
+            "maturity",
+            "evidence_references",
+        }
+        if set(payload) != required_fields:
+            raise ValueError(f"source record {path} lesson fields invalid")
+        if payload.get("schema_version") != "1.0":
+            raise ValueError(
+                f"source record {path} lesson schema_version invalid"
+            )
+        lesson_id = require_string(
+            payload.get("lesson_id"),
+            f"source record {path} lesson_id",
+        )
+        if not re.fullmatch(
+            r"LESSON-[A-Z0-9][A-Z0-9-]*",
+            lesson_id,
+        ):
+            raise ValueError(f"source record {path} lesson_id invalid")
+        for field in ("statement", "source_class", "maturity"):
+            require_string(
+                payload.get(field),
+                f"source record {path} {field}",
+            )
+        references = payload.get("evidence_references")
+        if (
+            not isinstance(references, list)
+            or not references
+            or len(references) != len(set(references))
+            or not all(
+                isinstance(value, str) and value
+                for value in references
+            )
+        ):
+            raise ValueError(
+                f"source record {path} evidence_references invalid"
+            )
+        return {
+            "record_type": "lesson",
+            "record_id": lesson_id,
+            "schema_version": "1.0",
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
     if payload.get("schema_version") != "1.1":
         raise ValueError(f"source record {path} schema_version invalid")
     if payload.get("gap_kind") != "domain-capability":
@@ -1298,6 +1357,77 @@ def run_self_tests() -> list[str]:
                 evidence_references=["self-test:unverified"],
             )
             failures.append("unverified source_record was accepted")
+        except ValueError:
+            pass
+
+    portable_lesson_fixture = {
+        "schema_version": "1.0",
+        "record_type": "lesson",
+        "lesson_id": "LESSON-ARCHITECT-20260919-REMOTE-INFERENCE",
+        "statement": (
+            "Relevant lessons may originate outside Kalaxy3 and remain "
+            "useful causal evidence when provenance and maturity are explicit."
+        ),
+        "source_class": "architect-supplied-prior-knowledge",
+        "maturity": "design-basis-runtime-validation-pending",
+        "evidence_references": ["self-test:portable-lesson"],
+    }
+    with tempfile.TemporaryDirectory(
+        prefix="sage-portable-lesson-self-test-"
+    ) as temp_dir:
+        lesson_path = Path(temp_dir) / "portable-lesson.json"
+        lesson_path.write_text(
+            json.dumps(portable_lesson_fixture, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        verified_lesson = load_verified_source_records([lesson_path])
+        if (
+            len(verified_lesson) != 1
+            or verified_lesson[0].get("record_type") != "lesson"
+            or verified_lesson[0].get("record_id")
+            != portable_lesson_fixture["lesson_id"]
+        ):
+            failures.append("portable lesson descriptor validation failed")
+        lesson_draft = representative_draft()
+        lesson_draft["source_lessons"] = []
+        lesson_draft["source_sessions"] = []
+        lesson_draft["source_records"] = verified_lesson
+        try:
+            with_lesson, lesson_action = plan_registration(
+                registry,
+                policy,
+                lesson_draft,
+                recorded_at="2026-09-19T23:59:00-05:00",
+                actor="self-test",
+                reason="Register portable-lesson-origin action.",
+                evidence_references=["self-test:portable-lesson"],
+                verified_source_records=verified_lesson,
+            )
+            if lesson_action.get("source_records") != verified_lesson:
+                failures.append(
+                    "portable lesson source_records were not preserved"
+                )
+            if validate_registry(with_lesson, policy):
+                failures.append(
+                    "portable lesson action registry failed validation"
+                )
+        except ValueError as error:
+            failures.append(
+                f"valid portable lesson registration failed: {error}"
+            )
+
+        invalid_lesson = copy.deepcopy(portable_lesson_fixture)
+        invalid_lesson.pop("maturity")
+        invalid_path = Path(temp_dir) / "invalid-portable-lesson.json"
+        invalid_path.write_text(
+            json.dumps(invalid_lesson, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        try:
+            load_verified_source_records([invalid_path])
+            failures.append(
+                "portable lesson without maturity was accepted"
+            )
         except ValueError:
             pass
 

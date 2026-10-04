@@ -176,3 +176,29 @@ are included in the normal repository SAGE chains. Root enforcement does not
 authorize autonomous Git, GitHub, credential, ref, cluster, or deployment
 mutation. Final evidence uses split publication after the implementation commit
 is known.
+
+## Persistent LLM Architect-objective contextualization
+
+Every persistent Architect-facing LLM result MUST lead with a succinct but
+complete explanation grounded in the founding Architect-expressed objective
+that caused the active SAGE request to exist. The explanation is an alignment
+audit, not a restatement of SAGE's current internal objective, lifecycle state,
+role result, receipt, guardrail status, or next boundary.
+
+The Architect-objective explanation MUST state: (1) what was accomplished, not
+accomplished, or learned toward the founding objective in system/use-case terms;
+(2) why that work was necessary in the context of that objective; and (3) what
+is now possible, safer, proven, changed, or still functionally blocked from the
+Architect's perspective. It MUST remain understandable and useful if every
+SAGE-specific term and the entire SAGE trace are removed.
+
+The lower-level SAGE commentary/trace follows as supporting audit evidence and
+MUST NOT substitute for the Architect-objective explanation. If the founding
+Architect objective is itself a SAGE capability change, SAGE vocabulary is
+permitted only to the extent that SAGE is the actual object of the request.
+
+A missing, internally framed, or semantically drifted explanation is a
+persistent-LLM alignment defect. It does not invalidate already-proven
+engineering evidence or roll back valid work; it must be corrected before the
+persistent LLM presents the result as aligned progress or uses its own summary
+as the basis for a new objective decision.

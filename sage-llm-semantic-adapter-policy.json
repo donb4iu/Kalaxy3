@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "policy_id": "SAGE-LLM-SEMANTIC-ADAPTER-SOP-001",
+  "title": "LLM semantic proposal to SAGE canonical record SOP",
+  "scope": "all SAGE LLM and inference roles",
+  "status": "architect-directed",
+  "principle": "LLMs propose role-level semantic meaning; SAGE deterministically converts that meaning into canonical control records and alone owns authority, identity, invariants, provenance, validation, receipts, and continuation.",
+  "model_facing_contract": {
+    "must_be_role_level": true,
+    "must_not_require_sage_serialization_knowledge": true,
+    "forbidden_model_authored_categories": [
+      "schema/version metadata",
+      "record types",
+      "authority identity",
+      "objective/request/proposal identity",
+      "repository or Git mechanics",
+      "lifecycle control tokens",
+      "derived invariant fields",
+      "receipts and provenance"
+    ]
+  },
+  "sage_adapter_contract": {
+    "mapping_must_be_deterministic": true,
+    "mapping_must_be_explicit_and_tested": true,
+    "identity_and_authority_fields_are_sage_owned": true,
+    "invariants_are_derived_by_sage": true,
+    "canonical_record_is_validated_after_conversion": true,
+    "semantic_repair_after_inference_is_forbidden": true
+  },
+  "failure_semantics": {
+    "ambiguous_or_unmappable_meaning": "fail-closed-or-clarification",
+    "contradictory_semantic_content": "fail-closed",
+    "missing_sage_internal_field_from_model": "not-an-error-because-model-does-not-own-it"
+  },
+  "required_regressions": [
+    "model output omits all SAGE internal control fields and still converts successfully",
+    "model-authored SAGE control fields are rejected at the semantic boundary",
+    "semantic intent maps deterministically to canonical SAGE boundary and invariant fields",
+    "clarification semantics fail closed when the required human question is absent",
+    "canonical post-conversion validation remains authoritative"
+  ]
+}

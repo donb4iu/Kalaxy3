@@ -11,6 +11,16 @@ import sys
 from datetime import datetime, timezone
 from urllib import request as urllib_request
 from urllib.error import URLError, HTTPError
+from fresh_role_readiness import build_readiness_record
+from sage_evidence_retrieval import (
+    retrieve as retrieve_evidence,
+    write_result as write_retrieval_result,
+)
+from workflow import SageDiscovery
+from workflows.fresh_candidate_generation import (
+    _authority_files,
+    _repository_file_records,
+)
 
 ROLE_ID = "sage.intent-bootstrap-role"
 BLOCKER_BOUNDARY = "workflow-manager-runtime-qualification"
@@ -66,6 +76,83 @@ def normalize_chat_url(endpoint):
     return value if value.endswith("/api/chat") else value + "/api/chat"
 
 
+def _advisory_schema():
+    """Constrain fresh-role output structurally before semantic readiness validation."""
+    string_array = {
+        "type": "array",
+        "items": {"type": "string"},
+    }
+    readiness = {
+        "type": "object",
+        "properties": {
+            "disposition": {
+                "type": "string",
+                "enum": [
+                    "implementation-ready",
+                    "knowledge-evidence-capability-gap",
+                    "material-decision-required",
+                    "unsupported",
+                ],
+            },
+            "rationale": {"type": "string"},
+            "evidence_references": string_array,
+            "repository_grounding": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string"},
+                        "sha256": {"type": "string"},
+                    },
+                    "required": ["path"],
+                    "additionalProperties": False,
+                },
+            },
+            "model_inference": string_array,
+            "assumptions": string_array,
+            "dependencies": string_array,
+            "implementation_recipe": string_array,
+            "validation": string_array,
+            "blocking_unknowns": string_array,
+            "gap_closure": string_array,
+            "alternatives": string_array,
+            "limitations": string_array,
+            "stop_conditions": string_array,
+            "material_decision_required": {"type": "boolean"},
+        },
+        "required": [
+            "disposition",
+            "rationale",
+            "evidence_references",
+            "repository_grounding",
+            "model_inference",
+            "assumptions",
+            "dependencies",
+            "implementation_recipe",
+            "validation",
+            "blocking_unknowns",
+            "gap_closure",
+            "alternatives",
+            "limitations",
+            "stop_conditions",
+            "material_decision_required",
+        ],
+        "additionalProperties": False,
+    }
+    return {
+        "type": "object",
+        "properties": {
+            "decision": {
+                "type": "string",
+                "enum": ["plan", "clarify", "bootstrap-contribution"],
+            },
+            "readiness": readiness,
+        },
+        "required": ["decision", "readiness"],
+        "additionalProperties": True,
+    }
+
+
 def invoke_ollama(endpoint, model, envelope):
     system = (
         "You are a fresh disposable SAGE intent-bootstrap role. "
@@ -73,12 +160,30 @@ def invoke_ollama(endpoint, model, envelope):
         "Treat the supplied SAGE envelope as your complete context. "
         "You are advisory only: do not mutate anything and do not choose caller-facing SAGE mechanics. "
         "Return one JSON object only with keys decision, summary, assumptions, alternatives, recommended_path, "
-        "material_decision_required, questions, confidence. "
-        "decision must be one of plan, clarify, bootstrap-contribution."
+        "material_decision_required, questions, confidence, readiness. "
+        "decision must be one of plan, clarify, bootstrap-contribution. "
+        "readiness must be an object with exactly these keys: disposition, rationale, "
+        "evidence_references, repository_grounding, model_inference, assumptions, "
+        "dependencies, implementation_recipe, validation, blocking_unknowns, "
+        "gap_closure, alternatives, limitations, stop_conditions, "
+        "material_decision_required. disposition must be exactly one of "
+        "implementation-ready, knowledge-evidence-capability-gap, "
+        "material-decision-required, unsupported. "
+        "Readiness field types are strict: rationale is a non-empty string; "
+        "evidence_references, model_inference, assumptions, dependencies, "
+        "implementation_recipe, validation, blocking_unknowns, gap_closure, "
+        "alternatives, limitations, and stop_conditions are json arrays containing only strings; "
+        "repository_grounding is a json array of objects, each with a non-empty string path "
+        "and optional 64-character hexadecimal sha256; material_decision_required is a json boolean. "
+        "Use an empty json array for an allowed list field with no values. "
+        "If disposition is knowledge-evidence-capability-gap, implementation_recipe must be an empty json array; describe only the work needed to close the gap in gap_closure. "
+        "Do not claim implementation-ready when required repository/evidence/capability knowledge "
+        "is missing; return the gap instead of guessing."
     )
     payload = {
         "model": model,
         "stream": False,
+        "format": _advisory_schema(),
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": json.dumps(envelope, sort_keys=True)},
@@ -110,6 +215,8 @@ def invoke_ollama(endpoint, model, envelope):
     allowed = {"plan", "clarify", "bootstrap-contribution"}
     if not isinstance(decision, dict) or decision.get("decision") not in allowed:
         raise RuntimeError("fresh-role advisory decision is outside the published bootstrap vocabulary")
+    if not isinstance(decision.get("readiness"), dict):
+        raise RuntimeError("fresh-role advisory readiness object is missing")
 
     return decision
 
@@ -134,6 +241,39 @@ def main():
 
     preflight = run_preflight(literal)
     write_json(out / "preflight.json", preflight)
+
+    repo_path = Path.cwd().resolve()
+    discovery = SageDiscovery.parse(literal, preflight["stdout"])
+    retrieval = retrieve_evidence(
+        repo=repo_path,
+        policy_path=repo_path / "sage-evidence-retrieval-policy.json",
+        request=literal,
+    )
+    retrieval_path = out / "evidence-retrieval.json"
+    write_retrieval_result(retrieval_path, retrieval)
+
+    authority_paths = _authority_files(repo_path, discovery.contexts)
+    selected_context = {
+        "literal_request": literal,
+        "contexts": list(discovery.contexts),
+        "repository_files": _repository_file_records(
+            repo_path, authority_paths
+        ),
+        "evidence_retrieval": dict(retrieval),
+        "source_classes": {
+            "repository": "sage-selected-repository",
+            "evidence": "repository-owned-engineering-evidence",
+        },
+    }
+    selected_context_sha = sha256_text(stable_json(selected_context))
+    selected_context_path = out / "pre-readiness-context.json"
+    write_json(
+        selected_context_path,
+        {
+            "selected_context_sha256": selected_context_sha,
+            "selected_context": selected_context,
+        },
+    )
 
     envelope = {
         "schema_version": "1.0",
@@ -172,6 +312,7 @@ def main():
                 "role_id": ROLE_ID,
                 "invoked": False,
                 "context_sha256": context_sha,
+                "selected_context_sha256": selected_context_sha,
                 "provider_endpoint_configured": bool(endpoint),
                 "model_configured": bool(model),
             },
@@ -203,12 +344,19 @@ def main():
         "role_id": ROLE_ID,
         "request_sha256": request_sha,
         "context_sha256": context_sha,
+        "selected_context_sha256": selected_context_sha,
+        "selected_context": str(selected_context_path),
+        "evidence_retrieval": str(retrieval_path),
         "endpoint": endpoint,
         "model": model,
     }
 
     try:
         advisory = invoke_ollama(endpoint, model, envelope)
+        write_json(out / "advisory-decision.json", advisory)
+        readiness = build_readiness_record(
+            advisory, request_sha256=request_sha, repo=repo_path
+        )
     except Exception as exc:
         write_json(out / "invocation-receipt.json", receipt | {"status": "failed", "error": str(exc)})
         result = {
@@ -220,6 +368,7 @@ def main():
                 "role_id": ROLE_ID,
                 "invoked": True,
                 "context_sha256": context_sha,
+                "selected_context_sha256": selected_context_sha,
                 "model": model,
             },
             "blocker": {
@@ -241,7 +390,15 @@ def main():
         return 0
 
     write_json(out / "advisory-decision.json", advisory)
-    write_json(out / "invocation-receipt.json", receipt | {"status": "pass", "decision": advisory.get("decision")})
+    write_json(out / "implementation-readiness.json", readiness)
+    write_json(
+        out / "invocation-receipt.json",
+        receipt | {
+            "status": "pass",
+            "decision": advisory.get("decision"),
+            "readiness_disposition": readiness.get("disposition"),
+        },
+    )
     result = {
         "schema_version": "1.0",
         "record_type": "sage-architect-request-front-door-result",
@@ -254,12 +411,14 @@ def main():
             "model": model,
             "decision": advisory.get("decision"),
         },
+        "selected_context": str(selected_context_path),
+        "evidence_retrieval": str(retrieval_path),
         "advisory_decision": str(out / "advisory-decision.json"),
+        "implementation_readiness": str(out / "implementation-readiness.json"),
+        "readiness_disposition": readiness.get("disposition"),
         "invocation_receipt": str(out / "invocation-receipt.json"),
         "mutation_performed": False,
-        "next_boundary": (
-            "SAGE deterministic consumption of the advisory result; caller must not select an internal re-entry boundary."
-        ),
+        "next_boundary": readiness.get("next_boundary"),
     }
     write_json(out / "front-door-result.json", result)
 
@@ -270,6 +429,9 @@ def main():
     print(f"fresh_role.context_sha256={context_sha}")
     print(f"fresh_role.model={model}")
     print(f"fresh_role.decision={advisory.get('decision')}")
+    print(f"readiness.disposition={readiness.get('disposition')}")
+    print(f"readiness.next_boundary={readiness.get('next_boundary')}")
+    print(f"implementation_readiness={out / 'implementation-readiness.json'}")
     print(f"invocation_receipt={out / 'invocation-receipt.json'}")
     print(f"advisory_decision={out / 'advisory-decision.json'}")
     return 0
