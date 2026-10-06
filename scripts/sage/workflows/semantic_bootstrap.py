@@ -823,6 +823,7 @@ def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, a
         f"action:{state['action_id']}",
         f"action-record-sha256:{state['action_record_sha256']}",
         f"engineering-contribution-sha256:{state['contribution_sha256']}",
+        f"engineering-contribution-package:{contribution.package_path}",
         f"semantic-understanding-sha256:{confirmed_understanding_sha256}",
         f"semantic-confirmation-sha256:{sha256_file(confirmation_path)}",
         f"feasibility-sha256:{sha256_file(feasibility_path)}",

@@ -1352,22 +1352,24 @@ def _unique_progress_reference(
     return values[0]
 
 
-def _implementation_local_progress_evidence(
+def _verified_contribution_progress_evidence(
     context: ExecutionContext,
+    *,
+    digest_prefix: str,
+    package_prefix: str,
+    provenance: str,
+    digest_field: str,
 ) -> dict[str, Any]:
-    """Return verified local-candidate progress for the active context.
+    # Verify one exact engineering contribution against the active proposal.
 
-    Args:
-        context: Request-execution context containing the validated proposal.
-    """
     references = context.bundle.manifest.get("evidence_references", [])
     if not isinstance(references, list):
         raise WorkflowError("request-execution evidence references are invalid")
     digest_ref = _unique_progress_reference(
-        references, "implementation-local-contribution-sha256:", "digest"
+        references, digest_prefix, f"{provenance} digest"
     )
     package_ref = _unique_progress_reference(
-        references, "implementation-local-contribution-package:", "package"
+        references, package_prefix, f"{provenance} package"
     )
     if digest_ref is None and package_ref is None:
         return {}
@@ -1376,17 +1378,17 @@ def _implementation_local_progress_evidence(
         or package_ref is None
         or re.fullmatch(r"[0-9a-f]{64}", digest_ref) is None
     ):
-        raise WorkflowError("implementation-local progress provenance is incomplete")
+        raise WorkflowError(f"{provenance} contribution provenance is incomplete")
     try:
         contribution = load_engineering_contribution(
             Path(package_ref).expanduser().resolve()
         )
     except ProposalError as error:
         raise WorkflowError(
-            f"implementation-local progress contribution is invalid: {error}"
+            f"{provenance} contribution is invalid: {error}"
         ) from error
     if contribution.package_sha256 != digest_ref:
-        raise WorkflowError("implementation-local progress contribution digest drifted")
+        raise WorkflowError(f"{provenance} contribution digest drifted")
     proposal_signature = tuple(
         (item.path, item.sha256, item.mode) for item in context.bundle.source_files
     )
@@ -1395,19 +1397,56 @@ def _implementation_local_progress_evidence(
     )
     if contribution_signature != proposal_signature:
         raise WorkflowError(
-            "implementation-local progress payload does not match proposal"
+            f"{provenance} contribution payload does not match proposal"
         )
     return {
-        "implementation_local_contribution_sha256": digest_ref,
+        digest_field: digest_ref,
+        "candidate_contribution_provenance": provenance,
         "proposal_source_signature_sha256": digest_value(proposal_signature),
     }
+
+
+def _implementation_local_progress_evidence(
+    context: ExecutionContext,
+) -> dict[str, Any]:
+    # Return verified implementation-local candidate progress.
+    return _verified_contribution_progress_evidence(
+        context,
+        digest_prefix="implementation-local-contribution-sha256:",
+        package_prefix="implementation-local-contribution-package:",
+        provenance="implementation-local",
+        digest_field="implementation_local_contribution_sha256",
+    )
+
+
+def _semantic_contribution_progress_evidence(
+    context: ExecutionContext,
+) -> dict[str, Any]:
+    # Return verified semantic-origin candidate progress.
+    return _verified_contribution_progress_evidence(
+        context,
+        digest_prefix="engineering-contribution-sha256:",
+        package_prefix="engineering-contribution-package:",
+        provenance="semantic-confirmed",
+        digest_field="engineering_contribution_sha256",
+    )
+
+
+def _verified_candidate_progress_evidence(
+    context: ExecutionContext,
+) -> dict[str, Any]:
+    # Prefer later implementation-local provenance when both classes exist.
+    local = _implementation_local_progress_evidence(context)
+    if local:
+        return local
+    return _semantic_contribution_progress_evidence(context)
 
 def _candidate_correction_binding(
     context: ExecutionContext,
 ) -> dict[str, Any]:
     """Bind a deferred baseline failure to one exact engineering candidate."""
 
-    progress = _implementation_local_progress_evidence(context)
+    progress = _verified_candidate_progress_evidence(context)
     if not progress:
         raise WorkflowError(
             "baseline failure is not bound to a verified engineering contribution"
