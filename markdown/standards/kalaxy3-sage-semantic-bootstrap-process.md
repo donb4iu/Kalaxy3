@@ -43,7 +43,7 @@ The first slice uses the conservative canonical validation set `sage-guardrails`
 
 ## Architect-confirmed planning obligations
 
-Semantic confirmation must preserve more than context and file scope. The confirmed understanding derives a provenance-preserving planning-obligation set from the accepted action outcome, acceptance criteria / Definition of Done, measurement plan, authoritative assumption modifications, deterministic feasibility obligations, and explicit Architect planning directives.
+Semantic confirmation must preserve more than context and file scope. For a bounded contribution slice, the active planning obligation is derived from the Architect-owned literal objective/request plus authoritative assumption modifications, evidence-derived criteria explicitly dispositioned into the slice, deterministic feasibility obligations, and explicit Architect planning directives. The accepted parent action remains the authority anchor and contextual source of broader goals, criteria, and measurements; those parent obligations are **not automatically inherited** by every bounded slice and are not claimed satisfied unless explicitly selected into that slice.
 
 Planning obligations are typed. `capability` obligations identify a domain capability that downstream `component.select` must evaluate; `constraint`, `requirement`, `validation`, `measurement`, `feasibility`, `outcome`, and `lifecycle` obligations remain authoritative planning inputs without being misrepresented as components.
 

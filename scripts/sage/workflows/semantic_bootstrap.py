@@ -74,7 +74,7 @@ PLANNING_OBLIGATION_KINDS = {
 }
 FEASIBILITY_PLANNING_OBLIGATIONS = (
     "Runtime behavior remains unproven until planned source is applied and deterministic validations pass.",
-    "Outcome feasibility and external-framework review remain downstream acceptance obligations.",
+    "Parent-action obligations not explicitly selected into this bounded objective remain parent obligations and are not claimed satisfied by this slice.",
 )
 
 
@@ -204,22 +204,14 @@ def _derive_planning_obligations(
     dispositions: list[dict[str, Any]],
     decisions: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
-    action = understanding.get("action", {})
+    objective = understanding.get("objective", {})
     obligations: list[dict[str, Any]] = []
-    desired = action.get("desired_outcome")
-    if isinstance(desired, str) and desired.strip():
+    statement = objective.get("statement")
+    if not isinstance(statement, str) or not statement.strip():
+        statement = understanding.get("literal_request")
+    if isinstance(statement, str) and statement.strip():
         obligations.append(_planning_obligation(
-            "PO-OUTCOME-001", "outcome", desired, "accepted-action.desired_outcome"
-        ))
-    for index, value in enumerate(action.get("acceptance_criteria", []), 1):
-        obligations.append(_planning_obligation(
-            f"PO-AC-{index:03d}", "requirement", str(value),
-            f"accepted-action.acceptance_criteria[{index - 1}]"
-        ))
-    for index, value in enumerate(action.get("measurement_plan", []), 1):
-        obligations.append(_planning_obligation(
-            f"PO-MEASURE-{index:03d}", "measurement", str(value),
-            f"accepted-action.measurement_plan[{index - 1}]"
+            "PO-OUTCOME-001", "outcome", statement, "bounded-objective.literal-request"
         ))
     for item in dispositions:
         if item.get("authority_effect") != "authoritative-in-confirmed-intent":
@@ -524,9 +516,19 @@ def begin_bootstrap(
                 "action_id": action_id,
                 "status": "accepted",
                 "record_sha256": action_record_sha256(action),
+                "authority_effect": "parent-authority-anchor",
+            },
+            "objective": {
+                "scope": "bounded-contribution-slice",
+                "statement": request,
+                "parent_action_id": action_id,
+                "parent_obligations_inherited": False,
+            },
+            "parent_action_context": {
                 "desired_outcome": action.get("desired_outcome"),
                 "acceptance_criteria": list(action.get("acceptance_criteria", [])),
                 "measurement_plan": list(action.get("measurement_plan", [])),
+                "authority_effect": "context-only-unless-explicitly-selected",
             },
             "literal_request": request,
             "contribution": {
@@ -805,7 +807,7 @@ def continue_bootstrap(repo: Path, state_path: Path, confirmation_sha256: str, a
         },
         "limitations": [
             "Runtime behavior is not proven until the planned source is applied and deterministic validations pass.",
-            "Outcome feasibility and external-framework review remain downstream acceptance obligations.",
+            "Parent-action obligations not explicitly selected into this bounded objective remain outside this slice's completion claim.",
         ],
     }
     feasibility_path = _write_json(writer, state_dir / "feasibility.json", feasibility)

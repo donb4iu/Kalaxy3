@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from collections import Counter
 
+import ast
 import hashlib
 import json
 import os
@@ -751,6 +752,41 @@ def reconcile_index(context: ExecutionContext) -> None:
 
 
 
+_PYTHON_STATIC_UNDEFINED_GLOBAL = re.compile(
+    r"undefined global reference ([A-Za-z_][A-Za-z0-9_]*)$"
+)
+_PYTHON_COMPILER_SYNTHETIC_GLOBALS = frozenset({"__conditional_annotations__"})
+
+
+def _explicit_python_names(source: str, *, filename: str) -> set[str]:
+    """Return identifiers explicitly present in the parsed source tree."""
+
+    tree = ast.parse(source, filename=filename)
+    return {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
+
+
+def _compiler_synthetic_static_failure_allowed(
+    source: str,
+    output: str,
+    *,
+    filename: str,
+) -> bool:
+    """Accept only compiler-synthetic undefined-global diagnostics absent from source."""
+
+    reported = tuple(
+        match.group(1)
+        for line in output.splitlines()
+        if (match := _PYTHON_STATIC_UNDEFINED_GLOBAL.search(line)) is not None
+    )
+    if not reported:
+        return False
+    explicit = _explicit_python_names(source, filename=filename)
+    return all(
+        name in _PYTHON_COMPILER_SYNTHETIC_GLOBALS and name not in explicit
+        for name in reported
+    )
+
+
 def validate_python_payloads(context: ExecutionContext) -> tuple[str, ...]:
     """Reject invalid or newly unsafe Python payloads before repository mutation."""
 
@@ -766,7 +802,7 @@ def validate_python_payloads(context: ExecutionContext) -> tuple[str, ...]:
             continue
         candidate = root / item.path
         context.writer.write_bytes(candidate, item.payload, new_mode=item.mode)
-        context.runner.run(
+        static_result = context.runner.run(
             CommandSpec(
                 primitive_id="command.run",
                 label=f"Validate Python payload globals: {item.path}",
@@ -777,9 +813,21 @@ def validate_python_payloads(context: ExecutionContext) -> tuple[str, ...]:
                 ),
                 cwd=context.repo,
                 timeout_seconds=120,
+                expected_codes=(0, 1),
             ),
             step_id="prewrite-python-static-validation",
         )
+        if static_result.returncode == 1:
+            candidate_source = candidate.read_text(encoding="utf-8")
+            if not _compiler_synthetic_static_failure_allowed(
+                candidate_source,
+                static_result.stdout + "\n" + static_result.stderr,
+                filename=str(candidate),
+            ):
+                raise WorkflowCommandError(
+                    f"Command failed ({static_result.returncode}): "
+                    f"Validate Python payload globals: {item.path}"
+                )
         baseline = context.baseline_safety.get(item.path)
         if baseline is None:
             raise WorkflowError(
@@ -1081,19 +1129,26 @@ def validation_action(context: ExecutionContext) -> tuple[Any, ...]:
         }
         for command, result in zip(commands, results)
     )
-    context.validation.append(
+    write_state(
+        context,
+        "validation-discovery-evidence.json",
         {
+            "schema_version": "1.0",
+            "record_type": "sage-validation-discovery-evidence",
+            "classification": "advisory-routing",
             "label": (
                 "Proposal-path SAGE discovery"
                 if context.already_realized
                 else "Changed-path SAGE discovery"
             ),
             "reference": "sage.discovery",
-            "status": "pass",
+            "status": "observed",
+            "contexts": list(discovery.contexts),
             "sha256": hashlib.sha256(
                 discovery.stdout.encode("utf-8")
             ).hexdigest(),
-        }
+            "authority_effect": "none",
+        },
     )
     return results
 
@@ -2527,6 +2582,29 @@ def execute_request(
                 "recovery": dict(recovery),
             },
         )
+        try:
+            recovery_decision = json.loads(
+                Path(next_boundary).read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError):
+            recovery_decision = {}
+        if (
+            recovery_decision.get("record_type") == "sage-recovery-next-boundary"
+            and recovery_decision.get("owning_component") == WORKFLOW_ID
+            and recovery_decision.get("disposition") == "repair"
+            and recovery_decision.get("next_boundary") == "implementation-local"
+            and recovery_decision.get("architect_attention_required") is False
+        ):
+            return {
+                "status": "implementation-local-recovery-required",
+                "error": str(error),
+                "failure_diagnosis": str(diagnosis),
+                "recovery_next_boundary": str(next_boundary),
+                "closeout": str(closeout),
+                "repository_recovery": dict(recovery),
+                "repository_mutation": False,
+                "git_mutation": False,
+            }
         raise WorkflowError(
             f"{error}\nFailure diagnosis: {diagnosis}\n"
             f"Next governed boundary: {next_boundary}\n"

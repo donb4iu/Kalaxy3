@@ -121,39 +121,50 @@ This is a repository-owned reusable composition rather than a task-specific down
 
 ## Context-derived baseline and required validation
 
-Proposal-declared `validation_commands` are supplemental validation inputs; they
-are not allowed to replace repository-owned context policy. Before repository
-mutation, request execution derives the implementation context from the exact
-declared proposal paths and runs every deduplicated `baseline_checks` command
-owned by those contexts. This is **context-derived baseline validation** and is
-performed before the atomic write begins.
+Proposal-declared `validation_commands` and repository-owned context validation
+are independent deterministic assurance inputs. Discovery does not supply
+semantic or mutation authority. Mutation-time discovery uses only observed
+proposal/changed paths to select additional repository-owned checks; literal
+request wording remains intent/evidence context and cannot itself create a hard
+validation obligation. A path, filename, or missing specialized mapping is
+therefore not an admission gate by itself.
+
+Before repository mutation, request execution supplies the exact declared
+proposal paths to discovery and runs every deduplicated `baseline_checks` command
+selected by the resulting contexts. If discovery finds no specialized context,
+the always-on governance contexts still run and the unclassified routing result
+is preserved as advisory evidence rather than converted into a new authority
+requirement. This is **context-derived baseline validation** and is performed
+before the atomic write begins.
 
 After the atomic write and before any operator Git proposal is emitted, request
-execution reruns changed-path SAGE discovery and executes every deduplicated
-`required_validation` command for the resulting contexts. This is
-**context-derived required validation**. Commands come only from the current
-`sage-change-authority.json`, retain each context's declared working directory,
-and execute shell-free through the existing `validation.plan` primitive.
+execution supplies the actual changed paths and executes every deduplicated
+`required_validation` command for the resulting contexts. Commands come only
+from the current `sage-change-authority.json`, retain each context's declared
+working directory, and execute shell-free through the existing
+`validation.plan` primitive. The discovery observation itself is recorded
+separately from the pass-only validation list and has no authority effect.
 Repository authority may currently declare a single Make target or a
 repository-relative Python validator; unsupported command shapes fail closed
 rather than falling back to shell interpretation.
 
-Proposal-supplied safe `make sage-*` validations still run afterward as
-additional checks. Context-derived required validation remains an unconditional
-hard gate. Context-derived baseline validation also remains a hard gate unless
-its command fails before mutation and the exact proposal source signature is
-cryptographically identical to one contract-valid engineering contribution
-identified by checksum-bound implementation-local provenance. In that bounded
-case, the failure is recorded as candidate-correction-pending and may permit only
-the already-authorized candidate transaction to open. The executor re-verifies
+An **actual validation command failure** remains a hard gate. The absence of a
+specialized discovery match does not. Proposal-supplied safe `make sage-*`
+validations remain mandatory and run as separately receipted checks.
+Context-derived baseline validation may be deferred only when its command fails
+before mutation and the exact proposal source signature is cryptographically
+identical to one contract-valid engineering contribution identified by
+checksum-bound implementation-local provenance. In that bounded case, the
+failure is recorded as candidate-correction-pending and may permit only the
+already-authorized candidate transaction to open. The executor re-verifies
 proposal, contribution, and declared-scope identity immediately before staging
-and again before post-candidate validation. The same context-derived baseline
-command must then pass with only those declared candidate bytes staged; otherwise
-the transaction fails and follows the normal verified rollback path. Required
-validation, supplemental validation, repository diff checks, Python safety,
-authority, and operator boundaries are unchanged. This exception therefore
-admits a pre-existing candidate-correctable failure as starting-state evidence
-without waiving unrelated existing failures or newly introduced failures.
+and again before post-candidate validation. The same selected baseline command
+must then pass with only those declared candidate bytes staged; otherwise the
+transaction fails and follows the normal verified rollback path. Proposal
+validation, repository diff checks, Python safety, authority, and operator
+boundaries are unchanged. This exception therefore admits a pre-existing
+candidate-correctable failure as starting-state evidence without waiving
+unrelated existing failures or newly introduced failures.
 
 ## Proposal-bound Python safety baseline
 
@@ -230,3 +241,9 @@ before mutation, preserving provenance and audit evidence.
 
 This gate reuses the existing federated authority reconciliation path; it does
 not introduce another planner, mutation engine, or lifecycle.
+
+### Implementation-local role-promotion handoff
+
+When request execution has already recovered repository state and its repository-owned recovery decision is `repair` / `implementation-local` with `architect_attention_required=false`, the execution component returns a structured `implementation-local-recovery-required` result to the parent objective instead of converting that bounded repair into an operator/Architect stop. The result carries the failure diagnosis, exact recovery-next-boundary record, closeout, and measured repository-recovery evidence. It authorizes no mutation by itself.
+
+Intent-to-outcome owns the next transition: it promotes the fresh Responsible implementation role and independent Reviewer, consumes the request-execution recovery record through the registered recovery consumer, creates a checksum-bound corrected engineering contribution only inside the confirmed implementation envelope, and re-enters the existing implementation-local candidate path under the inherited objective-path approval. Recovery classifications that require Architect attention retain the existing fail-closed exception/governance behavior.

@@ -7,6 +7,7 @@ import copy
 import importlib.util
 import os
 import subprocess
+import sys
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Final
@@ -153,6 +154,102 @@ def validate_make_request_transport() -> list[str]:
 
     return failures
 
+
+
+
+def validate_advisory_unclassified_cli() -> list[str]:
+    """Prove absent specialized routing is evidence, not implicit authority."""
+
+    failures: list[str] = []
+    request = "ZXQ-UNMAPPED-CONTEXT-FIXTURE"
+    base = [
+        sys.executable,
+        str(PREFLIGHT_PATH),
+        "--request",
+        request,
+    ]
+    normal = subprocess.run(
+        base,
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if normal.returncode != 0:
+        failures.append(
+            "unclassified advisory discovery became an implicit admission gate: "
+            f"rc={normal.returncode} stderr={normal.stderr.strip()!r}"
+        )
+    if "advisory-unclassified" not in normal.stdout:
+        failures.append(
+            "unclassified advisory discovery did not preserve explicit defect evidence"
+        )
+    if "Inferred SAGE contexts:" not in normal.stdout:
+        failures.append(
+            "unclassified advisory discovery did not preserve base governance contexts"
+        )
+
+    strict = subprocess.run(
+        [*base, "--require-specialized-context"],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if strict.returncode != 2:
+        failures.append(
+            "explicit strict discovery no longer fails closed when specialized "
+            f"routing is genuinely required: rc={strict.returncode}"
+        )
+    return failures
+
+
+
+def validate_static_guardrail_routing_regression() -> list[str]:
+    """Preserve the defect: path hints may miss while semantic routing still works."""
+
+    failures: list[str] = []
+    target = "scripts/sage/sage-python-static-guardrail.py"
+    path_only = subprocess.run(
+        [sys.executable, str(PREFLIGHT_PATH), "--path", target],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if path_only.returncode != 0:
+        failures.append(
+            "known authoritative static-guardrail path still becomes an admission "
+            f"failure when routing metadata is incomplete: rc={path_only.returncode}"
+        )
+    if "advisory-unclassified" not in path_only.stdout:
+        failures.append(
+            "static-guardrail path-only miss is no longer preserved as explicit advisory evidence"
+        )
+
+    semantic = subprocess.run(
+        [
+            sys.executable,
+            str(PREFLIGHT_PATH),
+            "--request",
+            "Correct the existing Python static undefined-global guardrail without weakening genuine undefined-global detection.",
+            "--path",
+            target,
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if semantic.returncode != 0:
+        failures.append(
+            "request+path discovery failed for the static-guardrail regression fixture"
+        )
+    if "  - workflow-primitives" not in semantic.stdout:
+        failures.append(
+            "semantic routing no longer identifies workflow-primitives for the static-guardrail fixture"
+        )
+    return failures
 
 def mutation_cases(
     payload: dict[str, Any],
@@ -329,6 +426,8 @@ def main() -> int:
         failures = validate_required_files(module)
         failures.extend(validate_entrypoint_markers())
         failures.extend(validate_make_request_transport())
+        failures.extend(validate_advisory_unclassified_cli())
+        failures.extend(validate_static_guardrail_routing_regression())
         failures.extend(run_negative_tests(module))
         failures.extend(validate_causal_evidence_context_mutation(module))
         failures.extend(
@@ -377,6 +476,12 @@ def main() -> int:
     )
     print(
         "PASS literal request transport through root Makefile"
+    )
+    print(
+        "PASS unclassified discovery is advisory unless strict context is explicitly required"
+    )
+    print(
+        "PASS static-guardrail routing defect is preserved as advisory path evidence with semantic recovery"
     )
     print(
         "PASS authority-map mutation negative tests"
