@@ -34,16 +34,14 @@ def main() -> int:
     args = parse_args()
     if args.self_test:
         return self_test()
-    if args.continue_state or args.operator_result:
-        if not args.continue_state or not args.operator_result:
-            raise WorkflowError(
-                "--continue-state and --operator-result are required together"
-            )
+    if args.continue_state:
         result = continue_promotion(
             repo=args.repo,
             state_path=args.continue_state,
             operator_result_path=args.operator_result,
         )
+    elif args.operator_result:
+        raise WorkflowError("--operator-result requires --continue-state")
     else:
         required = (
             args.request,

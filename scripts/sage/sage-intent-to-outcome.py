@@ -976,7 +976,7 @@ def parse_args() -> argparse.Namespace:
 
     promotion = sub.add_parser("continue-promotion")
     promotion.add_argument("--state", type=Path, required=True)
-    promotion.add_argument("--operator-result", type=Path, required=True)
+    promotion.add_argument("--operator-result", type=Path)
 
     route = sub.add_parser("route")
     route.add_argument("--state", type=Path, required=True)

@@ -114,3 +114,23 @@ Promotion mergeability is necessary but not sufficient. After PR creation, or af
 The source-SHA binding is deliberate. The portable-stage workflow runs on feature-branch `push` so its authoritative stage evidence is attached to the exact source commit rather than only to GitHub's synthetic pull-request merge ref. Additional pull-request checks remain useful integration evidence but do not replace frozen-source identity.
 
 This is a prospective correction learned from PR #21. Historical PR #21 check state is preserved and is not rewritten.
+
+
+## Git-state reconciliation authority
+
+Git commands are transition mechanisms, not admission authority. For repository
+versioning boundaries, checkpoint promotion evaluates independently observed Git
+facts from `git.inspect` against the active invariant. If the required state is
+already true, SAGE records `source_kind=observed-git-state` evidence and advances
+without replaying the Git mutation or requiring pasted command output.
+
+Operator-result evidence remains valid provenance when supplied, but it is not
+required to prove a Git state that the authoritative repository already proves.
+Conflicting or ambiguous Git state fails closed. Browser/GitHub interactions remain
+separately governed because repository Git state cannot prove those external
+mutations.
+
+A source-reconciliation merge may remain the causal merge ancestor while later
+source commits advance the synchronized branch. Promotion binds to the observed
+current source HEAD while preserving frozen source/target and exact merge topology
+as causal provenance.

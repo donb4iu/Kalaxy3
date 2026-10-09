@@ -92,6 +92,19 @@ def main() -> int:
     require("GitRepository" not in workflow, "promotion imported mixed Git mutation authority")
     require(".fetch(" not in workflow, "promotion performs workflow-side Git fetch")
     require("GitHubInspector" in workflow, "promotion does not consume github.inspect")
+    require(
+        '"source_kind": "observed-git-state"' in workflow
+        and "observed_git_boundary_result(" in workflow,
+        "satisfied Git boundaries cannot reconcile from observed state",
+    )
+    require(
+        workflow.count("operator_result_path: Path | None") >= 2,
+        "Git checkpoint continuation still requires pasted operator output",
+    )
+    require(
+        "Browser/GitHub mutation still requires explicit operator confirmation" in workflow,
+        "browser/GitHub mutation lost explicit operator confirmation",
+    )
     require("require_successful_checks(" in workflow, "promotion does not require successful exact-SHA GitHub checks")
     require("required_github_checks(" in workflow, "promotion does not consume required-check policy")
     require(
@@ -200,6 +213,7 @@ def main() -> int:
     print("PASS checkpoint persistence remains distinct from promotion")
     print("PASS complete applicable gate and frozen-target requirements")
     print("PASS git.inspect + github.inspect least-authority composition")
+    print("PASS satisfied Git boundaries reconcile from observed repository state without command replay")
     print("PASS exact frozen-source GitHub Actions checks are required before merge proposal")
     print("PASS disjoint-path pre-promotion source reconciliation is operator-executed and re-enters promotion")
     print("PASS PR mutation uses prepared browser-review operator proposals")

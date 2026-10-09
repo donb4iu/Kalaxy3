@@ -2966,7 +2966,7 @@ def begin_intent_promotion(
 def continue_intent_promotion(
     repo: Path,
     state_path: Path,
-    operator_result: Path,
+    operator_result: Path | None,
 ) -> Mapping[str, Any]:
     state = _load_parent(state_path)
     if state.get("status") != "promotion-operator-review-required":
@@ -2974,8 +2974,15 @@ def continue_intent_promotion(
     result = continue_promotion(
         repo=repo.expanduser().resolve(),
         state_path=Path(str(state["promotion_state"])),
-        operator_result_path=operator_result.expanduser().resolve(),
+        operator_result_path=(
+            operator_result.expanduser().resolve()
+            if operator_result is not None
+            else None
+        ),
     )
+    restarted_state = result.get("state")
+    if isinstance(restarted_state, str) and restarted_state:
+        state["promotion_state"] = restarted_state
     state["status"] = (
         "promotion-complete"
         if result["status"] == "complete"
