@@ -279,6 +279,8 @@ def _self_test_orphan_reconciliation() -> None:
 
 
 def self_test() -> int:
+    intent_workflow.self_test_role_promoted_recovery()
+    print("PASS implementation-local failures promote fresh Responsible and Reviewer roles under inherited Architect authority")
     good = {
         "schema_version": "1.0",
         "record_type": "sage-e2e-zero-trust-runtime-receipt",
@@ -612,7 +614,7 @@ def self_test() -> int:
     print("PASS stale consumed recovery decisions do not block changed recovery composition")
     print("PASS current consumed recovery decisions still block duplicate governance re-entry")
     route_action = {'action_id': 'SAGE-ACTION-20260823-001', 'desired_outcome': 'Keep the parent objective visible while routing bounded remediation.', 'acceptance_criteria': ['The implementation explicitly identifies SAGE-ACTION-20260815-002 as the parent delivery re-entry point.'], 'measurement_plan': ['Track unplanned recovery steps.']}
-    route_state = {'objective_id': 'SAGE-ACTION-20260823-001', 'status': 'planning-source-ready', 'current_iteration': 1, 'iterations': [{'iteration': 1, 'candidate_head': None, 'status': 'planning', 'validation_state': 'pending', 'unresolved_findings': [], 'next_boundary': 'planning', 'promotion_eligible': False}], 'evidence_reconsideration': {'status': 'finalized', 'summary': {'candidate_count': 4, 'assessed_count': 4, 'assessment_coverage': 1.0, 'applied_count': 3, 'contextually_not_applicable_count': 1, 'requires_revalidation_count': 0, 'alternative_set_change_count': 1, 'augmentation_count': 2, 'additional_acceptance_criteria_count': 1, 'reconsideration_trigger_count': 1}}, 'implementation_generations': [{'generation': 1, 'candidate_head': 'a' * 40, 'status': 'promoted', 'historical_justification_preserved': True}, {'generation': 2, 'candidate_head': 'b' * 40, 'status': 'runtime-verified', 'supersedes_generation': 1, 'historical_justification_preserved': True}]}
+    route_state = {'request': 'Repair only the bounded recovery route.', 'objective_id': 'SAGE-ACTION-20260823-001', 'status': 'planning-source-ready', 'current_iteration': 1, 'iterations': [{'iteration': 1, 'candidate_head': None, 'status': 'planning', 'validation_state': 'pending', 'unresolved_findings': [], 'next_boundary': 'planning', 'promotion_eligible': False}], 'evidence_reconsideration': {'status': 'finalized', 'summary': {'candidate_count': 4, 'assessed_count': 4, 'assessment_coverage': 1.0, 'applied_count': 3, 'contextually_not_applicable_count': 1, 'requires_revalidation_count': 0, 'alternative_set_change_count': 1, 'augmentation_count': 2, 'additional_acceptance_criteria_count': 1, 'reconsideration_trigger_count': 1}}, 'implementation_generations': [{'generation': 1, 'candidate_head': 'a' * 40, 'status': 'promoted', 'historical_justification_preserved': True}, {'generation': 2, 'candidate_head': 'b' * 40, 'status': 'runtime-verified', 'supersedes_generation': 1, 'historical_justification_preserved': True}]}
     route_manifest = {'alternatives': ['Extend the existing intent-to-outcome composition.', 'Do nothing and retain the current collision-driven routing behavior.']}
     route = build_objective_route(
         route_action,
@@ -623,6 +625,14 @@ def self_test() -> int:
         raise RuntimeError("objective route did not preserve explicit parent re-entry")
     if route.get("next_governed_boundary") != "planning":
         raise RuntimeError("objective route did not preserve the current governed boundary")
+    remaining = route.get("remaining_obligations", [])
+    if len(remaining) != 1 or remaining[0].get("description") != route_state.get("request"):
+        raise RuntimeError("objective route did not bind remaining obligations to the bounded literal objective")
+    if route.get("active_objective", {}).get("parent_obligations_inherited") is not False:
+        raise RuntimeError("objective route silently inherited parent-action obligations")
+    parent_context = route.get("parent_context_obligations", [])
+    if not parent_context or not all(item.get("status") == "parent-context" for item in parent_context):
+        raise RuntimeError("objective route did not preserve parent obligations as contextual evidence")
     alternatives = route.get("alternatives", [])
     if not alternatives or not all("risk" in item and "expected_value" in item for item in alternatives):
         raise RuntimeError("objective route alternatives do not expose evaluation dimensions")
@@ -966,7 +976,7 @@ def parse_args() -> argparse.Namespace:
 
     promotion = sub.add_parser("continue-promotion")
     promotion.add_argument("--state", type=Path, required=True)
-    promotion.add_argument("--operator-result", type=Path, required=True)
+    promotion.add_argument("--operator-result", type=Path)
 
     route = sub.add_parser("route")
     route.add_argument("--state", type=Path, required=True)

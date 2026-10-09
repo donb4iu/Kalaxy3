@@ -93,6 +93,9 @@ def main() -> int:
         "_runtime_not_applicable_promotion_ready",
         "not-applicable-to-bounded-slice",
         "source-validated-promotion-ready",
+        "promote_implementation_local_recovery",
+        "implementation-local-recovery-required",
+        "role_promoted_recovery",
     ):
         if marker not in wrapper:
             failures.append(f"front door missing existing-component marker: {marker}")
@@ -109,6 +112,7 @@ def main() -> int:
         "promoted generation may begin a preserved implementation-local successor",
         "implementation-local correction may narrow to an approved mode-compatible source subset",
         "successor feature-branch provenance may rebind without changing objective authority",
+        "implementation-local failures promote fresh Responsible and Reviewer roles under inherited Architect authority",
     ):
         if marker not in cli:
             failures.append(f"intent recovery-composition regression missing: {marker}")
@@ -222,6 +226,7 @@ def main() -> int:
             failures.append(f"Makefile missing intent-to-outcome marker: {marker}")
 
     standard = STANDARD.read_text(encoding="utf-8")
+    standard_semantic = " ".join(standard.split())
     for marker in (
         "one-time bootstrap seam",
         "existing SAGE child workflows",
@@ -231,6 +236,9 @@ def main() -> int:
         "candidate iteration",
         "Candidate union and serial validation",
         "Authoritative shared-responsibility role contract",
+        "Repository/Git adapters own only the deterministic mechanics",
+        "Discovery/classification mechanisms are advisory context-routing",
+        "authority follows the responsibility model",
         "Intent-first innovation boundary",
         "Current SAGE capabilities constrain the governed transition path",
         "non-promotable",
@@ -267,7 +275,7 @@ def main() -> int:
         "root objective",
         "behavioral preservation",
     ):
-        if marker not in standard:
+        if marker not in standard_semantic:
             failures.append(f"intent-to-outcome standard missing: {marker}")
 
     for marker in (

@@ -83,6 +83,8 @@ WORKFLOW_MARKERS = (
     "Run proposal-path SAGE preflight",
     "capture_python_safety_baseline(context)",
     "context_policy_validation",
+    '"validation-discovery-evidence.json"',
+    '"authority_effect": "none"',
     "_proposal_payload_already_realized",
     "_require_already_realized_authority",
     "realization-receipt.json",
@@ -126,6 +128,8 @@ WORKFLOW_MARKERS = (
     "request-execution-implementation-local-recovery-validation",
     "recovery_identity=identity",
     "recovery_decision=decision",
+    '"status": "implementation-local-recovery-required"',
+    'recovery_decision.get("architect_attention_required") is False',
 )
 PROCESS_MARKERS = (
     "untrusted proposal",
@@ -149,7 +153,7 @@ PROCESS_MARKERS = (
     "no deployment",
     "proposal-bound baseline",
     "context-derived baseline validation",
-    "context-derived required validation",
+    "Context-derived baseline and required validation",
     "newly introduced safety findings",
     "new Python files",
     "rollback is not inferred",
@@ -158,6 +162,8 @@ PROCESS_MARKERS = (
     "stable recovery identity",
     "governing-condition fingerprint",
     "successor capability-gap",
+    "Implementation-local role-promotion handoff",
+    "implementation-local-recovery-required",
 )
 
 
@@ -588,6 +594,63 @@ def already_realized_payload_guardrail() -> list[str]:
     return failures
 
 
+def python314_compiler_synthetic_global_guardrail() -> list[str]:
+    """Prove Python 3.14 compiler annotation state does not weaken real global checks."""
+
+    failures: list[str] = []
+    spec = importlib.util.spec_from_file_location(
+        "sage_request_execution_python314_guardrail",
+        ROOT / WORKFLOW_PATH,
+    )
+    if spec is None or spec.loader is None:
+        return ["unable to load request-execution workflow for Python 3.14 static test"]
+
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.modules.pop(spec.name, None)
+
+    synthetic_output = (
+        "Kalaxy3 Python static guardrail: FAIL CLOSED\n"
+        "  - fixture.py: undefined global reference __conditional_annotations__\n"
+    )
+    annotated_source = (
+        "from __future__ import annotations\n"
+        "VALUE: str = 'ok'\n"
+    )
+    if not module._compiler_synthetic_static_failure_allowed(
+        annotated_source, synthetic_output, filename="fixture.py"
+    ):
+        failures.append(
+            "Python 3.14 compiler-synthetic annotation global was not accepted"
+        )
+
+    explicit_source = (
+        "def expose():\n"
+        "    return __conditional_annotations__\n"
+    )
+    if module._compiler_synthetic_static_failure_allowed(
+        explicit_source, synthetic_output, filename="explicit.py"
+    ):
+        failures.append(
+            "explicit __conditional_annotations__ reference was incorrectly accepted"
+        )
+
+    mixed_output = synthetic_output + (
+        "  - fixture.py: undefined global reference WorkflowError\n"
+    )
+    if module._compiler_synthetic_static_failure_allowed(
+        annotated_source, mixed_output, filename="fixture.py"
+    ):
+        failures.append(
+            "mixed genuine and compiler-synthetic undefined globals were incorrectly accepted"
+        )
+
+    return failures
+
+
 def already_realized_discovery_guardrail() -> list[str]:
     """Prove clean already-realized validation uses proposal paths, not Git dirtiness."""
 
@@ -634,6 +697,7 @@ def already_realized_discovery_guardrail() -> list[str]:
         realized_runner = RecordingRunner()
         realized = SimpleNamespace(
             repo=root,
+            request="repair undefined global static guardrail",
             runner=realized_runner,
             bundle=bundle,
             already_realized=True,
@@ -668,6 +732,7 @@ def already_realized_discovery_guardrail() -> list[str]:
         changed_runner = RecordingRunner()
         changed = SimpleNamespace(
             repo=root,
+            request="repair undefined global static guardrail",
             runner=changed_runner,
             bundle=bundle,
             already_realized=False,
@@ -684,9 +749,60 @@ def already_realized_discovery_guardrail() -> list[str]:
                 failures.append(
                     "ordinary mutation path no longer uses changed-path discovery"
                 )
+            if "--request" in command.argv:
+                failures.append(
+                    "ordinary mutation discovery lets literal request text create "
+                    "mandatory validation routing"
+                )
 
     return failures
 
+
+
+def advisory_routing_separation_guardrail() -> list[str]:
+    """Keep advisory discovery evidence outside pass-only validation authority."""
+
+    failures: list[str] = []
+    workflow = (ROOT / WORKFLOW_PATH).read_text(encoding="utf-8")
+    proposal = (ROOT / "scripts/sage/workflow/proposal.py").read_text(encoding="utf-8")
+
+    context_start = workflow.index("def context_policy_validation(")
+    context_end = workflow.index("\ndef discovery_action(", context_start)
+    context_source = workflow[context_start:context_end]
+    if '"--request"' in context_source:
+        failures.append(
+            "mandatory context validation still lets literal request text create routing gates"
+        )
+
+    discovery_start = workflow.index("def validation_discovery(")
+    discovery_end = workflow.index("\ndef safety_action(", discovery_start)
+    discovery_source = workflow[discovery_start:discovery_end]
+    if "discovery.changed(context.request)" in discovery_source:
+        failures.append(
+            "post-candidate discovery still couples literal request text to changed-path routing"
+        )
+    if '"validation-discovery-evidence.json"' not in discovery_source:
+        failures.append(
+            "advisory discovery is not preserved as separate evidence"
+        )
+    if '"authority_effect": "none"' not in discovery_source:
+        failures.append(
+            "advisory discovery evidence does not explicitly deny authority effect"
+        )
+
+    validation_reset = discovery_source.index("context.validation = []")
+    validation_tail = discovery_source[validation_reset:]
+    if '"status": "observed"' in validation_tail.split(
+        '"validation-discovery-evidence.json"', 1
+    )[0]:
+        failures.append(
+            "observed discovery evidence leaked into pass-only proposal validation"
+        )
+    if 'check.get("status") != "pass"' not in proposal:
+        failures.append(
+            "proposal validation no longer enforces pass-only validation entries"
+        )
+    return failures
 
 def validate() -> list[str]:
     """Run the complete repository request-execution guardrail."""
@@ -707,6 +823,7 @@ def validate() -> list[str]:
     failures.extend(process_failures((ROOT / PROCESS_PATH).read_text(encoding="utf-8")))
     failures.extend(already_realized_payload_guardrail())
     failures.extend(already_realized_discovery_guardrail())
+    failures.extend(python314_compiler_synthetic_global_guardrail())
     failures.extend(runtime_self_test())
     return failures
 
@@ -768,6 +885,7 @@ def main() -> int:
 
     failures = validate()
     failures.extend(objective_path_decision_guardrail())
+    failures.extend(advisory_routing_separation_guardrail())
     if failures:
         print("Kalaxy3 SAGE request execution guardrail: FAIL CLOSED")
         for failure in failures:
@@ -780,6 +898,7 @@ def main() -> int:
     print("PASS exact already-realized proposals self-close without Git mutation")
     print("PASS one-approval routine Git lifecycle self-closes from repository-owned receipt with legacy stage/commit/push fallback")
     print("PASS Python payload runtime-name validation precedes repository writes")
+    print("PASS Python 3.14 compiler-synthetic annotation globals do not weaken explicit undefined-global detection")
     print("PASS mandatory post-operator verification, metrics, closeout, and deterministic continuation")
     print("PASS Make, authority, process, schema, and negative-test integration")
     print("Kalaxy3 SAGE request execution guardrail: PASS")

@@ -22,6 +22,7 @@ from workflow import PrimitiveCatalog, WorkflowError
 from workflows.request_planning import (
     _candidate_contribution_from_source,
     _approved_domain_gap_capabilities,
+    _reused_plan_evidence,
     derive_component_plan,
     plan_request,
     RequestPlanningActionableFailure,
@@ -615,6 +616,45 @@ def self_test(repo: Path) -> int:
     print("PASS repository-proven domain capabilities are selected from the governed workflow baseline")
     print("PASS Architect-approved required gaps may select only the exact bound staged implementation candidate without claiming pre-validation success")
     print("PASS planner rejects candidate-substituted and non-Architect domain capability approval evidence")
+    reused_evidence = _reused_plan_evidence(
+        [
+            "engineering-contribution-sha256:" + "a" * 64,
+            "implementation-local-contribution-sha256:" + local_sha,
+            "implementation-local-contribution-package:" + str(local_contribution),
+        ],
+        [
+            "engineering-contribution-sha256:" + "a" * 64,
+            "fixture:prior-plan-evidence",
+        ],
+        temp_root / "prior-proposal.zip",
+    )
+    if (
+        "implementation-local-contribution-sha256:" + local_sha
+        not in reused_evidence
+        or "implementation-local-contribution-package:" + str(local_contribution)
+        not in reused_evidence
+    ):
+        raise RuntimeError(
+            "implementation-local plan reuse lost current candidate provenance"
+        )
+    if "fixture:prior-plan-evidence" not in reused_evidence:
+        raise RuntimeError(
+            "implementation-local plan reuse lost reusable prior planning evidence"
+        )
+    if reused_evidence.count("engineering-contribution-sha256:" + "a" * 64) != 1:
+        raise RuntimeError(
+            "implementation-local plan reuse failed deterministic evidence deduplication"
+        )
+    if (
+        "implementation-local-plan-reuse:" + str(temp_root / "prior-proposal.zip")
+        not in reused_evidence
+    ):
+        raise RuntimeError("implementation-local plan reuse marker is missing")
+    print(
+        "PASS implementation-local plan reuse preserves current candidate provenance "
+        "and reusable prior planning evidence"
+    )
+
     print("PASS implementation-local planning sources resolve the exact current candidate without rewriting confirmed semantic authority")
     print("PASS incomplete and payload-substituted implementation-local candidate provenance fails closed")
     print("PASS repository-owned source package to existing proposal interface")

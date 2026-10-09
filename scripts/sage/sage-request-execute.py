@@ -775,6 +775,23 @@ def _implementation_local_progress_evidence_self_test() -> None:
             raise RuntimeError("implementation-local progress lacks source signature")
 
         manifest["evidence_references"] = [
+            "engineering-contribution-sha256:" + contribution_sha,
+            "engineering-contribution-package:" + str(contribution),
+        ]
+        semantic_package = root / "semantic-origin-proposal.zip"
+        write_fixture_package(semantic_package, manifest, payload)
+        context.bundle = load_proposal(semantic_package, request)
+        semantic_progress = (
+            request_execution_workflow._verified_candidate_progress_evidence(context)
+        )
+        if semantic_progress.get("engineering_contribution_sha256") != contribution_sha:
+            raise RuntimeError("semantic-confirmed progress lost contribution identity")
+        if semantic_progress.get("candidate_contribution_provenance") != "semantic-confirmed":
+            raise RuntimeError("semantic-confirmed progress lost provenance class")
+        if len(str(semantic_progress.get("proposal_source_signature_sha256", ""))) != 64:
+            raise RuntimeError("semantic-confirmed progress lacks source signature")
+
+        manifest["evidence_references"] = [
             "implementation-local-contribution-sha256:" + contribution_sha
         ]
         incomplete = root / "incomplete.zip"

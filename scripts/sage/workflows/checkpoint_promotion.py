@@ -1070,23 +1070,96 @@ def continuation_validation(state: Mapping[str, Any]) -> tuple[dict[str, Any], .
 
 
 
+def observed_git_boundary_result(
+    proposal: Mapping[str, Any],
+    verification: Mapping[str, Any],
+) -> dict[str, Any]:
+    "Bind a satisfied Git boundary to independently observed repository facts."
+
+    payload = {
+        "schema_version": "1.0",
+        "source_kind": "observed-git-state",
+        "proposal_id": str(proposal.get("proposal_id") or ""),
+        "boundary": str(proposal.get("boundary") or ""),
+        "verification": dict(verification),
+    }
+    digest = hashlib.sha256(stable_json(payload).encode("utf-8")).hexdigest()
+    return {
+        "schema_version": "1.0",
+        "source_kind": "observed-git-state",
+        "proposal_id": payload["proposal_id"],
+        "complete_output_sha256": digest,
+        "result_sha256": digest,
+        "observed_state_sha256": digest,
+    }
+
+
 def continue_source_reconciliation(
     *,
     repo: Path,
     state_path: Path,
-    operator_result_path: Path,
+    operator_result_path: Path | None,
 ) -> Mapping[str, Any]:
     resolved_repo = repo.expanduser().resolve()
     resolved_state = state_path.expanduser().resolve()
     state = load_state(resolved_state)
     if state.get("mode") != "source-reconciliation":
         raise WorkflowError("Checkpoint state is not a source-reconciliation state")
+    if (state.get("reconciliation_phase"), state.get("current_boundary")) == (
+        "complete", "complete"
+    ):
+        runner, inspector, _github, writer, run_dir = continuation_runtime(
+            resolved_repo, resolved_state
+        )
+        inspector.require_clean()
+        source_branch = str(state["source_branch"])
+        inspector.require_branch(source_branch)
+        current_source = inspector.head()
+        upstream = inspector.require_upstream_equal()
+        remote_source = inspector.remote_head("origin", source_branch)
+        if upstream != current_source or remote_source != current_source:
+            raise WorkflowError("Completed reconciliation Git synchronization drifted")
+        frozen_source = str(state["source_head"])
+        frozen_target = str(state["frozen_target_head"])
+        reconciled_head = str(state.get("reconciled_head") or "")
+        if not reconciled_head or not inspector.is_ancestor(reconciled_head, current_source):
+            raise WorkflowError("Completed reconciliation commit absent from source lineage")
+        merge_commit = inspector.find_merge_commit(
+            base_parent=frozen_source,
+            merged_parent=frozen_target,
+            descendant=current_source,
+        )
+        if merge_commit != reconciled_head:
+            raise WorkflowError("Completed reconciliation merge provenance drifted")
+        prior_push = any(
+            isinstance(item, dict)
+            and item.get("phase") == "push-reconciled-source"
+            and item.get("boundary") == "push"
+            for item in state.get("history", [])
+        )
+        if not prior_push:
+            raise WorkflowError("Completed reconciliation lacks a recorded push qualification")
+        restarted = dict(start_promotion(
+            repo=resolved_repo,
+            request=str(state["request"]),
+            source_branch=source_branch,
+            expected_head=current_source,
+            target_branch=str(state["target_branch"]),
+            title=str(state["title"]),
+            body=str(state["body"]),
+        ))
+        restarted["source_reconciliation_completed"] = True
+        restarted["source_reconciliation_state"] = str(resolved_state)
+        restarted["reconciled_head"] = reconciled_head
+        return restarted
     proposal_path = Path(str(state["current_proposal"])).expanduser().resolve()
     proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
-    operator_payload = json.loads(
-        operator_result_path.expanduser().resolve().read_text(encoding="utf-8")
-    )
-    result = validate_operator_result(operator_payload, proposal)
+    result: dict[str, Any] | None = None
+    if operator_result_path is not None:
+        operator_payload = json.loads(
+            operator_result_path.expanduser().resolve().read_text(encoding="utf-8")
+        )
+        result = validate_operator_result(operator_payload, proposal)
     runner, inspector, _github, writer, run_dir = continuation_runtime(
         resolved_repo, resolved_state
     )
@@ -1200,10 +1273,13 @@ def continue_source_reconciliation(
                 f"expected={expected_command}, observed={command}"
             )
         reconciled_head = str(state.get("reconciled_head") or "")
-        if current_source != reconciled_head:
+        if (
+            current_source != reconciled_head
+            and not inspector.is_ancestor(reconciled_head, current_source)
+        ):
             raise WorkflowError(
-                "Reconciled source HEAD changed before push verification: "
-                f"expected={reconciled_head}, observed={current_source}"
+                "Reconciled source lineage changed before push verification: "
+                f"required_ancestor={reconciled_head}, observed={current_source}"
             )
         upstream = inspector.require_upstream_equal()
         remote_source = inspector.remote_head("origin", source_branch)
@@ -1221,9 +1297,11 @@ def continue_source_reconciliation(
             merged_parent=frozen_target,
             descendant=current_source,
         )
-        if merge_commit != current_source:
+        if merge_commit is None or not inspector.is_ancestor(
+            merge_commit, current_source
+        ):
             raise WorkflowError(
-                "Reconciled source no longer resolves to the exact merge commit"
+                "Reconciled source no longer contains the exact merge commit"
             )
 
         state["reconciliation_phase"] = "complete"
@@ -1242,13 +1320,22 @@ def continue_source_reconciliation(
     else:
         raise WorkflowError(f"Unsupported source reconciliation phase: {phase}")
 
+    if result is None:
+        result = observed_git_boundary_result(proposal, verification)
+
     history = list(state["history"])
     history.append(
         {
             "boundary": str(proposal["boundary"]),
             "phase": phase,
             "proposal": str(proposal_path),
-            "operator_output_sha256": result["complete_output_sha256"],
+            "evidence_source": result.get("source_kind", "operator-result"),
+            "boundary_evidence_sha256": result["complete_output_sha256"],
+            "operator_output_sha256": (
+                result["complete_output_sha256"]
+                if result.get("source_kind") != "observed-git-state"
+                else None
+            ),
             "verification": verification,
         }
     )
@@ -1418,7 +1505,7 @@ def continue_promotion(
     *,
     repo: Path,
     state_path: Path,
-    operator_result_path: Path,
+    operator_result_path: Path | None,
 ) -> Mapping[str, Any]:
     resolved_repo = repo.expanduser().resolve()
     resolved_state = state_path.expanduser().resolve()
@@ -1431,13 +1518,22 @@ def continue_promotion(
         )
     proposal_path = Path(str(state["current_proposal"])).expanduser().resolve()
     proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
-    operator_payload = json.loads(
-        operator_result_path.expanduser().resolve().read_text(encoding="utf-8")
+    browser_boundary = (
+        proposal.get("schema_version") == "1.1" and "browser" in proposal
     )
-    if proposal.get("schema_version") == "1.1" and "browser" in proposal:
-        result = validate_browser_operator_result(operator_payload, proposal)
-    else:
-        result = validate_operator_result(operator_payload, proposal)
+    result: dict[str, Any] | None = None
+    if operator_result_path is not None:
+        operator_payload = json.loads(
+            operator_result_path.expanduser().resolve().read_text(encoding="utf-8")
+        )
+        if browser_boundary:
+            result = validate_browser_operator_result(operator_payload, proposal)
+        else:
+            result = validate_operator_result(operator_payload, proposal)
+    elif browser_boundary:
+        raise WorkflowError(
+            "Browser/GitHub mutation still requires explicit operator confirmation"
+        )
     runner, inspector, github, writer, run_dir = continuation_runtime(
         resolved_repo, resolved_state
     )
@@ -1677,12 +1773,21 @@ def continue_promotion(
     else:
         raise WorkflowError(f"Unsupported promotion boundary: {boundary}")
 
+    if result is None:
+        result = observed_git_boundary_result(proposal, verification)
+
     history = list(state["history"])
     history.append(
         {
             "boundary": boundary,
             "proposal": str(proposal_path),
-            "operator_output_sha256": result["complete_output_sha256"],
+            "evidence_source": result.get("source_kind", "operator-result"),
+            "boundary_evidence_sha256": result["complete_output_sha256"],
+            "operator_output_sha256": (
+                result["complete_output_sha256"]
+                if result.get("source_kind") != "observed-git-state"
+                else None
+            ),
             "verification": verification,
         }
     )

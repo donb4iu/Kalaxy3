@@ -21,6 +21,7 @@ from workflows.semantic_bootstrap import (
     ArchitectDispositionContractError,
     SemanticActionableFailure,
     _apply_architect_dispositions,
+    _derive_planning_obligations,
     architect_disposition_actionable_failure,
     begin_bootstrap,
     continue_bootstrap,
@@ -118,6 +119,37 @@ def self_test() -> int:
                 raise RuntimeError(f"actionable Architect-disposition failure omitted {marker!r}")
     else:
         raise RuntimeError("null Architect disposition did not fail closed")
+    bounded_understanding = {
+        "literal_request": "Adopt only the reviewed architecture correction.",
+        "objective": {
+            "scope": "bounded-contribution-slice",
+            "statement": "Adopt only the reviewed architecture correction.",
+            "parent_action_id": "SAGE-ACTION-PARENT",
+            "parent_obligations_inherited": False,
+        },
+        "action": {
+            "action_id": "SAGE-ACTION-PARENT",
+            "status": "accepted",
+        },
+        "parent_action_context": {
+            "desired_outcome": "Implement the entire parent metamodel.",
+            "acceptance_criteria": ["Complete an unrelated parent acceptance criterion."],
+            "measurement_plan": ["Track an unrelated parent metric."],
+            "authority_effect": "context-only-unless-explicitly-selected",
+        },
+    }
+    bounded_obligations = _derive_planning_obligations(
+        bounded_understanding, [], {"planning_obligations": []}
+    )
+    descriptions = [item["description"] for item in bounded_obligations]
+    sources = [item["source"] for item in bounded_obligations]
+    if "Adopt only the reviewed architecture correction." not in descriptions:
+        raise RuntimeError("bounded literal objective was not preserved as a planning obligation")
+    if any("entire parent metamodel" in item or "unrelated parent" in item for item in descriptions):
+        raise RuntimeError("parent action obligations leaked into the bounded slice")
+    if "bounded-objective.literal-request" not in sources:
+        raise RuntimeError("bounded objective obligation lost literal-request provenance")
+    print("PASS bounded contribution slice does not silently inherit parent-action obligations")
     print("PASS Architect accept/reject/modify/defer semantic dispositions")
     print("PASS known Architect-disposition failures render actionable recovery guidance")
     print("PASS engineering contribution without caller-authored SAGE hashes")

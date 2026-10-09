@@ -642,6 +642,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--path", action="append", default=[])
     parser.add_argument("--run-baseline-validation", action="store_true")
     parser.add_argument("--run-required-validation", action="store_true")
+    parser.add_argument(
+        "--require-specialized-context",
+        action="store_true",
+        help=(
+            "Fail when discovery finds only always-context governance. "
+            "Normal SAGE orchestration leaves this disabled because discovery "
+            "is advisory routing, not mutation or semantic authority."
+        ),
+    )
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument(
         "--authority-map",
@@ -705,15 +714,7 @@ def main() -> int:
         paths,
     )
     always = set(payload.get("always_contexts", []))
-    if initial == always:
-        print(
-            "Kalaxy3 SAGE change discovery: UNCLASSIFIED"
-        )
-        print(
-            "Add a context mapping before implementation."
-        )
-        return 2
-
+    specialized = set(initial) - always
     selected = expand_dependencies(payload, initial)
     contexts = ordered_contexts(payload, selected)
     render_report(
@@ -721,6 +722,20 @@ def main() -> int:
         paths,
         contexts,
     )
+    if not specialized:
+        print("\nDiscovery classification:")
+        print("  - advisory-unclassified")
+        print(
+            "  - No specialized context was inferred. Base governance remains "
+            "active; this classification does not create, remove, or override "
+            "objective, semantic, mutation, or approval authority."
+        )
+        if args.require_specialized_context:
+            print(
+                "  - Strict caller requested a specialized context; stopping "
+                "without mutation."
+            )
+            return 2
     try:
         if args.run_baseline_validation:
             run_context_validation(contexts, "baseline_checks")

@@ -3,15 +3,27 @@
 
 from __future__ import annotations
 
+import ast
+import difflib
 import hashlib
 import json
 import os
 import re
+import stat
+import tempfile
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
+from llm_role_invocation import (
+    RoleInvocationError,
+    build_invocation,
+    invoke_ollama_json,
+    new_state_dir,
+    resolve_ollama_runtime,
+    stable_json as role_stable_json,
+)
 from workflow import AtomicFileWriter, CommandRunner, JsonlEventLogger, PrimitiveCatalog, WorkflowError, load_improvement_action
 from workflow.git_inspect import GitInspector
 from workflow.recovery import (
@@ -24,6 +36,7 @@ from workflow.recovery import (
 from workflows.checkpoint_promotion import continue_promotion, start_promotion
 from workflows.objective_execution import objective_execution_route_summary
 from workflows.request_execution import (
+    consume_recovery_decision,
     continue_request,
     continue_request_from_routine_receipt,
     execute_request,
@@ -36,7 +49,7 @@ from workflows.request_planning import (
 from workflows.semantic_bootstrap import begin_bootstrap, continue_bootstrap, reuse_confirmed_intent
 from request_execution import load_proposal
 from request_planning import SEMANTIC_UNDERSTANDING_NAME, load_source_bundle
-from semantic_understanding import load_engineering_contribution
+from semantic_understanding import EngineeringContribution, load_engineering_contribution
 from sage_evidence_retrieval import (
     load_json as load_retrieval_json,
     reconsideration_summary,
@@ -122,30 +135,47 @@ def _parent_reentry_objective(action: Mapping[str, Any]) -> str | None:
     return None
 
 
-def _route_obligations(action: Mapping[str, Any]) -> list[dict[str, Any]]:
+def _route_obligations(action: Mapping[str, Any], state: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Return obligations of the active bounded objective, not every parent-action obligation."""
+
+    request = state.get("request")
+    if not isinstance(request, str) or not request.strip():
+        raise WorkflowError("active objective route requires the literal request")
+    return [{
+        "obligation_id": "PO-OUTCOME-001",
+        "kind": "outcome",
+        "status": "remaining",
+        "description": request.strip(),
+        "source": "bounded-objective.literal-request",
+    }]
+
+
+def _parent_context_obligations(action: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Preserve parent obligations as context without silently inheriting them into the slice."""
+
     obligations: list[dict[str, Any]] = []
     desired = action.get("desired_outcome")
     if isinstance(desired, str) and desired.strip():
         obligations.append({
-            "obligation_id": "PO-OUTCOME-001",
+            "obligation_id": "PARENT-OUTCOME-001",
             "kind": "outcome",
-            "status": "remaining",
+            "status": "parent-context",
             "description": desired.strip(),
             "source": "accepted-action.desired_outcome",
         })
     for index, value in enumerate(action.get("acceptance_criteria", []), 1):
         obligations.append({
-            "obligation_id": f"PO-AC-{index:03d}",
+            "obligation_id": f"PARENT-AC-{index:03d}",
             "kind": "requirement",
-            "status": "remaining",
+            "status": "parent-context",
             "description": str(value),
             "source": f"accepted-action.acceptance_criteria[{index - 1}]",
         })
     for index, value in enumerate(action.get("measurement_plan", []), 1):
         obligations.append({
-            "obligation_id": f"PO-MEASURE-{index:03d}",
+            "obligation_id": f"PARENT-MEASURE-{index:03d}",
             "kind": "measurement",
-            "status": "remaining",
+            "status": "parent-context",
             "description": str(value),
             "source": f"accepted-action.measurement_plan[{index - 1}]",
         })
@@ -676,7 +706,14 @@ def build_objective_route(
         "objective_id": state.get("objective_id") or state.get("action_id") or state.get("request_sha256"),
         "parent_objective_id": _parent_reentry_objective(action),
         "status": "active",
-        "remaining_obligations": _route_obligations(action),
+        "active_objective": {
+            "scope": "bounded-contribution-slice",
+            "statement": state.get("request"),
+            "parent_action_id": action.get("action_id"),
+            "parent_obligations_inherited": False,
+        },
+        "remaining_obligations": _route_obligations(action, state),
+        "parent_context_obligations": _parent_context_obligations(action),
         "current_evidence": evidence,
         "dependencies": [
             "accepted-action authority",
@@ -716,7 +753,7 @@ def build_objective_route(
             "runtime_evidence_mapped": runtime_mapped,
             "bdd_requirement_coverage": "unassessed",
             "uncovered_or_weak_obligations": [
-                item["obligation_id"] for item in _route_obligations(action)
+                item["obligation_id"] for item in _route_obligations(action, state)
             ],
         },
         "integration_state": {
@@ -1603,6 +1640,14 @@ def continue_planned_request(
         str(state["request"]),
         proposal,
     )
+    if execution.get("status") == "implementation-local-recovery-required":
+        return promote_implementation_local_recovery(
+            resolved,
+            state_path,
+            execution,
+            iteration_starter=begin_candidate_iteration,
+            recovery_consumer=consume_recovery_decision,
+        )
     proposal_sha256 = hashlib.sha256(
         proposal.read_bytes()
     ).hexdigest()
@@ -2921,7 +2966,7 @@ def begin_intent_promotion(
 def continue_intent_promotion(
     repo: Path,
     state_path: Path,
-    operator_result: Path,
+    operator_result: Path | None,
 ) -> Mapping[str, Any]:
     state = _load_parent(state_path)
     if state.get("status") != "promotion-operator-review-required":
@@ -2929,8 +2974,15 @@ def continue_intent_promotion(
     result = continue_promotion(
         repo=repo.expanduser().resolve(),
         state_path=Path(str(state["promotion_state"])),
-        operator_result_path=operator_result.expanduser().resolve(),
+        operator_result_path=(
+            operator_result.expanduser().resolve()
+            if operator_result is not None
+            else None
+        ),
     )
+    restarted_state = result.get("state")
+    if isinstance(restarted_state, str) and restarted_state:
+        state["promotion_state"] = restarted_state
     state["status"] = (
         "promotion-complete"
         if result["status"] == "complete"
@@ -2955,3 +3007,1045 @@ def continue_intent_promotion(
         "state": str(state_path.expanduser().resolve()),
         "child": result,
     }
+
+
+# ---- Role-promoted implementation-local recovery ----
+
+RESPONSIBLE_ROLE = "fresh-sage-implementation-recovery"
+REVIEWER_ROLE = "fresh-sage-implementation-recovery-reviewer"
+MAX_ROLE_ROUNDS = 3
+MAX_CONTEXT_PATHS = 6
+MAX_CONTEXT_CHARS = 90000
+MAX_PATH_PROJECTION_CHARS = 28000
+
+_IMPLEMENTATION_SYSTEM = """You are the fresh Responsible implementation-recovery role in SAGE RACI.
+
+You are untrusted and have no Architect, approval, workflow-transition, Git, or promotion
+authority. The Architect-owned objective, approved implementation envelope, failure evidence,
+and current candidate source projections are supplied by deterministic SAGE.
+
+Your responsibility is to inspect the affected code path, not merely the last failing line,
+and propose the smallest cohesive implementation-local correction that restores the approved
+objective. You may only edit paths in the supplied approved scope and only paths for which
+SAGE supplied source context. Do not widen the objective or invent authority.
+
+Use exact-text replacements. The `old` text must be copied exactly from supplied source
+context and be sufficiently specific to occur once. If more source context is needed, return
+status `needs-context` and request the needed approved paths/symbols; do not guess. If the
+correction truly requires scope/authority/meaning outside the supplied approved envelope,
+return `material-decision-required` with a concise reason. Otherwise return `corrected`.
+
+Do not include chain-of-thought. Return only JSON matching the supplied schema.
+"""
+
+_REVIEW_SYSTEM = """You are a fresh independent SAGE implementation-recovery Reviewer.
+
+You are untrusted and have no Architect, mutation, Git, workflow-transition, or approval
+authority. Independently review the Responsible role's proposed implementation-local delta
+against the supplied Architect-owned objective, failure evidence, approved path envelope,
+and recovery invariants.
+
+PASS only when the delta addresses the causal code path rather than symptom patching, stays
+inside the approved envelope, preserves authority boundaries, and does not weaken deterministic
+validation merely to make the failure disappear. REVISE when bounded implementation changes are
+needed. Report `material-decision-required` only when the evidence demonstrates that the approved
+scope/meaning/authority itself must change, not because implementation is difficult.
+
+Do not include chain-of-thought. Return only JSON matching the supplied schema.
+"""
+
+_IMPLEMENTATION_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "status": {
+            "type": "string",
+            "enum": ["corrected", "needs-context", "material-decision-required"],
+        },
+        "summary": {"type": "string"},
+        "changes": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "path": {"type": "string"},
+                    "replacements": {
+                        "type": "array",
+                        "maxItems": 8,
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "old": {"type": "string"},
+                                "new": {"type": "string"},
+                            },
+                            "required": ["old", "new"],
+                        },
+                    },
+                },
+                "required": ["path", "replacements"],
+            },
+        },
+        "requested_context": {
+            "type": "array",
+            "maxItems": 6,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "path": {"type": "string"},
+                    "symbols": {
+                        "type": "array",
+                        "maxItems": 12,
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": ["path", "symbols"],
+            },
+        },
+        "validation_recommendations": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {"type": "string"},
+        },
+        "material_decision_reason": {"type": ["string", "null"]},
+    },
+    "required": [
+        "status",
+        "summary",
+        "changes",
+        "requested_context",
+        "validation_recommendations",
+        "material_decision_reason",
+    ],
+}
+
+_REVIEW_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "disposition": {
+            "type": "string",
+            "enum": ["pass", "revise", "material-decision-required"],
+        },
+        "summary": {"type": "string"},
+        "findings": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {"type": "string"},
+        },
+        "required_changes": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {"type": "string"},
+        },
+        "material_decision_reason": {"type": ["string", "null"]},
+    },
+    "required": [
+        "disposition",
+        "summary",
+        "findings",
+        "required_changes",
+        "material_decision_reason",
+    ],
+}
+
+RoleInvoker = Callable[..., tuple[dict[str, Any], dict[str, Any]]]
+IterationStarter = Callable[..., Mapping[str, Any]]
+RecoveryConsumer = Callable[[Path, Path], Mapping[str, Any]]
+
+
+def _sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _load_json(path: Path, label: str) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise WorkflowError(f"{label} is not readable JSON: {path}: {error}") from error
+    if not isinstance(value, dict):
+        raise WorkflowError(f"{label} must be a JSON object: {path}")
+    return value
+
+
+def _source_map(contribution: EngineeringContribution) -> tuple[dict[str, str], dict[str, int]]:
+    sources: dict[str, str] = {}
+    modes: dict[str, int] = {}
+    for item in contribution.source_files:
+        try:
+            sources[item.path] = item.payload.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise WorkflowError(
+                f"implementation-local role recovery cannot edit non-UTF-8 payload: {item.path}"
+            ) from error
+        modes[item.path] = item.mode
+    return sources, modes
+
+
+def _failure_text(execution: Mapping[str, Any]) -> str:
+    chunks = [str(execution.get("error", ""))]
+    for field in ("failure_diagnosis", "recovery_next_boundary", "closeout"):
+        raw = execution.get(field)
+        if isinstance(raw, str) and raw:
+            path = Path(raw).expanduser().resolve()
+            if path.is_file():
+                chunks.append(path.read_text(encoding="utf-8", errors="replace"))
+    return "\n".join(chunks)
+
+
+def _initial_paths(paths: tuple[str, ...], failure: str) -> list[str]:
+    selected: list[str] = []
+
+    def add(path: str) -> None:
+        if path in paths and path not in selected and len(selected) < MAX_CONTEXT_PATHS:
+            selected.append(path)
+
+    for path in paths:
+        if path in failure or Path(path).name in failure:
+            add(path)
+    lower = failure.lower()
+    if "request-execution" in lower or "request_execution" in lower:
+        for suffix in (
+            "scripts/sage/workflows/request_execution.py",
+            "scripts/sage/sage-request-execution-guardrail.py",
+            "markdown/standards/kalaxy3-sage-request-execution-process.md",
+        ):
+            add(suffix)
+    if "intent-to-outcome" in lower or "intent_to_outcome" in lower:
+        for suffix in (
+            "scripts/sage/workflows/intent_to_outcome.py",
+            "scripts/sage/sage-intent-to-outcome-guardrail.py",
+            "markdown/standards/kalaxy3-sage-intent-to-outcome-process.md",
+        ):
+            add(suffix)
+    for path in paths:
+        if len(selected) >= 3:
+            break
+        add(path)
+    return selected
+
+
+def _symbols_from_failure(source: str, failure: str) -> list[str]:
+    if not source.endswith(".py"):
+        return []
+    symbols = re.findall(r"\bin ([A-Za-z_][A-Za-z0-9_]*)\b", failure)
+    common = (
+        "execute_request",
+        "continue_planned_request",
+        "begin_candidate_iteration",
+        "consume_recovery_decision",
+        "validate_python_payloads",
+        "failure_diagnosis",
+    )
+    for value in common:
+        if value in failure and value not in symbols:
+            symbols.append(value)
+    return symbols[:12]
+
+
+def _python_projection(source: str, path: str, symbols: list[str]) -> str:
+    if len(source) <= MAX_PATH_PROJECTION_CHARS:
+        return source
+    lines = source.splitlines(keepends=True)
+    pieces: list[str] = ["".join(lines[:100])]
+    try:
+        tree = ast.parse(source, filename=path)
+    except SyntaxError:
+        return source[:MAX_PATH_PROJECTION_CHARS]
+    wanted = set(symbols)
+    by_name: dict[str, ast.AST] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            by_name.setdefault(node.name, node)
+    for name in symbols:
+        node = by_name.get(name)
+        if node is None or not hasattr(node, "lineno"):
+            continue
+        start = max(int(node.lineno) - 8, 0)
+        end = min(int(getattr(node, "end_lineno", node.lineno)) + 8, len(lines))
+        pieces.append(f"\n# --- symbol context: {name} ---\n")
+        pieces.append("".join(lines[start:end]))
+    if len(pieces) == 1:
+        for name, node in list(by_name.items())[:4]:
+            if name.startswith("_"):
+                continue
+            start = max(int(node.lineno) - 4, 0)
+            end = min(int(getattr(node, "end_lineno", node.lineno)) + 4, len(lines))
+            pieces.append(f"\n# --- representative symbol: {name} ---\n")
+            pieces.append("".join(lines[start:end]))
+    return "".join(pieces)[:MAX_PATH_PROJECTION_CHARS]
+
+
+def _source_context(
+    sources: Mapping[str, str],
+    selected: list[str],
+    failure: str,
+    requested_symbols: Mapping[str, list[str]],
+) -> list[dict[str, Any]]:
+    context: list[dict[str, Any]] = []
+    consumed = 0
+    for path in selected:
+        source = sources[path]
+        symbols = list(requested_symbols.get(path, []))
+        for name in _symbols_from_failure(path, failure):
+            if name not in symbols:
+                symbols.append(name)
+        projected = (
+            _python_projection(source, path, symbols)
+            if path.endswith(".py")
+            else source[:MAX_PATH_PROJECTION_CHARS]
+        )
+        remaining = MAX_CONTEXT_CHARS - consumed
+        if remaining <= 0:
+            break
+        projected = projected[:remaining]
+        consumed += len(projected)
+        context.append(
+            {
+                "path": path,
+                "sha256": _sha256_bytes(source.encode("utf-8")),
+                "projection": projected,
+                "projection_complete": len(projected) == len(source),
+                "requested_symbols": symbols,
+            }
+        )
+    return context
+
+
+def _default_invoker(
+    *,
+    envelope: Mapping[str, Any],
+    system_instruction: str,
+    response_format: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    endpoint, model = resolve_ollama_runtime()
+    return invoke_ollama_json(
+        envelope=envelope,
+        system_instruction=system_instruction,
+        endpoint=endpoint,
+        model=model,
+        timeout_seconds=1800,
+        response_format=response_format,
+        think="low",
+        num_ctx=65536,
+        num_predict=4096,
+        temperature=0.1,
+    )
+
+
+def _apply_changes(
+    sources: Mapping[str, str],
+    response: Mapping[str, Any],
+    context_paths: set[str],
+) -> tuple[dict[str, str], list[str]]:
+    updated = dict(sources)
+    changed: list[str] = []
+    changes = response.get("changes")
+    if not isinstance(changes, list) or not changes:
+        raise WorkflowError("Responsible recovery role returned corrected without changes")
+    for entry in changes:
+        if not isinstance(entry, Mapping):
+            raise WorkflowError("Responsible recovery change entry is invalid")
+        path = str(entry.get("path", ""))
+        if path not in sources:
+            raise WorkflowError(f"Responsible recovery attempted scope expansion: {path}")
+        if path not in context_paths:
+            raise WorkflowError(
+                f"Responsible recovery attempted to edit source not supplied in context: {path}"
+            )
+        replacements = entry.get("replacements")
+        if not isinstance(replacements, list) or not replacements:
+            raise WorkflowError(f"Responsible recovery has no replacements for {path}")
+        value = updated[path]
+        for replacement in replacements:
+            if not isinstance(replacement, Mapping):
+                raise WorkflowError(f"Responsible recovery replacement is invalid: {path}")
+            old = replacement.get("old")
+            new = replacement.get("new")
+            if not isinstance(old, str) or not old or not isinstance(new, str) or old == new:
+                raise WorkflowError(f"Responsible recovery replacement is invalid: {path}")
+            if value.count(old) != 1:
+                raise WorkflowError(
+                    f"Responsible recovery replacement does not bind exactly once: {path}"
+                )
+            value = value.replace(old, new, 1)
+        updated[path] = value
+        if path not in changed:
+            changed.append(path)
+    return updated, changed
+
+
+def _diff(before: Mapping[str, str], after: Mapping[str, str], changed: list[str]) -> str:
+    chunks: list[str] = []
+    for path in changed:
+        chunks.extend(
+            difflib.unified_diff(
+                before[path].splitlines(keepends=True),
+                after[path].splitlines(keepends=True),
+                fromfile="a/" + path,
+                tofile="b/" + path,
+            )
+        )
+    return "".join(chunks)
+
+
+def _write_member(archive: zipfile.ZipFile, name: str, data: bytes, mode: int) -> None:
+    info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+    info.compress_type = zipfile.ZIP_DEFLATED
+    info.create_system = 3
+    info.external_attr = (stat.S_IFREG | mode) << 16
+    archive.writestr(info, data)
+
+
+def _package_contribution(
+    state_dir: Path,
+    prior: EngineeringContribution,
+    sources: Mapping[str, str],
+    modes: Mapping[str, int],
+    implementation_result: Mapping[str, Any],
+    implementation_receipt: Mapping[str, Any],
+    review_result: Mapping[str, Any],
+    review_receipt: Mapping[str, Any],
+    recovery_decision: Mapping[str, Any],
+) -> EngineeringContribution:
+    manifest = json.loads(json.dumps(prior.manifest))
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    manifest["contribution_id"] = f"SAGE-IMPLEMENTATION-LOCAL-{stamp}"
+    manifest["contributor"] = {
+        "participant_class": "llm",
+        "identity": RESPONSIBLE_ROLE,
+        "role_promotion": {
+            "responsibility": "Responsible",
+            "authority": "advisory-only",
+            "prior_contribution_sha256": prior.package_sha256,
+            "implementation_invocation_sha256": implementation_receipt.get("invocation_sha256"),
+            "implementation_result_sha256": implementation_receipt.get("role_result_sha256"),
+            "independent_reviewer": REVIEWER_ROLE,
+            "review_invocation_sha256": review_receipt.get("invocation_sha256"),
+            "review_result_sha256": review_receipt.get("role_result_sha256"),
+            "review_disposition": review_result.get("disposition"),
+            "recovery_identity_sha256": (
+                recovery_decision.get("recovery_identity", {}).get("identity_sha256")
+                if isinstance(recovery_decision.get("recovery_identity"), Mapping)
+                else None
+            ),
+        },
+    }
+    manifest["summary"] = str(implementation_result.get("summary", "")).strip() or (
+        "Fresh Responsible implementation-local recovery candidate"
+    )
+    manifest["rationale"] = (
+        "Generated by a promoted fresh Responsible implementation role after a deterministic "
+        "request-execution implementation-local failure, independently reviewed before same-authority re-entry."
+    )
+    manifest["assumptions"] = list(manifest.get("assumptions", [])) + [
+        "Architect objective, semantic confirmation, and objective-path approval are inherited unchanged.",
+        "This correction is limited to the previously approved engineering-contribution path envelope.",
+    ]
+    manifest["alternatives"] = list(manifest.get("alternatives", []))
+    destination = state_dir / "implementation-local-engineering-contribution.zip"
+    with zipfile.ZipFile(destination, "x") as archive:
+        _write_member(
+            archive,
+            "engineering-contribution.json",
+            json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8"),
+            0o644,
+        )
+        for path in sorted(sources):
+            _write_member(
+                archive,
+                "payload/" + path,
+                sources[path].encode("utf-8"),
+                modes[path],
+            )
+    return load_engineering_contribution(destination)
+
+
+def _requested_context(
+    response: Mapping[str, Any],
+    scope: tuple[str, ...],
+) -> tuple[list[str], dict[str, list[str]], str | None]:
+    requested = response.get("requested_context")
+    if not isinstance(requested, list) or not requested:
+        return [], {}, None
+    paths: list[str] = []
+    symbols: dict[str, list[str]] = {}
+    for item in requested:
+        if not isinstance(item, Mapping):
+            raise WorkflowError("Responsible recovery requested_context is invalid")
+        path = str(item.get("path", ""))
+        if path not in scope:
+            return [], {}, path
+        if path not in paths:
+            paths.append(path)
+        raw_symbols = item.get("symbols", [])
+        if not isinstance(raw_symbols, list) or not all(isinstance(value, str) for value in raw_symbols):
+            raise WorkflowError("Responsible recovery requested symbols are invalid")
+        symbols[path] = list(raw_symbols)
+    return paths, symbols, None
+
+
+def _validate_local_recovery(decision: Mapping[str, Any]) -> None:
+    if decision.get("record_type") != "sage-recovery-next-boundary":
+        raise WorkflowError("role-promoted recovery decision type is invalid")
+    if decision.get("disposition") != "repair" or decision.get("next_boundary") != "implementation-local":
+        raise WorkflowError("role-promoted recovery is not implementation-local repair")
+    if decision.get("architect_attention_required") is not False:
+        raise WorkflowError("role-promoted implementation-local recovery requests Architect attention")
+
+
+def _role_context(
+    state: Mapping[str, Any],
+    contribution: EngineeringContribution,
+    failure: str,
+    decision: Mapping[str, Any],
+    source_context: list[dict[str, Any]],
+    reviewer_feedback: list[str],
+) -> dict[str, Any]:
+    return {
+        "literal_objective": state.get("request"),
+        "objective_id": state.get("objective_id") or state.get("action_id"),
+        "current_iteration": state.get("current_iteration"),
+        "approved_scope": list(contribution.paths),
+        "current_contribution_sha256": contribution.package_sha256,
+        "failure_evidence": failure[-18000:],
+        "recovery_decision": dict(decision),
+        "source_context": source_context,
+        "reviewer_feedback": reviewer_feedback,
+        "governance": {
+            "architect_approval_reused": True,
+            "scope_expansion_allowed": False,
+            "meaning_change_allowed": False,
+            "role_self_approval_allowed": False,
+            "git_authority": False,
+            "same_class_retry_requires_new_candidate_progress": True,
+        },
+    }
+
+
+def _validate_fresh_receipt(receipt: Mapping[str, Any], role: str) -> None:
+    """Require role isolation attested by the repository invocation receipt."""
+
+    for field in (
+        "architect_chat_history_included",
+        "role_chat_history_included",
+        "predecessor_chat_history_included",
+    ):
+        if field in receipt and receipt.get(field) is not False:
+            raise WorkflowError(f"{role} receipt violates fresh-role isolation: {field}")
+
+
+def _invoke_role(
+    invoker: RoleInvoker,
+    *,
+    role: str,
+    objective_id: str,
+    request: Mapping[str, Any],
+    context: Mapping[str, Any],
+    system_instruction: str,
+    schema: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    envelope = build_invocation(
+        role=role,
+        objective_id=objective_id,
+        request=request,
+        context=context,
+    )
+    try:
+        result, receipt = invoker(
+            envelope=envelope,
+            system_instruction=system_instruction,
+            response_format=schema,
+        )
+    except RoleInvocationError as error:
+        raise WorkflowError(f"{role} runtime failed: {error}") from error
+    if not isinstance(result, dict) or not isinstance(receipt, dict):
+        raise WorkflowError(f"{role} returned an invalid role result/receipt")
+    _validate_fresh_receipt(receipt, role)
+    return result, receipt, envelope
+
+
+def promote_implementation_local_recovery(
+    repo: Path,
+    state_path: Path,
+    execution: Mapping[str, Any],
+    *,
+    iteration_starter: IterationStarter,
+    recovery_consumer: RecoveryConsumer,
+    implementation_invoker: RoleInvoker = _default_invoker,
+    reviewer_invoker: RoleInvoker = _default_invoker,
+) -> Mapping[str, Any]:
+    """Promote Responsible/Reviewer roles and re-enter the same objective autonomously."""
+
+    resolved_repo = repo.expanduser().resolve()
+    resolved_state = state_path.expanduser().resolve()
+    state = _load_json(resolved_state, "intent-to-outcome state")
+    if execution.get("status") != "implementation-local-recovery-required":
+        raise WorkflowError("role promotion requires implementation-local execution failure")
+    recovery_value = execution.get("recovery_next_boundary")
+    if not isinstance(recovery_value, str) or not recovery_value:
+        raise WorkflowError("implementation-local execution result lacks recovery decision")
+    recovery_path = Path(recovery_value).expanduser().resolve()
+    decision = _load_json(recovery_path, "request-execution recovery decision")
+    _validate_local_recovery(decision)
+    if not os.environ.get("SAGE_OBJECTIVE_PATH_DECISION", "").strip():
+        raise WorkflowError("role-promoted recovery requires inherited objective-path approval")
+
+    contribution_value = state.get("contribution")
+    if not isinstance(contribution_value, str) or not contribution_value:
+        raise WorkflowError("role-promoted recovery lacks current engineering contribution")
+    contribution = load_engineering_contribution(Path(contribution_value))
+    sources, modes = _source_map(contribution)
+    failure = _failure_text(execution)
+    selected = _initial_paths(contribution.paths, failure)
+    requested_symbols: dict[str, list[str]] = {}
+    reviewer_feedback: list[str] = []
+    objective_id = str(state.get("objective_id") or state.get("action_id") or "").strip()
+    if not objective_id:
+        raise WorkflowError("role-promoted recovery lacks objective identity")
+
+    state_dir = new_state_dir("implementation-local-role-recovery")
+    writer = AtomicFileWriter((state_dir,))
+    writer.write_text(
+        state_dir / "recovery-source.json",
+        role_stable_json({"execution": dict(execution), "recovery_decision": decision}),
+        new_mode=0o600,
+    )
+
+    latest_result: dict[str, Any] | None = None
+    latest_receipt: dict[str, Any] | None = None
+    latest_review: dict[str, Any] | None = None
+    latest_review_receipt: dict[str, Any] | None = None
+    corrected_sources: dict[str, str] | None = None
+    changed_paths: list[str] = []
+
+    for role_round in range(1, MAX_ROLE_ROUNDS + 1):
+        source_context = _source_context(
+            sources, selected, failure, requested_symbols
+        )
+        context_paths = {item["path"] for item in source_context}
+        role_context = _role_context(
+            state,
+            contribution,
+            failure,
+            decision,
+            source_context,
+            reviewer_feedback,
+        )
+        result, receipt, envelope = _invoke_role(
+            implementation_invoker,
+            role=RESPONSIBLE_ROLE,
+            objective_id=objective_id,
+            request={
+                "task": "repair-implementation-local-failure",
+                "round": role_round,
+                "failure_identity_sha256": (
+                    decision.get("recovery_identity", {}).get("identity_sha256")
+                    if isinstance(decision.get("recovery_identity"), Mapping)
+                    else None
+                ),
+            },
+            context=role_context,
+            system_instruction=_IMPLEMENTATION_SYSTEM,
+            schema=_IMPLEMENTATION_SCHEMA,
+        )
+        writer.write_text(
+            state_dir / f"responsible-invocation-{role_round:02d}.json",
+            role_stable_json(envelope),
+            new_mode=0o600,
+        )
+        writer.write_text(
+            state_dir / f"responsible-result-{role_round:02d}.json",
+            role_stable_json(result),
+            new_mode=0o600,
+        )
+        writer.write_text(
+            state_dir / f"responsible-receipt-{role_round:02d}.json",
+            role_stable_json(receipt),
+            new_mode=0o600,
+        )
+
+        status = result.get("status")
+        if status == "needs-context":
+            extra_paths, extra_symbols, outside = _requested_context(
+                result, contribution.paths
+            )
+            if outside is not None:
+                return {
+                    "status": "architect-decision-required",
+                    "reason": (
+                        "Responsible recovery requires a path outside the Architect-approved "
+                        f"implementation envelope: {outside}"
+                    ),
+                    "role_state": str(state_dir),
+                    "repository_mutation": False,
+                }
+            for path in extra_paths:
+                if path not in selected:
+                    if len(selected) >= MAX_CONTEXT_PATHS:
+                        raise WorkflowError(
+                            "Responsible recovery requested more context than the bounded role budget"
+                        )
+                    selected.append(path)
+                for symbol in extra_symbols.get(path, []):
+                    requested_symbols.setdefault(path, [])
+                    if symbol not in requested_symbols[path]:
+                        requested_symbols[path].append(symbol)
+            continue
+        if status == "material-decision-required":
+            return {
+                "status": "role-recovery-material-claim",
+                "reason": str(result.get("material_decision_reason") or result.get("summary")),
+                "role_state": str(state_dir),
+                "architect_boundary_created": False,
+                "repository_mutation": False,
+            }
+        if status != "corrected":
+            raise WorkflowError("Responsible recovery returned unsupported status")
+
+        candidate_sources, candidate_changed = _apply_changes(
+            sources, result, context_paths
+        )
+        patch = _diff(sources, candidate_sources, candidate_changed)
+        if not patch.strip():
+            raise WorkflowError("Responsible recovery produced no candidate delta")
+        patch_path = state_dir / f"candidate-delta-{role_round:02d}.patch"
+        writer.write_text(patch_path, patch, new_mode=0o600)
+
+        review_context = {
+            "literal_objective": state.get("request"),
+            "approved_scope": list(contribution.paths),
+            "failure_evidence": failure[-16000:],
+            "recovery_decision": decision,
+            "candidate_delta": patch[:50000],
+            "responsible_summary": result.get("summary"),
+            "governance": {
+                "scope_expansion_allowed": False,
+                "self_approval_allowed": False,
+                "architect_attention_only_for_material_change": True,
+            },
+        }
+        review, review_receipt, review_envelope = _invoke_role(
+            reviewer_invoker,
+            role=REVIEWER_ROLE,
+            objective_id=objective_id,
+            request={
+                "task": "independently-review-implementation-local-recovery",
+                "round": role_round,
+                "candidate_delta_sha256": _sha256_bytes(patch.encode("utf-8")),
+            },
+            context=review_context,
+            system_instruction=_REVIEW_SYSTEM,
+            schema=_REVIEW_SCHEMA,
+        )
+        writer.write_text(
+            state_dir / f"reviewer-invocation-{role_round:02d}.json",
+            role_stable_json(review_envelope),
+            new_mode=0o600,
+        )
+        writer.write_text(
+            state_dir / f"reviewer-result-{role_round:02d}.json",
+            role_stable_json(review),
+            new_mode=0o600,
+        )
+        writer.write_text(
+            state_dir / f"reviewer-receipt-{role_round:02d}.json",
+            role_stable_json(review_receipt),
+            new_mode=0o600,
+        )
+        disposition = review.get("disposition")
+        if disposition == "material-decision-required":
+            return {
+                "status": "role-recovery-material-claim",
+                "reason": str(review.get("material_decision_reason") or review.get("summary")),
+                "role_state": str(state_dir),
+                "architect_boundary_created": False,
+                "repository_mutation": False,
+            }
+        if disposition == "revise":
+            feedback = review.get("required_changes", [])
+            if not isinstance(feedback, list) or not feedback:
+                feedback = review.get("findings", [])
+            reviewer_feedback = [str(item) for item in feedback]
+            continue
+        if disposition != "pass":
+            raise WorkflowError("independent recovery reviewer returned unsupported disposition")
+
+        latest_result = result
+        latest_receipt = receipt
+        latest_review = review
+        latest_review_receipt = review_receipt
+        corrected_sources = candidate_sources
+        changed_paths = candidate_changed
+        break
+
+    if corrected_sources is None or latest_result is None or latest_review is None:
+        return {
+            "status": "role-recovery-capability-blocked",
+            "reason": "Fresh Responsible/Reviewer loop did not converge within the bounded role budget.",
+            "role_state": str(state_dir),
+            "repository_mutation": False,
+        }
+
+    corrected = _package_contribution(
+        state_dir,
+        contribution,
+        corrected_sources,
+        modes,
+        latest_result,
+        latest_receipt or {},
+        latest_review,
+        latest_review_receipt or {},
+        decision,
+    )
+    writer.write_text(
+        state_dir / "role-promotion-closeout.json",
+        role_stable_json(
+            {
+                "schema_version": "1.0",
+                "record_type": "sage-implementation-local-role-promotion-closeout",
+                "objective_id": objective_id,
+                "responsible_role": RESPONSIBLE_ROLE,
+                "reviewer_role": REVIEWER_ROLE,
+                "prior_contribution_sha256": contribution.package_sha256,
+                "corrected_contribution": str(corrected.package_path),
+                "corrected_contribution_sha256": corrected.package_sha256,
+                "changed_paths": changed_paths,
+                "review_disposition": latest_review.get("disposition"),
+                "architect_attention_required": False,
+                "repository_mutation": False,
+            }
+        ),
+        new_mode=0o600,
+    )
+
+    consumption = recovery_consumer(resolved_repo, recovery_path)
+    if consumption.get("status") not in {"consumed", "already-consumed"}:
+        raise WorkflowError("request-execution recovery consumer did not accept role-promoted repair")
+
+    obligations: list[str] = []
+    route = state.get("objective_route")
+    if isinstance(route, Mapping):
+        remaining = route.get("remaining_obligations")
+        if isinstance(remaining, list):
+            obligations = [
+                str(item.get("obligation_id"))
+                for item in remaining
+                if isinstance(item, Mapping) and item.get("obligation_id")
+            ]
+    result = iteration_starter(
+        resolved_repo,
+        resolved_state,
+        corrected.package_path,
+        trigger=(
+            "Promoted Responsible implementation-local recovery after request-execution failure: "
+            + str(execution.get("error", ""))[:1000]
+        ),
+        reentry_boundary="implementation-local",
+        parent_checkpoint=(
+            "request-execution-recovery:"
+            + _sha256_file(recovery_path)
+        ),
+        affected_obligations=obligations,
+        approved_gap_set=None,
+    )
+    return {
+        "status": result.get("status"),
+        "role_state": str(state_dir),
+        "responsible_role": RESPONSIBLE_ROLE,
+        "reviewer_role": REVIEWER_ROLE,
+        "corrected_contribution": str(corrected.package_path),
+        "corrected_contribution_sha256": corrected.package_sha256,
+        "changed_paths": changed_paths,
+        "recovery_consumption": dict(consumption),
+        "sage_result": dict(result),
+    }
+
+
+def _write_fixture_contribution(path: Path) -> EngineeringContribution:
+    manifest = {
+        "schema_version": "1.0",
+        "contribution_id": "fixture-prior",
+        "contributor": {"participant_class": "llm", "identity": "fixture"},
+        "summary": "fixture prior contribution",
+        "rationale": "exercise role-promoted recovery",
+        "assumptions": ["fixture"],
+        "alternatives": ["fixture alternative"],
+        "files": [
+            {"path": "scripts/sage/workflows/request_execution.py", "mode": "0644"},
+            {"path": "scripts/sage/sage-request-execution-guardrail.py", "mode": "0644"},
+        ],
+    }
+    with zipfile.ZipFile(path, "w") as archive:
+        _write_member(
+            archive,
+            "engineering-contribution.json",
+            json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+            0o644,
+        )
+        _write_member(
+            archive,
+            "payload/scripts/sage/workflows/request_execution.py",
+            b"def validate_python_payloads():\n    return 'old'\n",
+            0o644,
+        )
+        _write_member(
+            archive,
+            "payload/scripts/sage/sage-request-execution-guardrail.py",
+            b"def validate():\n    return []\n",
+            0o644,
+        )
+    return load_engineering_contribution(path)
+
+
+def self_test_role_promoted_recovery() -> None:
+    """Prove implementation-local failures promote fresh Responsible/Reviewer roles."""
+
+    with tempfile.TemporaryDirectory(prefix="sage-role-promoted-recovery-") as raw:
+        root = Path(raw)
+        repo = root / "repo"
+        repo.mkdir()
+        contribution = _write_fixture_contribution(root / "prior.zip")
+        state_path = root / "state.json"
+        state_path.write_text(
+            json.dumps(
+                {
+                    "request": "Repair the bounded request-execution failure.",
+                    "request_sha256": hashlib.sha256(
+                        b"Repair the bounded request-execution failure."
+                    ).hexdigest(),
+                    "objective_id": "SAGE-ACTION-FIXTURE",
+                    "action_id": "SAGE-ACTION-FIXTURE",
+                    "current_iteration": 1,
+                    "contribution": str(contribution.package_path),
+                    "objective_route": {
+                        "remaining_obligations": [
+                            {"obligation_id": "PO-OUTCOME-001", "status": "remaining"}
+                        ]
+                    },
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        recovery = root / "recovery-next-boundary.json"
+        recovery.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "record_type": "sage-recovery-next-boundary",
+                    "disposition": "repair",
+                    "next_boundary": "implementation-local",
+                    "architect_attention_required": False,
+                    "recovery_identity": {"identity_sha256": "a" * 64},
+                    "governing_condition_fingerprint": "b" * 64,
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        diagnosis = root / "failure-diagnosis.json"
+        diagnosis.write_text(
+            json.dumps({"summary": "failure in validate_python_payloads request_execution.py"}) + "\n",
+            encoding="utf-8",
+        )
+        execution = {
+            "status": "implementation-local-recovery-required",
+            "error": "failure in validate_python_payloads request_execution.py",
+            "failure_diagnosis": str(diagnosis),
+            "recovery_next_boundary": str(recovery),
+            "closeout": None,
+        }
+        calls: list[str] = []
+
+        def impl_invoker(**kwargs):
+            calls.append(str(kwargs["envelope"]["role"]))
+            return (
+                {
+                    "status": "corrected",
+                    "summary": "Correct the bounded validator behavior.",
+                    "changes": [
+                        {
+                            "path": "scripts/sage/workflows/request_execution.py",
+                            "replacements": [
+                                {"old": "return 'old'", "new": "return 'corrected'"}
+                            ],
+                        }
+                    ],
+                    "requested_context": [],
+                    "validation_recommendations": ["run request execution self-test"],
+                    "material_decision_reason": None,
+                },
+                {"invocation_sha256": "c" * 64, "role_result_sha256": "d" * 64, "architect_chat_history_included": False, "role_chat_history_included": False, "predecessor_chat_history_included": False},
+            )
+
+        def review_invoker(**kwargs):
+            calls.append(str(kwargs["envelope"]["role"]))
+            return (
+                {
+                    "disposition": "pass",
+                    "summary": "Bounded correction preserves the objective.",
+                    "findings": [],
+                    "required_changes": [],
+                    "material_decision_reason": None,
+                },
+                {"invocation_sha256": "e" * 64, "role_result_sha256": "f" * 64, "architect_chat_history_included": False, "role_chat_history_included": False, "predecessor_chat_history_included": False},
+            )
+
+        consumed: list[str] = []
+
+        def recovery_consumer(_repo: Path, path: Path):
+            consumed.append(str(path))
+            return {"status": "consumed", "repository_mutation": False}
+
+        iterations: list[dict[str, Any]] = []
+
+        def starter(_repo, _state, corrected_path, **kwargs):
+            corrected = load_engineering_contribution(corrected_path)
+            payload = {
+                item.path: item.payload.decode("utf-8")
+                for item in corrected.source_files
+            }
+            if "return 'corrected'" not in payload[
+                "scripts/sage/workflows/request_execution.py"
+            ]:
+                raise RuntimeError("promoted Responsible correction did not reach contribution")
+            iterations.append(dict(kwargs))
+            return {"status": "request-operator-review-required", "state": str(_state)}
+
+        prior = os.environ.get("SAGE_OBJECTIVE_PATH_DECISION")
+        os.environ["SAGE_OBJECTIVE_PATH_DECISION"] = str(root / "decision.json")
+        try:
+            result = promote_implementation_local_recovery(
+                repo,
+                state_path,
+                execution,
+                iteration_starter=starter,
+                recovery_consumer=recovery_consumer,
+                implementation_invoker=impl_invoker,
+                reviewer_invoker=review_invoker,
+            )
+        finally:
+            if prior is None:
+                os.environ.pop("SAGE_OBJECTIVE_PATH_DECISION", None)
+            else:
+                os.environ["SAGE_OBJECTIVE_PATH_DECISION"] = prior
+        if calls != [RESPONSIBLE_ROLE, REVIEWER_ROLE]:
+            raise RuntimeError("implementation-local recovery did not promote separate fresh roles")
+        if len(consumed) != 1 or len(iterations) != 1:
+            raise RuntimeError("role-promoted recovery did not consume and re-enter exactly once")
+        if iterations[0].get("reentry_boundary") != "implementation-local":
+            raise RuntimeError("role-promoted recovery did not preserve implementation-local boundary")
+        if result.get("status") != "request-operator-review-required":
+            raise RuntimeError("role-promoted recovery did not return delegated SAGE result")

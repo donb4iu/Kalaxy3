@@ -86,6 +86,13 @@ class SageDiscovery:
         return parsed
 
     def changed(self) -> PreflightResult:
+        """Discover advisory context from observed repository changes.
+
+        Changed-path discovery may select additional repository-owned validation
+        contexts, but it does not create semantic, mutation, approval, or
+        architectural authority.
+        """
+
         result = self.runner.run(
             CommandSpec(
                 primitive_id="sage.discovery",

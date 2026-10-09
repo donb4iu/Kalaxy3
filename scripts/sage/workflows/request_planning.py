@@ -1358,6 +1358,21 @@ def validate_reusable_plan_lineage(
     }
 
 
+def _reused_plan_evidence(
+    source_evidence: list[Any],
+    prior_evidence: list[Any],
+    prior_package: Path,
+) -> list[str]:
+    """Preserve current candidate provenance while retaining reusable plan evidence."""
+
+    evidence = [
+        *source_evidence,
+        *prior_evidence,
+        f"implementation-local-plan-reuse:{prior_package}",
+    ]
+    return list(dict.fromkeys(str(item) for item in evidence))
+
+
 def reuse_component_plan(
     repo: Path,
     request: str,
@@ -1378,14 +1393,17 @@ def reuse_component_plan(
         raise WorkflowError("prior proposal has no reusable capabilities")
     if not isinstance(candidates, list) or not candidates:
         raise WorkflowError("prior proposal has no reusable candidates")
-    evidence = list(manifest.get("evidence_references", []))
-    evidence.append(f"implementation-local-plan-reuse:{prior.package_path}")
+    evidence = _reused_plan_evidence(
+        list(source.manifest.get("evidence_references", [])),
+        list(manifest.get("evidence_references", [])),
+        prior.package_path,
+    )
     bundle = write_proposal_package(
         output,
         source,
         capabilities=[dict(item) for item in capabilities],
         candidates=[dict(item) for item in candidates],
-        evidence_references=list(dict.fromkeys(str(item) for item in evidence)),
+        evidence_references=evidence,
         request=request,
     )
     return {

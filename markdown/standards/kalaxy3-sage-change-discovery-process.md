@@ -5,8 +5,10 @@
 This standard ensures that a requester can state a desired outcome without
 having to know or restate Kalaxy3 governance rules.
 
-The repository MUST establish the applicable SAGE context before analysis,
-editing, deployment, publication, or recovery work begins.
+The repository MUST attempt to infer useful SAGE context before analysis,
+editing, deployment, publication, or recovery work begins. Discovery is an
+advisory routing and validation-selection mechanism; it is not semantic,
+mutation, approval, or architectural authority.
 
 ## Authoritative discovery components
 
@@ -47,21 +49,33 @@ python3 scripts/sage/sage-change-preflight.py --changed
 
 ## Unclassified requests
 
-The preflight MUST fail closed when no specialized context can be inferred.
+Failure to infer a specialized context is not, by itself, evidence that an
+objective, candidate, or governed mutation is invalid. The preflight therefore
+continues with the always-on governance contexts and records
+`advisory-unclassified`. Objective/semantic authority, candidate provenance,
+exact mutation scope, deterministic validation, nondelegable constraints, and
+Architect approval boundaries remain authoritative independently of discovery.
 
-The authority map must then be extended and protected by regression and
-mutation tests before implementation continues.
+A caller MAY request `--require-specialized-context` only when a specific
+repository-owned composition has an explicit, evidence-backed need for a
+specialized routing classification. Such strictness is local to that composition
+and must not silently become a universal SAGE admission rule.
+
+Path prefixes, filenames, request vocabulary, and authoritative-file membership
+are discovery hints for selecting useful context and checks. They do not create
+or remove authority. Missing or imperfect hints are continuous-improvement
+evidence; they are not a reason to block an otherwise governed candidate.
 
 ## Acceptance criteria
 
 The discovery path is compliant only when:
 
 - repository-root entry points direct implementers to SAGE discovery;
-- request classification is machine-readable and deterministic;
+- request/context classification is machine-readable and deterministic while remaining advisory;
 - dependencies between change contexts are expanded automatically;
 - authoritative files and working directories exist;
 - baseline and post-change validation are reported;
-- regression tests recognize representative Kalaxy3 requests;
+- regression tests recognize representative Kalaxy3 requests and prove an unclassified hint cannot become implicit mutation authority;
 - malformed authority maps fail validation;
 - the requester need not enumerate internal governance rules.
 

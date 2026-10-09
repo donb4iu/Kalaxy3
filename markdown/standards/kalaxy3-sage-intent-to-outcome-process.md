@@ -134,6 +134,21 @@ responsibility boundaries remain authoritative:
   transitions, decisions, branches, retry, compensation, continuation, and exact
   mutation boundaries; LLM output may propose or inform these operations but
   does not own deterministic workflow state or transition authority.
+- Repository/Git adapters own only the deterministic mechanics delegated to
+  them under an already-governed objective boundary. Adapter mechanics, branch
+  names, file names, directory layout, or command sequencing do not create
+  semantic meaning, architectural policy, or approval authority.
+- Discovery/classification mechanisms are advisory context-routing and
+  validation-selection aids. A request term, path prefix, filename, or missing
+  mapping cannot create, expand, remove, or override objective, semantic,
+  mutation, or approval authority when those are already established by the
+  governed objective, Architect disposition, contribution/proposal provenance,
+  and deterministic validation contracts.
+- When two SAGE representations disagree, authority follows the responsibility
+  model: human-owned intent/approval, verified repository/evidence facts, and
+  deterministic execution contracts outrank advisory routing hints. The
+  inconsistency is preserved as defect evidence rather than resolved by making
+  the lower-level representation a new universal gate.
 
 ## Intent-first innovation boundary
 
@@ -234,9 +249,10 @@ contribution's proposed alternatives. It is an extension of the existing
 intent-to-outcome composition, not a second planner or parallel orchestration
 system.
 
-The route exposes the active objective, explicit **parent delivery re-entry**
-when the accepted action names one, remaining accepted-action obligations,
-current evidence references, dependencies, alternatives (including do-nothing),
+The route exposes the active bounded objective, explicit **parent delivery re-entry**
+when the accepted action names one, the bounded objective's remaining obligations,
+parent-action obligations as non-inherited contextual obligations, current evidence
+references, dependencies, alternatives (including do-nothing),
 the current candidate, next governed boundary, known limitations, deferred debt,
 assurance state, integration/maturity state, and guardrail/collaboration feedback
 fields. Unknown risk, reversibility, expected-value, time-to-evidence, assurance,
@@ -609,3 +625,11 @@ Routine implementation-local correction remains delegated inside the approved
 objective, authority, scope, constraints, risk, and outcome envelope. A true
 replan or other material architecture decision returns through evaluation and
 Architect approval.
+
+### Role-promoted implementation-local recovery
+
+An implementation-local request-execution failure inside an already approved objective is not an operator or Architect decision boundary merely because deterministic execution stopped. When repository-owned recovery classifies the failure as `repair` / `implementation-local` with `architect_attention_required=false`, intent-to-outcome must promote the RACI roles needed to continue the existing objective: a fresh implementation role becomes **Responsible** for a bounded correction, a separate fresh reviewer independently challenges that candidate, and deterministic SAGE retains transition, validation, mutation, and Git authority.
+
+The Responsible role receives SAGE-owned failure evidence, the unchanged Architect objective, the approved engineering-contribution path envelope, and bounded source-path context. It may request additional context inside that envelope without an operator round trip. It may not add repository paths, change objective meaning, acquire Architect authority, approve its own contribution, perform Git operations, or weaken a deterministic check merely to remove the observed failure. Exact-text edits are applied deterministically against the current contribution and become a new implementation-local contribution only after an independent Reviewer returns `pass`.
+
+The role-promoted recovery loop reuses the existing checksum-bound objective-path approval and enters the existing `implementation-local` candidate-iteration path. The recovery decision is consumed through the owning request-execution recovery consumer before re-entry. A later implementation-local failure repeats the same promotion loop under the same authority only when the corrected contribution provides material candidate progress. The Architect is surfaced only when deterministic evidence shows a required change outside the confirmed implementation envelope, objective meaning, authority, trust/safety boundary, or another genuinely material decision surface. Capability/runtime inability of the promoted roles is recorded as a governed blocker rather than converted into manual step-by-step repair.
