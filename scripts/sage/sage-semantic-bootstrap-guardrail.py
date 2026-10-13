@@ -33,7 +33,7 @@ def validate() -> list[str]:
     )
     for required_marker in (
         "def _advisory_schema()",
-        '"format": _advisory_schema()',
+        'response_format=_advisory_schema()',
         '"required": ["decision", "readiness"]',
         '"additionalProperties": False',
     ):
@@ -193,7 +193,7 @@ def validate() -> list[str]:
         '"evidence-retrieval.json"',
         '"pre-readiness-context.json"',
         '"selected_context_sha256": selected_context_sha',
-        '"selected_context": selected_context',
+        '"selected_context": role_context',
         "implementation_recipe must be an empty json array",
     ):
         if required_marker not in frontdoor:
@@ -202,7 +202,7 @@ def validate() -> list[str]:
                 + required_marker
             )
 
-    selected_marker = '"selected_context": selected_context'
+    selected_marker = '"selected_context": role_context'
     hash_marker = "context_sha = sha256_text(stable_json(envelope))"
     if (
         selected_marker not in frontdoor

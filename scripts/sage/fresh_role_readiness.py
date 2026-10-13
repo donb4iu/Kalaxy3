@@ -77,17 +77,7 @@ def _validate_grounding(
             raise ReadinessError(
                 f"readiness.repository_grounding[{index}].path is required"
             )
-        if digest is not None and (
-            not isinstance(digest, str)
-            or len(digest) != 64
-            or any(ch not in "0123456789abcdef" for ch in digest.lower())
-        ):
-            raise ReadinessError(
-                f"readiness.repository_grounding[{index}].sha256 is invalid"
-            )
         record = {"path": path.strip()}
-        if isinstance(digest, str):
-            record["sha256"] = digest.lower()
         if repo is not None:
             target = (repo / path).resolve()
             try:
@@ -100,10 +90,21 @@ def _validate_grounding(
                 raise ReadinessError(
                     f"readiness repository grounding does not exist: {path}"
                 )
-            if digest is not None and sha256_file(target) != digest.lower():
+            verified = sha256_file(target)
+            if isinstance(digest, str) and len(digest) == 64 and all(
+                ch in "0123456789abcdef" for ch in digest.lower()
+            ) and digest.lower() != verified:
                 raise ReadinessError(
                     f"readiness repository grounding digest changed: {path}"
                 )
+            record["sha256"] = verified
+            record["digest_authority"] = "repository-computed"
+            if digest is not None and digest != verified:
+                record["model_digest_disposition"] = "ignored-invalid"
+        elif isinstance(digest, str) and len(digest) == 64 and all(
+            ch in "0123456789abcdef" for ch in digest.lower()
+        ):
+            record["sha256"] = digest.lower()
         records.append(record)
     return records
 
