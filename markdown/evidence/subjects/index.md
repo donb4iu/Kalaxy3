@@ -25,6 +25,7 @@
 - [Protected Longhorn](protected-longhorn.md)
 - [Protected Traefik Dashboard Installation](protected-traefik-dashboard-installation.md)
 - [SAGE actionable failures](sage-actionable-failures.md)
+- [SAGE architectural convergence](sage-architectural-convergence.md)
 - [SAGE CI portability](sage-ci-portability.md)
 - [SAGE cognition-plane architecture](sage-cognition-plane-architecture.md)
 - [SAGE cognition-plane evidence routing](sage-cognition-plane-evidence-routing.md)
