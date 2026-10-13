@@ -890,7 +890,7 @@ def parse_args() -> argparse.Namespace:
     sub = parser.add_subparsers(dest="command")
 
     start = sub.add_parser("start")
-    start.add_argument("--request", required=True)
+    start.add_argument("--functional-envelope", type=Path, required=True)
     start.add_argument("--action-id", required=True)
     start.add_argument("--contribution", type=Path, required=True)
 
@@ -990,7 +990,12 @@ def main() -> int:
     if args.self_test:
         return self_test()
     if args.command == "start":
-        result = begin_intent(args.repo, args.action_id, args.request, args.contribution)
+        envelope = json.loads(args.functional_envelope.read_text(encoding="utf-8"))
+        from persistent_entry_authority import admit, AdmissionError
+        if admit(envelope) != "functional-handoff-only":
+            raise AdmissionError("external caller cannot control SAGE execution")
+        request = envelope["request"]["functional_goal"]
+        result = begin_intent(args.repo, args.action_id, request, args.contribution)
     elif args.command == "reconsider":
         result = reconsider_intent(
             args.repo,

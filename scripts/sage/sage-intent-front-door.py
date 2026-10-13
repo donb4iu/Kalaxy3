@@ -12,6 +12,10 @@ from datetime import datetime, timezone
 from urllib import request as urllib_request
 from urllib.error import URLError, HTTPError
 from fresh_role_readiness import build_readiness_record
+from sage_referee_gate import assess as referee_assess
+from sage_delegation_contract import load_assignment, bounded_role_context, required_source_records, combine_role_context
+from sage_engineering_escalation import prepare_correction
+from sage_functional_narration import write_report as write_functional_report
 from sage_evidence_retrieval import (
     retrieve as retrieve_evidence,
     write_result as write_retrieval_result,
@@ -159,6 +163,8 @@ def invoke_ollama(endpoint, model, envelope):
         "You have no Architect chat history, no prior-role chat history, and no predecessor chat history. "
         "Treat the supplied SAGE envelope as your complete context. "
         "You are advisory only: do not mutate anything and do not choose caller-facing SAGE mechanics. "
+        "Address the assigned deliverable specifically. Context is evidence, not a substitute objective. "
+        "Do not reinterpret an implementation assignment as documentation or clarification. "
         "Return one JSON object only with keys decision, summary, assumptions, alternatives, recommended_path, "
         "material_decision_required, questions, confidence, readiness. "
         "decision must be one of plan, clarify, bootstrap-contribution. "
@@ -180,37 +186,22 @@ def invoke_ollama(endpoint, model, envelope):
         "Do not claim implementation-ready when required repository/evidence/capability knowledge "
         "is missing; return the gap instead of guessing."
     )
-    payload = {
-        "model": model,
-        "stream": False,
-        "format": _advisory_schema(),
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": json.dumps(envelope, sort_keys=True)},
-        ],
-        "options": {"temperature": 0},
-    }
-    req = urllib_request.Request(
-        normalize_chat_url(endpoint),
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
+    from llm_role_invocation import invoke_ollama_json
+
     try:
-        with urllib_request.urlopen(req, timeout=180) as resp:
-            raw = resp.read().decode("utf-8")
-    except (URLError, HTTPError, TimeoutError) as exc:
+        decision, _provider_receipt = invoke_ollama_json(
+            envelope=envelope,
+            system_instruction=system,
+            endpoint=endpoint,
+            model=model,
+            response_format=_advisory_schema(),
+            think="low",
+            num_ctx=32768,
+            num_predict=4096,
+            temperature=0,
+        )
+    except Exception as exc:
         raise RuntimeError(f"fresh-role runtime invocation failed: {exc}") from exc
-
-    outer = json.loads(raw)
-    content = outer.get("message", {}).get("content")
-    if not isinstance(content, str) or not content.strip():
-        raise RuntimeError("fresh-role runtime returned no message content")
-
-    try:
-        decision = json.loads(content)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("fresh-role runtime returned non-JSON advisory content") from exc
 
     allowed = {"plan", "clarify", "bootstrap-contribution"}
     if not isinstance(decision, dict) or decision.get("decision") not in allowed:
@@ -224,6 +215,7 @@ def invoke_ollama(endpoint, model, envelope):
 def main():
     parser = argparse.ArgumentParser(description="Published Architect -> SAGE raw-intent front door")
     parser.add_argument("--request", default=os.environ.get("SAGE_REQUEST", ""))
+    parser.add_argument("--assignment-file", default="")
     args = parser.parse_args()
     literal = args.request.strip()
     if not literal:
@@ -231,6 +223,7 @@ def main():
 
     out = state_dir()
     request_sha = sha256_text(literal)
+    assignment = load_assignment(args.assignment_file, literal)
 
     status_lines = git("status", "--porcelain=v1", "--untracked-files=all").splitlines()
     repo = {
@@ -265,13 +258,15 @@ def main():
             "evidence": "repository-owned-engineering-evidence",
         },
     }
-    selected_context_sha = sha256_text(stable_json(selected_context))
+    required_records = required_source_records(repo_path, assignment)
+    role_context = combine_role_context(selected_context, required_records) if required_records else bounded_role_context(selected_context)
+    selected_context_sha = sha256_text(stable_json(role_context))
     selected_context_path = out / "pre-readiness-context.json"
     write_json(
         selected_context_path,
         {
             "selected_context_sha256": selected_context_sha,
-            "selected_context": selected_context,
+            "selected_context": role_context,
         },
     )
 
@@ -280,6 +275,8 @@ def main():
         "role_id": ROLE_ID,
         "literal_request": literal,
         "request_sha256": request_sha,
+        "assignment": assignment,
+        "selected_repository_context": role_context,
         "repository": repo,
         "context_policy": {
             "architect_chat_inherited": False,
@@ -329,6 +326,8 @@ def main():
             "receipt": str(out / "front-door-result.json"),
         }
         write_json(out / "front-door-result.json", result)
+        write_functional_report(literal, out / "front-door-result.json",
+            out / "functional-status.json", referee_path=out / "referee-decision.json")
         print("Kalaxy3 SAGE raw-intent front door: GOVERNED BLOCKER")
         print(f"request_sha256={request_sha}")
         print(f"fresh_role.role_id={ROLE_ID}")
@@ -354,10 +353,20 @@ def main():
     try:
         advisory = invoke_ollama(endpoint, model, envelope)
         write_json(out / "advisory-decision.json", advisory)
+        referee = referee_assess(literal, advisory, endpoint, model, assignment=assignment)
+        write_json(out / "referee-decision.json", referee)
+        if referee["decision"]["verdict"] != "allow":
+            write_json(out / "engineering-correction-request.json", prepare_correction(
+                literal, advisory, referee, "referee-rejected"))
+            raise RuntimeError("independent Referee rejected functional delegation")
         readiness = build_readiness_record(
             advisory, request_sha256=request_sha, repo=repo_path
         )
     except Exception as exc:
+        if (out / "advisory-decision.json").is_file() and not (out / "engineering-correction-request.json").exists():
+            write_json(out / "engineering-correction-request.json", prepare_correction(
+                literal, advisory, referee if "referee" in locals() else None,
+                "readiness-or-invocation-blocker"))
         write_json(out / "invocation-receipt.json", receipt | {"status": "failed", "error": str(exc)})
         result = {
             "schema_version": "1.0",
@@ -381,6 +390,8 @@ def main():
             "receipt": str(out / "front-door-result.json"),
         }
         write_json(out / "front-door-result.json", result)
+        write_functional_report(literal, out / "front-door-result.json",
+            out / "functional-status.json", referee_path=out / "referee-decision.json")
         print("Kalaxy3 SAGE raw-intent front door: GOVERNED BLOCKER")
         print(f"fresh_role.role_id={ROLE_ID}")
         print("fresh_role.invoked=true")
@@ -389,6 +400,9 @@ def main():
         print(f"receipt={out / 'front-door-result.json'}")
         return 0
 
+    if advisory.get("decision") in ("clarify", "bootstrap-contribution"):
+        write_json(out / "engineering-correction-request.json", prepare_correction(
+            literal, advisory, referee, "fresh-advisory-requires-engineering"))
     write_json(out / "advisory-decision.json", advisory)
     write_json(out / "implementation-readiness.json", readiness)
     write_json(
@@ -414,6 +428,7 @@ def main():
         "selected_context": str(selected_context_path),
         "evidence_retrieval": str(retrieval_path),
         "advisory_decision": str(out / "advisory-decision.json"),
+        "referee_decision": str(out / "referee-decision.json"),
         "implementation_readiness": str(out / "implementation-readiness.json"),
         "readiness_disposition": readiness.get("disposition"),
         "invocation_receipt": str(out / "invocation-receipt.json"),
@@ -421,6 +436,8 @@ def main():
         "next_boundary": readiness.get("next_boundary"),
     }
     write_json(out / "front-door-result.json", result)
+    write_functional_report(literal, out / "front-door-result.json",
+        out / "functional-status.json", referee_path=out / "referee-decision.json")
 
     print("Kalaxy3 SAGE raw-intent front door: FRESH ROLE COMPLETE")
     print(f"request_sha256={request_sha}")
