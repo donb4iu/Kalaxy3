@@ -207,6 +207,7 @@ docs-mkdocs-build-strict: docs-mkdocs-config
 
 docs-mkdocs-validate:
 	python3 scripts/docs/validate-mkdocs-build.py
+	python3 scripts/docs/validate-page-freshness.py
 	python3 scripts/docs/validate-mkdocs-navigation.py
 
 docs-mkdocs-stage: docs-mkdocs-build-strict docs-mkdocs-validate
