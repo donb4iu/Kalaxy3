@@ -121,6 +121,23 @@
           - sage_experience_object.spec.template.spec.containers[0].image == sage_expected_image_ref
         fail_msg: "Live SAGE experience image does not match the verified promotion receipt."
 
+    - name: Verify optional Architecture Helper mount and bound manifest
+      when: sage_architecture_helper_expected_sha256 is defined
+      ansible.builtin.assert:
+        that:
+          - sage_architecture_helper_expected_sha256 is match('^[0-9a-f]{64}$')
+          - >-
+            sage_experience_object.spec.template.metadata.annotations['sage.kalaxy3/helper-manifest-sha256']
+            == sage_architecture_helper_expected_sha256
+          - >-
+            (sage_experience_object.spec.template.spec.containers[0].volumeMounts
+            | selectattr('mountPath', 'equalto', '/usr/share/nginx/html/architecture-helper')
+            | list | length) == 1
+          - >-
+            (sage_experience_object.spec.template.spec.volumes
+            | selectattr('name', 'equalto', 'architecture-helper')
+            | list | length) == 1
+
     - name: Require two ready SAGE experience replicas
       ansible.builtin.assert:
         that:

@@ -63,6 +63,18 @@ data:
     </html>
   healthz: |
     ok
+{% if sage_architecture_helper_artifact_dir is defined %}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sage-architecture-helper-page
+  namespace: documentation
+binaryData:
+  index.html: {{ sage_architecture_helper_files.results[0].content }}
+  evidence.json: {{ sage_architecture_helper_files.results[1].content }}
+  artifact-manifest.json: {{ sage_architecture_helper_files.results[2].content }}
+{% endif %}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -78,6 +90,10 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: sage-experience
+{% if sage_architecture_helper_artifact_dir is defined %}
+      annotations:
+        sage.kalaxy3/helper-manifest-sha256: "{{ sage_architecture_helper_manifest_sha256 }}"
+{% endif %}
     spec:
       automountServiceAccountToken: false
       containers:
@@ -96,6 +112,11 @@ spec:
               mountPath: /usr/share/nginx/html/healthz
               subPath: healthz
               readOnly: true
+{% if sage_architecture_helper_artifact_dir is defined %}
+            - name: architecture-helper
+              mountPath: /usr/share/nginx/html/architecture-helper
+              readOnly: true
+{% endif %}
           readinessProbe:
             httpGet:
               path: /healthz
@@ -114,6 +135,11 @@ spec:
         - name: landing
           configMap:
             name: sage-experience-page
+{% if sage_architecture_helper_artifact_dir is defined %}
+        - name: architecture-helper
+          configMap:
+            name: sage-architecture-helper-page
+{% endif %}
 ---
 apiVersion: v1
 kind: Service
