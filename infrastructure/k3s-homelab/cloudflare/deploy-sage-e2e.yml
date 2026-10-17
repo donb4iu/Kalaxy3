@@ -84,6 +84,21 @@
         sage_architecture_helper_manifest_sha256: >-
           {{ (sage_architecture_helper_verification.stdout | from_json).manifest_sha256 }}
 
+    - name: Load verified Architecture Helper bytes on controller
+      when: sage_architecture_helper_artifact_dir is defined
+      ansible.builtin.slurp:
+        src: "{{ sage_architecture_helper_artifact_dir }}/{{ item }}"
+      loop:
+        - index.html
+        - evidence.json
+        - artifact-manifest.json
+      register: sage_architecture_helper_files
+      delegate_to: localhost
+      become: false
+      vars:
+        ansible_become: false
+      changed_when: false
+
     - name: Validate connector secret authority for full deployment
       when: sage_e2e_projection_scope == 'full'
       block:

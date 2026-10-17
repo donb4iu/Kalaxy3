@@ -71,9 +71,9 @@ metadata:
   name: sage-architecture-helper-page
   namespace: documentation
 binaryData:
-  index.html: {{ lookup('file', sage_architecture_helper_artifact_dir ~ '/index.html') | b64encode }}
-  evidence.json: {{ lookup('file', sage_architecture_helper_artifact_dir ~ '/evidence.json') | b64encode }}
-  artifact-manifest.json: {{ lookup('file', sage_architecture_helper_artifact_dir ~ '/artifact-manifest.json') | b64encode }}
+  index.html: {{ sage_architecture_helper_files.results[0].content }}
+  evidence.json: {{ sage_architecture_helper_files.results[1].content }}
+  artifact-manifest.json: {{ sage_architecture_helper_files.results[2].content }}
 {% endif %}
 ---
 apiVersion: apps/v1
