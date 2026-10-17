@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "record_type": "sage-causal-evidence-fact",
+  "fact_id": "sha256:339055eda441105ecb5947e923571df0cf8d0669e12b6ed58c7a8147f25ec7d0",
+  "recorded_at": "2026-10-17T00:15:58.077-05:00",
+  "identity": {
+    "schema_version": "1.0",
+    "objective_id": "Restore SAGE delegation and independent RACI, integrate Architecture Helper and resume protected workbench",
+    "fact_type": "architect-functional-delivery-disposition",
+    "producer": {
+      "participant_class": "architect",
+      "identity": "architect-conversation-disposition"
+    },
+    "authority_reference": "architect-delivery-disposition.json",
+    "authority_validation": {
+      "validated": false,
+      "receipt": null,
+      "receipt_id": null,
+      "disposition": "unvalidated"
+    },
+    "dependencies": [],
+    "evidence_references": [],
+    "evidence_files": [
+      {
+        "source_path": "/Users/dbuddenbaum/Downloads/sage-8020-runtime-reconciliation/architect-delivery-disposition.json",
+        "source_name": "architect-delivery-disposition.json",
+        "sha256": "86bcc507ec442b211a004f9b20087475802d82eac74ef6c77c094feba0d27642"
+      },
+      {
+        "source_path": "/Users/dbuddenbaum/Downloads/sage-8020-runtime-reconciliation/objective-closeout.json",
+        "source_name": "objective-closeout.json",
+        "sha256": "9e0254f6451ded6bdd8b473ce2863b6cfe5958dd8795bf1cc920833a17748a61"
+      },
+      {
+        "source_path": "/Users/dbuddenbaum/Downloads/sage-8020-runtime-reconciliation/runtime-reconciliation.json",
+        "source_name": "runtime-reconciliation.json",
+        "sha256": "2fe1ff68940896169046c13c8ed4bf2538c1a38eb67fc9ceb9f11b2f4bd7adae"
+      }
+    ],
+    "attributes": {
+      "disposition": "ACCEPT_VERIFIED_FUNCTIONAL_DELIVERY_WITH_EXPLICIT_QUALIFICATION_OBLIGATIONS",
+      "accountable_qualification": "OPEN",
+      "independent_mfa_verification": "OPEN",
+      "canonical_repository_persistence": "NOT_PERFORMED"
+    }
+  }
+}
