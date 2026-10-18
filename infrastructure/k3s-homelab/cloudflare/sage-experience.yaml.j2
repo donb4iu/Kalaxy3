@@ -75,6 +75,17 @@ binaryData:
   evidence.json: {{ sage_architecture_helper_files.results[1].content }}
   artifact-manifest.json: {{ sage_architecture_helper_files.results[2].content }}
 {% endif %}
+{% if sage_git_observability_artifact_dir is defined %}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sage-git-observability-page
+  namespace: documentation
+binaryData:
+  git-activity.html: {{ sage_git_observability_files.results[0].content }}
+  git-observations.json: {{ sage_git_observability_files.results[1].content }}
+{% endif %}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -90,9 +101,14 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: sage-experience
-{% if sage_architecture_helper_artifact_dir is defined %}
+{% if sage_architecture_helper_artifact_dir is defined or sage_git_observability_artifact_dir is defined %}
       annotations:
+{% if sage_architecture_helper_artifact_dir is defined %}
         sage.kalaxy3/helper-manifest-sha256: "{{ sage_architecture_helper_manifest_sha256 }}"
+{% endif %}
+{% if sage_git_observability_artifact_dir is defined %}
+        sage.kalaxy3/git-observations-sha256: "{{ sage_git_observability_projection_sha256 }}"
+{% endif %}
 {% endif %}
     spec:
       automountServiceAccountToken: false
@@ -117,6 +133,16 @@ spec:
               mountPath: /usr/share/nginx/html/architecture-helper
               readOnly: true
 {% endif %}
+{% if sage_git_observability_artifact_dir is defined %}
+            - name: git-observability
+              mountPath: /usr/share/nginx/html/architecture-helper/git-activity.html
+              subPath: git-activity.html
+              readOnly: true
+            - name: git-observability
+              mountPath: /usr/share/nginx/html/architecture-helper/git-observations.json
+              subPath: git-observations.json
+              readOnly: true
+{% endif %}
           readinessProbe:
             httpGet:
               path: /healthz
@@ -139,6 +165,11 @@ spec:
         - name: architecture-helper
           configMap:
             name: sage-architecture-helper-page
+{% endif %}
+{% if sage_git_observability_artifact_dir is defined %}
+        - name: git-observability
+          configMap:
+            name: sage-git-observability-page
 {% endif %}
 ---
 apiVersion: v1

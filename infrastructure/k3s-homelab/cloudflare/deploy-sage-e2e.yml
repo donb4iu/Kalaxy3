@@ -99,6 +99,40 @@
         ansible_become: false
       changed_when: false
 
+    - name: Validate optional Git observability projection artifact on controller
+      when: sage_git_observability_artifact_dir is defined
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ playbook_dir }}/verify-git-observability-artifact.py"
+          - "{{ sage_git_observability_artifact_dir }}"
+      delegate_to: localhost
+      become: false
+      vars:
+        ansible_become: false
+      register: sage_git_observability_verification
+      changed_when: false
+
+    - name: Bind optional Git observability projection identity
+      when: sage_git_observability_artifact_dir is defined
+      ansible.builtin.set_fact:
+        sage_git_observability_projection_sha256: >-
+          {{ (sage_git_observability_verification.stdout | from_json).projection_sha256 }}
+
+    - name: Load optional Git observability assets on controller
+      when: sage_git_observability_artifact_dir is defined
+      ansible.builtin.slurp:
+        src: "{{ sage_git_observability_artifact_dir }}/{{ item }}"
+      loop:
+        - git-activity.html
+        - git-observations.json
+      register: sage_git_observability_files
+      delegate_to: localhost
+      become: false
+      vars:
+        ansible_become: false
+      changed_when: false
+
     - name: Validate connector secret authority for full deployment
       when: sage_e2e_projection_scope == 'full'
       block:
