@@ -1,0 +1,232 @@
+---
+# Additive, explicitly scoped Ansible candidate. Must be integrated and qualified
+# by repository-owned SAGE authority BEFORE executing this playbook.
+# Never invoke the existing ollama.yml: it is locked to amd64-02.
+- name: Establish isolated RTX 3090 Ollama POC endpoint
+  hosts: localhost
+  become: false
+  connection: local
+  gather_facts: false
+  vars:
+    ansible_become: false
+    # Bind cluster authority to the repository-managed controller kubeconfig,
+    # matching the established playbooks/ollama.yml. Do not inherit a caller
+    # supplied KUBECONFIG that could redirect deployment to another cluster.
+    kalaxy3_kubeconfig: "{{ playbook_dir }}/../kubeconfig-kalaxy3.yaml"
+  tasks:
+    - name: Load authoritative existing Ollama lock
+      ansible.builtin.set_fact:
+        kalaxy3_ollama_lock: >-
+          {{ lookup('ansible.builtin.file', playbook_dir ~ '/../ollama-platforms.json') | from_json }}
+
+    - name: Prove the original 3060 deployment lock and immutable image
+      ansible.builtin.assert:
+        that:
+          - kalaxy3_ollama_lock.schema_version == '1.0'
+          - kalaxy3_ollama_lock.placement.target_node == 'amd64-02'
+          - kalaxy3_ollama_lock.placement.gpu_model_label == 'rtx-3060-lhr'
+          - kalaxy3_ollama_lock.runtime.class_name == 'nvidia'
+          - kalaxy3_ollama_lock.service.namespace == 'ollama'
+          - kalaxy3_ollama_lock.service.load_balancer_ip == '192.168.2.27'
+          - >-
+            kalaxy3_ollama_lock.image.reference ==
+            'docker.io/ollama/ollama@sha256:aa6f86f01fee264c81f1edd9083ebfb07c8116d95d8bedd1ad470874b66a40b4'
+        fail_msg: Existing Ollama lock has changed; requalify additive candidate.
+
+    - name: Inspect 3090 node
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: v1
+        kind: Node
+        name: amd64-01
+      register: gpu_node
+
+    - name: Require RTX 3090 registered, schedulable and Ready
+      ansible.builtin.assert:
+        that:
+          - gpu_node.resources | length == 1
+          - gpu_node.resources[0].metadata.labels['kubernetes.io/arch'] == 'amd64'
+          - gpu_node.resources[0].metadata.labels['kalaxy3.io/gpu-capable'] == 'true'
+          - gpu_node.resources[0].metadata.labels['kalaxy3.io/gpu-model'] == 'rtx-3090'
+          - (gpu_node.resources[0].status.allocatable['nvidia.com/gpu'] | int) >= 1
+          - >-
+            (gpu_node.resources[0].status.conditions
+             | selectattr('type', 'equalto', 'Ready')
+             | selectattr('status', 'equalto', 'True')
+             | list | length) == 1
+          - gpu_node.resources[0].spec.unschedulable | default(false) | bool == false
+          - gpu_node.resources[0].spec.taints | default([], true) | length == 0
+
+    - name: Read pods on the 3090 node to detect existing GPU claims
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: v1
+        kind: Pod
+        field_selectors:
+          - spec.nodeName=amd64-01
+      register: gpu_node_pods
+
+    - name: Sum GPU claims outside the dedicated POC workload
+      ansible.builtin.set_fact:
+        other_gpu_claims: >-
+          {% set ns=namespace(total=0) %}
+          {% for p in gpu_node_pods.resources %}
+          {% if p.metadata.namespace != 'ollama' or (p.metadata.labels | default({})).get('app.kubernetes.io/name', '') != 'ollama-3090-poc' %}
+          {% if p.status.phase not in ['Succeeded','Failed'] %}
+          {% for c in p.spec.containers %}
+          {% set ns.total=ns.total + ((c.resources | default({})).get('limits',{}).get('nvidia.com/gpu',0) | int) %}
+          {% endfor %}{% endif %}{% endif %}
+          {% endfor %}{{ ns.total }}
+
+    - name: Protect GPU allocation from an additional claimant
+      ansible.builtin.assert:
+        that:
+          - other_gpu_claims | trim | int == 0
+        fail_msg: Another workload currently claims amd64-01 GPU; do not interfere.
+
+    - name: Require NVIDIA RuntimeClass
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: node.k8s.io/v1
+        kind: RuntimeClass
+        name: nvidia
+      register: runtime_class
+
+    - name: Require existing Longhorn StorageClass
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: storage.k8s.io/v1
+        kind: StorageClass
+        name: longhorn
+      register: storage_class
+
+    - name: Require runtime and dynamically provisioned storage
+      ansible.builtin.assert:
+        that:
+          - runtime_class.resources | length == 1
+          - storage_class.resources | length == 1
+          - storage_class.resources[0].provisioner != 'kubernetes.io/no-provisioner'
+
+    - name: Read original 3060 Ollama StatefulSet
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: apps/v1
+        kind: StatefulSet
+        namespace: ollama
+        name: ollama
+      register: original_set_before
+
+    - name: Read original 3060 LAN endpoint
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: v1
+        kind: Service
+        namespace: ollama
+        name: ollama
+      register: original_service_before
+
+    - name: Refuse missing or altered original 3060 deployment
+      ansible.builtin.assert:
+        that:
+          - original_set_before.resources | length == 1
+          - original_set_before.resources[0].status.readyReplicas | default(0) | int == 1
+          - original_set_before.resources[0].spec.template.spec.nodeSelector['kubernetes.io/hostname'] == 'amd64-02'
+          - original_set_before.resources[0].spec.template.spec.containers[0].image == kalaxy3_ollama_lock.image.reference
+          - original_service_before.resources | length == 1
+          - original_service_before.resources[0].spec.type == 'LoadBalancer'
+          - original_service_before.resources[0].spec.selector['app.kubernetes.io/name'] == 'ollama'
+          - original_service_before.resources[0].status.loadBalancer.ingress[0].ip == '192.168.2.27'
+
+    - name: Render only separately named POC objects
+      ansible.builtin.set_fact:
+        sage_3090_poc_objects: >-
+          {{ lookup('template', playbook_dir ~ '/../manifests/ollama-3090-poc.yml.j2') | from_yaml_all | list }}
+
+    - name: Require exact object scope before modification
+      ansible.builtin.assert:
+        that:
+          - sage_3090_poc_objects | length == 3
+          - >-
+            (sage_3090_poc_objects | map(attribute='metadata.name') | list | sort)
+            == (['ollama-3090-poc', 'ollama-3090-poc-models', 'ollama-3090-poc'] | sort)
+          - >-
+            (sage_3090_poc_objects | map(attribute='kind') | list | sort)
+            == (['Deployment', 'PersistentVolumeClaim', 'Service'] | sort)
+          - (sage_3090_poc_objects | map(attribute='metadata.namespace') | unique | list) == ['ollama']
+
+    - name: Apply the isolated candidate through existing Ansible Kubernetes adapter
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        state: present
+        apply: true
+        definition: "{{ sage_3090_poc_objects }}"
+
+    - name: Wait for the dedicated 3090 Deployment
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: apps/v1
+        kind: Deployment
+        namespace: ollama
+        name: ollama-3090-poc
+      register: new_deployment
+      until: >-
+        new_deployment.resources | length == 1
+        and (new_deployment.resources[0].status.readyReplicas | default(0) | int) == 1
+      retries: 90
+      delay: 5
+
+    - name: Verify isolated POC actually scheduled on 3090
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: v1
+        kind: Pod
+        namespace: ollama
+        label_selectors:
+          - app.kubernetes.io/name=ollama-3090-poc
+      register: new_pods
+
+    - name: Require one ready Pod on amd64-01 with GPU limit
+      ansible.builtin.assert:
+        that:
+          - new_pods.resources | length == 1
+          - new_pods.resources[0].spec.nodeName == 'amd64-01'
+          - new_pods.resources[0].spec.containers[0].resources.limits['nvidia.com/gpu'] | int == 1
+          - new_pods.resources[0].status.containerStatuses[0].ready | bool
+
+    - name: Read original 3060 deployment again
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: apps/v1
+        kind: StatefulSet
+        namespace: ollama
+        name: ollama
+      register: original_set_after
+
+    - name: Read original 3060 service again
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kalaxy3_kubeconfig }}"
+        api_version: v1
+        kind: Service
+        namespace: ollama
+        name: ollama
+      register: original_service_after
+
+    - name: Prove original 3060 endpoint and controller unchanged
+      ansible.builtin.assert:
+        that:
+          - original_set_after.resources | length == 1
+          - original_set_after.resources[0].metadata.uid == original_set_before.resources[0].metadata.uid
+          - original_set_after.resources[0].spec == original_set_before.resources[0].spec
+          - original_set_after.resources[0].status.readyReplicas | default(0) | int == 1
+          - original_service_after.resources | length == 1
+          - original_service_after.resources[0].metadata.uid == original_service_before.resources[0].metadata.uid
+          - original_service_after.resources[0].spec == original_service_before.resources[0].spec
+          - original_service_after.resources[0].status.loadBalancer.ingress[0].ip == '192.168.2.27'
+        fail_msg: Existing Ollama changed or became unhealthy; investigate independently.
+
+    - name: Report bounded next step
+      ansible.builtin.debug:
+        msg: >-
+          3090 endpoint ready inside namespace ollama at svc/ollama-3090-poc:11434.
+          Local access requires 127.0.0.1-only kubectl port-forward.
+          GPU model inference and role qualification remain unverified.
