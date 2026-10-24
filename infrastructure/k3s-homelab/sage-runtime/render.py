@@ -28,7 +28,7 @@ def safe_configuration() -> Dict[str, str]:
     """Validate configuration before interpolation into Kubernetes YAML."""
     config = {
         "SAGE_OLLAMA_URL": os.environ.get(
-            "SAGE_OLLAMA_URL", "http://192.168.2.27:11434"),
+            "SAGE_OLLAMA_URL", "http://ollama.ollama.svc.cluster.local:11434"),
         "SAGE_OLLAMA_MODEL": os.environ.get("SAGE_OLLAMA_MODEL", "qwen3:8b"),
         "SAGE_OLLAMA_EMBED_MODEL": os.environ.get("SAGE_OLLAMA_EMBED_MODEL", "nomic-embed-text"),
         "PYTHON_IMAGE": os.environ.get(
