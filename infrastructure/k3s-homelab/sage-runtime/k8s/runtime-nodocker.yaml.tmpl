@@ -1,0 +1,251 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sage-workflow-checkpoints
+  namespace: sage-runtime
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sage-runtime
+  namespace: sage-runtime
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sage-runtime
+  namespace: sage-runtime
+  labels:
+    app.kubernetes.io/name: sage-runtime
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sage-runtime
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sage-runtime
+      annotations:
+        sage.kalaxy3/source-sha256: "__SOURCE_DIGEST__"
+    spec:
+      serviceAccountName: sage-runtime
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: prepare-dependencies
+          image: "__PYTHON_IMAGE__"
+          imagePullPolicy: IfNotPresent
+          command:
+            - python3
+            - -m
+            - pip
+            - install
+            - --disable-pip-version-check
+            - --no-cache-dir
+            - --only-binary=:all:
+            - -r
+            - /opt/sage/requirements.txt
+            - --target
+            - /opt/sage-deps
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: HOME
+              value: /tmp
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: source
+              mountPath: /opt/sage
+              readOnly: true
+            - name: dependencies
+              mountPath: /opt/sage-deps
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: runtime
+          image: "__PYTHON_IMAGE__"
+          imagePullPolicy: IfNotPresent
+          command:
+            - python3
+            - -m
+            - uvicorn
+            - service.main:app
+            - --host
+            - 0.0.0.0
+            - --port
+            - "8080"
+            - --workers
+            - "1"
+          workingDir: /opt/sage
+          env:
+            - name: PYTHONPATH
+              value: /opt/sage-deps:/opt/sage
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: LANGGRAPH_STRICT_MSGPACK
+              value: "true"
+            - name: HOME
+              value: /tmp
+            - name: SAGE_REPO_URL
+              value: https://github.com/donb4iu/Kalaxy3.git
+            - name: SAGE_OLLAMA_URL
+              value: "__SAGE_OLLAMA_URL__"
+            - name: SAGE_OLLAMA_MODEL
+              value: "__SAGE_OLLAMA_MODEL__"
+            - name: SAGE_OLLAMA_EMBED_MODEL
+              value: "__SAGE_OLLAMA_EMBED_MODEL__"
+            - name: SAGE_CHECKPOINT_DB
+              value: /var/lib/sage/checkpoints.sqlite
+            - name: SAGE_EXECUTION_WORKSPACES
+              value: /var/lib/sage/workspaces
+            - name: SAGE_EXECUTION_PROPOSALS
+              value: /var/lib/sage/proposals
+            - name: SAGE_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: sage-runtime-api
+                  key: token
+          ports:
+            - name: http
+              containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            failureThreshold: 36
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 15
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: source
+              mountPath: /opt/sage
+              readOnly: true
+            - name: dependencies
+              mountPath: /opt/sage-deps
+              readOnly: true
+            - name: checkpoints
+              mountPath: /var/lib/sage
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: source
+          configMap:
+            name: "__SOURCE_CONFIGMAP__"
+            items:
+              - key: requirements.txt
+                path: requirements.txt
+              - key: __init__.py
+                path: service/__init__.py
+              - key: context.py
+                path: service/context.py
+              - key: evidence.py
+                path: service/evidence.py
+              - key: main.py
+                path: service/main.py
+              - key: handoff.py
+                path: service/handoff.py
+              - key: architect.py
+                path: service/architect.py
+              - key: probe.py
+                path: service/probe.py
+              - key: roles.py
+                path: service/roles.py
+              - key: selfcheck.py
+                path: service/selfcheck.py
+              - key: workflow.py
+                path: service/workflow.py
+        - name: dependencies
+          emptyDir:
+            sizeLimit: 768Mi
+        - name: checkpoints
+          persistentVolumeClaim:
+            claimName: sage-workflow-checkpoints
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sage-runtime
+  namespace: sage-runtime
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: sage-runtime
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sage-runtime-ingress
+  namespace: sage-runtime
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: sage-runtime
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - protocol: TCP
+          port: 8080

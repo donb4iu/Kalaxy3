@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sage-runtime
+  namespace: sage-runtime
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: "__SAGE_MIDDLEWARE_REF__"
+spec:
+  tls:
+    - hosts: ["__SAGE_INGRESS_HOST__"]
+      secretName: "__SAGE_TLS_SECRET__"
+  ingressClassName: traefik
+  rules:
+    - host: "__SAGE_INGRESS_HOST__"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sage-runtime
+                port:
+                  number: 80
