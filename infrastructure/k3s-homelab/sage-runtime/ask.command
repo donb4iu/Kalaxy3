@@ -17,12 +17,21 @@ SAGE_API_TOKEN="$TOKEN" SAGE_QUESTION="$QUESTION" SAGE_ARCHITECT_PORT="$PORT" py
 import json
 import os
 import urllib.request
+import urllib.error
 body = json.dumps({'question': os.environ['SAGE_QUESTION']}).encode()
 request = urllib.request.Request(
     'http://127.0.0.1:' + os.environ['SAGE_ARCHITECT_PORT'] + '/v1/architecture/ask',
     data=body, headers={'Authorization': 'Bearer ' + os.environ['SAGE_API_TOKEN'],
                         'Content-Type': 'application/json'}, method='POST')
-with urllib.request.urlopen(request, timeout=600) as response:
-    answer = json.load(response)
+try:
+    with urllib.request.urlopen(request, timeout=600) as response:
+        answer = json.load(response)
+except urllib.error.HTTPError as exc:
+    body = exc.read(8192).decode("utf-8", errors="replace")
+    try:
+        detail = json.loads(body).get("detail", body)
+    except ValueError:
+        detail = body
+    raise SystemExit(f"ARCHITECTURE HELPER HTTP {exc.code}: {detail}") from None
 print(json.dumps(answer, indent=2))
 PY

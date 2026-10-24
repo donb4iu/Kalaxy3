@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any, Callable, TypedDict
 
-from .evidence import direct_source, focus_domain
+from .evidence import direct_source, focus_domain, query_terms
 from .roles import RoleError
 
 
@@ -136,6 +136,41 @@ def extractive_fallback(evidence: dict[str, Any], question: str) -> dict[str, An
             "answer_mode": mode}
 
 
+def generic_evidence_fallback(evidence: dict[str, Any], question: str) -> dict[str, Any]:
+    """Report only verified source excerpts when a broad answer is unsupported.
+
+    Args:
+        evidence: Exact cited excerpts from an authorized Git checkpoint.
+        question: The Architect's original question.
+    """
+    terms = query_terms(question)
+    selections: list[dict[str, str]] = []
+    for record in evidence["retrieved_sources"]:
+        quote = quote_line(record, tuple(sorted(terms, key=len, reverse=True)))
+        if quote is not None:
+            selections.append({"path": record["path"], "quote": quote})
+        if len(selections) == 4:
+            break
+    if not selections:
+        raise RoleError("no quotable relevant Git evidence for the architecture request")
+    answer = (
+        "I cannot verify a complete implementation plan from the currently "
+        "retrieved evidence. These are exact, independently verifiable Git "
+        "excerpts, not claims that implementation is complete: "
+        + " | ".join(f"{item['path']}: {item['quote']}" for item in selections)
+    )
+    return {
+        "answer": answer,
+        "evidence_paths": [item["path"] for item in selections],
+        "supporting_quotes": selections,
+        "uncertainties": [
+            "An end-to-end deployment recipe and acceptance evidence are unverified.",
+            "Additional directly relevant repository evidence may be needed.",
+        ],
+        "answer_mode": "evidence-gap",
+    }
+
+
 def build_architect_graph(
     invoke: Callable[[str, str, dict[str, Any]], dict[str, Any]],
 ) -> Any:
@@ -166,10 +201,27 @@ def build_architect_graph(
         reply = invoke(system, state["question"], evidence)
         try:
             validate_architect_answer(reply, evidence, state["question"])
-        except RoleError:
-            reply = extractive_fallback(evidence, state["question"])
+        except RoleError as diagnostic:
+            q = state["question"].lower()
+            if focus_domain(q) == "ansible" and "github" in q:
+                reply = extractive_fallback(evidence, state["question"])
+            else:
+                correction = (
+                    f"Previous answer failed verification: {diagnostic}. "
+                    "Retry with the SAME Git excerpts and no new claims. "
+                    "Every cited path needs an exact 12-400 character quote "
+                    "copied from its retrieved excerpt. Mark unsupported "
+                    "requirements explicitly as uncertain."
+                )
+                retry = invoke(system + " " + correction, state["question"], evidence)
+                try:
+                    validate_architect_answer(retry, evidence, state["question"])
+                    reply = retry
+                except RoleError:
+                    reply = generic_evidence_fallback(evidence, state["question"])
             validate_architect_answer(
-                reply, evidence, state["question"], internal_gap=True)
+                reply, evidence, state["question"],
+                internal_gap=reply.get("answer_mode") == "evidence-gap")
         return {"answer": reply}
 
     graph = StateGraph(ArchitectState)
