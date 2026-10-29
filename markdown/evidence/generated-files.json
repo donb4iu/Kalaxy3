@@ -24,6 +24,7 @@
     "markdown/evidence/status/implemented.md",
     "markdown/evidence/status/index.md",
     "markdown/evidence/status/validated.md",
+    "markdown/evidence/subjects/adr.md",
     "markdown/evidence/subjects/amd64-nocloud-seed-usb-helper.md",
     "markdown/evidence/subjects/amd64-node.md",
     "markdown/evidence/subjects/amd64.md",
