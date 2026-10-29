@@ -4,29 +4,18 @@ This module does not create, update or delete GitHub resources.
 """
 from __future__ import annotations
 
-import json
 import re
 from typing import Any, Mapping
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
-_GRAPHQL_URL = "https://api.github.com/graphql"
+from .github_inspect import (
+    PROJECT_DETAIL_QUERY as _PROJECT_QUERY,
+    PROJECT_OWNER_QUERY as _OWNER_QUERY,
+    PROJECT_VIEWER_QUERY as _VIEWER_QUERY,
+    post_project_read_graphql,
+)
+from .model import WorkflowError
+
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
-_MAX_BYTES = 2 * 1024 * 1024
-_VIEWER_QUERY = """query { viewer { login projectsV2(first: 30) {
- nodes { id number title closed url } pageInfo { hasNextPage } } } }"""
-_OWNER_QUERY = """query($login:String!) { user(login:$login) {
- login projectsV2(first:30) { nodes { id number title closed url }
- pageInfo { hasNextPage } } } }"""
-_PROJECT_QUERY = """query($login:String!, $number:Int!) { user(login:$login) {
- projectV2(number:$number) { id number title closed url
- fields(first:50) { nodes { ... on ProjectV2FieldCommon { id name dataType }
- ... on ProjectV2SingleSelectField { id name options { id name } }
- ... on ProjectV2IterationField { id name configuration { duration } } }
- pageInfo { hasNextPage } }
- items(first:100) { nodes { id type content { ... on Issue { id number title url state }
- ... on PullRequest { id number title url state } } }
- pageInfo { hasNextPage } } } } }"""
 
 
 class ProjectsInspectionError(RuntimeError):
@@ -57,38 +46,17 @@ def _require_mapping(value: object, label: str) -> Mapping[str, Any]:
 
 
 def _post_graphql(query: str, variables: Mapping[str, object], token: str) -> dict[str, Any]:
-    """Execute one fixed read-only GraphQL query.
+    """Read Project evidence through the trusted, fixed-query GitHub adapter.
 
     Args:
-        query: One of the three module-owned query strings.
-        variables: Exact query variables.
-        token: API bearer credential, never logged or returned.
+        query: Fixed approved Project query.
+        variables: Variables for the approved query.
+        token: Read-capable credential held by the trusted caller.
     """
-    if query not in (_VIEWER_QUERY, _OWNER_QUERY, _PROJECT_QUERY):
-        raise ProjectsInspectionError("Unapproved GraphQL query")
-    if not token or any(c in token for c in "\r\n"):
-        raise ProjectsInspectionError("Authorized GitHub API token required")
-    payload = json.dumps({"query": query, "variables": variables}).encode()
-    request = Request(_GRAPHQL_URL, data=payload, method="POST", headers={
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github+json",
-        "Content-Type": "application/json",
-        "User-Agent": "Kalaxy3-SAGE-projects.inspect/0.1",
-    })
     try:
-        with urlopen(request, timeout=20) as response:
-            raw = response.read(_MAX_BYTES + 1)
-    except (HTTPError, URLError, TimeoutError) as exc:
-        raise ProjectsInspectionError("GitHub Projects API request failed") from None
-    if len(raw) > _MAX_BYTES:
-        raise ProjectsInspectionError("GitHub Projects response too large")
-    try:
-        document = _require_mapping(json.loads(raw), "GraphQL response")
-    except (ValueError, UnicodeDecodeError) as exc:
-        raise ProjectsInspectionError("Invalid GitHub GraphQL response") from None
-    if document.get("errors"):
-        raise ProjectsInspectionError("GitHub Projects GraphQL returned errors")
-    return dict(_require_mapping(document.get("data"), "GraphQL data"))
+        return post_project_read_graphql(query, variables, token)
+    except WorkflowError as exc:
+        raise ProjectsInspectionError(str(exc)) from None
 
 
 def discover_projects(token: str, owner: str | None = None) -> dict[str, Any]:
@@ -128,7 +96,13 @@ def inspect_project(token: str, owner: str, number: int) -> dict[str, Any]:
         "login": _validate_login(owner), "number": number,
     }, token)
     user = _require_mapping(data.get("user"), "project owner")
+    if user.get("login") != owner:
+        raise ProjectsInspectionError("Project owner identity mismatch")
     project = _require_mapping(user.get("projectV2"), "project")
+    if type(project.get("number")) is not int or project["number"] != number:
+        raise ProjectsInspectionError("Project number identity mismatch")
+    if not isinstance(project.get("id"), str) or not project["id"]:
+        raise ProjectsInspectionError("Project identity is missing")
     for name in ("fields", "items"):
         connection = _require_mapping(project.get(name), name)
         page = _require_mapping(connection.get("pageInfo"), f"{name} pagination")
@@ -137,3 +111,104 @@ def inspect_project(token: str, owner: str, number: int) -> dict[str, Any]:
         if not isinstance(connection.get("nodes"), list):
             raise ProjectsInspectionError(f"Invalid {name} nodes")
     return {"owner": owner, "project": dict(project), "complete": True}
+
+
+def _validate_issue_url(url: object, repository: str, number: int) -> None:
+    """Require an exact canonical GitHub Issue identity without HTTP access.
+
+    Args:
+        url: URL returned in the Project issue response.
+        repository: Expected full repository name.
+        number: Expected issue number.
+    """
+    if url != f"https://github.com/{repository}/issues/{number}":
+        raise ProjectsInspectionError("Issue canonical URL identity mismatch")
+
+
+def _normalize_issue_item(
+    item: Mapping[str, Any], issue: Mapping[str, Any], repository: str,
+    issue_number: int, project_number: int,
+) -> dict[str, Any]:
+    """Validate one Project item before reporting a work-contract snapshot.
+
+    Args:
+        item: Verified item matching an issue number.
+        issue: Issue object embedded in the Project item.
+        repository: Expected full repository identity.
+        issue_number: Expected issue number.
+        project_number: Project from which the item was retrieved.
+    """
+    repo = _require_mapping(issue.get("repository"), "issue repository")
+    if repo.get("nameWithOwner") != repository:
+        raise ProjectsInspectionError("Issue repository identity mismatch")
+    if type(issue.get("number")) is not int or issue["number"] != issue_number:
+        raise ProjectsInspectionError("Issue number identity mismatch")
+    if not isinstance(issue.get("id"), str) or not issue["id"]:
+        raise ProjectsInspectionError("Issue immutable identity is missing")
+    _validate_issue_url(issue.get("url"), repository, issue_number)
+    if not isinstance(issue.get("body"), str) or not issue["body"].strip():
+        raise ProjectsInspectionError("Issue work contract is missing")
+    assignees = _require_mapping(issue.get("assignees"), "assignees")
+    page = _require_mapping(assignees.get("pageInfo"), "assignee pagination")
+    if page.get("hasNextPage") is not False:
+        raise ProjectsInspectionError("Issue assignees may be truncated")
+    people = assignees.get("nodes")
+    if not isinstance(people, list) or any(
+        not isinstance(person, dict) or not isinstance(person.get("login"), str)
+        for person in people
+    ):
+        raise ProjectsInspectionError("Invalid issue assignees")
+    field = item.get("fieldValueByName")
+    if not isinstance(field, dict) or not isinstance(field.get("name"), str):
+        raise ProjectsInspectionError("Project Status is missing or unknown")
+    if not isinstance(field.get("updatedAt"), str) or not field["updatedAt"]:
+        raise ProjectsInspectionError("Project Status timestamp is unknown")
+    return {
+        "repository": repository, "issue_number": issue_number,
+        "project_number": project_number, "item_id": item.get("id"),
+        "issue_id": issue.get("id"), "title": issue.get("title"),
+        "body": issue["body"], "issue_state": issue.get("state"),
+        "issue_updated_at": issue.get("updatedAt"),
+        "status": field["name"], "status_updated_at": field["updatedAt"],
+        "assignees": [person["login"] for person in people],
+        "project_listing_complete": True, "architect_intent_authorized": "unverified",
+        "not_retrieved": ["issue_activity", "authority_provenance",
+                          "dependency_relationships"],
+    }
+
+
+def inspect_issue_work_item(
+    token: str, owner: str, project_number: int,
+    repository: str, issue_number: int,
+) -> dict[str, Any]:
+    """Retrieve one attributable issue snapshot, never approval or authority.
+
+    Args:
+        token: Credential from a separately isolated read-only caller.
+        owner: Project owner.
+        project_number: Project number.
+        repository: Expected owner/repository.
+        issue_number: Required issue number.
+    """
+    parts = repository.split("/")
+    if len(parts) != 2 or any(not _NAME.fullmatch(p) for p in parts):
+        raise ProjectsInspectionError("Invalid repository identity")
+    if type(issue_number) is not int or issue_number <= 0:
+        raise ProjectsInspectionError("Invalid issue number")
+    snapshot = inspect_project(token, owner, project_number)
+    project = _require_mapping(snapshot["project"], "project")
+    items = _require_mapping(project["items"], "items")["nodes"]
+    matches: list[tuple[Mapping[str, Any], Mapping[str, Any]]] = []
+    for item in items:
+        entry = _require_mapping(item, "project item")
+        issue = entry.get("content")
+        if entry.get("type") != "ISSUE" or not isinstance(issue, dict):
+            continue
+        if issue.get("number") == issue_number:
+            matches.append((entry, issue))
+    if len(matches) != 1:
+        raise ProjectsInspectionError("Issue absent or ambiguous in Project")
+    item, issue = matches[0]
+    return _normalize_issue_item(
+        item, issue, repository, issue_number, project_number
+    )

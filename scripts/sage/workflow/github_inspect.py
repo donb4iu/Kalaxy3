@@ -1,4 +1,4 @@
-"""Least-authority read-only GitHub pull-request and check-run inspection for Kalaxy3 SAGE."""
+"""Trusted read-only GitHub PR/check inspection and fixed Project queries."""
 from __future__ import annotations
 
 import json
@@ -19,6 +19,73 @@ _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _BRANCH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 _SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+
+
+# Fixed read-only GitHub Projects query catalog, shared with projects_inspect.
+_PROJECT_GRAPHQL_URL = "https://api.github.com/graphql"
+_PROJECT_MAX_BYTES = 2 * 1024 * 1024
+_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_MAX_BYTES = 2 * 1024 * 1024
+PROJECT_VIEWER_QUERY = """query { viewer { login projectsV2(first: 30) {
+ nodes { id number title closed url } pageInfo { hasNextPage } } } }"""
+PROJECT_OWNER_QUERY = """query($login:String!) { user(login:$login) {
+ login projectsV2(first:30) { nodes { id number title closed url }
+ pageInfo { hasNextPage } } } }"""
+PROJECT_DETAIL_QUERY = """query($login:String!, $number:Int!) { user(login:$login) {
+ login projectV2(number:$number) { id number title closed url
+ fields(first:50) { nodes { ... on ProjectV2FieldCommon { id name dataType }
+ ... on ProjectV2SingleSelectField { id name options { id name } }
+ ... on ProjectV2IterationField { id name configuration { duration } } }
+ pageInfo { hasNextPage } }
+ items(first:100) { nodes { id type
+ fieldValueByName(name:"Status") {
+ ... on ProjectV2ItemFieldSingleSelectValue { name updatedAt } }
+ content { ... on Issue { id number title url state body updatedAt
+ repository { nameWithOwner }
+ assignees(first:20) { nodes { login } pageInfo { hasNextPage } } }
+ ... on PullRequest { id number title url state } } }
+ pageInfo { hasNextPage } } } } }"""
+
+
+
+def post_project_read_graphql(
+    query: str, variables: Mapping[str, object], token: str,
+) -> dict[str, Any]:
+    """Execute an approved read-only Project query in the trusted adapter.
+
+    Args:
+        query: One of the fixed GitHub Projects read-only queries.
+        variables: Query variables with no user-supplied query text.
+        token: Credential supplied by a separately protected caller.
+    """
+    if query not in (PROJECT_VIEWER_QUERY, PROJECT_OWNER_QUERY, PROJECT_DETAIL_QUERY):
+        raise WorkflowError("Unapproved read-only Project query")
+    if not token or any(char in token for char in "\r\n"):
+        raise WorkflowError("Authorized GitHub Projects credential required")
+    payload = json.dumps({"query": query, "variables": variables}).encode("utf-8")
+    request = Request(
+        _PROJECT_GRAPHQL_URL, data=payload, method="POST",
+        headers={"Authorization": f"Bearer {token}",
+                 "Accept": _ACCEPT, "Content-Type": "application/json",
+                 "User-Agent": "Kalaxy3-SAGE-projects.inspect/0.2"},
+    )
+    try:
+        with urlopen(request, timeout=20) as response:
+            raw = response.read(_PROJECT_MAX_BYTES + 1)
+    except (HTTPError, URLError, TimeoutError, OSError):
+        raise WorkflowError("GitHub Projects read failed") from None
+    if len(raw) > _PROJECT_MAX_BYTES:
+        raise WorkflowError("GitHub Projects response exceeded size limit")
+    try:
+        document = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        raise WorkflowError("Invalid GitHub Projects JSON response") from None
+    if not isinstance(document, dict) or document.get("errors"):
+        raise WorkflowError("GitHub Projects response returned errors")
+    data = document.get("data")
+    if not isinstance(data, dict):
+        raise WorkflowError("GitHub Projects response is missing data")
+    return data
 
 
 @dataclass(frozen=True)
