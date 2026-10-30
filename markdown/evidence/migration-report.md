@@ -9,6 +9,7 @@ inferred metadata was present in the original evidence.
 
 | Record | Class | Metadata | Migration status | Primary gap |
 |---|---|---|---|---|
+| [ADR: Project-native, participant-independent work execution](../architecture/kalaxy3-project-native-participant-independent-execution.md) | legacy-evidence | inferred | not-started | Curate title, summary, dates, and ownership |
 | [architectural convergence — checkpoint (2026-10-13)](../architecture/sage-architectural-convergence-evidence-20261013.md) | legacy-evidence | inferred | not-started | Curate title, summary, dates, and ownership |
 | [Kubecost Homelab Cost Calibration, Network Measurement, and Shared Provider-C...](../installation/kalaxy3-kubecost-calibration-sage-evidence.md) | sage-legacy | inferred | recommended | Curate title, summary, dates, and ownership |
 | [AMD64 NoCloud Seed USB Helper](../installation/old/amd64-nocloud-seed-helper.md) | legacy-evidence | inferred | not-started | Curate title, summary, dates, and ownership |
@@ -33,6 +34,7 @@ inferred metadata was present in the original evidence.
 
 ## Reconciliation warnings
 
+- CURATION: markdown/architecture/kalaxy3-project-native-participant-independent-execution.md needs registry review
 - CURATION: markdown/architecture/sage-architectural-convergence-evidence-20261013.md needs registry review
 - CURATION: markdown/installation/k3s-api-ha-kube-vip.md needs registry review
 - CURATION: markdown/installation/k3s-etcd-baseline-backup-evidence.md needs registry review
@@ -54,6 +56,7 @@ inferred metadata was present in the original evidence.
 - CURATION: markdown/installation/ubuntu-node-provisioning-fixed.md needs registry review
 - CURATION: markdown/operations/kalaxy3-sage-canonical-metadata-contract-evidence.md needs registry review
 - CURATION: markdown/operations/kalaxy3-sage-evidence-publication-process-evidence.md needs registry review
+- LEGACY: markdown/architecture/kalaxy3-project-native-participant-independent-execution.md indexed as legacy-evidence with inferred metadata
 - LEGACY: markdown/architecture/sage-architectural-convergence-evidence-20261013.md indexed as legacy-evidence with inferred metadata
 - LEGACY: markdown/installation/k3s-api-ha-kube-vip.md indexed as legacy-evidence with inferred metadata
 - LEGACY: markdown/installation/k3s-etcd-baseline-backup-evidence.md indexed as legacy-evidence with inferred metadata

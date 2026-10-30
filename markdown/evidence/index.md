@@ -11,15 +11,16 @@ with curated or inferred metadata and an explicit migration state.
 
 | Classification | Count |
 |---|---:|
-| legacy-evidence | 18 |
+| legacy-evidence | 19 |
 | sage-current | 22 |
 | sage-legacy | 3 |
-| **Total** | **43** |
+| **Total** | **44** |
 
 ## Start here
 
 | Section | Record | Summary | Class | Status | Valid as of |
 |---|---|---|---|---|---|
+| architecture | [ADR: Project-native, participant-independent work execution](../architecture/kalaxy3-project-native-participant-independent-execution.md) | - Status: Architect-approved principle; candidate repository implementation pending independent review - Governing objective: Kalaxy3 43 - Implementation work: Kalaxy3 44 - Qualification: Kalaxy3 45 - End-to-end proof: Kalaxy3 46 - Decision owner: Architect - Admitted source reference: 697b54ddcc2d0110a7edb154875e19d7b33db527 | legacy-evidence | historical | 2026-10-29 |
 | architecture | [architectural convergence — checkpoint (2026-10-13)](../architecture/sage-architectural-convergence-evidence-20261013.md) | Status: Historical architectural/causal evidence for independent audit and reconciliation; not a newly authorized objective, replacement strategy, acceptance gate, or claim of completed deployment. | legacy-evidence | historical | 2026-10-13 |
 | verification | [Validate GPT-OSS shared inference runtime](../verification/gpt-oss-shared-inference-runtime-validation.md) | Validates the governed GPT-OSS shared-inference runtime after two fail-closed controller corrections, including Longhorn-to-NFS-SSD model migration, exact model persistence, GPU execution, OpenWebUI health, and retained rollback storage. | sage-current | validated | 2026-09-19 |
 | decisions | [Route cognition-plane proof to bounded evidence retrieval](../decisions/kalaxy3-sage-cognition-evidence-retrieval-routing.md) | Records the SAGE routing boundary that missing prior-art, runtime-capacity, workload, storage, and endpoint evidence must be retrieved before fresh architecture innovation can lawfully proceed. | sage-current | implemented | 2026-09-13 |
@@ -31,7 +32,6 @@ with curated or inferred metadata and an explicit migration state.
 | governance | [Validate PR #5 source-only guardrails](../governance/kalaxy3-actionable-guardrail-ci-portability-evidence.md) | Documents the three post-publication CI repairs that separated repository authority from runtime prerequisites and made PR 5 source-only guardrails pass without weakening operator-runtime validation. | sage-current | validated | 2026-07-31 |
 | governance | [Recover guardrails and validate active logging](../governance/kalaxy3-actionable-guardrail-recovery-evidence.md) | Documents the reusable SAGE actionable-failure framework, centralized-logging lifecycle recovery, vault-tolerant metadata handling, and live seven-node Loki validation. | sage-current | validated | 2026-07-31 |
 | governance | [SAGE metrics pilot closeout](../governance/kalaxy3-sage-metrics-pilot-closeout-evidence.md) | Validates the metrics-pilot post-session review, recurring helper-runtime lesson, populated action-registry controls, and registration of the resulting improvement action. | sage-current | validated | 2026-07-31 |
-| governance | [Validate the first SAGE metrics pilot](../governance/kalaxy3-sage-metrics-pilot-evidence.md) | Documents the first repository-owned live SAGE metrics pilot, truthful null handling, scalar-neutral predictions, repository-only lifecycle validation, and closed deployment gate. | sage-current | validated | 2026-07-30 |
 
 ## Browse
 
