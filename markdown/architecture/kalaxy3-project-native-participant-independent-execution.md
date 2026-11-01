@@ -132,3 +132,55 @@ permission isolation or a live read-back of the private Project. The enhanced
 Projects inspector exposes body, assignees, and observed status, while expressly
 reporting Architect authority, issue activity, and dependencies as unverified or
 not retrieved. These remain outstanding integration obligations.
+
+## Amendment — multi-user Projects credential and operational execution (2026-10-31)
+
+**Architect direction (supersedes the earlier read-only default):** Independent participants and SAGE may read authoritative
+Project context and publish operational progress. Proposing work is not approving
+its outcome. GitHub may permit broader mutations than SAGE should exercise; an
+independently controlled approval/promotion boundary remains required.
+
+The repository now declares **credential references** in
+`scripts/sage/contracts/projects-access.json` without recording plaintext tokens:
+
+- **GitHub Actions:** `SAGE_PROJECTS_CREDENTIAL` in the protected
+  `sage-projects-operations` environment. The standard repository `GITHUB_TOKEN`
+  does not confer access to user-owned Projects v2. A dedicated SAGE identity
+  needs appropriate Project collaborator access and a compatible scoped token.
+- **Kalaxy3 Vault:** Vault Agent, CSI, or an equivalent trusted projection may
+  expose a private, regular credential file to `SAGE_PROJECTS_VAULT_FILE`.
+  The file must be outside Git and inaccessible to untrusted role processes.
+- **Encrypted Git:** Only ciphertext may be committed, with decryption keys
+  controlled outside the repository. This slice intentionally does not invent
+  a decryption/key-distribution service; use the Vault projection or Actions
+  secret at execution time.
+
+Trusted adapters consume credentials and return nonsecret work-item evidence.
+Fresh LLM roles consume only those evidence records; neither a model prompt nor
+its tool interface receives general GitHub credentials. Human engineers use
+independently attributed identities. Shared GitHub Issues and Projects remain
+the source of truth across developers, machines, and role instances.
+
+The only direct Project mutation in this bounded slice is a fixed GraphQL
+operation selecting an existing **operational Status** option (`Todo`,
+`In Progress`, `Blocked`). It cannot edit issue bodies, acceptance criteria,
+Project approval fields, or promote code. Default CLI behavior is read-only or
+proposal-only; applying a status requires explicit trusted-executor admission,
+prior issue body digest, prior status timestamp, and attributable executor ID.
+The GitHub Actions workflow uses an environment approval gate where configured.
+The Project API does **not** offer an atomic compare-and-set on status updates;
+preflight checks reduce stale writes but do not prove transaction isolation.
+A multi-writer production rollout must reconcile concurrent updates, not
+misrepresent the last-write-wins behavior as serialized execution.
+
+The feature-branch workflow cannot be invoked using `workflow_dispatch` until
+GitHub recognizes that workflow on the default branch. Until integration, a
+trusted environment with a Vault-projected credential can execute the CLI
+against the feature branch, or the Architect may provision a pre-existing
+trusted workflow; no credential is to be exposed to unreviewed PR code.
+
+**Open acceptance evidence:** A real read-back from Project #15, a successful
+bounded operational write, and qualification of applicable executor identities
+are not established merely by committing this implementation. The existing
+isolated-role and server-side HTTP 403 receipts remain valid within their
+previously measured scopes.

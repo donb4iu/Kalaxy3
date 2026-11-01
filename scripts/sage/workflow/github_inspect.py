@@ -88,6 +88,56 @@ def post_project_read_graphql(
     return data
 
 
+_PROJECT_STATUS_MUTATION = """mutation($project:ID!, $item:ID!, $field:ID!, $option:String!) {
+ updateProjectV2ItemFieldValue(input:{projectId:$project, itemId:$item,
+ fieldId:$field, value:{singleSelectOptionId:$option}}) { projectV2Item { id } }
+}"""
+
+
+def post_project_status_update_graphql(
+    token: str, project_id: str, item_id: str, field_id: str, option_id: str,
+) -> None:
+    """Perform only the fixed Project Status mutation from a trusted adapter.
+
+    Args:
+        token: Credential held outside the executing LLM environment.
+        project_id: Verified Project node ID.
+        item_id: Verified item node ID.
+        field_id: Verified Status field node ID.
+        option_id: Existing operational Status option ID.
+    """
+    values = (project_id, item_id, field_id, option_id)
+    if any(not isinstance(value, str) or not value or len(value) > 256
+           or any(char.isspace() for char in value) for value in values):
+        raise WorkflowError("Invalid bounded Project status identity")
+    if not token or any(char in token for char in "\r\n"):
+        raise WorkflowError("Authorized Projects credential required")
+    payload = json.dumps({"query": _PROJECT_STATUS_MUTATION, "variables": {
+        "project": project_id, "item": item_id, "field": field_id,
+        "option": option_id,
+    }}).encode("utf-8")
+    request = Request(_PROJECT_GRAPHQL_URL, data=payload, method="POST",
+                      headers={"Authorization": f"Bearer {token}",
+                               "Content-Type": "application/json",
+                               "User-Agent": "Kalaxy3-SAGE-status/1"})
+    try:
+        with urlopen(request, timeout=20) as response:
+            raw = response.read(_PROJECT_MAX_BYTES + 1)
+    except (HTTPError, URLError, TimeoutError, OSError):
+        raise WorkflowError("Projects status write denied or unavailable") from None
+    if len(raw) > _PROJECT_MAX_BYTES:
+        raise WorkflowError("Project write response too large")
+    try:
+        document = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        raise WorkflowError("Invalid Project write response") from None
+    result = (document.get("data") or {}).get("updateProjectV2ItemFieldValue")
+    if document.get("errors") or not isinstance(result, dict) or not isinstance(
+        result.get("projectV2Item"), dict
+    ) or result["projectV2Item"].get("id") != item_id:
+        raise WorkflowError("GitHub did not confirm exact Project item update")
+
+
 @dataclass(frozen=True)
 class GitHubPullRequestSnapshot:
     repository: str
