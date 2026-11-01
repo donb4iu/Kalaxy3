@@ -718,6 +718,96 @@ def reconcile(repo: Path, *, write: bool) -> tuple[list[dict[str, Any]], list[st
     return entries, sorted(set(warnings)), sorted(set(changed)), sorted(set(generated.keys()) | set(stale))
 
 
+
+def stage_projection(repo: Path, work_dir: str) -> int:
+    """Build disposable evidence navigation in the MkDocs worktree only.
+
+    Args:
+        repo: Authoritative Git repository root.
+        work_dir: Repository-relative MkDocs work directory.
+
+    Returns:
+        Number of staged generated files.
+    """
+    relative = safe_repo_path(work_dir)
+    if relative != ".mkdocs-work" and not relative.startswith(".mkdocs-work/"):
+        raise IndexError("Evidence projection must stay inside .mkdocs-work")
+    workspace = repo.resolve() / ".mkdocs-work"
+    target_root = (repo / relative / "source").resolve()
+    if not target_root.is_dir() or not target_root.is_relative_to(workspace):
+        raise IndexError("Prepared MkDocs source is missing or unsafe")
+    registry = load_registry(repo)
+    overrides = registry_map(registry)
+    entries = []
+    warnings = []
+    for path in discover_paths(repo, registry):
+        entry, item_warnings = build_entry(repo, path, overrides.get(path))
+        entries.append(entry)
+        warnings.extend(item_warnings)
+    warnings.extend(validate_entries(entries))
+    entries.sort(key=lambda e: (e["nav_section"], e["nav_order"], e["nav_title"].casefold()))
+    generated, _ = generate_outputs(repo, entries, warnings)
+    manifest = repo / GENERATED_MANIFEST
+    previous = json.loads(manifest.read_text(encoding="utf-8")) if manifest.is_file() else {}
+    paths = set(generated) | set(previous.get("generated_paths", []))
+    for name in sorted(paths):
+        safe = safe_repo_path(name)
+        if not safe.startswith("markdown/evidence/"):
+            raise IndexError(f"Unsafe projection output: {name}")
+        target = (target_root / safe.removeprefix("markdown/")).resolve()
+        if not target.is_relative_to(target_root):
+            raise IndexError(f"Projection escapes MkDocs workspace: {name}")
+        if name in generated:
+            write_text(target, generated[name])
+        elif target.is_file():
+            target.unlink()
+    projection_manifest = target_root.parent / "evidence-projection-manifest.json"
+    projection_manifest.write_text(json.dumps({
+        "schema_version": "1.0",
+        "generated_paths": sorted(name.removeprefix("markdown/") for name in generated),
+        "source_revision": run(["git", "rev-parse", "HEAD"], cwd=repo).stdout.strip(),
+    }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return len(generated)
+
+
+
+def test_disposable_projection(sandbox: Path) -> None:
+    """Verify projections are disposable and cannot change source evidence.
+
+    Args:
+        sandbox: Isolated legacy index self-test repository.
+    """
+    import shutil
+
+    run(["git", "init", "-q"], cwd=sandbox)
+    run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+         "commit", "--allow-empty", "-qm", "fixture"], cwd=sandbox)
+    staged = sandbox / ".mkdocs-work/source"
+    shutil.copytree(sandbox / "markdown", staged)
+    source_catalog = sandbox / "markdown/evidence/catalog.json"
+    before = hashlib.sha256(source_catalog.read_bytes()).hexdigest()
+    (staged / "evidence/catalog.json").write_text("stale", encoding="utf-8")
+    generated = stage_projection(sandbox, ".mkdocs-work")
+    if generated < 1 or hashlib.sha256(source_catalog.read_bytes()).hexdigest() != before:
+        raise IndexError("Disposable projection modified authoritative source")
+    staged_catalog = json.loads((staged / "evidence/catalog.json").read_text())
+    if staged_catalog["record_count"] < 1:
+        raise IndexError("Disposable projection omitted source records")
+    alias = sandbox.parent / "repo-symlink-alias"
+    alias.symlink_to(sandbox, target_is_directory=True)
+    try:
+        if stage_projection(alias, ".mkdocs-work") != generated:
+            raise IndexError("Symlinked repository path changed projection contents")
+    finally:
+        alias.unlink()
+    for invalid in ("..", "tmp", ".mkdocs-work/../../outside"):
+        try:
+            stage_projection(sandbox, invalid)
+        except IndexError:
+            continue
+        raise IndexError(f"Unsafe projection destination accepted: {invalid}")
+
+
 def self_test(repo: Path) -> None:
     """Prove one reconciliation deletes obsolete output and is immediately current."""
     import shutil
@@ -801,6 +891,7 @@ def self_test(repo: Path) -> None:
                 "immediate post-reconcile check is not idempotent: "
                 + ", ".join(immediate_changed)
             )
+        test_disposable_projection(sandbox)
 
 
 def main() -> int:
@@ -808,12 +899,14 @@ def main() -> int:
         description="Reconcile Kalaxy3 SAGE and legacy evidence navigation"
     )
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ["check", "reconcile", "self-test"]:
+    for name in ["check", "reconcile", "validate", "stage", "self-test"]:
         cmd = sub.add_parser(name)
         cmd.add_argument(
             "--repo",
             help="repository path; defaults to current Git repository",
         )
+        if name == "stage":
+            cmd.add_argument("--work-dir", default=".mkdocs-work")
     args = parser.parse_args()
     try:
         repo = repo_root(args.repo)
@@ -822,10 +915,20 @@ def main() -> int:
             print("SAGE evidence reconciliation self-test: PASS")
             return 0
 
+        if args.command == "stage":
+            count = stage_projection(repo, args.work_dir)
+            print(f"SAGE disposable documentation projection: PASS ({count} files)")
+            return 0
+
         entries, warnings, changed, generated_paths = reconcile(
             repo,
             write=args.command == "reconcile",
         )
+        if args.command == "validate":
+            print("SAGE source evidence validation: PASS")
+            print(f"Source records: {len(entries)}")
+            print("Committed projection freshness: NOT_A_GOVERNANCE_GATE")
+            return 0
         if args.command == "check" and changed:
             raise IndexError(
                 "Generated evidence catalog is stale. Run: "

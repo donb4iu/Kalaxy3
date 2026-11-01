@@ -83,7 +83,7 @@ sage-index-self-test:
 	$(SAGE_INDEX) self-test
 
 sage-index-check:
-	$(SAGE_INDEX) check
+	$(SAGE_INDEX) validate
 
 sage-active-session-self-test:
 	$(SAGE_ACTIVE_SESSION) --self-test
@@ -195,6 +195,8 @@ docs-mkdocs-bootstrap: $(MKDOCS_READY)
 
 docs-mkdocs-prepare:
 	python3 scripts/docs/prepare-mkdocs-source.py
+	$(SAGE_INDEX) stage
+	python3 scripts/docs/annotate-mkdocs-source.py
 
 docs-mkdocs-config: docs-mkdocs-bootstrap docs-mkdocs-prepare
 	$(MKDOCS_PYTHON) scripts/docs/generate-mkdocs-navigation.py

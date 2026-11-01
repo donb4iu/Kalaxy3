@@ -22,7 +22,9 @@ def verify(manifest: dict, site: Path) -> tuple[int, list[str]]:
     checked = 0
     for record in manifest['pages']:
         rel = Path(record['staged'])
-        expected = record['git_content_date'] or 'Not established'
+        revision = record.get('projection_revision')
+        expected = revision or record['git_content_date'] or 'Not established'
+        marker = 'Generated from Git revision:' if revision else 'Last content updated:'
         html_candidates = ([site / 'index.html'] if rel.as_posix() == 'index.md'
                            else [site / rel.with_suffix('') / 'index.html',
                                  site / rel.with_suffix('.html')])
@@ -34,7 +36,7 @@ def verify(manifest: dict, site: Path) -> tuple[int, list[str]]:
                 errors.append(f'Missing published HTML for {rel}')
             continue
         rendered = html_file.read_text(encoding='utf-8')
-        correct_date = re.search(r'Last content updated:</strong>\s*' + re.escape(expected), rendered)
+        correct_date = re.search(re.escape(marker) + r'</strong>\s*' + re.escape(expected), rendered)
         if not correct_date:
             errors.append(f'Incorrect or absent content date: {rel}')
         checked += 1
