@@ -8,6 +8,11 @@ body:
         previous chat history, assumed issue order, or machine-local state.
         Record changing status, assignment, and evidence in GitHub's native fields,
         comments, relationships, pull requests, and reviews.
+        Governing Project/RACI Definition of Done:
+        `markdown/standards/kalaxy3-sage-project-raci-definition-of-done.md`.
+        The Project defines work; RACI bounds execution; only the Architect
+        may override the contract. Participants remain free to innovate within it.
+        Completion requires evidence independently checkable without LLM memory.
   - type: textarea
     id: problem
     attributes:
@@ -79,6 +84,17 @@ body:
     id: done
     attributes:
       label: Definition of Done
-      description: State exactly what constitutes independently verifiable completion.
+      description: >-
+        Require all five Project/RACI audit questions from
+        markdown/standards/kalaxy3-sage-project-raci-definition-of-done.md,
+        plus issue-specific acceptance criteria; link authoritative evidence.
+      value: |
+        - [ ] Project contract retrieved: URL, revision, retrieval evidence.
+        - [ ] RACI applied: attributable identity, role, authority, reserved decisions.
+        - [ ] Work within scope: linked actions/results and handled deviations.
+        - [ ] SAGE guardrails: real validation/enforcement results and exceptions.
+        - [ ] Durable handoff: Git/GitHub evidence and next step recoverable by a fresh participant.
+        - [ ] Independent audit: reviewer verified each claim against authoritative records.
+        - [ ] Architect overrides, if any, are separately authorized and recorded.
     validations:
       required: true
