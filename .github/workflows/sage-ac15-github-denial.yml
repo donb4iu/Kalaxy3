@@ -1,0 +1,136 @@
+name: "SAGE #44 AC15 restricted GitHub token denial"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [feature/sage-functional-delegation-continuation-20261022]
+
+permissions:
+  contents: read
+
+jobs:
+  github-denial:
+    name: AC15 GitHub server-side issue-write denial
+    if: github.repository == 'donb4iu/Kalaxy3' && github.event.pull_request.number == 47
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Verify real PR and server-enforced write denial
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          AC15_REPOSITORY: ${{ github.repository }}
+          AC15_PR_NUMBER: ${{ github.event.pull_request.number }}
+          AC15_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+          AC15_EVIDENCE_PATH: ${{ runner.temp }}/ac15-actions-denial.json
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          """Read the existing PR, then test GitHub's server-side write denial.
+
+          A PATCH carries the exact current title, so even unexpected authorization
+          cannot change the title's value. An accepted PATCH fails the check.
+          No non-GITHUB_TOKEN credential is used or printed.
+          """
+          import json
+          import os
+          from datetime import datetime, timezone
+          from urllib.error import HTTPError, URLError
+          from urllib.request import Request, urlopen
+
+          owner_repo = os.environ.get("AC15_REPOSITORY", "")
+          pr_number = os.environ.get("AC15_PR_NUMBER", "")
+          token = os.environ.get("GITHUB_TOKEN", "")
+          source_sha = os.environ.get("AC15_SOURCE_SHA", "")
+          if (owner_repo != "donb4iu/Kalaxy3" or pr_number != "47"
+                  or not token or len(source_sha) != 40):
+              raise SystemExit("STOP: identity, token, or source boundary invalid")
+
+          url = f"https://api.github.com/repos/{owner_repo}/issues/{pr_number}"
+          headers = {
+              "Authorization": f"Bearer {token}",
+              "Accept": "application/vnd.github+json",
+              "User-Agent": "kalaxy3-ac15-restricted-actions-denial/1",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+
+          def request(method, body=None):
+              data = None if body is None else json.dumps(body).encode("utf-8")
+              req = Request(url, data=data, headers=headers, method=method)
+              if data is not None:
+                  req.add_header("Content-Type", "application/json")
+              try:
+                  with urlopen(req, timeout=20) as response:
+                      return response.status, response.read(128 * 1024)
+              except HTTPError as error:
+                  return error.code, error.read(2048)
+              except (URLError, TimeoutError):
+                  raise SystemExit("STOP: GitHub transport unavailable")
+
+          read_status, raw = request("GET")
+          if read_status != 200:
+              raise SystemExit(f"STOP: baseline PR not readable (HTTP {read_status})")
+          try:
+              issue = json.loads(raw)
+          except (ValueError, UnicodeDecodeError):
+              raise SystemExit("STOP: baseline GitHub JSON invalid")
+          if (issue.get("number") != 47 or "pull_request" not in issue
+                  or not isinstance(issue.get("title"), str)
+                  or not issue["title"]):
+              raise SystemExit("STOP: baseline PR identity invalid")
+
+          print("AC15_GITHUB_PR_GET=PASS", flush=True)
+          print("AC15_PR_NUMBER=47", flush=True)
+          print("AC15_PR_SOURCE_SHA=" + source_sha, flush=True)
+          print("AC15_ACTIONS_TOKEN_PERMISSIONS=contents:read", flush=True)
+          print("AC15_WRITE_TEST=PATCH_EXISTING_PR_IDENTICAL_TITLE", flush=True)
+
+          write_status, denied_body = request("PATCH", {"title": issue["title"]})
+          print(f"AC15_WRITE_HTTP_STATUS={write_status}", flush=True)
+          try:
+              denial_message = json.loads(denied_body).get("message", "")
+          except (ValueError, UnicodeDecodeError, AttributeError):
+              denial_message = ""
+          permission_denied = (
+              isinstance(denial_message, str)
+              and "not accessible by integration" in denial_message.lower()
+          )
+          if write_status == 403 and permission_denied:
+              evidence = {
+                  "record_type": "sage-ac15-actions-server-denial",
+                  "issue": 44,
+                  "pr": 47,
+                  "pr_head_sha": source_sha,
+                  "actor": "github-actions-ephemeral-token",
+                  "permissions": {"contents": "read"},
+                  "baseline_read_http_status": read_status,
+                  "attempted_operation": "PATCH existing PR with identical title",
+                  "denied_write_http_status": write_status,
+                  "server_enforced_denial_observed": True,
+                  "all_sage_execution_paths_qualified": False,
+                  "ac15": "PARTIAL",
+                  "observed_at_utc": datetime.now(timezone.utc).isoformat(),
+              }
+              with open(os.environ["AC15_EVIDENCE_PATH"], "w", encoding="utf-8") as fp:
+                  json.dump(evidence, fp, indent=2, sort_keys=True)
+                  fp.write("\n")
+              print("AC15_GITHUB_ISSUE_WRITE_DENIAL=SERVER_ENFORCED", flush=True)
+              print("AC15_ACTOR_SCOPE=RESTRICTED_GITHUB_ACTIONS_TOKEN", flush=True)
+              print("AC15_ALL_SAGE_EXECUTORS_QUALIFIED=NO", flush=True)
+              print("AC15_QUALIFICATION=PARTIAL", flush=True)
+              print("RESULT=SERVER_ENFORCED_DENIAL_EVIDENCE_CAPTURED", flush=True)
+          elif 200 <= write_status < 300:
+              raise SystemExit("FAIL CLOSED: unexpected GitHub write authorization")
+          else:
+              raise SystemExit(
+                  f"INCONCLUSIVE: no confirmed GitHub permission denial, "
+                  f"write HTTP {write_status}"
+              )
+          PY
+      - name: Preserve nonsecret server-enforced denial receipt
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sage-ac15-denial-pr47-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/ac15-actions-denial.json
+          retention-days: 14

@@ -1,4 +1,4 @@
-"""Least-authority read-only GitHub pull-request and check-run inspection for Kalaxy3 SAGE."""
+"""Trusted read-only GitHub PR/check inspection and fixed Project queries."""
 from __future__ import annotations
 
 import json
@@ -19,6 +19,123 @@ _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _BRANCH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 _SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+
+
+# Fixed read-only GitHub Projects query catalog, shared with projects_inspect.
+_PROJECT_GRAPHQL_URL = "https://api.github.com/graphql"
+_PROJECT_MAX_BYTES = 2 * 1024 * 1024
+_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_MAX_BYTES = 2 * 1024 * 1024
+PROJECT_VIEWER_QUERY = """query { viewer { login projectsV2(first: 30) {
+ nodes { id number title closed url } pageInfo { hasNextPage } } } }"""
+PROJECT_OWNER_QUERY = """query($login:String!) { user(login:$login) {
+ login projectsV2(first:30) { nodes { id number title closed url }
+ pageInfo { hasNextPage } } } }"""
+PROJECT_DETAIL_QUERY = """query($login:String!, $number:Int!) { user(login:$login) {
+ login projectV2(number:$number) { id number title closed url
+ fields(first:50) { nodes { ... on ProjectV2FieldCommon { id name dataType }
+ ... on ProjectV2SingleSelectField { id name options { id name } }
+ ... on ProjectV2IterationField { id name configuration { duration } } }
+ pageInfo { hasNextPage } }
+ items(first:100) { nodes { id type
+ fieldValueByName(name:"Status") {
+ ... on ProjectV2ItemFieldSingleSelectValue { name updatedAt } }
+ content { ... on Issue { id number title url state body updatedAt
+ repository { nameWithOwner }
+ assignees(first:20) { nodes { login } pageInfo { hasNextPage } } }
+ ... on PullRequest { id number title url state } } }
+ pageInfo { hasNextPage } } } } }"""
+
+
+
+def post_project_read_graphql(
+    query: str, variables: Mapping[str, object], token: str,
+) -> dict[str, Any]:
+    """Execute an approved read-only Project query in the trusted adapter.
+
+    Args:
+        query: One of the fixed GitHub Projects read-only queries.
+        variables: Query variables with no user-supplied query text.
+        token: Credential supplied by a separately protected caller.
+    """
+    if query not in (PROJECT_VIEWER_QUERY, PROJECT_OWNER_QUERY, PROJECT_DETAIL_QUERY):
+        raise WorkflowError("Unapproved read-only Project query")
+    if not token or any(char in token for char in "\r\n"):
+        raise WorkflowError("Authorized GitHub Projects credential required")
+    payload = json.dumps({"query": query, "variables": variables}).encode("utf-8")
+    request = Request(
+        _PROJECT_GRAPHQL_URL, data=payload, method="POST",
+        headers={"Authorization": f"Bearer {token}",
+                 "Accept": _ACCEPT, "Content-Type": "application/json",
+                 "User-Agent": "Kalaxy3-SAGE-projects.inspect/0.2"},
+    )
+    try:
+        with urlopen(request, timeout=20) as response:
+            raw = response.read(_PROJECT_MAX_BYTES + 1)
+    except (HTTPError, URLError, TimeoutError, OSError):
+        raise WorkflowError("GitHub Projects read failed") from None
+    if len(raw) > _PROJECT_MAX_BYTES:
+        raise WorkflowError("GitHub Projects response exceeded size limit")
+    try:
+        document = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        raise WorkflowError("Invalid GitHub Projects JSON response") from None
+    if not isinstance(document, dict) or document.get("errors"):
+        raise WorkflowError("GitHub Projects response returned errors")
+    data = document.get("data")
+    if not isinstance(data, dict):
+        raise WorkflowError("GitHub Projects response is missing data")
+    return data
+
+
+_PROJECT_STATUS_MUTATION = """mutation($project:ID!, $item:ID!, $field:ID!, $option:String!) {
+ updateProjectV2ItemFieldValue(input:{projectId:$project, itemId:$item,
+ fieldId:$field, value:{singleSelectOptionId:$option}}) { projectV2Item { id } }
+}"""
+
+
+def post_project_status_update_graphql(
+    token: str, project_id: str, item_id: str, field_id: str, option_id: str,
+) -> None:
+    """Perform only the fixed Project Status mutation from a trusted adapter.
+
+    Args:
+        token: Credential held outside the executing LLM environment.
+        project_id: Verified Project node ID.
+        item_id: Verified item node ID.
+        field_id: Verified Status field node ID.
+        option_id: Existing operational Status option ID.
+    """
+    values = (project_id, item_id, field_id, option_id)
+    if any(not isinstance(value, str) or not value or len(value) > 256
+           or any(char.isspace() for char in value) for value in values):
+        raise WorkflowError("Invalid bounded Project status identity")
+    if not token or any(char in token for char in "\r\n"):
+        raise WorkflowError("Authorized Projects credential required")
+    payload = json.dumps({"query": _PROJECT_STATUS_MUTATION, "variables": {
+        "project": project_id, "item": item_id, "field": field_id,
+        "option": option_id,
+    }}).encode("utf-8")
+    request = Request(_PROJECT_GRAPHQL_URL, data=payload, method="POST",
+                      headers={"Authorization": f"Bearer {token}",
+                               "Content-Type": "application/json",
+                               "User-Agent": "Kalaxy3-SAGE-status/1"})
+    try:
+        with urlopen(request, timeout=20) as response:
+            raw = response.read(_PROJECT_MAX_BYTES + 1)
+    except (HTTPError, URLError, TimeoutError, OSError):
+        raise WorkflowError("Projects status write denied or unavailable") from None
+    if len(raw) > _PROJECT_MAX_BYTES:
+        raise WorkflowError("Project write response too large")
+    try:
+        document = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        raise WorkflowError("Invalid Project write response") from None
+    result = (document.get("data") or {}).get("updateProjectV2ItemFieldValue")
+    if document.get("errors") or not isinstance(result, dict) or not isinstance(
+        result.get("projectV2Item"), dict
+    ) or result["projectV2Item"].get("id") != item_id:
+        raise WorkflowError("GitHub did not confirm exact Project item update")
 
 
 @dataclass(frozen=True)

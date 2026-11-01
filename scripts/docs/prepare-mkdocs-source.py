@@ -212,14 +212,11 @@ def prepare_source(repo: Path, work_dir_name: str) -> tuple[int, int, int]:
     shutil.copytree(source, staged_source)
     remove_noise(staged_source)
     create_landing_page(staged_source)
-
     rewrites, unresolved = rewrite_links(staged_source)
     if unresolved:
         detail = "\n".join(unresolved)
         raise RuntimeError(f"Unresolved Markdown links:\n{detail}")
 
-    from page_freshness import annotate_staged_pages
-    annotate_staged_pages(repo, staged_source)
     markdown_count = sum(1 for _ in staged_source.rglob("*.md"))
     total_files = sum(
         1 for path in staged_source.rglob("*") if path.is_file()

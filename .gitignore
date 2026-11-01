@@ -243,3 +243,9 @@ infrastructure/k3s-homelab/.helm/
 
 # SAGE local active-session runtime ledgers
 .sage/active-sessions/
+
+# SAGE credential material: only references/policies belong in Git
+.sage/secrets/
+sage-projects-token*
+*.age.key
+*.sops.dec

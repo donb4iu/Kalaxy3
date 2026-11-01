@@ -83,7 +83,7 @@ sage-index-self-test:
 	$(SAGE_INDEX) self-test
 
 sage-index-check:
-	$(SAGE_INDEX) check
+	$(SAGE_INDEX) validate
 
 sage-active-session-self-test:
 	$(SAGE_ACTIVE_SESSION) --self-test
@@ -124,7 +124,7 @@ sage-operating-contract-guardrail:
 sage-operating-contract-check: sage-operating-contract-self-test sage-operating-contract-guardrail
 	@echo "Kalaxy3 SAGE operating contract: PASS"
 
-sage-stage-guardrails: sage-llm-semantic-adapter-guardrail sage-self-test sage-semantic-bootstrap-guardrail sage-discovery-guardrail sage-operating-contract-guardrail sage-capability-intelligence-guardrail sage-branch-lifecycle-self-test sage-branch-lifecycle-guardrail \
+sage-stage-guardrails: sage-llm-semantic-adapter-guardrail sage-project-raci-dod-guardrail sage-self-test sage-semantic-bootstrap-guardrail sage-discovery-guardrail sage-operating-contract-guardrail sage-capability-intelligence-guardrail sage-branch-lifecycle-self-test sage-branch-lifecycle-guardrail \
                  sage-evidence-self-test sage-evidence-guardrail \
                  sage-active-session-self-test sage-session-close-self-test sage-session-self-test sage-feedback-self-test sage-candidate-self-test sage-learning-self-test sage-review-self-test sage-improvement-policy-check sage-index-check sage-workflow-support-guardrail sage-workflow-guardrail sage-request-planning-guardrail sage-request-execution-guardrail sage-improvement-action-transition-guardrail sage-thin-slice-guardrail sage-checkpoint-promotion-guardrail sage-security-external-access-discovery-guardrail sage-legacy-evidence-projection-guardrail sage-intent-to-outcome-guardrail sage-e2e-zero-trust-source-guardrail sage-stage-contract-guardrail sage-artifact-promotion-guardrail sage-architecture-approval-guardrail
 	@echo "Kalaxy3 portable stage source guardrails: PASS"
@@ -195,6 +195,8 @@ docs-mkdocs-bootstrap: $(MKDOCS_READY)
 
 docs-mkdocs-prepare:
 	python3 scripts/docs/prepare-mkdocs-source.py
+	$(SAGE_INDEX) stage
+	python3 scripts/docs/annotate-mkdocs-source.py
 
 docs-mkdocs-config: docs-mkdocs-bootstrap docs-mkdocs-prepare
 	$(MKDOCS_PYTHON) scripts/docs/generate-mkdocs-navigation.py
@@ -748,3 +750,11 @@ sage-persistent-llm-objective-context-guardrail:
 .PHONY: sage-llm-semantic-adapter-guardrail
 sage-llm-semantic-adapter-guardrail:
 	$(PYTHON) scripts/sage/sage-llm-semantic-adapter-guardrail.py
+
+# Contract: markdown/standards/kalaxy3-sage-project-raci-definition-of-done.md
+.PHONY: sage-project-raci-dod-guardrail sage-project-raci-dod-self-test
+sage-project-raci-dod-guardrail:
+	$(PYTHON) scripts/sage/sage-project-raci-dod-guardrail.py
+
+sage-project-raci-dod-self-test:
+	$(PYTHON) scripts/sage/sage-project-raci-dod-guardrail.py --self-test

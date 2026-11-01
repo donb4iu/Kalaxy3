@@ -32,6 +32,23 @@ python3 scripts/sage/sage-change-preflight.py --changed
 Do not bypass discovery because a branch already contains implementation
 code.
 
+## Project-owned work and RACI Definition of Done
+
+For Project-qualified engineering work, read
+[`markdown/standards/kalaxy3-sage-project-raci-definition-of-done.md`](markdown/standards/kalaxy3-sage-project-raci-definition-of-done.md)
+before execution and closeout. The authoritative GitHub Project/issue defines
+the work; RACI bounds every participant (human, LLM, SAGE, automation); only
+an attributable Architect decision can override the governing contract.
+Participants may innovate and make operational changes within their authority.
+Never substitute persistent LLM chat for Project context, or duplicate Git's
+hash/history/provenance as a SAGE evidence catalog. The five DoD audit questions
+require source-linked evidence and a fresh-participant handoff.
+
+Run `make sage-project-raci-dod-guardrail` to validate the published contract.
+That check establishes policy availability, **not** compliance for a specific
+issue. For a closeout receipt, additionally validate `--receipt` and have an
+independent auditor verify the referenced Git/GitHub evidence.
+
 ## Enforced repository entry points
 
 Use the repository-root commands for normal work:

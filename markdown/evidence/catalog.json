@@ -1,8 +1,28 @@
 {
-  "catalog_fingerprint": "6ff6aa19bce2c2bb702492d4739ff1baab2dc3520228b00327f155e2be0d6470",
+  "catalog_fingerprint": "99abcb8e5d4234ce3c5f2f38dc7c6531ec7cac596826e40953a0ed4dffc0acc6",
   "catalog_schema_version": "1.0",
-  "record_count": 43,
+  "record_count": 44,
   "records": [
+    {
+      "completed_at": "2026-10-29T00:23:55-05:00",
+      "confidence": "low",
+      "evidence_id": "LEGACY-K3-3ABCE6C9FC",
+      "metadata_source": "inferred",
+      "migration_status": "not-started",
+      "nav_order": 500,
+      "nav_section": "architecture",
+      "nav_title": "ADR: Project-native, participant-independent work execution",
+      "owner": "not-captured",
+      "primary_subject": "ADR",
+      "record_class": "legacy-evidence",
+      "schema_version": "not-applicable",
+      "source_path": "markdown/architecture/kalaxy3-project-native-participant-independent-execution.md",
+      "status": "historical",
+      "summary": "- Status: Architect-approved principle; candidate repository implementation pending independent review - Governing objective: Kalaxy3 43 - Implementation work: Kalaxy3 44 - Qualification: Kalaxy3 45 - End-to-end proof: Kalaxy3 46 - Decision owner: Architect - Admitted source reference: 697b54ddcc2d0110a7edb154875e19d7b33db527",
+      "tags": [],
+      "title": "ADR: Project-native, participant-independent work execution",
+      "valid_as_of": "2026-10-29"
+    },
     {
       "completed_at": "2026-10-13T17:52:32-05:00",
       "confidence": "low",
@@ -1077,6 +1097,7 @@
   "registry_path": "markdown/evidence/legacy-record-registry.json",
   "sage_current_schema": "1.2",
   "warnings": [
+    "CURATION: markdown/architecture/kalaxy3-project-native-participant-independent-execution.md needs registry review",
     "CURATION: markdown/architecture/sage-architectural-convergence-evidence-20261013.md needs registry review",
     "CURATION: markdown/installation/k3s-api-ha-kube-vip.md needs registry review",
     "CURATION: markdown/installation/k3s-etcd-baseline-backup-evidence.md needs registry review",
@@ -1098,6 +1119,7 @@
     "CURATION: markdown/installation/ubuntu-node-provisioning-fixed.md needs registry review",
     "CURATION: markdown/operations/kalaxy3-sage-canonical-metadata-contract-evidence.md needs registry review",
     "CURATION: markdown/operations/kalaxy3-sage-evidence-publication-process-evidence.md needs registry review",
+    "LEGACY: markdown/architecture/kalaxy3-project-native-participant-independent-execution.md indexed as legacy-evidence with inferred metadata",
     "LEGACY: markdown/architecture/sage-architectural-convergence-evidence-20261013.md indexed as legacy-evidence with inferred metadata",
     "LEGACY: markdown/installation/k3s-api-ha-kube-vip.md indexed as legacy-evidence with inferred metadata",
     "LEGACY: markdown/installation/k3s-etcd-baseline-backup-evidence.md indexed as legacy-evidence with inferred metadata",

@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "authority": "issue-44-architect-approved",
+  "project": {"owner": "donb4iu", "number": 15, "repository": "donb4iu/Kalaxy3"},
+  "providers": {
+    "github_actions": {"environment": "sage-projects-operations", "secret_reference": "SAGE_PROJECTS_CREDENTIAL"},
+    "vault": {"projection_env": "SAGE_PROJECTS_VAULT_FILE", "secret_path_reference": "kv/sage/github/projects"}
+  },
+  "git": {"plaintext_secrets_allowed": false, "encrypted_artifacts_allowed": true},
+  "allowed_operational_status": ["Todo", "In Progress", "Blocked"],
+  "reserved_authority": ["issue_objective", "acceptance_criteria", "architect_approval", "main_promotion"],
+  "approval_effect_of_status": "none",
+  "credential_delivery_to_llm": "forbidden"
+}

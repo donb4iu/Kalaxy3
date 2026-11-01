@@ -1,0 +1,69 @@
+name: SAGE governed Projects work item
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Read work context, propose, or apply operational status
+        type: choice
+        required: true
+        options: [read, propose-status, apply-status]
+        default: read
+      status:
+        description: Existing operational status (not an approval)
+        type: choice
+        required: true
+        options: [Todo, In Progress, Blocked]
+        default: In Progress
+      expected_issue_sha256:
+        description: Prior issue contract SHA-256 (required for status updates)
+        type: string
+        required: false
+      expected_status_updated_at:
+        description: Prior Project status timestamp (required for updates)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.repository == 'donb4iu/Kalaxy3'
+    runs-on: ubuntu-latest
+    # Environment protection can restrict access to the service secret.
+    environment: sage-projects-operations
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read Project 15 or apply only an explicitly requested status
+        env:
+          GITHUB_ACTIONS: 'true'
+          SAGE_PROJECTS_CREDENTIAL: ${{ secrets.SAGE_PROJECTS_CREDENTIAL }}
+          SAGE_PROJECTS_APPLY_AUTHORIZED: ${{ inputs.action == 'apply-status' && 'true' || 'false' }}
+          SAGE_ACTION: ${{ inputs.action }}
+          SAGE_STATUS: ${{ inputs.status }}
+          EXPECTED_ISSUE_SHA: ${{ inputs.expected_issue_sha256 }}
+          EXPECTED_STATUS_AT: ${{ inputs.expected_status_updated_at }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--credential-source actions-secret --owner donb4iu --project-number 15
+                --repository donb4iu/Kalaxy3 --issue-number 44
+                --action "$SAGE_ACTION" --output "$RUNNER_TEMP/sage-project15-item44.json")
+          if [[ "$SAGE_ACTION" != read ]]; then
+            args+=(--new-status "$SAGE_STATUS" --expected-issue-sha256 "$EXPECTED_ISSUE_SHA"
+                   --expected-status-updated-at "$EXPECTED_STATUS_AT")
+          fi
+          python3 scripts/sage/sage-projects-work-item.py "${args[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sage-project15-item44-evidence
+          path: ${{ runner.temp }}/sage-project15-item44.json
+          retention-days: 30

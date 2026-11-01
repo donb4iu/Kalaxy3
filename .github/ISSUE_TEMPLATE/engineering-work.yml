@@ -1,0 +1,100 @@
+name: Engineering work item
+description: Participant-neutral, independently executable engineering work contract
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Define the work for any authorized engineering participant. Do not rely on
+        previous chat history, assumed issue order, or machine-local state.
+        Record changing status, assignment, and evidence in GitHub's native fields,
+        comments, relationships, pull requests, and reviews.
+        Governing Project/RACI Definition of Done:
+        `markdown/standards/kalaxy3-sage-project-raci-definition-of-done.md`.
+        The Project defines work; RACI bounds execution; only the Architect
+        may override the contract. Participants remain free to innovate within it.
+        Completion requires evidence independently checkable without LLM memory.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem exists and why does it matter?
+      placeholder: State the observed deficiency and its consequences.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Define the observable outcome independent of implementation method.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and exclusions
+      description: Define included work and what this issue does not authorize.
+    validations:
+      required: true
+  - type: textarea
+    id: inputs
+    attributes:
+      label: Technical context and required inputs
+      description: Link relevant issues, architecture, APIs, evidence, and source baselines.
+      placeholder: Include repository, relevant revisions, and source-of-truth links.
+    validations:
+      required: true
+  - type: textarea
+    id: authority
+    attributes:
+      label: Authority and responsibilities
+      description: Identify applicable decision owners, role expectations, and reserved decisions.
+      placeholder: Do not confuse the participant's task assignment with Architect authorization.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and constraints
+      description: Link native GitHub blockers and how to verify readiness; write None if none.
+    validations:
+      required: true
+  - type: textarea
+    id: deliverables
+    attributes:
+      label: Required deliverables
+      description: Specify implementation, documentation, tests, or evidence deliverables.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Provide objectively testable criteria as Markdown checkboxes.
+      placeholder: "- [ ] AC1 — Given ..., when ..., then ..."
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Validation and evidence
+      description: Identify required tests, reviews, PRs, Git revisions, and proof locations.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of Done
+      description: >-
+        Require all five Project/RACI audit questions from
+        markdown/standards/kalaxy3-sage-project-raci-definition-of-done.md,
+        plus issue-specific acceptance criteria; link authoritative evidence.
+      value: |
+        - [ ] Project contract retrieved: URL, revision, retrieval evidence.
+        - [ ] RACI applied: attributable identity, role, authority, reserved decisions.
+        - [ ] Work within scope: linked actions/results and handled deviations.
+        - [ ] SAGE guardrails: real validation/enforcement results and exceptions.
+        - [ ] Durable handoff: Git/GitHub evidence and next step recoverable by a fresh participant.
+        - [ ] Independent audit: reviewer verified each claim against authoritative records.
+        - [ ] Architect overrides, if any, are separately authorized and recorded.
+    validations:
+      required: true

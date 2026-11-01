@@ -177,7 +177,26 @@ authorize autonomous Git, GitHub, credential, ref, cluster, or deployment
 mutation. Final evidence uses split publication after the implementation commit
 is known.
 
+## Project-defined work, RACI execution, and auditable completion
+
+The normative Project-qualified Definition of Done is
+[`markdown/standards/kalaxy3-sage-project-raci-definition-of-done.md`](markdown/standards/kalaxy3-sage-project-raci-definition-of-done.md).
+The Project defines the engineering contract, RACI defines the authority,
+participants execute with engineering freedom inside both, and only the
+Architect may override either through an attributable Project decision.
+A fresh authorized participant must reconstruct context and progress without
+relying on previous LLM conversations. An independent auditor verifies five
+source-backed claims: Project retrieval, applied RACI, within-scope execution,
+SAGE guardrail compliance, and durable handoff. Git/GitHub own provenance;
+SAGE owns semantic evidence and interpretations backed by Git references.
+
 ## Persistent LLM Architect-objective contextualization
+
+This section applies only to a persistent Architect-facing LLM interface when
+one is used. It does not make that LLM the project authority, continuity store,
+mandatory participant, or execution controller. The live Project/RACI contract
+and governed Git/GitHub evidence remain authoritative.
+
 
 Every persistent Architect-facing LLM result MUST lead with a succinct but
 complete explanation grounded in the founding Architect-expressed objective
