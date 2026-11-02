@@ -23,7 +23,10 @@ class Ac5ReadbackTests(unittest.TestCase):
         }
         self.item = {
             "repository": "donb4iu/Kalaxy3", "issue_number": 44,
-            "project_number": 15, "item_id": "PVTI_123", "issue_id": "I_123",
+            "project_number": 15, "project_id": "PVT_123",
+            "project_url": "https://github.com/users/donb4iu/projects/15",
+            "project_owner": "donb4iu",
+            "item_id": "PVTI_123", "issue_id": "I_123",
             "body": "## Architect-approved Project/RACI Definition of Done",
             "issue_updated_at": "2026-11-01T00:00:00Z",
             "status": "In Progress", "status_updated_at": "2026-11-01T00:00:00Z",
@@ -36,6 +39,10 @@ class Ac5ReadbackTests(unittest.TestCase):
         read.return_value = self.item
         receipt = create_receipt(self.env)
         self.assertEqual(receipt["project_number"], 15)
+        self.assertEqual(receipt["project_id"], "PVT_123")
+        self.assertEqual(receipt["project_owner"], "donb4iu")
+        self.assertIn("projects/15", receipt["project_url"])
+        self.assertTrue(receipt["retrieved_at_utc"].endswith("+00:00"))
         self.assertEqual(receipt["status"], "In Progress")
         self.assertNotIn("fixture-not-real", str(receipt))
         self.assertNotIn(self.item["body"], str(receipt))

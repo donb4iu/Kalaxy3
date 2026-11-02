@@ -151,7 +151,9 @@ class ProjectWorkItemTests(unittest.TestCase):
             "content": self.issue,
         }
         self.project = {
-            "id": "P15", "number": 15, "items": {"nodes": [self.item],
+            "id": "P15", "number": 15,
+            "url": "https://github.com/users/donb4iu/projects/15",
+            "items": {"nodes": [self.item],
             "pageInfo": {"hasNextPage": False}},
             "fields": {"nodes": [], "pageInfo": {"hasNextPage": False}},
         }
@@ -198,6 +200,12 @@ class ProjectWorkItemTests(unittest.TestCase):
         """Never claim complete assignment evidence from a partial list."""
         self.issue["assignees"]["pageInfo"]["hasNextPage"] = True
         with self.assertRaisesRegex(ProjectsInspectionError, "truncated"):
+            self.inspect()
+
+    def test_rejects_missing_project_url(self) -> None:
+        """Project provenance requires an actual GitHub Project URL."""
+        self.project.pop("url")
+        with self.assertRaisesRegex(ProjectsInspectionError, "URL provenance"):
             self.inspect()
 
     def test_rejects_duplicate_issue(self) -> None:

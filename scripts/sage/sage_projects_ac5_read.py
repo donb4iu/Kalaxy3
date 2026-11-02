@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -41,6 +42,10 @@ def create_receipt(environment: Mapping[str, str]) -> dict[str, Any]:
         "repository": item["repository"],
         "issue_number": item["issue_number"],
         "project_number": item["project_number"],
+        "project_id": item["project_id"],
+        "project_url": item["project_url"],
+        "project_owner": item["project_owner"],
+        "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
         "item_id": item["item_id"],
         "issue_id": item["issue_id"],
         "issue_body_sha256": hashlib.sha256(item["body"].encode()).hexdigest(),

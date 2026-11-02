@@ -209,6 +209,15 @@ def inspect_issue_work_item(
     if len(matches) != 1:
         raise ProjectsInspectionError("Issue absent or ambiguous in Project")
     item, issue = matches[0]
-    return _normalize_issue_item(
+    result = _normalize_issue_item(
         item, issue, repository, issue_number, project_number
     )
+    project_url = project.get("url")
+    if not isinstance(project_url, str) or not project_url:
+        raise ProjectsInspectionError("Project URL provenance is missing")
+    result.update({
+        "project_id": project["id"],
+        "project_url": project_url,
+        "project_owner": snapshot["owner"],
+    })
+    return result
