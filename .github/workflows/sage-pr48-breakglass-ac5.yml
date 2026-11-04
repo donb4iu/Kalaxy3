@@ -1,0 +1,63 @@
+name: SAGE PR48 shared-environment branch-first AC5 exercise
+on:
+  push:
+    branches:
+      - "qualification/sage-pr48-ac5-20261104t062305z"
+permissions:
+  contents: read
+jobs:
+  preflight:
+    if: github.repository == 'donb4iu/Kalaxy3' && github.ref == 'refs/heads/qualification/sage-pr48-ac5-20261104t062305z'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Verify immutable source and execute tests without Project credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "1dc228c7226a5233d58c30d1c64228cce067f5a4"
+          cat > "$RUNNER_TEMP/reviewed-sources.sha256" <<'PINNED_HASHES'
+          71a265d13f3de229e690daa13b8c0839b6907a96ba6b0744b4df4672a2cb1c6c  .github/workflows/sage-projects-ac5-readback.yml
+          50fb869845f92fd7a246bc6bcedc6984e4394d86827c961e3d01e2ee8fca22c6  scripts/sage/sage_projects_ac5_read.py
+          283ff7d0f2acf1d1e3340e5129d0743ef9df126fc56d7ee187be98bfbf31b70e  scripts/sage/test_projects_ac5_read.py
+          a992a821237a2fed5317132bb3407a80353478b94eb18f483c78e9b069f5193e  scripts/sage/workflow/github_inspect.py
+          3d44dbc39ee189d7952e1e065608a46dbf906aae78ee75eab9c8bcc512ffec86  scripts/sage/workflow/projects_inspect.py
+          92325b5291b1e6c15b81485ba7d682fbef5ca25ebf908f9c425770aae3db2f7e  scripts/sage/test_projects_inspect.py
+          PINNED_HASHES
+          sha256sum --check "$RUNNER_TEMP/reviewed-sources.sha256"
+          echo "bd389c5cdd2c064d732a206f1864ac66467eb25e766a45dc8469dd41b0cf2bdd  scripts/sage/sage_pr48_breakglass_ac5.py" | sha256sum --check
+          python3 scripts/sage/test_projects_inspect.py
+          python3 scripts/sage/test_projects_ac5_read.py
+  live-read:
+    needs: preflight
+    if: github.repository == 'donb4iu/Kalaxy3' && github.ref == 'refs/heads/qualification/sage-pr48-ac5-20261104t062305z'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: sage-projects-qualification
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Recheck qualified source before controlled credential use
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "1dc228c7226a5233d58c30d1c64228cce067f5a4"
+          echo "bd389c5cdd2c064d732a206f1864ac66467eb25e766a45dc8469dd41b0cf2bdd  scripts/sage/sage_pr48_breakglass_ac5.py" | sha256sum --check
+      - name: Read Project #15 issue #44 with governed environment secret
+        env:
+          SAGE_PROJECTS_CREDENTIAL: ${{ secrets.SAGE_PROJECTS_CREDENTIAL }}
+        run: python3 scripts/sage/sage_pr48_breakglass_ac5.py
+      - name: Retain nonsecret branch read-back receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sage-pr48-branch-ac5-breakglass
+          path: ${{ runner.temp }}/sage-pr48-ac5-branch.json
+          retention-days: 30
+          if-no-files-found: warn
