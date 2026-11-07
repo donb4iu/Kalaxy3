@@ -1,0 +1,36 @@
+name: SAGE Project 15 AC5 read-only qualification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ac5-readback:
+    if: github.repository == 'donb4iu/Kalaxy3' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: sage-projects-operations
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read Project 15 and issue 44 through the governed adapter
+        env:
+          SAGE_PROJECTS_CREDENTIAL: ${{ secrets.SAGE_PROJECTS_CREDENTIAL }}
+        run: |
+          python3 scripts/sage/sage_projects_ac5_read.py \
+            --output "$RUNNER_TEMP/sage-ac5-readback.json"
+      - name: Preserve nonsecret AC5 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: sage-project15-issue44-ac5-readback
+          path: ${{ runner.temp }}/sage-ac5-readback.json
+          retention-days: 30
+          if-no-files-found: error
