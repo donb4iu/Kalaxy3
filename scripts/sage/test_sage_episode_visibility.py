@@ -61,6 +61,13 @@ class EpisodeVisibilityTests(unittest.TestCase):
         body = render_comment(event)
         self.assertIn("Accountable: Architect", body)
         self.assertIn("Promotion: **not authorized**", body)
+        self.assertIn("[#15](https://github.com/users/donb4iu/projects/15)", body)
+        self.assertIn("[#44](https://github.com/donb4iu/Kalaxy3/issues/44)", body)
+        self.assertIn("**Publication:** issue-comment create/update", body)
+        self.assertEqual(
+            event["visibility_authority"],
+            "issue-comment create/update via job-scoped GITHUB_TOKEN",
+        )
         self.assertIn(self.env["GITHUB_SHA"], body)
         self.assertIn(marker(self.env["GITHUB_RUN_ID"] + "-1"), body)
 
@@ -104,6 +111,7 @@ class EpisodeVisibilityTests(unittest.TestCase):
         event = construct_event("finish", "transport-exercise", self.env)
         self.assertEqual(event["status"], "transport_exercised")
         self.assertNotIn("Receipt SHA-256", render_comment(event))
+        self.assertIn("**Publication:** issue-comment create/update", render_comment(event))
 
     def test_receipt_pins_run_and_source(self) -> None:
         """Bind Project evidence to the exact GitHub Actions run."""

@@ -14,6 +14,12 @@ GitHub Project defines the governed functional episode; the linked Issue is its 
 
 One run-and-attempt-scoped comment is created at `begin` and updated at `finish` on the issue already linked to the Project. The comment shows objective, responsible/accountable roles, source SHA, branch, actor, run URL, current status, evidence pointer, and next decision.
 
+The Project link is an explicit GitHub Projects URL (never a shorthand `#15`
+autolink, which GitHub can interpret as PR #15). Each episode separates
+its functional execution authority from its issue-comment publication
+authority (`issues:write` on job-scoped `GITHUB_TOKEN`). Transport-only
+qualification explicitly states that live Project inspection did not run.
+
 The start, complete/blocked, and transport-test states are kept separate. The terminal state `observed` requires a live receipt whose repository, Project, issue, source SHA, and run ID match the actual Actions context. A branch transport exercise is explicitly not an AC5/production success claim.
 
 The source JSON events are retained as Actions artifacts for 30 days; the issue comment is a discoverable projection, not an immutable Git fact or a substitute for governed persistence. The Project Status field is not changed.
@@ -28,7 +34,7 @@ The qualification workflow runs on `qualification/sage-episode-visibility-*`, ex
 
 This integrates episode publication with the issue #44 / PR #48 read-back workflow, as the first vertical slice. Other SAGE workflows must explicitly call the same generic publisher at their own functional boundaries; it does **not** claim that every SAGE function is instrumented. Project and Issue numbers are workflow inputs, not hard-coded inside the publisher.
 
-The `feature/sage-episode-visibility-v1` branch is based on PR #48's reviewed head, so the new visibility capability remains a separately reviewable change and does not mutate PR #48 or `main`. Its first production use requires an explicit Architect promotion decision.
+The separately reviewable episode-visibility feature branch is based on PR #48's reviewed head; it does not mutate PR #48 or `main`. Its first production use requires an explicit Architect promotion decision.
 
 ## Qualification and acceptance
 

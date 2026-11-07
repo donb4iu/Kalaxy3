@@ -137,7 +137,9 @@ def construct_event(
         "role_responsible": env["SAGE_RESPONSIBLE"],
         "role_accountable": env["SAGE_ACCOUNTABLE"],
         "authority": env["SAGE_AUTHORITY"],
-        "promotion_authority": "none", "actor": env["GITHUB_ACTOR"],
+        "promotion_authority": "none",
+        "visibility_authority": "issue-comment create/update via job-scoped GITHUB_TOKEN",
+        "actor": env["GITHUB_ACTOR"],
         "source_sha": env["GITHUB_SHA"], "branch": branch,
         "run_url": f"https://github.com/{REPOSITORY}/actions/runs/{env['GITHUB_RUN_ID']}",
         "recorded_at_utc": now_utc(), "evidence": dict(evidence or {}),
@@ -174,14 +176,19 @@ def render_comment(event: Mapping[str, Any]) -> str:
                    f"Started: {event['recorded_at_utc']}")
     return "\n".join([
         marker(event["episode_id"]), "### SAGE objective episode",
-        f"**Project:** #{event['project_number']} · **Issue:** #{event['issue_number']} "
+        f"**Project:** [#{event['project_number']}]"
+        f"(https://github.com/users/donb4iu/projects/{event['project_number']}) "
+        f"· **Issue:** [#{event['issue_number']}]"
+        f"(https://github.com/donb4iu/Kalaxy3/issues/{event['issue_number']}) "
         f"· **Episode:** `{event['episode_id']}`",
         f"**Objective:** {event['objective']}",
         f"**Status:** `{event['status']}` · **Phase:** `{event['phase']}`",
         f"**Transitions:** {transitions}",
         f"**RACI:** Responsible: {event['role_responsible']}; "
         f"Accountable: {event['role_accountable']}",
-        f"**Authority:** {event['authority']} · Promotion: **not authorized**",
+        f"**Authority:** {event['authority']} "
+        f"· **Publication:** {event['visibility_authority']} "
+        "(`issues:write`); Promotion: **not authorized**",
         f"**Source:** `{event['source_sha']}` on `{event['branch']}`",
         f"**Actor:** `{event['actor']}` · **Recorded:** {event['recorded_at_utc']}",
         f"**Evidence:** {pointer}",

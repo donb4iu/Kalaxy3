@@ -14,7 +14,7 @@ env:
   SAGE_OBJECTIVE: 'Issue #44 - governed Project and RACI readback'
   SAGE_RESPONSIBLE: 'GitHub Actions readback operator'
   SAGE_ACCOUNTABLE: 'Architect'
-  SAGE_AUTHORITY: 'read-only Project inspection'
+  SAGE_AUTHORITY: 'Episode visibility transport only - no live Project inspection'
 
 jobs:
   preflight:
