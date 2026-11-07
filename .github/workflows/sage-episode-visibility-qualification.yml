@@ -1,0 +1,66 @@
+name: SAGE episodic Project visibility branch qualification
+
+on:
+  push:
+    branches:
+      - 'qualification/sage-episode-visibility-*'
+
+permissions:
+  contents: read
+
+env:
+  SAGE_PROJECT_NUMBER: '15'
+  SAGE_ISSUE_NUMBER: '44'
+  SAGE_OBJECTIVE: 'Issue #44 - governed Project and RACI readback'
+  SAGE_RESPONSIBLE: 'GitHub Actions readback operator'
+  SAGE_ACCOUNTABLE: 'Architect'
+  SAGE_AUTHORITY: 'read-only Project inspection'
+
+jobs:
+  preflight:
+    if: github.repository == 'donb4iu/Kalaxy3' && startsWith(github.ref, 'refs/heads/qualification/sage-episode-visibility-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Execute episode-boundary contract tests on GitHub Actions
+        run: |
+          cd scripts/sage
+          python3 -m unittest -v test_sage_episode_visibility.py
+  exercise:
+    needs: preflight
+    if: github.repository == 'donb4iu/Kalaxy3' && startsWith(github.ref, 'refs/heads/qualification/sage-episode-visibility-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    environment: sage-projects-qualification
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Observe a real qualification episode opening on issue 44
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/sage/sage_episode_visibility.py begin \
+            --output "$RUNNER_TEMP/visibility-begin.json"
+      - name: Observe the end of the transport exercise without claiming AC5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/sage/sage_episode_visibility.py finish \
+            --result transport-exercise \
+            --output "$RUNNER_TEMP/visibility-finish.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sage-episode-visibility-qualification
+          path: ${{ runner.temp }}/visibility-*.json
+          retention-days: 30
+          if-no-files-found: error
