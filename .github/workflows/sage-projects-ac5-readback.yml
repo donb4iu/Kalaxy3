@@ -1,4 +1,4 @@
-name: SAGE Project 15 AC5 read-only qualification
+name: SAGE Project 15 AC5 read-only qualification with objective visibility
 
 on:
   workflow_dispatch:
@@ -6,8 +6,41 @@ on:
 permissions:
   contents: read
 
+env:
+  SAGE_PROJECT_NUMBER: '15'
+  SAGE_ISSUE_NUMBER: '44'
+  SAGE_OBJECTIVE: 'Issue #44 - governed Project and RACI readback'
+  SAGE_RESPONSIBLE: 'GitHub Actions readback operator'
+  SAGE_ACCOUNTABLE: 'Architect'
+  SAGE_AUTHORITY: 'read-only Project inspection'
+
 jobs:
+  episode-start:
+    if: github.repository == 'donb4iu/Kalaxy3' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Record episode opening on the Project-linked issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/sage/sage_episode_visibility.py begin \
+            --output "$RUNNER_TEMP/sage-episode-begin.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sage-episode-begin
+          path: ${{ runner.temp }}/sage-episode-begin.json
+          retention-days: 30
+          if-no-files-found: error
+
   ac5-readback:
+    needs: episode-start
     if: github.repository == 'donb4iu/Kalaxy3' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -28,9 +61,51 @@ jobs:
           python3 scripts/sage/sage_projects_ac5_read.py \
             --output "$RUNNER_TEMP/sage-ac5-readback.json"
       - name: Preserve nonsecret AC5 evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: sage-project15-issue44-ac5-readback
           path: ${{ runner.temp }}/sage-ac5-readback.json
           retention-days: 30
-          if-no-files-found: error
+          if-no-files-found: warn
+
+  episode-finish:
+    needs: [episode-start, ac5-readback]
+    if: always() && needs.episode-start.result == 'success' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        if: needs.ac5-readback.result == 'success'
+        with:
+          name: sage-project15-issue44-ac5-readback
+          path: ${{ runner.temp }}/ac5
+      - name: Publish terminal episode boundary with evidence or a failure
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LIVE_RESULT: ${{ needs.ac5-readback.result }}
+        run: |
+          set -euo pipefail
+          if [ "$LIVE_RESULT" = success ] && [ -f "$RUNNER_TEMP/ac5/sage-ac5-readback.json" ]; then
+            python3 scripts/sage/sage_episode_visibility.py finish \
+              --result success --receipt "$RUNNER_TEMP/ac5/sage-ac5-readback.json" \
+              --output "$RUNNER_TEMP/sage-episode-finish.json"
+          else
+            python3 scripts/sage/sage_episode_visibility.py finish \
+              --result failure --output "$RUNNER_TEMP/sage-episode-finish.json"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sage-episode-finish
+          path: ${{ runner.temp }}/sage-episode-finish.json
+          retention-days: 30
+          if-no-files-found: warn
