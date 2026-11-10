@@ -121,24 +121,56 @@ def cue_match(label: str, cue: str) -> bool:
     return bool(re.search(expression, label.lower()))
 
 
+def bounded_committed_text(repo: Path, source: dict[str, Any]) -> str | None:
+    """Read eligible Git text for matching without persisting its body.
+
+    Args:
+        repo: Governed Git repository root.
+        source: Revision-pinned, independently inventoried source record.
+    """
+    if source.get('content_state') != 'bounded_text':
+        return None
+    if source.get('mode') == '120000':
+        return None
+    raw = git_output(repo, 'cat-file', 'blob', source['git_oid'])
+    if len(raw) > MAX_MATCH_BYTES or b'\0' in raw:
+        raise ValueError('CONTENT_MATCH_SCOPE_DRIFT')
+    if digest(raw) != source['content_sha256']:
+        raise ValueError('SOURCE_CONTENT_DIGEST_MISMATCH')
+    try:
+        return raw.decode('utf-8')
+    except UnicodeDecodeError:
+        return None
+
+
 def candidate_edges(sources: list[dict[str, Any]],
-                    concepts: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Generate untrusted path-based matches; never mark them established.
+                    concepts: list[dict[str, Any]],
+                    repo: Path | None = None) -> list[dict[str, Any]]:
+    """Nominate path/content lexical candidates without asserting relevance.
 
     Args:
         sources: Complete immutable source inventory.
-        concepts: Existing, unmodified concept vocabulary.
+        concepts: Governed, unmodified concept vocabulary.
+        repo: Optional Git source for bounded content candidate scanning.
     """
     edges: list[dict[str, Any]] = []
     for source in sources:
+        if source['path'] == 'sage-semantic-concepts.json':
+            continue  # Vocabulary definitions cannot self-certify source relevance.
+        content = bounded_committed_text(repo, source) if repo else None
         for concept in concepts:
-            matched = [alias for alias in concept['aliases']
-                       if cue_match(source['path'], alias)]
-            if matched:
+            path_aliases = [alias for alias in concept['aliases']
+                            if cue_match(source['path'], alias)]
+            text_aliases = [alias for alias in concept['aliases']
+                            if content is not None and cue_match(content, alias)]
+            if path_aliases or text_aliases:
                 edges.append({'source_id': source['identity'],
                               'concept': concept['name'],
                               'state': 'candidate_unverified',
-                              'matched_aliases': matched})
+                              'matched_aliases': sorted(set(path_aliases + text_aliases)),
+                              'match_surfaces': [name for name, found in
+                                                 [('path', path_aliases),
+                                                  ('content', text_aliases)] if found]})
     return edges
 
 
@@ -167,7 +199,7 @@ def prepare(repo: Path, config_path: Path) -> dict[str, Any]:
     config = json.loads(config_path.read_text(encoding='utf-8'))
     sources = source_records(repo, head)
     concepts = concept_records(config)
-    edges = candidate_edges(sources, concepts)
+    edges = candidate_edges(sources, concepts, repo=repo)
     return {'revision': head, 'sources': sources, 'concepts': concepts,
             'candidate_edges': edges, 'fingerprint': fingerprint(sources, concepts, edges),
             'qualification': 'candidate_only', 'evidence_maturity_assessed': False}

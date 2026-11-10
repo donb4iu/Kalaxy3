@@ -45,7 +45,8 @@ def revision_inventory(repo: Path, revision: str) -> dict[str, Any]:
     concepts, model_state = committed_model(repo, canonical)
     return {'revision': canonical, 'sources': sources, 'concepts': concepts,
             'model_state': model_state,
-            'candidate_edges': candidate_edges(sources, concepts)}
+            'candidate_edges': candidate_edges(sources, concepts, repo=repo) if concepts
+                                else []}
 
 
 def compare_sources(before: list[dict[str, Any]],

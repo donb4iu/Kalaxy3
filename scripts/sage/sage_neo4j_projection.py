@@ -100,7 +100,8 @@ def write_edges(tx: Any, rows: list[dict[str, Any]]) -> None:
        MATCH (s:SageSource {uid:row.source_uid})
        MATCH (c:SageConcept {uid:row.concept_uid})
        MERGE (s)-[r:CANDIDATE_CONCEPT]->(c)
-       SET r.match_state='candidate_unverified', r.matched_aliases=row.aliases''',
+       SET r.match_state='candidate_unverified', r.matched_aliases=row.aliases,
+           r.match_surfaces=row.surfaces''',
            rows=rows).consume()
 
 
@@ -131,7 +132,9 @@ def build_projection(session: Any, payload: dict[str, Any]) -> dict[str, Any]:
                 for row in payload['concepts']]
     edges = [{'source_uid': identifier + ':' + edge['source_id'],
               'concept_uid': identifier + ':' + edge['concept'],
-              'aliases': edge['matched_aliases']} for edge in payload['candidate_edges']]
+              'aliases': edge['matched_aliases'],
+              'surfaces': edge.get('match_surfaces', ['path'])}
+             for edge in payload['candidate_edges']]
     related = [{'from_uid': identifier + ':' + row['name'],
                 'to_uid': identifier + ':' + name}
                for row in payload['concepts'] for name in row['related']]
