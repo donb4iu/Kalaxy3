@@ -244,3 +244,11 @@
     - name: Run MinIO phase
       ansible.builtin.include_tasks: tasks/minio.yml
       when: selected_platform_phase in ['all', 'minio']
+    - name: "Run Issue #50 Neo4j phase (separately authorized only)"
+      ansible.builtin.include_tasks: tasks/sage-neo4j.yml
+      when:
+        - false  # Staged only; explicit governed activation required
+        - selected_platform_phase == 'sage_neo4j'
+        - sage_neo4j_deploy_authorized | default(false) | bool
+      tags:
+        - sage-neo4j

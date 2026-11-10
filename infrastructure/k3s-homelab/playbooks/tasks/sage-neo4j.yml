@@ -1,0 +1,54 @@
+---
+# Issue #50 deployment stage. Never called by `platform_phase=all`.
+- name: Require separate Architect deployment authority
+  ansible.builtin.assert:
+    that:
+      - sage_neo4j_deploy_authorized | default(false) | bool
+      - selected_platform_phase == 'sage_neo4j'
+      - helm_chart_lock.charts.sage_neo4j.chart == 'neo4j/neo4j'
+      - helm_chart_lock.charts.sage_neo4j.namespace == 'sage'
+    fail_msg: >-
+      Issue #50 allows branch engineering, not Kubernetes deployment.
+      A separate, attributable deployment authority and explicit phase are required.
+
+- name: Check that Vault-managed Neo4j credentials already exist
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - get
+      - secret
+      - sage-neo4j-auth
+      - --namespace=sage
+      - --output=name
+  register: sage_neo4j_auth_check
+  changed_when: false
+  environment: "{{ helm_environment }}"
+  no_log: true
+
+- name: Render version-pinned Neo4j Community values without credentials
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../helm-values/sage-neo4j.yaml"
+    dest: /var/tmp/kalaxy3-sage-neo4j-values.yaml
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Install or update the authorized standalone Neo4j release
+  ansible.builtin.command:
+    argv:
+      - "{{ helm_binary }}"
+      - upgrade
+      - --install
+      - sage-neo4j
+      - "{{ helm_chart_lock.charts.sage_neo4j.chart }}"
+      - --version
+      - "{{ helm_chart_lock.charts.sage_neo4j.version }}"
+      - --namespace
+      - sage
+      - --values
+      - /var/tmp/kalaxy3-sage-neo4j-values.yaml
+      - --wait
+      - --timeout
+      - 10m
+  environment: "{{ helm_environment }}"
+  no_log: true

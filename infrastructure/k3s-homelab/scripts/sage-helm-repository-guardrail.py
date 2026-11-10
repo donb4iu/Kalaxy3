@@ -15,24 +15,16 @@ from urllib.parse import urlsplit
 ROOT: Final = Path(__file__).resolve().parents[1]
 REGISTRY_PATH: Final = ROOT / "helm-repositories.json"
 REQUIRED_FIELDS: Final = {"name", "url", "url_sha256"}
-TRUSTED_REPOSITORIES: Final = {
-    "fluent": "https://fluent.github.io/helm-charts/",
-    "grafana": "https://grafana.github.io/helm-charts",
-    "grafana-community": (
-        "https://grafana-community.github.io/helm-charts"
-    ),
-    "headlamp": "https://kubernetes-sigs.github.io/headlamp/",
-    "longhorn": "https://charts.longhorn.io",
-    "metallb": "https://metallb.github.io/metallb",
-    "nvdp": "https://nvidia.github.io/k8s-device-plugin",
-    "nfs": (
-        "https://kubernetes-sigs.github.io/"
-        "nfs-subdir-external-provisioner"
-    ),
-    "prometheus-community": (
-        "https://prometheus-community.github.io/helm-charts"
-    ),
-}
+TRUSTED_REPOSITORIES: Final = {'fluent': 'https://fluent.github.io/helm-charts/',
+                               'grafana': 'https://grafana.github.io/helm-charts',
+                               'grafana-community': 'https://grafana-community.github.io/helm-charts',
+                               'headlamp': 'https://kubernetes-sigs.github.io/headlamp/',
+                               'longhorn': 'https://charts.longhorn.io',
+                               'metallb': 'https://metallb.github.io/metallb',
+                               'nvdp': 'https://nvidia.github.io/k8s-device-plugin',
+                               'nfs': 'https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner',
+                               'prometheus-community': 'https://prometheus-community.github.io/helm-charts',
+                               'neo4j': 'https://helm.neo4j.com/neo4j'}
 
 
 def sha256_text(value: str) -> str:
