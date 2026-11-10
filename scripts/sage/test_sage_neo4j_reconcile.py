@@ -12,7 +12,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from sage_neo4j_reconcile import (candidate_pairs, compare_sources,
+from sage_neo4j_reconcile import (MODEL_ABSENT, MODEL_AVAILABLE,
+                                  candidate_pairs, compare_sources,
                                   reconcile, revision_inventory)
 
 
@@ -72,6 +73,72 @@ class SourceLifecycleTests(unittest.TestCase):
         new = revision_inventory(self.repo, 'HEAD')
         self.assertEqual(candidate_pairs(old), candidate_pairs(new))
         self.assertEqual(reconcile(old, new)['new_candidate_links'], [])
+
+    def test_predecessor_without_vocabulary_preserves_all_sources(self) -> None:
+        """A legacy predecessor cannot be mistaken for an empty semantic claim."""
+        (self.repo / 'sage-semantic-concepts.json').unlink()
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'legacy predecessor without model')
+        legacy = self.git('rev-parse', 'HEAD').strip()
+        (self.repo / 'sage-semantic-concepts.json').write_text(json.dumps({
+            'concepts': {'storage': {'terms': ['longhorn'],
+                                     'related': [], 'dimensions': []}}}), 'utf-8')
+        (self.repo / 'new-evidence.md').write_text('new', 'utf-8')
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'model restored')
+        before = revision_inventory(self.repo, legacy)
+        after = revision_inventory(self.repo, 'HEAD')
+        receipt = reconcile(before, after)
+        self.assertEqual(before['model_state'], MODEL_ABSENT)
+        self.assertEqual(after['model_state'], MODEL_AVAILABLE)
+        self.assertEqual(receipt['source_changes']['added'],
+                         ['new-evidence.md', 'sage-semantic-concepts.json'])
+        self.assertEqual(receipt['candidate_comparison_state'], 'not_evaluated')
+        self.assertEqual(receipt['new_candidate_links'], [])
+        self.assertEqual(receipt['semantic_relationships_established'], 0)
+        self.assertFalse(receipt['promotion_authorized'])
+
+    def test_both_revisions_without_vocabulary_preserve_source_delta(self) -> None:
+        """A historical corpus remains fully inventoried without any model."""
+        (self.repo / 'sage-semantic-concepts.json').unlink()
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'legacy no model')
+        before = revision_inventory(self.repo, 'HEAD')
+        (self.repo / 'new.md').write_text('new', 'utf-8')
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'new evidence')
+        after = revision_inventory(self.repo, 'HEAD')
+        receipt = reconcile(before, after)
+        self.assertEqual(receipt['source_changes']['added'], ['new.md'])
+        self.assertEqual(receipt['candidate_comparison_state'], 'not_evaluated')
+        self.assertEqual(receipt['concept_model_states']['after'], MODEL_ABSENT)
+        self.assertEqual(len(before['sources']) + 1, len(after['sources']))
+
+    def test_malformed_governed_vocabulary_fails_closed(self) -> None:
+        """A present but corrupted model is not treated as a missing model."""
+        path = self.repo / 'sage-semantic-concepts.json'
+        path.write_text('{invalid-json', 'utf-8')
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'malformed concept JSON')
+        with self.assertRaises(json.JSONDecodeError):
+            revision_inventory(self.repo, 'HEAD')
+
+    def test_real_cli_receipt_without_historical_model(self) -> None:
+        """Run the actual CLI against a predecessor missing the model file."""
+        (self.repo / 'sage-semantic-concepts.json').unlink()
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'model absent')
+        (self.repo / 'new.md').write_text('new', 'utf-8')
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'new source')
+        output = self.repo / 'reconciliation.json'
+        cli = Path(__file__).with_name('sage-neo4j-reconcile.py')
+        subprocess.run([sys.executable, str(cli), '--repo', str(self.repo),
+                        '--before', 'HEAD~1', '--after', 'HEAD',
+                        '--out', str(output)], check=True, capture_output=True)
+        record = json.loads(output.read_text('utf-8'))
+        self.assertEqual(record['candidate_comparison_state'], 'not_evaluated')
+        self.assertEqual(record['source_changes']['added'], ['new.md'])
 
     def test_duplicate_path_fails(self) -> None:
         """Fail closed on duplicated paths that could corrupt coverage counts."""

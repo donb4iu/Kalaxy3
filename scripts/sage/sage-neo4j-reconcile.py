@@ -28,6 +28,7 @@ def main() -> int:
     print('ADDED=' + str(len(receipt['source_changes']['added'])))
     print('MODIFIED=' + str(len(receipt['source_changes']['modified'])))
     print('REMOVED=' + str(len(receipt['source_changes']['removed'])))
+    print('CANDIDATE_COMPARISON=' + receipt['candidate_comparison_state'])
     print('PROJECTION_PROMOTION=NONE')
     return 0
 
