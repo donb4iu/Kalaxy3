@@ -85,7 +85,10 @@ def write_concepts(tx: Any, identifier: str, rows: list[dict[str, Any]]) -> None
        UNWIND $rows AS row
        MERGE (c:SageConcept {uid:row.uid})
        SET c.name=row.name, c.aliases=row.aliases,
-           c.dimensions=row.dimensions
+           c.dimensions=row.dimensions,
+           c.origin_scope=row.origin_scope,
+           c.origin_paths=row.origin_paths,
+           c.origin_refs_json=row.origin_refs_json
        MERGE (c)-[:IN_PROJECTION]->(p)''', projection=identifier, rows=rows).consume()
 
 
@@ -103,6 +106,21 @@ def write_edges(tx: Any, rows: list[dict[str, Any]]) -> None:
        SET r.match_state='candidate_unverified', r.matched_aliases=row.aliases,
            r.match_surfaces=row.surfaces''',
            rows=rows).consume()
+
+
+def write_source_references(tx: Any, rows: list[dict[str, Any]]) -> None:
+    """Project verified literal Git-document links, never runtime dependencies.
+
+    Args:
+        tx: Neo4j write transaction.
+        rows: Revision-scoped source-to-source link metadata.
+    """
+    tx.run("""UNWIND $rows AS row
+       MATCH (a:SageSource {uid:row.from_uid})
+       MATCH (b:SageSource {uid:row.to_uid})
+       MERGE (a)-[r:REFERENCES_SOURCE]->(b)
+       SET r.reference_class='literal_markdown_link',
+           r.semantic_authority='source_reference_only' """, rows=rows).consume()
 
 
 def write_related(tx: Any, rows: list[dict[str, Any]]) -> None:
@@ -128,7 +146,9 @@ def build_projection(session: Any, payload: dict[str, Any]) -> dict[str, Any]:
     identifier = projection_id(payload)
     sources = [{**row, 'uid': identifier + ':' + row['identity']}
                for row in payload['sources']]
-    concepts = [{**row, 'uid': identifier + ':' + row['name']}
+    concepts = [{**row, 'uid': identifier + ':' + row['name'],
+                 'origin_refs_json': json.dumps(row.get('origin_refs', []),
+                                                sort_keys=True)}
                 for row in payload['concepts']]
     edges = [{'source_uid': identifier + ':' + edge['source_id'],
               'concept_uid': identifier + ':' + edge['concept'],
@@ -138,6 +158,9 @@ def build_projection(session: Any, payload: dict[str, Any]) -> dict[str, Any]:
     related = [{'from_uid': identifier + ':' + row['name'],
                 'to_uid': identifier + ':' + name}
                for row in payload['concepts'] for name in row['related']]
+    references = [{'from_uid': identifier + ':' + row['from_id'],
+                   'to_uid': identifier + ':' + row['to_id']}
+                  for row in payload.get('explicit_source_links', [])]
     create_schema(session)
     session.execute_write(write_header, identifier, payload)
     for batch in chunks(sources):
@@ -148,6 +171,8 @@ def build_projection(session: Any, payload: dict[str, Any]) -> dict[str, Any]:
         session.execute_write(write_edges, batch)
     for batch in chunks(related):
         session.execute_write(write_related, batch)
+    for batch in chunks(references):
+        session.execute_write(write_source_references, batch)
     return verify_counts(session, identifier, payload)
 
 
@@ -168,11 +193,15 @@ def verify_counts(session: Any, identifier: str,
         'candidate_edges': 'MATCH (s:SageSource)-[:CANDIDATE_CONCEPT]->(c:SageConcept) '
                            'WHERE s.uid STARTS WITH $prefix AND '
                            'c.uid STARTS WITH $prefix RETURN count(*) AS count',
+        'source_links': 'MATCH (a:SageSource)-[:REFERENCES_SOURCE]->(b:SageSource) '
+                        'WHERE a.uid STARTS WITH $prefix AND '
+                        'b.uid STARTS WITH $prefix RETURN count(*) AS count',
     }
     observed = {key: session.run(query, id=identifier, prefix=identifier + ':').single()['count']
                 for key, query in queries.items()}
     expected = {key: len(payload['candidate_edges'] if key == 'candidate_edges'
-                         else payload[key]) for key in queries}
+                         else payload.get('explicit_source_links', []) if
+                         key == 'source_links' else payload[key]) for key in queries}
     if observed != expected:
         raise ValueError(f'NEO4J_PROJECTION_COUNT_MISMATCH: {observed} != {expected}')
     return {'projection_id': identifier, 'observed': observed,

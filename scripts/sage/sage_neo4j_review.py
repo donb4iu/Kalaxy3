@@ -93,7 +93,7 @@ def build_review(snapshot: dict[str, Any], size: int = 48,
         size: Maximum total reviewed source/concept pairs.
         seed: Deterministic explicit sampling seed.
     """
-    if snapshot['model_state'] != 'available':
+    if snapshot['model_state'] not in {'available', 'evidence_derived_candidate'}:
         return {'status': 'not_evaluated', 'reason': 'CONCEPT_MODEL_ABSENT',
                 'revision': snapshot['revision'],
                 'source_count': len(snapshot['sources'])}

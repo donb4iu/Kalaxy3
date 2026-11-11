@@ -145,7 +145,7 @@ def evaluate(snapshot: dict[str, Any], labels: dict[str, Any]) -> dict[str, Any]
         snapshot: Committed projection candidate snapshot.
         labels: Independently authored pair judgments, including negatives.
     """
-    if snapshot['model_state'] != 'available':
+    if snapshot['model_state'] not in {'available', 'evidence_derived_candidate'}:
         raise ValueError('CONCEPT_MODEL_NOT_EVALUATED')
     judgments = validate_labels(snapshot, labels)
     candidates = candidate_pairs(snapshot)
@@ -193,7 +193,7 @@ def assess(repo: Path, labels: dict[str, Any] | None = None) -> dict[str, Any]:
         labels: Optional independently created label document.
     """
     snapshot = build_snapshot(repo)
-    if snapshot['model_state'] != 'available':
+    if snapshot['model_state'] not in {'available', 'evidence_derived_candidate'}:
         if labels is not None:
             raise ValueError('CANNOT_SCORE_LABELS_WITHOUT_CONCEPT_MODEL')
         return {'status': 'not_evaluated', 'reason': 'CONCEPT_MODEL_ABSENT',
