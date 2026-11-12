@@ -40,7 +40,7 @@
       - upgrade
       - --install
       - sage-neo4j
-      - "{{ helm_chart_lock.charts.sage_neo4j.chart }}"
+      - neo4j/neo4j
       - --version
       - "{{ helm_chart_lock.charts.sage_neo4j.version }}"
       - --namespace

@@ -12,6 +12,7 @@ from typing import Any
 from sage_neo4j_inventory import prepare
 from sage_neo4j_lifecycle import ensure_lossless, projection_id, receipt_path
 from sage_neo4j_projection import build_projection, concept_evidence
+from sage_neo4j_objective import inventory_page, objective_evidence
 
 
 def arguments() -> argparse.Namespace:
@@ -23,6 +24,14 @@ def arguments() -> argparse.Namespace:
     parser.add_argument('--uri', default='bolt://127.0.0.1:7687')
     parser.add_argument('--user', default='neo4j')
     parser.add_argument('--concept', default='storage')
+    parser.add_argument('--objective',
+                        help='Read candidate evidence for objective text')
+    parser.add_argument('--seed-concept', action='append', default=[],
+                        help='Optional unverified concept entry point')
+    parser.add_argument('--browse-inventory', action='store_true')
+    parser.add_argument('--unmapped-only', action='store_true')
+    parser.add_argument('--offset', type=int, default=0)
+    parser.add_argument('--page-size', type=int, default=30)
     parser.add_argument('--require-integration', action='store_true')
     return parser.parse_args()
 
@@ -58,8 +67,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             driver.verify_connectivity()
             with driver.session() as session:
                 receipt['neo4j'] = build_projection(session, payload)
-                receipt['sample_readback'] = concept_evidence(
-                    session, receipt['projection_id'], args.concept)
+                if args.objective:
+                    receipt['objective_readback'] = objective_evidence(
+                        session, receipt['projection_id'], args.objective,
+                        offset=args.offset, limit=args.page_size,
+                        proposed_concepts=args.seed_concept)
+                else:
+                    receipt['sample_readback'] = concept_evidence(
+                        session, receipt['projection_id'], args.concept)
+                if args.browse_inventory:
+                    receipt['inventory_readback'] = inventory_page(
+                        session, receipt['projection_id'], args.offset,
+                        args.page_size, args.unmapped_only)
     else:
         receipt['neo4j'] = 'not_run_requires_local_integration'
     receipt['receipt'] = str(receipt_path(args.out, receipt))

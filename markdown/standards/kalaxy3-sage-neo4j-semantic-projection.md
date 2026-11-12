@@ -153,3 +153,28 @@ This clarification does not authorize a new recommendation engine, independent
 reasoning system, permanent facts store, threshold policy, modification of main,
 production Neo4j activation, or deployment. Continue bounded engineering and
 qualification through the existing feature-branch governance lifecycle.
+
+
+## Objective-scoped candidate retrieval — bounded implementation slice
+
+The local-only `sage-neo4j-projection.py` integration interface supports
+`--objective "Monitor Longhorn observability" --page-size 30 --offset 0`.
+It uses existing projection-scoped aliases and visible token overlap as
+explicitly provisional candidate entry points,
+expands at most one `RELATED_CONCEPT` hop, and returns associated
+`CANDIDATE_CONCEPT` sources and literal document links with Git identity,
+content digests, and unchanged mapping status. It does **not** claim
+paraphrase coverage, semantic qualification, or evidence maturity.
+
+`--seed-concept storage` optionally accepts a concept nominated by a
+collaborating LLM; this remains `caller_proposed_candidate`, never authority.
+`--browse-inventory --unmapped-only` exposes paginated source records
+regardless of semantic matching, so an absent candidate edge cannot become
+an assertion that evidence is absent. The page limit affects transport only,
+not the available evidence universe.
+
+This slice reuses the candidate graph without model migration or activation.
+Globally applicable guardrail relationships, causal/historical alternatives,
+complete objective-level recall, and qualified operational proof remain
+subject to the existing Issue #50 acceptance ledger. No new gates, scores,
+or ontology authority are introduced.
