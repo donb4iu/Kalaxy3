@@ -53,3 +53,103 @@ Python dependencies for this slice (copyable `requirements.txt`):
 ```text
 neo4j==6.4.1
 ```
+
+
+<!-- SAGE-ISSUE50-SEMANTIC-INTENT-20261111 -->
+
+## Architectural continuity: objective-scoped semantic evidence retrieval
+
+**Status:** Clarification of the already-approved Issue #50 intent. This is not a new
+objective, subsystem, acceptance gate, authority grant, or deployment authorization.
+
+### Institutional knowledge and temporal intent
+
+SAGE's governed evidence corpus preserves complete, detailed, functional engineering
+knowledge independently of any LLM, conversation, or engineering team. It includes
+objectives and requirements, implementations and lifecycle state, alternatives
+considered or deferred, their original decision rationale, assumptions, estimates,
+measurements, corrections, outcomes, and source/authority provenance.
+
+Preserve the historical conditions and intent of decisions, including what was known
+at the time. Subsequent developments add linked evidence; they do not silently
+rewrite earlier decisions. This parallels the established RFP architecture's use of
+successive source-document iterations navigated through a semantic question corpus.
+
+### Data model, semantic retrieval, and reasoning are distinct
+
+- The governed evidence corpus is the durable source of SAGE institutional knowledge.
+- The rebuildable Neo4j projection represents evidence identities, concepts, typed
+  relationships, applicability, provenance, and temporal/causal connections.
+- Semantic matching maps an Architect-owned objective to candidate concept anchors.
+- Relationship-aware retrieval assembles an objective-specific evidence subgraph,
+  rather than traversing or sending the entire corpus on every objective.
+- Architect and collaborating LLMs interpret, correlate, critique, compare, infer,
+  and decide using retrieved evidence within established role/authority boundaries.
+
+Neo4j is a query projection, not canonical authority or a reasoning engine. The
+semantic retrieval mechanism may improve as models and technology evolve without
+changing the enduring evidence or granting the projection decision authority.
+
+### Objective-related evidence and guardrails
+
+An in-scope Kalaxy3 implementation objective should retrieve existing capabilities,
+prior art, alternatives, unresolved questions, operational measurements, and the
+applicable governed implementation baseline. This includes observability, net
+operational cost, security, lifecycle, and recovery obligations via documented
+applicability relationships, including scoped always-applicable baseline links.
+
+Guardrails are implementation requirements/features to fulfill, not semantic
+inhibitors. Retrieval is an evidence helper, never a new approval, failure, or scope
+gate. Existing deterministic governance enforcement and Architect authority remain
+unchanged at their established boundaries.
+
+Established, candidate, and not-yet-evaluated relationships remain distinguishable.
+Lack of an existing semantic mapping is not evidence that the source is irrelevant or
+that an implementation is missing. Broader source discovery must remain available
+when the mapped graph does not cover the objective. Source identity, Git lineage,
+main-versus-feature state, supporting/contradictory evidence, uncertainty, and
+historical context accompany retrieved findings.
+
+### Cross-episode learning without functional fixedness
+
+Retrieve deferred/rejected alternatives and quantitative observations across
+objective episodes, including completion time, engineering effort, intervention and
+correction cycles, operational cost, reliability, resource use, and reuse.
+Subsequent work may change the circumstances behind an earlier decision and create a
+small option worth examining under the current objective.
+
+The purpose is to prevent repeatedly selecting the familiar solution merely because
+the team lacks accumulated context. SAGE does not judge, score, or rank which option
+must be chosen. The Architect and LLM collaborators reason over attributable
+supporting and opposing evidence. Their qualified new findings can become governed
+causal evidence for future retrieval.
+
+### Multi-team, multi-role evidence assembly
+
+Existing evidence-analysis, integration, path/architecture criticism, implementation
+criticism, optimization, and auditor/referee perspectives may contribute multiple
+retrieval or evidence-organization steps. They do not become extra approval gates.
+Multiple engineering teams must have consistent access to the same institutional
+knowledge without depending on persistent-LLM memory or manual reconstruction.
+
+### Retrieval efficiency and measurement
+
+Optimize the objective-specific subgraph for relevant evidence coverage, temporal
+and causal completeness, provenance, and usable context with limited noise, duplicate
+material, tokens, execution time, and inference/operational cost. Retrieval quality
+and its effect on objective completion and rework can be measured across episodes.
+Quantitative scores may be contextual guidance, not hidden policies for excluding
+findings or promoting an alternative. Grouping, summaries, pagination, and
+progressive expansion preserve access to full underlying evidence.
+
+### Issue #50 qualification and scope
+
+Use the existing approved Issue #50 Definition of Done and test scenarios. Distinguish
+what the current code and evidence demonstrate from what remains unqualified.
+Isolated concept-to-source classification is a diagnostic, not a substitute for
+objective-centered retrieval and reproducible historical context.
+
+This clarification does not authorize a new recommendation engine, independent
+reasoning system, permanent facts store, threshold policy, modification of main,
+production Neo4j activation, or deployment. Continue bounded engineering and
+qualification through the existing feature-branch governance lifecycle.
