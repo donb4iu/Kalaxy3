@@ -184,7 +184,7 @@ def fingerprint(sources: list[dict[str, Any]],
         concepts: Semantic vocabulary snapshot.
         edges: Explicit candidate edge records.
     """
-    payload = {'projection_schema': 'attested_context_v1',
+    payload = {'projection_schema': 'attested_relationship_claims_v1',
                'sources': sources, 'concepts': concepts, 'edges': edges}
     return digest(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode())
 
@@ -202,9 +202,12 @@ def prepare(repo: Path, config_path: Path) -> dict[str, Any]:
     concepts = concept_records(config)
     edges = candidate_edges(sources, concepts, repo=repo)
     from sage_neo4j_context import root_governance_sources, source_sections
+    from sage_neo4j_claims import pinned_claims
+    claims = pinned_claims(repo, sources)
     sections = source_sections(repo, sources)
     governance = root_governance_sources(sources)
     return {'source_sections': sections, 'root_governance_sources': governance,
+            'relationship_claims': claims,
             'revision': head, 'sources': sources, 'concepts': concepts,
             'candidate_edges': edges, 'fingerprint': fingerprint(sources, concepts, edges),
             'qualification': 'candidate_only', 'evidence_maturity_assessed': False}

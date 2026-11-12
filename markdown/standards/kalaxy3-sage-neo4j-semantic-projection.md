@@ -222,3 +222,53 @@ semantic interpretation of historical acceptance/rejection and decision rational
 complete temporal/causal relationships, cross-revision continuity, independent
 objective-level recall, authoritative promotion, and deployment. No root source
 pointer is an enforcement mechanism or a substitute for governed discovery.
+
+## Source-attested typed relationship claims — bounded continuation
+
+**Status:** Candidate-only Issue #50 implementation. This is an evidence-navigation
+capability, not new policy authority or a historical-decision adjudicator.
+
+The optional, Git-committed `sage-neo4j-relationship-claims.json` registry (version
+1) declares a bounded set of attributable relationship *claims*. Each row names
+an ID, closed relation kind, source subject, optional source object, explicit
+scope, evidence source path, starting line and exact one-to-five-line quote.
+The reader obtains both the registry and the quoted evidence **from the same
+pinned Git revision**, not the working tree. It rejects missing sources,
+duplicate IDs, invalid scope/type and misquoted evidence before graph writing.
+The projection records SHA-256 evidence and quote digests, line pointers and
+source relationships; it never stores the raw quote or upgrades the claim to an
+approved decision. A source's literal text and a curator's typed interpretation
+remain distinguishable.
+
+The closed relation vocabulary is `applicable_to`, `decision_about`,
+`alternative_considered`, `alternative_rejected`, `supersedes`, `depends_on`,
+`supports` and `contradicts`. Source-to-source relations require both endpoints
+to exist in the same committed source inventory. `applicable_to` requires the
+specific `kalaxy3_implementation` scope and an actual root source but **does
+not** grant a claim authority over another project or all operational contexts.
+The initial registry includes one attributable discovery obligation already
+expressed literally in `AGENTS.md`. Additional historical assertions require
+separately sourced and governed declarations rather than guessed headings.
+
+Neo4j represents these as version-scoped `SageRelationClaim` nodes linked by
+`CLAIM_SUBJECT`, `CLAIM_OBJECT` (when present) and `CLAIM_EVIDENCE` edges to
+version-scoped Git sources. Their `kind` is the **registered claim type** and
+their `semantic_qualification` remains `not_evaluated`. Candidate graph count
+verification includes these claims. The projection fingerprint now uses
+`attested_relationship_claims_v1` to prevent reuse of the earlier graph schema
+identity; committed registry bytes also participate in the Git source hash.
+
+`objective_evidence()` now returns `relationship_claims`, their total and
+independent `claim_offset`, `claim_limit` and `next_claim_offset`. A globally
+registered implementation claim remains discoverable even when no concept name
+matches an objective. Non-global relation claims are retrieved only for source
+pointers on the bounded candidate/one-hop context page. Independent pagination
+is transport-only, not a filter asserting that other evidence does not exist.
+The full source inventory remains accessible and evidence presence remains
+`not_evaluated` throughout.
+
+**Still unresolved:** semantic assessment and qualification of claims, broader
+obligation population, temporal/causal decision interpretation, cross-episode
+precision/recall, full DoD graph equivalence and production activation. No
+ordinary claim may override deterministic SAGE enforcement, Architect approval,
+or the separate deployment and Git promotion boundaries.

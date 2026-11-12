@@ -15,6 +15,8 @@ SCHEMA = (
     'CREATE CONSTRAINT sage_source_id IF NOT EXISTS FOR (s:SageSource) REQUIRE s.uid IS UNIQUE',
     ('CREATE CONSTRAINT sage_section_id IF NOT EXISTS '
      'FOR (e:SageEvidenceSection) REQUIRE e.uid IS UNIQUE'),
+    ('CREATE CONSTRAINT sage_claim_id IF NOT EXISTS '
+     'FOR (c:SageRelationClaim) REQUIRE c.uid IS UNIQUE'),
 )
 
 
@@ -183,6 +185,56 @@ def write_governance_pointers(tx: Any, identifier: str,
            projection=identifier, rows=rows).consume()
 
 
+def write_relation_claims(tx: Any, identifier: str,
+                          rows: list[dict[str, Any]]) -> None:
+    """Write attested but unqualified relationship declarations.
+
+    Args:
+        tx: Neo4j write transaction.
+        identifier: Exact candidate projection identity.
+        rows: Claim metadata and verified Git source pointers.
+    """
+    tx.run('''MATCH (p:SageProjection {id:$projection})
+       WHERE p.state='candidate'
+       UNWIND $rows AS row
+       MATCH (s:SageSource {uid:row.subject_uid})-[:IN_PROJECTION]->(p)
+       MATCH (e:SageSource {uid:row.evidence_uid})-[:IN_PROJECTION]->(p)
+       MERGE (c:SageRelationClaim {uid:row.uid})
+       SET c.claim_id=row.id, c.kind=row.kind, c.scope=row.scope,
+           c.start_line=row.start_line, c.evidence_sha256=row.evidence_sha256,
+           c.quote_sha256=row.quote_sha256,
+           c.attestation='registered_type_exact_committed_quote',
+           c.semantic_qualification='not_evaluated'
+       MERGE (c)-[:IN_PROJECTION]->(p)
+       MERGE (c)-[:CLAIM_SUBJECT]->(s)
+       MERGE (c)-[:CLAIM_EVIDENCE]->(e)''',
+           projection=identifier, rows=rows).consume()
+    tx.run('''MATCH (p:SageProjection {id:$projection})
+       WHERE p.state='candidate'
+       UNWIND $rows AS row
+       WITH p, row WHERE row.object_uid IS NOT NULL
+       MATCH (c:SageRelationClaim {uid:row.uid})-[:IN_PROJECTION]->(p)
+       MATCH (o:SageSource {uid:row.object_uid})-[:IN_PROJECTION]->(p)
+       MERGE (c)-[:CLAIM_OBJECT]->(o)''',
+           projection=identifier, rows=rows).consume()
+
+
+def prepared_claim_rows(identifier: str,
+                        payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Map pinned source identities into a distinct candidate graph namespace.
+
+    Args:
+        identifier: Candidate projection identity.
+        payload: Revision-bound relationship claims and source records.
+    """
+    return [{'uid': identifier + ':claim:' + row['identity'],
+             'subject_uid': identifier + ':' + row['subject_id'],
+             'object_uid': (identifier + ':' + row['object_id']
+                            if row['object_id'] else None),
+             'evidence_uid': identifier + ':' + row['evidence_id'], **row}
+            for row in payload.get('relationship_claims', [])]
+
+
 def build_projection(session: Any, payload: dict[str, Any]) -> dict[str, Any]:
     """Rebuild a version-scoped candidate without altering any active pointer.
 
@@ -210,6 +262,7 @@ def build_projection(session: Any, payload: dict[str, Any]) -> dict[str, Any]:
                 for row in payload.get('source_sections', [])]
     governance = [{'source_uid': identifier + ':' + row['source_id']}
                   for row in payload.get('root_governance_sources', [])]
+    claims = prepared_claim_rows(identifier, payload)
     references = [{'from_uid': identifier + ':' + row['from_id'],
                    'to_uid': identifier + ':' + row['to_id']}
                   for row in payload.get('explicit_source_links', [])]
@@ -229,6 +282,8 @@ def build_projection(session: Any, payload: dict[str, Any]) -> dict[str, Any]:
         session.execute_write(write_sections, identifier, batch)
     for batch in chunks(governance):
         session.execute_write(write_governance_pointers, identifier, batch)
+    for batch in chunks(claims):
+        session.execute_write(write_relation_claims, identifier, batch)
     return verify_counts(session, identifier, payload)
 
 
@@ -269,6 +324,12 @@ def verify_counts(session: Any, identifier: str,
                  '(p:SageProjection {id:$id}) RETURN count(e) AS count')
         observed['source_sections'] = session.run(query, id=identifier).single()['count']
         expected['source_sections'] = len(payload['source_sections'])
+    if payload.get('relationship_claims'):
+        query = ('MATCH (c:SageRelationClaim)-[:IN_PROJECTION]->'
+                 '(p:SageProjection {id:$id}) RETURN count(c) AS count')
+        observed['relationship_claims'] = session.run(
+            query, id=identifier).single()['count']
+        expected['relationship_claims'] = len(payload['relationship_claims'])
     if observed != expected:
         raise ValueError(f'NEO4J_PROJECTION_COUNT_MISMATCH: {observed} != {expected}')
     return {'projection_id': identifier, 'observed': observed,

@@ -72,6 +72,9 @@ class FakeSession:
                                 'semantic_authority': 'source_reference_only'}])
         if 'ROOT_GOVERNANCE_POINTER' in query:
             return FakeResult([])
+        if 'SageRelationClaim' in query:
+            return (FakeResult([{'total': 0}]) if 'count(DISTINCT c)' in query
+                    else FakeResult([]))
         if 'SageEvidenceSection' in query:
             return FakeResult([{'total': 0}]) if 'count(e)' in query else FakeResult([])
         if 'RETURN count(DISTINCT s) AS total' in query:

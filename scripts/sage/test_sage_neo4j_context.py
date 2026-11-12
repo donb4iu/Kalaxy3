@@ -154,6 +154,9 @@ class ReadContextSession:
             return Result([{'uid': 'p:agent', 'path': 'AGENTS.md',
                             'semantic_qualification': 'not_evaluated'}]
                           if self.has_roots else [])
+        if 'SageRelationClaim' in query:
+            return (Result([{'total': 0}]) if 'count(DISTINCT c)' in query
+                    else Result([]))
         if 'SageEvidenceSection' in query:
             if 'count(e)' in query:
                 return Result([{'total': 2}])

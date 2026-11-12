@@ -216,10 +216,13 @@ def snapshot(repo: Path, revision: str,
     edges = candidate_edges(sources, concepts, repo=repo)
     links = explicit_links(repo, sources)
     from sage_neo4j_context import root_governance_sources, source_sections
+    from sage_neo4j_claims import pinned_claims
+    claims = pinned_claims(repo, sources)
     sections = source_sections(repo, sources)
     governance = root_governance_sources(sources)
     return {'revision': revision, 'sources': sources, 'concepts': concepts,
             'source_sections': sections, 'root_governance_sources': governance,
+            'relationship_claims': claims,
             'candidate_seed_limit': MAX_CONCEPTS,
             'candidate_seed_cap_reached': len(concepts) >= MAX_CONCEPTS,
             'candidate_edges': edges, 'explicit_source_links': links,

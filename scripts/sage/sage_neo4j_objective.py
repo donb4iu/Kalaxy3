@@ -239,9 +239,48 @@ def evidence_sections(session: Any, identifier: str, uids: list[str],
     return total, [dict(row) for row in rows]
 
 
+def relationship_claim_page(session: Any, identifier: str, uids: list[str],
+                            offset: int, limit: int) -> tuple[int, list[dict[str, Any]]]:
+    """Read globally registered and source-adjacent claims without qualification.
+
+    Args:
+        session: Read-only Neo4j session.
+        identifier: Exact candidate projection identity.
+        uids: Candidate, root and one-hop source identities.
+        offset: Independent claim pagination offset.
+        limit: Transport limit, not a semantic relevance threshold.
+    """
+    scoped = '''MATCH (p:SageProjection {id:$id})
+       WHERE p.state='candidate'
+       MATCH (c:SageRelationClaim)-[:IN_PROJECTION]->(p)
+       WHERE c.scope='kalaxy3_implementation' OR EXISTS {
+         MATCH (c)-[:CLAIM_SUBJECT|CLAIM_OBJECT]->(s:SageSource)-[:IN_PROJECTION]->(p)
+         WHERE s.uid IN $uids
+       }'''
+    params = {'id': identifier, 'uids': uids}
+    total = session.run(scoped + ' RETURN count(DISTINCT c) AS total',
+                        **params).single()['total']
+    result = session.run(scoped + '''
+       MATCH (c)-[:CLAIM_SUBJECT]->(subject:SageSource)-[:IN_PROJECTION]->(p)
+       MATCH (c)-[:CLAIM_EVIDENCE]->(proof:SageSource)-[:IN_PROJECTION]->(p)
+       OPTIONAL MATCH (c)-[:CLAIM_OBJECT]->(target:SageSource)-[:IN_PROJECTION]->(p)
+       RETURN DISTINCT c.uid AS uid, c.claim_id AS claim_id,
+              c.kind AS kind, c.scope AS scope,
+              subject.path AS subject_path, target.path AS object_path,
+              proof.path AS evidence_path, proof.git_oid AS evidence_git_oid,
+              c.evidence_sha256 AS evidence_sha256,
+              c.start_line AS start_line, c.quote_sha256 AS quote_sha256,
+              c.attestation AS attestation,
+              c.semantic_qualification AS semantic_qualification
+       ORDER BY claim_id, uid SKIP $offset LIMIT $limit''',
+                         **params, offset=offset, limit=limit)
+    return total, [dict(row) for row in result]
+
+
 def context_readback(session: Any, identifier: str,
                      sources: list[dict[str, Any]],
-                     offset: int, limit: int) -> dict[str, Any]:
+                     offset: int, limit: int, claim_offset: int,
+                     claim_limit: int) -> dict[str, Any]:
     """Collect attested root and related-source context with independent paging.
 
     Args:
@@ -250,6 +289,8 @@ def context_readback(session: Any, identifier: str,
         sources: Already-paged lexical candidate sources.
         offset: Context section page offset.
         limit: Context section page size.
+        claim_offset: Independent relationship-claim offset.
+        claim_limit: Maximum claim pointers in the returned page.
     """
     roots = governance_sources(session, identifier)
     links = literal_links(session, identifier, sources)
@@ -258,7 +299,15 @@ def context_readback(session: Any, identifier: str,
                       [row['related_uid'] for row in links
                        if row.get('related_uid')]))
     total, sections = evidence_sections(session, identifier, uids, offset, limit)
-    return {'governance_source_pointers': roots,
+    claim_total, claims = relationship_claim_page(
+        session, identifier, uids, claim_offset, claim_limit)
+    return {'relationship_claims': claims,
+            'total_relationship_claims': claim_total,
+            'claim_offset': claim_offset, 'claim_limit': claim_limit,
+            'next_claim_offset': (claim_offset + claim_limit
+                                  if claim_offset + claim_limit < claim_total
+                                  else None),
+            'governance_source_pointers': roots,
             'governance_scope': 'kalaxy3_implementation_source_pointer_only',
             'context_sections': sections, 'total_context_sections': total,
             'section_offset': offset, 'section_limit': limit,
@@ -270,7 +319,9 @@ def objective_evidence(session: Any, identifier: str, objective: str,
                        offset: int = 0, limit: int = 30,
                        proposed_concepts: list[str] | None = None,
                        section_offset: int = 0,
-                       section_limit: int = 30) -> dict[str, Any]:
+                       section_limit: int = 30,
+                       claim_offset: int = 0,
+                       claim_limit: int = 30) -> dict[str, Any]:
     """Return a paginated candidate subgraph, not an objective judgment.
 
     Args:
@@ -282,9 +333,12 @@ def objective_evidence(session: Any, identifier: str, objective: str,
         proposed_concepts: Optional external candidate concept names.
         section_offset: Independent context-section page offset.
         section_limit: Maximum context-section pointers per page.
+        claim_offset: Independent typed-claim page offset.
+        claim_limit: Maximum source-attested claims per page.
     """
     page_bounds(offset, limit)
     page_bounds(section_offset, section_limit)
+    page_bounds(claim_offset, claim_limit)
     ensure_candidate_projection(session, identifier)
     concepts = projection_concepts(session, identifier)
     matches = matching_concepts(objective, concepts)
@@ -293,7 +347,8 @@ def objective_evidence(session: Any, identifier: str, objective: str,
     selected = sorted({row['uid'] for row in matches + proposed + related})
     total, sources = source_page(session, identifier, selected, offset, limit)
     context = context_readback(session, identifier, sources,
-                               section_offset, section_limit)
+                               section_offset, section_limit,
+                               claim_offset, claim_limit)
     return {'projection_id': identifier, 'objective': objective,
             'match_method': 'lexical_alias_and_overlap_candidates',
             'matched_concepts': matches, 'caller_proposed_concepts': proposed,
