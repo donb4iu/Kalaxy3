@@ -272,3 +272,48 @@ obligation population, temporal/causal decision interpretation, cross-episode
 precision/recall, full DoD graph equivalence and production activation. No
 ordinary claim may override deterministic SAGE enforcement, Architect approval,
 or the separate deployment and Git promotion boundaries.
+
+## Objective-level recall: bounded independent measurement candidate
+
+**Status:** Read-only Issue #50 candidate measurement, not objective acceptance or
+semantic authority. The source–concept pair benchmark above does not measure
+whether a real objective retrieves the relevant source and typed-claim evidence.
+
+`scripts/sage/sage_neo4j_objective_measure.py` provides separate per-objective
+and micro-averaged **labeled-only** precision/recall for source pointers and
+source-attested relationship claims. It pages through all bounded source,
+section and claim results of the existing `objective_evidence()` read interface,
+and preserves distinct lexical candidate and contextual source counts. Missing
+or uncertain labels are not treated as negative judgments; unjudged retrieved
+identities are counted separately. It rejects duplicate annotations, unknown
+source/claim identifiers and source/graph revision mismatches. Its output states
+`measurement_only`, `semantic_qualification=not_evaluated`, and
+`architect_acceptance=not_evaluated`.
+
+The **external** annotation JSON uses `sage-neo4j-objective-labels-v1` with
+`projection_id`, `revision`, `fingerprint`, `annotator`, `annotation_reference`,
+and a nonempty `cases` list. Each case has `id`, the literal `objective`,
+`source_judgments` and `claim_judgments`. Each judgment identifies a real
+`path` or `claim_id`, `verdict` (`relevant`, `irrelevant`, `uncertain`) and a
+nonempty `basis`. The source and claim universe must already exist in the exact
+candidate graph. A deliberately unfilled judgment list means *not evaluated*.
+
+The local-only, read-only CLI uses the existing pinned Neo4j client requirement
+(`neo4j==6.4.1`) and the existing environment secret
+`SAGE_NEO4J_PASSWORD`. An independent reviewer must supply the label document;
+the script does **not** produce its own ground truth.
+
+```bash
+python3 scripts/sage/sage-neo4j-objective-measure.py \
+  --projection-id "<existing-candidate-id>" \
+  --labels /private/path/to/independent-objective-labels.json \
+  --out /private/path/to/issue50-objective-metrics.json
+```
+
+This requires an already running **loopback** Neo4j candidate graph. The CLI
+rejects non-loopback Bolt URIs, uses a Neo4j read session, and creates an
+operator-private receipt without overwriting an existing one. It does not
+create, rebuild, activate or deploy the graph. Scores are limited to the named
+objectives and expressly judged identifiers; a missing independent label set,
+full-population review, live graph or external authority determination leaves
+DoD 06 and obligation qualification **open**, not passed.
