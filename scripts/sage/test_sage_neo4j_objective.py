@@ -70,6 +70,10 @@ class FakeSession:
             return FakeResult([{'from_uid': 'p:source-1', 'to_uid': 'p:source-2',
                                 'related_path': 'unmapped.bin',
                                 'semantic_authority': 'source_reference_only'}])
+        if 'ROOT_GOVERNANCE_POINTER' in query:
+            return FakeResult([])
+        if 'SageEvidenceSection' in query:
+            return FakeResult([{'total': 0}]) if 'count(e)' in query else FakeResult([])
         if 'RETURN count(DISTINCT s) AS total' in query:
             return FakeResult([{'total': 1}])
         if 'RETURN count(s) AS total' in query:

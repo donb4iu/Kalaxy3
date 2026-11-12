@@ -178,3 +178,47 @@ Globally applicable guardrail relationships, causal/historical alternatives,
 complete objective-level recall, and qualified operational proof remain
 subject to the existing Issue #50 acceptance ledger. No new gates, scores,
 or ontology authority are introduced.
+
+## Evidence-attested context pointers — bounded continuation
+
+**Status:** Candidate-only Issue #50 implementation. This extends the published
+objective-scoped retrieval path; it does not qualify a semantic relationship,
+change SAGE authority, activate Neo4j, or close the acceptance ledger.
+
+The pinned Git inventory now emits two additional rebuildable projection views:
+
+- `root_governance_sources`: actual root `AGENTS.md` / `SAGE.md` entries, if
+  present in the pinned Git tree, with content digests and source revision.
+  A `ROOT_GOVERNANCE_POINTER` graph edge makes them accessible for Kalaxy3
+  implementation-context retrieval even when the objective has no alias match.
+  This is a *repository-instruction source pointer*, not a determination that
+  every statement in those files applies to an arbitrary objective.
+- `source_sections`: literal Markdown headings for decision, alternatives,
+  context, rationale, assumptions, requirements, operational context, and
+  outcomes, with section hash and line span. All headings from repository-root
+  instruction documents are indexed as source-structure pointers. The graph
+  uses version-scoped `SageEvidenceSection` nodes and `SECTION_OF` links.
+  These point back to original source text; they do not copy the source bodies,
+  or infer accepted/rejected decisions, causes, correctness, or obligation scope.
+
+The `objective_evidence()` response includes provenance-bearing root source
+pointers, section metadata, independent section pagination (`section_offset`,
+`section_limit`, `next_section_offset`), and attested sections for one-hop
+literal source references. A missing semantic match or missing root pointer
+continues to mean `not_evaluated`, not qualified absence. Both concept-source
+pages and section pages are navigation, not semantic thresholds. The complete
+inventory remains accessible separately.
+
+Projection fingerprints now include an `attested_context_v1` schema marker to
+prevent reusing an older graph identity for a changed projection representation.
+The pinned source SHA-256 hashes already bind the deterministic section
+metadata and root-source existence to an exact Git revision. The new writer
+verifies context-node and governance-pointer counts in addition to original
+source/concept/reference counts. These safeguards do not constitute full graph
+rebuild-equivalence qualification under DoD 07.
+
+**Still unresolved:** source-qualified applicability of individual obligations,
+semantic interpretation of historical acceptance/rejection and decision rationale,
+complete temporal/causal relationships, cross-revision continuity, independent
+objective-level recall, authoritative promotion, and deployment. No root source
+pointer is an enforcement mechanism or a substitute for governed discovery.

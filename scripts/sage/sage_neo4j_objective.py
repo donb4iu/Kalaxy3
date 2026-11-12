@@ -177,7 +177,8 @@ def literal_links(session: Any, identifier: str,
        WHERE s.uid IN $uids
        MATCH (s)-[link:REFERENCES_SOURCE]-(other:SageSource)-[:IN_PROJECTION]->(p)
        RETURN DISTINCT startNode(link).uid AS from_uid,
-              endNode(link).uid AS to_uid, other.path AS related_path,
+              endNode(link).uid AS to_uid, other.uid AS related_uid,
+              other.path AS related_path,
               other.git_oid AS related_git_oid,
               other.content_sha256 AS related_content_sha256,
               link.semantic_authority AS semantic_authority
@@ -186,9 +187,90 @@ def literal_links(session: Any, identifier: str,
     return [dict(row) for row in result]
 
 
+def governance_sources(session: Any, identifier: str) -> list[dict[str, Any]]:
+    """Fetch existing root instruction pointers independent of objective wording.
+
+    Args:
+        session: Read-only Neo4j session.
+        identifier: Version-pinned candidate projection identity.
+    """
+    result = session.run('''MATCH (p:SageProjection {id:$id})
+       WHERE p.state='candidate'
+       MATCH (s:SageSource)-[r:ROOT_GOVERNANCE_POINTER]->(p)
+       RETURN s.uid AS uid, s.path AS path, s.git_oid AS git_oid,
+              s.content_sha256 AS content_sha256,
+              r.attestation AS attestation,
+              r.applicability AS applicability,
+              r.semantic_qualification AS semantic_qualification
+       ORDER BY path''', id=identifier)
+    return [dict(row) for row in result]
+
+
+def evidence_sections(session: Any, identifier: str, uids: list[str],
+                      offset: int, limit: int) -> tuple[int, list[dict[str, Any]]]:
+    """Page source-attested context headings without loading source bodies.
+
+    Args:
+        session: Read-only Neo4j session.
+        identifier: Exact candidate projection identity.
+        uids: Candidate and root-governance source identities.
+        offset: Section-page offset independent of source pagination.
+        limit: Section-page bound, not a relevance threshold.
+    """
+    if not uids:
+        return 0, []
+    scoped = '''MATCH (p:SageProjection {id:$id})
+       WHERE p.state='candidate'
+       MATCH (s:SageSource)-[:IN_PROJECTION]->(p)
+       WHERE s.uid IN $uids
+       MATCH (e:SageEvidenceSection)-[:SECTION_OF]->(s)
+       MATCH (e)-[:IN_PROJECTION]->(p)'''
+    params = {'id': identifier, 'uids': uids}
+    total = session.run(scoped + ' RETURN count(e) AS total',
+                        **params).single()['total']
+    rows = session.run(scoped + ''' RETURN e.uid AS uid, s.path AS source_path,
+       s.git_oid AS git_oid, s.content_sha256 AS source_sha256,
+       e.heading AS heading, e.kind AS kind, e.start_line AS start_line,
+       e.end_line AS end_line, e.section_sha256 AS section_sha256,
+       e.attestation AS attestation,
+       e.semantic_qualification AS semantic_qualification
+       ORDER BY source_path, start_line, uid SKIP $offset LIMIT $limit''',
+                       **params, offset=offset, limit=limit)
+    return total, [dict(row) for row in rows]
+
+
+def context_readback(session: Any, identifier: str,
+                     sources: list[dict[str, Any]],
+                     offset: int, limit: int) -> dict[str, Any]:
+    """Collect attested root and related-source context with independent paging.
+
+    Args:
+        session: Read-only Neo4j session.
+        identifier: Exact projection identity.
+        sources: Already-paged lexical candidate sources.
+        offset: Context section page offset.
+        limit: Context section page size.
+    """
+    roots = governance_sources(session, identifier)
+    links = literal_links(session, identifier, sources)
+    uids = sorted(set([row['uid'] for row in sources] +
+                      [row['uid'] for row in roots] +
+                      [row['related_uid'] for row in links
+                       if row.get('related_uid')]))
+    total, sections = evidence_sections(session, identifier, uids, offset, limit)
+    return {'governance_source_pointers': roots,
+            'governance_scope': 'kalaxy3_implementation_source_pointer_only',
+            'context_sections': sections, 'total_context_sections': total,
+            'section_offset': offset, 'section_limit': limit,
+            'next_section_offset': (offset + limit if offset + limit < total
+                                    else None), 'literal_source_links': links}
+
+
 def objective_evidence(session: Any, identifier: str, objective: str,
                        offset: int = 0, limit: int = 30,
-                       proposed_concepts: list[str] | None = None) -> dict[str, Any]:
+                       proposed_concepts: list[str] | None = None,
+                       section_offset: int = 0,
+                       section_limit: int = 30) -> dict[str, Any]:
     """Return a paginated candidate subgraph, not an objective judgment.
 
     Args:
@@ -198,8 +280,11 @@ def objective_evidence(session: Any, identifier: str, objective: str,
         offset: Zero-based source-page offset.
         limit: Bounded number of source records per page.
         proposed_concepts: Optional external candidate concept names.
+        section_offset: Independent context-section page offset.
+        section_limit: Maximum context-section pointers per page.
     """
     page_bounds(offset, limit)
+    page_bounds(section_offset, section_limit)
     ensure_candidate_projection(session, identifier)
     concepts = projection_concepts(session, identifier)
     matches = matching_concepts(objective, concepts)
@@ -207,12 +292,14 @@ def objective_evidence(session: Any, identifier: str, objective: str,
     related = adjacent_concepts(session, identifier, matches + proposed)
     selected = sorted({row['uid'] for row in matches + proposed + related})
     total, sources = source_page(session, identifier, selected, offset, limit)
+    context = context_readback(session, identifier, sources,
+                               section_offset, section_limit)
     return {'projection_id': identifier, 'objective': objective,
             'match_method': 'lexical_alias_and_overlap_candidates',
             'matched_concepts': matches, 'caller_proposed_concepts': proposed,
             'unknown_proposed_concepts': unknown, 'related_concepts': related,
-            'sources': sources, 'literal_source_links': literal_links(
-                session, identifier, sources), 'total_candidate_sources': total,
+            **context, 'sources': sources,
+            'total_candidate_sources': total,
             'offset': offset, 'limit': limit,
             'next_offset': offset + limit if offset + limit < total else None,
             'broader_inventory_available': True,

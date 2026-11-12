@@ -13,6 +13,8 @@ SCHEMA = (
     'CREATE CONSTRAINT sage_proj_id IF NOT EXISTS FOR (p:SageProjection) REQUIRE p.id IS UNIQUE',
     'CREATE CONSTRAINT sage_concept_id IF NOT EXISTS FOR (c:SageConcept) REQUIRE c.uid IS UNIQUE',
     'CREATE CONSTRAINT sage_source_id IF NOT EXISTS FOR (s:SageSource) REQUIRE s.uid IS UNIQUE',
+    ('CREATE CONSTRAINT sage_section_id IF NOT EXISTS '
+     'FOR (e:SageEvidenceSection) REQUIRE e.uid IS UNIQUE'),
 )
 
 
@@ -136,6 +138,51 @@ def write_related(tx: Any, rows: list[dict[str, Any]]) -> None:
        MERGE (left)-[:RELATED_CONCEPT]->(right)''', rows=rows).consume()
 
 
+def write_sections(tx: Any, identifier: str, rows: list[dict[str, Any]]) -> None:
+    """Project literal context-section pointers, not qualified decisions.
+
+    Args:
+        tx: Neo4j write transaction.
+        identifier: Exact candidate projection identity.
+        rows: Revision-bound heading metadata and source pointers.
+    """
+    tx.run('''MATCH (p:SageProjection {id:$projection})
+       WHERE p.state='candidate'
+       UNWIND $rows AS row
+       MATCH (s:SageSource {uid:row.source_uid})-[:IN_PROJECTION]->(p)
+       MERGE (e:SageEvidenceSection {uid:row.uid})
+       SET e.heading=row.heading, e.kind=row.kind,
+           e.start_line=row.start_line, e.end_line=row.end_line,
+           e.section_sha256=row.section_sha256,
+           e.source_sha256=row.source_sha256,
+           e.attestation='literal_markdown_heading',
+           e.semantic_qualification='not_evaluated'
+       MERGE (e)-[:SECTION_OF]->(s)
+       MERGE (e)-[:IN_PROJECTION]->(p)''', projection=identifier,
+           rows=rows).consume()
+
+
+def write_governance_pointers(tx: Any, identifier: str,
+                              rows: list[dict[str, Any]]) -> None:
+    """Link attested root instruction sources, without inventing obligations.
+
+    Args:
+        tx: Neo4j write transaction.
+        identifier: Exact pinned candidate projection identity.
+        rows: Repository-root source pointers with Git provenance.
+    """
+    tx.run('''MATCH (p:SageProjection {id:$projection})
+       WHERE p.state='candidate'
+       UNWIND $rows AS row
+       MATCH (s:SageSource {uid:row.source_uid})-[:IN_PROJECTION]->(p)
+       MERGE (s)-[r:ROOT_GOVERNANCE_POINTER]->(p)
+       SET r.attestation='repository_root_instruction_location',
+           r.applicability='repository_implementation_context_pointer',
+           r.semantic_qualification='not_evaluated'
+       ''',
+           projection=identifier, rows=rows).consume()
+
+
 def build_projection(session: Any, payload: dict[str, Any]) -> dict[str, Any]:
     """Rebuild a version-scoped candidate without altering any active pointer.
 
@@ -158,6 +205,11 @@ def build_projection(session: Any, payload: dict[str, Any]) -> dict[str, Any]:
     related = [{'from_uid': identifier + ':' + row['name'],
                 'to_uid': identifier + ':' + name}
                for row in payload['concepts'] for name in row['related']]
+    sections = [{'uid': identifier + ':section:' + row['identity'],
+                 'source_uid': identifier + ':' + row['source_id'], **row}
+                for row in payload.get('source_sections', [])]
+    governance = [{'source_uid': identifier + ':' + row['source_id']}
+                  for row in payload.get('root_governance_sources', [])]
     references = [{'from_uid': identifier + ':' + row['from_id'],
                    'to_uid': identifier + ':' + row['to_id']}
                   for row in payload.get('explicit_source_links', [])]
@@ -173,6 +225,10 @@ def build_projection(session: Any, payload: dict[str, Any]) -> dict[str, Any]:
         session.execute_write(write_related, batch)
     for batch in chunks(references):
         session.execute_write(write_source_references, batch)
+    for batch in chunks(sections):
+        session.execute_write(write_sections, identifier, batch)
+    for batch in chunks(governance):
+        session.execute_write(write_governance_pointers, identifier, batch)
     return verify_counts(session, identifier, payload)
 
 
@@ -202,6 +258,17 @@ def verify_counts(session: Any, identifier: str,
     expected = {key: len(payload['candidate_edges'] if key == 'candidate_edges'
                          else payload.get('explicit_source_links', []) if
                          key == 'source_links' else payload[key]) for key in queries}
+    if payload.get('root_governance_sources'):
+        query = ('MATCH (s:SageSource)-[:ROOT_GOVERNANCE_POINTER]->'
+                 '(p:SageProjection {id:$id}) RETURN count(s) AS count')
+        observed['root_governance_sources'] = session.run(
+            query, id=identifier).single()['count']
+        expected['root_governance_sources'] = len(payload['root_governance_sources'])
+    if payload.get('source_sections'):
+        query = ('MATCH (e:SageEvidenceSection)-[:IN_PROJECTION]->'
+                 '(p:SageProjection {id:$id}) RETURN count(e) AS count')
+        observed['source_sections'] = session.run(query, id=identifier).single()['count']
+        expected['source_sections'] = len(payload['source_sections'])
     if observed != expected:
         raise ValueError(f'NEO4J_PROJECTION_COUNT_MISMATCH: {observed} != {expected}')
     return {'projection_id': identifier, 'observed': observed,
