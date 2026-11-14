@@ -1,0 +1,47 @@
+# SAGE Issue #50: a rebuildable query projection, not an authority store.
+# This file is inert until a separately authorized platform phase is invoked.
+neo4j:
+  name: sage-neo4j
+  edition: community
+  passwordFromSecret: sage-neo4j-auth
+  acceptLicenseAgreement: "no"
+  resources:
+    requests:
+      cpu: "1000m"
+      memory: "3Gi"
+    limits:
+      cpu: "2000m"
+      memory: "4Gi"
+config:
+  server.memory.heap.initial_size: "1G"
+  server.memory.heap.max_size: "1G"
+  server.memory.pagecache.size: "1G"
+volumes:
+  data:
+    mode: dynamic
+    dynamic:
+      storageClassName: longhorn
+      accessModes:
+        - ReadWriteOnce
+      requests:
+        storage: 20Gi
+nodeSelector:
+  kubernetes.io/arch: amd64
+# Approved LAN access: MetalLB allocates a LAN address; no Internet route.
+# Default chart HTTP and backup listeners must never be exposed by this service.
+# Native Bolt TLS and protected Browser routes must be qualified before deployment.
+services:
+  neo4j:
+    enabled: true
+    spec:
+      type: LoadBalancer
+    ports:
+      http:
+        enabled: false
+      https:
+        enabled: true
+      bolt:
+        enabled: true
+      backup:
+        enabled: false
+logInitialPassword: false
