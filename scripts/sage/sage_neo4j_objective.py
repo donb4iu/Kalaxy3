@@ -381,6 +381,7 @@ def inventory_page(session: Any, identifier: str, offset: int = 0,
        MATCH (s:SageSource)-[:IN_PROJECTION]->(p)
        WHERE NOT $unmapped OR NOT EXISTS {
          MATCH (s)-[:CANDIDATE_CONCEPT]->(c:SageConcept)-[:IN_PROJECTION]->(p)
+         WHERE c.name <> 'full-repository-corpus'
        }'''
     args = {'id': identifier, 'unmapped': unmapped_only}
     total = session.run(scoped + ' RETURN count(s) AS total', **args).single()['total']
@@ -395,3 +396,47 @@ def inventory_page(session: Any, identifier: str, offset: int = 0,
             'next_offset': offset + limit if offset + limit < total else None,
             'evidence_presence': 'not_evaluated',
             'qualification': 'candidate_only'}
+
+
+def semantic_walk(session: Any, identifier: str, anchor_uid: str,
+                  depth: int = 2, offset: int = 0,
+                  limit: int = 30) -> dict[str, Any]:
+    """Traverse represented relationships in both directions without relevance gates.
+
+    Args:
+        session: Read-only Neo4j session.
+        identifier: Pinned candidate projection identifier.
+        anchor_uid: Exact source or concept UID in the projection.
+        depth: Number of relationship hops to explore (one through three).
+        offset: Zero-based page offset for graph paths.
+        limit: Maximum returned paths per page.
+    """
+    page_bounds(offset, limit)
+    if not 1 <= depth <= 3:
+        raise ValueError('INVALID_GRAPH_WALK_DEPTH')
+    if not anchor_uid or not anchor_uid.startswith(identifier + ':'):
+        raise ValueError('INVALID_GRAPH_WALK_ANCHOR')
+    ensure_candidate_projection(session, identifier)
+    query = f'''MATCH (p:SageProjection {{id:$id}})
+       MATCH (start)-[:IN_PROJECTION]->(p)
+       WHERE start.uid=$anchor
+       MATCH trail=(start)-[:CANDIDATE_CONCEPT|RELATED_CONCEPT|
+         REFERENCES_SOURCE|SECTION_OF|CLAIM_SUBJECT|CLAIM_OBJECT|
+         CLAIM_EVIDENCE*1..{depth}]-(other)
+       WHERE ALL(n IN nodes(trail) WHERE EXISTS {{
+         MATCH (n)-[:IN_PROJECTION]->(p)
+       }})
+       WITH trail, [n IN nodes(trail) | n.uid] AS stable_path
+       RETURN [n IN nodes(trail) | {{uid:n.uid, labels:labels(n),
+         metadata:properties(n)}}] AS nodes,
+         [r IN relationships(trail) | {{type:type(r),
+         from_uid:startNode(r).uid, to_uid:endNode(r).uid,
+         metadata:properties(r)}}] AS relationships
+       ORDER BY length(trail), stable_path SKIP $offset LIMIT $limit'''
+    results = [dict(row) for row in session.run(
+        query, id=identifier, anchor=anchor_uid, offset=offset, limit=limit)]
+    return {'projection_id': identifier, 'anchor_uid': anchor_uid,
+            'depth': depth, 'offset': offset, 'limit': limit,
+            'paths': results, 'next_offset': (offset + limit
+                        if len(results) == limit else None),
+            'interpretation': 'unfiltered_graph_navigation_only'}

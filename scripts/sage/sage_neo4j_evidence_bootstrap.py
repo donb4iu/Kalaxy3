@@ -22,7 +22,6 @@ GENERIC_TITLES = {'introduction', 'overview', 'contents', 'summary', 'readme',
                   'references', 'installation', 'testing', 'status', 'appendix',
                   'sage', 'kalaxy3', 'architecture', 'evidence', 'index',
                   'concepts', 'policy', 'workflow', 'examples'}
-MAX_CONCEPTS = 180
 LINK_RE = re.compile(r'\]\(([^)]+)\)')
 HEADING_RE = re.compile(r'^#\s+(.+?)\s*$', re.MULTILINE)
 
@@ -122,8 +121,6 @@ def derive_concepts(repo: Path, sources: list[dict[str, Any]],
             if name in candidates:
                 candidates[name]['origin_refs'].append(origin)
                 continue
-            if len(candidates) >= MAX_CONCEPTS:
-                continue
             candidates[name] = {'name': name, 'aliases': [label, name],
                                 'related': [], 'dimensions': ['candidate_anchor'],
                                 'origin_paths': [source['path']],
@@ -200,6 +197,42 @@ def explicit_links(repo: Path, sources: list[dict[str, Any]]) -> list[dict[str, 
     return [unique[key] for key in sorted(unique)]
 
 
+def corpus_anchor(sources: list[dict[str, Any]],
+                  scope: str) -> dict[str, Any] | None:
+    """Represent the entire Git source collection as one traversable concept.
+
+    Args:
+        sources: All inventoried sources in the selected revision.
+        scope: Provenance scope of this revision.
+    """
+    if not sources:
+        return None
+    source = next((item for item in sources
+                   if item['path'] == 'SAGE.md'), sources[0])
+    origin = {'path': source['path'], 'sha256': source['content_sha256'],
+              'revision': source['revision'], 'kind': 'git_corpus_anchor',
+              'scope': scope}
+    return {'name': 'full-repository-corpus',
+            'aliases': ['full repository corpus'], 'related': [],
+            'dimensions': ['navigation_anchor'],
+            'origin_paths': [source['path']], 'origin_refs': [origin],
+            'origin_scope': scope,
+            'semantic_authority': 'unverified_candidate'}
+
+
+def corpus_edges(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Connect every recorded source to the corpus without judging its topic.
+
+    Args:
+        sources: Complete provenance-preserving Git inventory.
+    """
+    return [{'source_id': source['identity'],
+             'concept': 'full-repository-corpus',
+             'state': 'candidate_unverified', 'matched_aliases': [],
+             'match_surfaces': ['git_corpus_membership']}
+            for source in sources]
+
+
 def snapshot(repo: Path, revision: str,
              concepts: list[dict[str, Any]],
              sources: list[dict[str, Any]] | None = None) -> dict[str, Any]:
@@ -213,7 +246,15 @@ def snapshot(repo: Path, revision: str,
     """
     sources = sources if sources is not None else source_records(repo, revision)
     ensure_lossless(sources, {row['path'] for row in tree_entries(repo, revision)})
-    edges = candidate_edges(sources, concepts, repo=repo)
+    concepts = list(concepts)
+    anchor = corpus_anchor(sources, 'pinned_revision')
+    if anchor and not any(row['name'] == anchor['name'] for row in concepts):
+        concepts.append(anchor)
+    concepts.sort(key=lambda row: row['name'])
+    lexical_concepts = [row for row in concepts
+                        if row['name'] != 'full-repository-corpus']
+    edges = candidate_edges(sources, lexical_concepts, repo=repo)
+    edges.extend(corpus_edges(sources))
     links = explicit_links(repo, sources)
     from sage_neo4j_context import root_governance_sources, source_sections
     from sage_neo4j_claims import pinned_claims
@@ -223,8 +264,8 @@ def snapshot(repo: Path, revision: str,
     return {'revision': revision, 'sources': sources, 'concepts': concepts,
             'source_sections': sections, 'root_governance_sources': governance,
             'relationship_claims': claims,
-            'candidate_seed_limit': MAX_CONCEPTS,
-            'candidate_seed_cap_reached': len(concepts) >= MAX_CONCEPTS,
+            'candidate_seed_limit': None,
+            'candidate_seed_cap_reached': False,
             'candidate_edges': edges, 'explicit_source_links': links,
             'model_state': 'evidence_derived_candidate' if concepts else 'not_evaluated',
             'model_origin': 'derived_from_governed_git_evidence',
