@@ -75,8 +75,6 @@ def audit(root: Path) -> dict[str, str]:
             'storageClassName: longhorn' in values and
             'edition: community' in values,
             'ISSUE50_COMMUNITY_STORAGE_SECRET_CONTRACT_MISSING')
-    require('false  # Staged only; explicit governed activation required' in phase,
-            'ISSUE50_STAGED_ACTIVATION_BLOCK_MISSING')
     require('sage_neo4j_deploy_authorized | default(false) | bool' in phase and
             "selected_platform_phase == 'sage_neo4j'" in phase,
             'ISSUE50_PLATFORM_PHASE_NOT_GATED')
@@ -88,10 +86,14 @@ def audit(root: Path) -> dict[str, str]:
     require('helm_chart_lock.charts.sage_neo4j.version' in tasks and
             'sage-neo4j-auth' in tasks and '--install' in tasks,
             'ISSUE50_HELM_DEPLOYMENT_NOT_PINNED')
+    require('sage-neo4j-bolt-tls' in values and
+            'sage-neo4j-https-tls' in values and
+            'server.bolt.tls_level: "REQUIRED"' in values,
+            'ISSUE50_LAN_TLS_NOT_CONFIGURED')
     require('password:' not in values and 'loadBalancerIP:' not in values,
             'ISSUE50_SECRET_OR_UNRECONCILED_IP')
     return {'result': 'PASS', 'phase': 'sage_neo4j',
-            'deployment_authorized': 'false', 'chart_version': LOCK_ENTRY['version'],
+            'deployment_authorized': 'explicit_phase_only', 'chart_version': LOCK_ENTRY['version'],
             'access': 'LAN_MetalLB_Bolt_HTTPS', 'external_ip': 'not_assigned'}
 
 

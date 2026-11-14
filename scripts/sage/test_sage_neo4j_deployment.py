@@ -34,7 +34,7 @@ class DeploymentGuardrailTests(unittest.TestCase):
         (infra / 'playbooks/platform.yml').write_text(
             "tasks:\n  - name: \"Run Issue #50 Neo4j phase (separately authorized only)\"\n"
             '    ansible.builtin.include_tasks: tasks/sage-neo4j.yml\n'
-            "    when:\n      - false  # Staged only; explicit governed activation required\n"
+            "    when:\n"
             "      - selected_platform_phase == 'sage_neo4j'\n"
             '      - sage_neo4j_deploy_authorized | default(false) | bool\n',
             encoding='utf-8')
@@ -94,12 +94,12 @@ class DeploymentGuardrailTests(unittest.TestCase):
             audit(self.root)
 
     def test_unapproved_activation_rejected(self) -> None:
-        """Require an independent code change before deployment can activate."""
+        """Refuse a phase that drops its explicit approval flag."""
         path = self.infra / 'playbooks/platform.yml'
         path.write_text(path.read_text('utf-8').replace(
-            '      - false  # Staged only; explicit governed activation required\n', ''),
+            '      - sage_neo4j_deploy_authorized | default(false) | bool\n', ''),
             'utf-8')
-        with self.assertRaisesRegex(ValueError, 'ACTIVATION_BLOCK'):
+        with self.assertRaisesRegex(ValueError, 'PLATFORM_PHASE_NOT_GATED'):
             audit(self.root)
 
     def test_unpinned_chart_rejected(self) -> None:

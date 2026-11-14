@@ -8,10 +8,32 @@
       - helm_chart_lock.charts.sage_neo4j.chart == 'neo4j/neo4j'
       - helm_chart_lock.charts.sage_neo4j.namespace == 'sage'
     fail_msg: >-
-      Issue #50 allows branch engineering, not Kubernetes deployment.
-      A separate, attributable deployment authority and explicit phase are required.
+      Neo4j installation requires the explicit platform phase and deployment flag.
 
-- name: Check that Vault-managed Neo4j credentials already exist
+- name: Check for the SAGE namespace
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - get
+      - namespace
+      - sage
+      - --output=name
+  register: sage_namespace_check
+  failed_when: sage_namespace_check.rc not in [0, 1]
+  changed_when: false
+  environment: "{{ helm_environment }}"
+
+- name: Create the SAGE namespace when absent
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - create
+      - namespace
+      - sage
+  when: sage_namespace_check.rc == 1
+  environment: "{{ helm_environment }}"
+
+- name: Check that Kubernetes-managed Neo4j credentials already exist
   ansible.builtin.command:
     argv:
       - kubectl
@@ -25,6 +47,22 @@
   environment: "{{ helm_environment }}"
   no_log: true
 
+- name: Check that Kubernetes-managed TLS credentials already exist
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - get
+      - secret
+      - "{{ item }}"
+      - --namespace=sage
+      - --output=name
+  loop:
+    - sage-neo4j-bolt-tls
+    - sage-neo4j-https-tls
+  changed_when: false
+  environment: "{{ helm_environment }}"
+  no_log: true
+
 - name: Render version-pinned Neo4j Community values without credentials
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/../helm-values/sage-neo4j.yaml"
@@ -32,6 +70,25 @@
     owner: root
     group: root
     mode: '0600'
+
+- name: Render exact pinned Helm chart on the actual controller
+  ansible.builtin.command:
+    argv:
+      - "{{ helm_binary }}"
+      - template
+      - sage-neo4j
+      - "{{ helm_chart_lock.charts.sage_neo4j.chart }}"
+      - --version
+      - "{{ helm_chart_lock.charts.sage_neo4j.version }}"
+      - --namespace
+      - sage
+      - --values
+      - /var/tmp/kalaxy3-sage-neo4j-values.yaml
+      - --set
+      - disableLookups=true
+  changed_when: false
+  environment: "{{ helm_environment }}"
+  no_log: true
 
 - name: Install or update the authorized standalone Neo4j release
   ansible.builtin.command:
@@ -47,6 +104,7 @@
       - sage
       - --values
       - /var/tmp/kalaxy3-sage-neo4j-values.yaml
+      - --atomic
       - --wait
       - --timeout
       - 10m

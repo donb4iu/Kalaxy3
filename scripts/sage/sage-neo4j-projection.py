@@ -63,7 +63,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         'qualification': 'candidate_only', 'all_mandatory_dod_passed': False,
     }
     if args.require_integration:
-        if not args.uri.startswith(('bolt://127.0.0.1:', 'bolt://localhost:')):
+        if not args.uri.startswith(('bolt://127.0.0.1:', 'bolt://localhost:',
+                                    'bolt+ssc://127.0.0.1:',
+                                    'bolt+ssc://localhost:',
+                                    'bolt+s://127.0.0.1:',
+                                    'bolt+s://localhost:')):
             raise PermissionError('local-only Neo4j required for this implementation test')
         password = os.environ.get('SAGE_NEO4J_PASSWORD')
         if not password:
