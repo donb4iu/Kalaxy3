@@ -9,7 +9,8 @@ import os
 from pathlib import Path
 from typing import Any
 
-from sage_neo4j_inventory import prepare
+from sage_neo4j_inventory import prepare, source_records
+from sage_neo4j_evidence_bootstrap import commit_id, derive_concepts, snapshot
 from sage_neo4j_lifecycle import ensure_lossless, projection_id, receipt_path
 from sage_neo4j_projection import build_projection, concept_evidence
 from sage_neo4j_objective import inventory_page, objective_evidence
@@ -43,8 +44,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         args: Parsed operator arguments.
     """
     root = args.repo.resolve()
-    config = args.config or root / 'sage-semantic-concepts.json'
-    payload = prepare(root, config)
+    if args.config is None:
+        revision = commit_id(root, 'HEAD')
+        sources = source_records(root, revision)
+        concepts = derive_concepts(root, sources, 'pinned_revision')
+        payload = snapshot(root, revision, concepts, sources)
+    else:
+        payload = prepare(root, args.config)
     expected = {row['path'] for row in payload['sources']}
     ensure_lossless(payload['sources'], expected)
     receipt: dict[str, Any] = {
