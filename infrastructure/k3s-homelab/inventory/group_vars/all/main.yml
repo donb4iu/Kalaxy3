@@ -85,3 +85,6 @@ deploy_grafana_operations_dashboard: true
 deploy_grafana_operations_alerts: true
 grafana_operations_namespace: observability
 # END KALAXY3 GRAFANA OPERATIONS
+
+# Issue #50 remains staged, never deployed by default.
+sage_neo4j_deploy_authorized: false

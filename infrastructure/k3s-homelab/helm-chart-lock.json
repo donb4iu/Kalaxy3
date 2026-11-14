@@ -1,75 +1,82 @@
 {
-    "charts": {
-        "fluent_bit_collector": {
-            "chart": "fluent/fluent-bit-collector",
-            "enabled_variable": "deploy_centralized_logging",
-            "namespace": "observability",
-            "release": "fluent-bit-collector",
-            "version": "1.0.9"
-        },
-        "headlamp": {
-            "chart": "headlamp/headlamp",
-            "enabled_variable": "install_headlamp",
-            "namespace": "headlamp",
-            "release": "headlamp",
-            "version": "0.43.0"
-        },
-        "kube_prometheus_stack": {
-            "chart": "prometheus-community/kube-prometheus-stack",
-            "enabled_variable": "install_observability",
-            "namespace": "observability",
-            "release": "kube-prometheus-stack",
-            "version": "87.19.0"
-        },
-        "kubecost": {
-            "chart": "oci://public.ecr.aws/kubecost/kubecost",
-            "enabled_variable": "install_kubecost",
-            "namespace": "kubecost",
-            "release": "kubecost",
-            "version": "3.2.1"
-        },
-        "loki": {
-            "chart": "grafana-community/loki",
-            "enabled_variable": "deploy_centralized_logging",
-            "namespace": "observability",
-            "release": "loki",
-            "version": "18.5.4"
-        },
-        "longhorn": {
-            "chart": "longhorn/longhorn",
-            "enabled_variable": "install_longhorn",
-            "namespace": "longhorn-system",
-            "release": "longhorn",
-            "version": "1.12.0"
-        },
-        "metallb": {
-            "chart": "metallb/metallb",
-            "enabled_variable": "always",
-            "namespace": "metallb-system",
-            "release": "metallb",
-            "version": "0.16.1"
-        },
-        "nfs_hdd": {
-            "chart": "nfs/nfs-subdir-external-provisioner",
-            "enabled_variable": "always",
-            "namespace": "storage",
-            "release": "nfs-hdd",
-            "version": "4.0.18"
-        },
-        "nfs_ssd": {
-            "chart": "nfs/nfs-subdir-external-provisioner",
-            "enabled_variable": "always",
-            "namespace": "storage",
-            "release": "nfs-ssd",
-            "version": "4.0.18"
-        },
-        "nvidia_device_plugin": {
-            "chart": "nvdp/nvidia-device-plugin",
-            "enabled_variable": "always",
-            "namespace": "nvidia-device-plugin",
-            "release": "nvidia-device-plugin",
-            "version": "0.19.3"
-        }
+  "charts": {
+    "fluent_bit_collector": {
+      "chart": "fluent/fluent-bit-collector",
+      "enabled_variable": "deploy_centralized_logging",
+      "namespace": "observability",
+      "release": "fluent-bit-collector",
+      "version": "1.0.9"
     },
-    "schema_version": "1.0"
+    "headlamp": {
+      "chart": "headlamp/headlamp",
+      "enabled_variable": "install_headlamp",
+      "namespace": "headlamp",
+      "release": "headlamp",
+      "version": "0.43.0"
+    },
+    "kube_prometheus_stack": {
+      "chart": "prometheus-community/kube-prometheus-stack",
+      "enabled_variable": "install_observability",
+      "namespace": "observability",
+      "release": "kube-prometheus-stack",
+      "version": "87.19.0"
+    },
+    "kubecost": {
+      "chart": "oci://public.ecr.aws/kubecost/kubecost",
+      "enabled_variable": "install_kubecost",
+      "namespace": "kubecost",
+      "release": "kubecost",
+      "version": "3.2.1"
+    },
+    "loki": {
+      "chart": "grafana-community/loki",
+      "enabled_variable": "deploy_centralized_logging",
+      "namespace": "observability",
+      "release": "loki",
+      "version": "18.5.4"
+    },
+    "longhorn": {
+      "chart": "longhorn/longhorn",
+      "enabled_variable": "install_longhorn",
+      "namespace": "longhorn-system",
+      "release": "longhorn",
+      "version": "1.12.0"
+    },
+    "metallb": {
+      "chart": "metallb/metallb",
+      "enabled_variable": "always",
+      "namespace": "metallb-system",
+      "release": "metallb",
+      "version": "0.16.1"
+    },
+    "nfs_hdd": {
+      "chart": "nfs/nfs-subdir-external-provisioner",
+      "enabled_variable": "always",
+      "namespace": "storage",
+      "release": "nfs-hdd",
+      "version": "4.0.18"
+    },
+    "nfs_ssd": {
+      "chart": "nfs/nfs-subdir-external-provisioner",
+      "enabled_variable": "always",
+      "namespace": "storage",
+      "release": "nfs-ssd",
+      "version": "4.0.18"
+    },
+    "nvidia_device_plugin": {
+      "chart": "nvdp/nvidia-device-plugin",
+      "enabled_variable": "always",
+      "namespace": "nvidia-device-plugin",
+      "release": "nvidia-device-plugin",
+      "version": "0.19.3"
+    },
+    "sage_neo4j": {
+      "chart": "neo4j/neo4j",
+      "enabled_variable": "sage_neo4j_deploy_authorized",
+      "namespace": "sage",
+      "release": "sage-neo4j",
+      "version": "2026.10.1"
+    }
+  },
+  "schema_version": "1.0"
 }

@@ -1,0 +1,15 @@
+{
+  "claims": [
+    {
+      "evidence_path": "AGENTS.md",
+      "id": "repository.sage.discovery.always",
+      "kind": "applicable_to",
+      "object_path": null,
+      "quote": "Every implementation, repair, investigation, documentation change, or\nevidence request begins with repository-owned SAGE discovery.",
+      "scope": "kalaxy3_implementation",
+      "start_line": 3,
+      "subject_path": "AGENTS.md"
+    }
+  ],
+  "version": 1
+}
