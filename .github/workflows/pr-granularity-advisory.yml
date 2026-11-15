@@ -25,4 +25,14 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: python3 scripts/ci/pr_granularity_advisory.py
+        run: |
+          if [[ ! -f scripts/ci/pr_granularity_advisory.py ]]; then
+            echo "::notice title=PR granularity advisory::Evaluator not present in trusted base revision; advisory begins after merge."
+            {
+              echo "### PR Granularity Advisory"
+              echo ""
+              echo "Not evaluated: trusted base revision has not yet installed the advisory."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 scripts/ci/pr_granularity_advisory.py
