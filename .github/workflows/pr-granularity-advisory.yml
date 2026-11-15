@@ -36,3 +36,13 @@ jobs:
             exit 0
           fi
           python3 scripts/ci/pr_granularity_advisory.py
+      - name: Evaluate objective-to-PR context continuity (advisory only)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: |
+          if [[ ! -f scripts/ci/pr_context_continuity.py ]]; then
+            echo "Continuity evaluator not yet in trusted base; advisory starts after merge." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 scripts/ci/pr_context_continuity.py
