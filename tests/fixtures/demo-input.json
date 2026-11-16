@@ -1,0 +1,60 @@
+{
+  "objective_id": "SAGE-CONTEXT-DEMO",
+  "objective": "Determine what Kalaxy3 observability work is implemented and what evidence is missing for an upcoming feature.",
+  "role": "fresh-engineering-analyst",
+  "as_of": "2026-11-15T21:50:00Z",
+  "main_revision": "fixture-main-revision",
+  "feature_revision": "fixture-feature-revision",
+  "search_scope": {
+    "git_main": "searched",
+    "git_feature": "searched",
+    "external_incident_records": "not_searched",
+    "issue50_graph": "searched"
+  },
+  "sources": [
+    {
+      "source_id": "git:feature:observability-plan",
+      "title": "Observability implementation plan",
+      "revision": "fixture-feature-revision",
+      "claimed_digest": null,
+      "access": "permitted",
+      "relevance": "relevant",
+      "epistemic_state": "source_observation",
+      "discovery_lanes": ["graph", "independent"],
+      "note": "This source is included; its claims are not confirmed by this prototype."
+    },
+    {
+      "source_id": "git:main:recovery-policy",
+      "title": "Recovery obligations from governed baseline",
+      "revision": "fixture-main-revision",
+      "claimed_digest": null,
+      "access": "permitted",
+      "relevance": "relevant",
+      "epistemic_state": "governed_decision",
+      "discovery_lanes": ["independent", "governance"],
+      "note": "Independent discovery found this cross-cutting obligation, which the graph omitted."
+    },
+    {
+      "source_id": "git:main:older-storage-alternative",
+      "title": "Previously deferred implementation alternative",
+      "revision": "fixture-main-revision",
+      "claimed_digest": null,
+      "access": "permitted",
+      "relevance": "uncertain",
+      "epistemic_state": "superseded",
+      "discovery_lanes": ["independent"],
+      "note": "Needs time-scoped applicability adjudication."
+    },
+    {
+      "source_id": "external:private-incident",
+      "title": "Restricted operations evidence",
+      "revision": "external-snapshot-unknown",
+      "claimed_digest": null,
+      "access": "restricted",
+      "relevance": "not_evaluated",
+      "epistemic_state": "not_evaluated",
+      "discovery_lanes": ["governance"],
+      "note": "Source existence may be known, but not accessible to this role."
+    }
+  ]
+}
