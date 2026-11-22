@@ -1,0 +1,47 @@
+name: SAGE audit accountability
+
+# Trusted-base PR event: PR content is data, never executable workflow code.
+on:
+  pull_request_target:
+    types: [opened, reopened, edited, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  audit-receipt:
+    name: SAGE audit receipt accountability
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Checkout trusted base scripts and public keys
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch untrusted candidate as data only
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: refs/pull/${{ github.event.pull_request.number }}/head
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify signed SAGE audit receipt and PR scope
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ ! -f trusted/scripts/ci/sage_audit_receipt.py ]]; then
+            echo 'SAGE_AUDIT=BOOTSTRAP_ONLY: verifier absent from trusted base'
+            exit 0
+          fi
+          python3 trusted/scripts/ci/sage_audit_receipt.py verify \
+            --repo candidate \
+            --base "$PR_BASE" \
+            --head "$PR_HEAD" \
+            --trusted-keys trusted/.github/sage/authorized-signers
