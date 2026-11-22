@@ -210,5 +210,18 @@ class ReceiptIntegrationTests(unittest.TestCase):
         self.assertEqual(before, after)
 
 
+    def test_ci_workflow_is_controlled_by_trusted_base(self) -> None:
+        """A PR cannot replace its own audit-check workflow."""
+        path = Path(__file__).resolve().parents[2] / (
+            ".github/workflows/sage-audit-accountability.yml"
+        )
+        content = path.read_text(encoding="utf-8")
+        self.assertIn("  pull_request_target:", content)
+        self.assertNotIn("  pull_request:", content)
+        self.assertIn("  contents: read", content)
+        self.assertIn("github.event.pull_request.base.sha", content)
+        self.assertIn("python3 trusted/scripts/ci/sage_audit_receipt.py", content)
+
+
 if __name__ == "__main__":
     unittest.main()

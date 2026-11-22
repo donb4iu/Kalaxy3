@@ -36,6 +36,8 @@ audit controller must not sign unless the independent role actually ran and
 its source-bound result is committed. Signing is an attestation of performance,
 not endorsement of the advice.
 
+The check uses `pull_request_target` to run its workflow from the trusted base, with `contents: read` token permissions. PR code is never executed. The initial installation PR has no base-branch workflow and is reviewed under existing governance; its new check only starts after merge. Protect future edits to this workflow under Architect-owned review.
+
 The PR check may be configured as a **required branch-protection status** by
 the Architect after keys and the trusted workflow are deployed. That requires
 recording execution or justified bypass, but not favorable audit findings.
