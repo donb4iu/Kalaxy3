@@ -59,6 +59,15 @@ jobs:
         env:
           GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: |
+          if [[ ! -f scripts/ci/pr_inquiry_observation.py ]]; then
+            echo "::notice title=SAGE inquiry advisory::Not evaluated: observer is absent from trusted base; available after promotion."
+            {
+              echo "### SAGE semantic inquiry and work view"
+              echo ""
+              echo "Not evaluated: the trusted base does not yet include the observer."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           python3 scripts/ci/pr_inquiry_observation.py \
             --event "$GITHUB_EVENT_PATH" \
             --candidate untrusted-pr \
