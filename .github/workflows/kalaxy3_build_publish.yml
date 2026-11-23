@@ -352,3 +352,100 @@ jobs:
           ${{ runner.temp }}/sage-artifact-promotion/promotion-events.jsonl
           ${{ runner.temp }}/sage-artifact-promotion/promotion-prepare-output.txt
         if-no-files-found: error
+
+  sage-signer-portable-stage:
+    name: SAGE signing controller multi-architecture OCI stage
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    needs: [sage-governance, mkdocs-validation]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      SIGNER_SOURCE: scripts/sage/sage-remote-signing
+      STAGE_IMAGE: donb4iu/sage-audit-signing
+      STAGE_TAG: stage-${{ github.sha }}
+      STAGE_ARCHIVE: ${{ github.workspace }}/sage-signer-stage.oci.tar
+      STAGE_ARTIFACT_NAME: sage-signer-stage-oci-${{ github.sha }}
+    steps:
+      - name: Checkout exact untrusted feature-branch source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Detect signing controller source
+        id: source
+        shell: bash
+        run: |
+          if [[ -f "$SIGNER_SOURCE/Dockerfile" ]]; then
+            echo 'present=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'present=false' >> "$GITHUB_OUTPUT"
+            echo 'Signer source absent: no OCI image staged for this branch.'
+          fi
+      - name: Set up Python 3.12
+        if: steps.source.outputs.present == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run existing verifier and signing regression tests
+        if: steps.source.outputs.present == 'true'
+        shell: bash
+        run: |
+          python3 -m venv "$RUNNER_TEMP/sage-signer-tests"
+          "$RUNNER_TEMP/sage-signer-tests/bin/pip" install -r "$SIGNER_SOURCE/requirements-dev.txt"
+          python3 -m unittest discover -s tests/ci -p test_sage_audit_receipt.py -v
+          SAGE_PR61_SOURCE="$GITHUB_WORKSPACE/scripts/ci/sage_audit_receipt.py" \
+            PYTHONPATH="$GITHUB_WORKSPACE/$SIGNER_SOURCE" \
+            "$RUNNER_TEMP/sage-signer-tests/bin/python" -m unittest discover \
+              -s "$SIGNER_SOURCE/tests" -v
+      - name: Set up QEMU
+        if: steps.source.outputs.present == 'true'
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        if: steps.source.outputs.present == 'true'
+        uses: docker/setup-buildx-action@v3
+      - name: Build AMD64 and ARM64 signing-controller OCI stage
+        if: steps.source.outputs.present == 'true'
+        id: signer_stage_build
+        uses: docker/build-push-action@v6
+        with:
+          context: scripts/sage/sage-remote-signing
+          file: scripts/sage/sage-remote-signing/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: false
+          outputs: type=oci,dest=${{ env.STAGE_ARCHIVE }}
+          tags: ${{ env.STAGE_IMAGE }}:${{ env.STAGE_TAG }}
+          provenance: false
+      - name: Persist immutable signing-controller OCI stage
+        if: steps.source.outputs.present == 'true'
+        id: signer_stage_artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.STAGE_ARTIFACT_NAME }}
+          path: ${{ env.STAGE_ARCHIVE }}
+          compression-level: 0
+          if-no-files-found: error
+      - name: Record source-bound multi-platform OCI stage receipt
+        if: steps.source.outputs.present == 'true'
+        shell: bash
+        run: |
+          python3 scripts/sage/sage-stage-receipt.py \
+            --source-sha "$GITHUB_SHA" \
+            --image-repository "$STAGE_IMAGE" \
+            --stage-tag "$STAGE_TAG" \
+            --index-digest "${{ steps.signer_stage_build.outputs.digest }}" \
+            --oci-archive "$STAGE_ARCHIVE" \
+            --storage-artifact-name "$STAGE_ARTIFACT_NAME" \
+            --storage-artifact-id "${{ steps.signer_stage_artifact.outputs.artifact-id }}" \
+            --storage-artifact-digest "${{ steps.signer_stage_artifact.outputs.artifact-digest }}" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --output "$RUNNER_TEMP/sage-signer-stage-receipt.json"
+      - name: Persist signing-controller OCI stage receipt
+        if: steps.source.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sage-signer-stage-receipt-${{ github.sha }}
+          path: ${{ runner.temp }}/sage-signer-stage-receipt.json
+          if-no-files-found: error
