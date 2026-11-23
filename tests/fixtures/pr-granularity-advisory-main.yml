@@ -1,0 +1,48 @@
+name: PR granularity advisory
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  advise:
+    name: Inspect PR scope (advisory only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout trusted base revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - name: Evaluate linked milestone issue and DoD
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          if [[ ! -f scripts/ci/pr_granularity_advisory.py ]]; then
+            echo "::notice title=PR granularity advisory::Evaluator not present in trusted base revision; advisory begins after merge."
+            {
+              echo "### PR Granularity Advisory"
+              echo ""
+              echo "Not evaluated: trusted base revision has not yet installed the advisory."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 scripts/ci/pr_granularity_advisory.py
+      - name: Evaluate objective-to-PR context continuity (advisory only)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: |
+          if [[ ! -f scripts/ci/pr_context_continuity.py ]]; then
+            echo "Continuity evaluator not yet in trusted base; advisory starts after merge." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 scripts/ci/pr_context_continuity.py

@@ -46,3 +46,29 @@ jobs:
             exit 0
           fi
           python3 scripts/ci/pr_context_continuity.py
+
+      - name: Checkout candidate PR for untrusted read-only evidence
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: refs/pull/${{ github.event.pull_request.number }}/head
+          path: untrusted-pr
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Project SAGE inquiry and work status (advisory)
+        env:
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: |
+          python3 scripts/ci/pr_inquiry_observation.py \
+            --event "$GITHUB_EVENT_PATH" \
+            --candidate untrusted-pr \
+            --trusted . \
+            --output "$RUNNER_TEMP/sage-pr-work"
+      - name: Attach human-readable SAGE work view
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sage-pr-work-${{ github.event.pull_request.number }}
+          path: ${{ runner.temp }}/sage-pr-work/
+          retention-days: 14
+          if-no-files-found: warn

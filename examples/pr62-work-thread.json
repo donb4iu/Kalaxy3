@@ -1,0 +1,91 @@
+{
+  "schema": "sage-pr-work-thread-v1",
+  "objective": {
+    "id": "#62",
+    "title": "Activate independent SAGE PR accountability",
+    "intent": "Require trustworthy evidence and independent review before implementation becomes authoritative."
+  },
+  "milestone": {
+    "id": "proposed \u2014 issue link not verified",
+    "title": "Build and qualify the signing-controller image",
+    "proposal": "Reuse existing GitHub Actions multi-architecture conventions for linux/amd64 and linux/arm64."
+  },
+  "work": {
+    "done": [
+      "OpenBao installed, initialized, and unsealed",
+      "Architect and auditor Transit signing identities provisioned with cross-role denials",
+      "Encrypted Raft snapshot copied to independent SMB host and byte-verified",
+      "Initial GitHub main-branch PR protection ruleset created"
+    ],
+    "doing": [
+      "Align signing-controller image with existing GitHub Actions"
+    ],
+    "next": [
+      "Independently evaluate the PR granularity and existing CI conventions",
+      "Qualify auditor controller and complete remote Cloudflare access",
+      "Bind evidence to PR verification and enable mandatory audit status check"
+    ],
+    "blocked": [
+      "Independent audit controller not yet qualified",
+      "Semantic retrieval inquiry receipt not yet recorded or independently attested"
+    ]
+  },
+  "inquiries": [],
+  "iterations": [
+    {
+      "actor": "Architect",
+      "question": "Why are we requiring Docker on my Mac if Kalaxy3 already builds images using GitHub Actions?",
+      "change": "Discard the local Docker and Kubernetes BuildKit proposals. Inspect existing workflow."
+    },
+    {
+      "actor": "Architect",
+      "question": "Should the signing image use the existing multi-architecture approach?",
+      "change": "Treat Buildx AMD64/ARM64 prior art as a milestone input, not a new build system."
+    }
+  ],
+  "raci": [
+    {
+      "role": "Narrator",
+      "state": "Not evidenced for this milestone"
+    },
+    {
+      "role": "Observatory",
+      "state": "Not evidenced for this milestone"
+    },
+    {
+      "role": "Independent auditor",
+      "state": "Not qualified for this milestone"
+    },
+    {
+      "role": "Path Critic",
+      "state": "Not evidenced for this milestone"
+    }
+  ],
+  "learnings": [
+    {
+      "summary": "Existing Buildx prior art should be consulted before proposing image-build infrastructure.",
+      "disposition": "SPR candidate; not yet issued or independently accepted"
+    },
+    {
+      "summary": "The dashboard should show the first inquiry and Architect's iterative corrections, not require the Architect to decode internal SAGE event names.",
+      "disposition": "Architecture clarification; candidate for semantic enrichment"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "Multi-architecture container publication",
+      "state": "Existing capability identified",
+      "evidence": ".github/workflows/kalaxy3_build_publish.yml \u2014 Buildx uses linux/amd64 and linux/arm64 for docs image; applicability to signer controller not yet qualified"
+    },
+    {
+      "name": "Independent PR qualification",
+      "state": "Partially implemented",
+      "evidence": "PR #61 audit verifier in main; PR #62 signing service in draft; mandatory signed-audit check pending"
+    },
+    {
+      "name": "Semantic inquiry-to-milestone linkage",
+      "state": "Not verified for this milestone",
+      "evidence": "No independently recorded semantic query/response has been supplied for the image-build choice"
+    }
+  ]
+}
