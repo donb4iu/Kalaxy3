@@ -128,6 +128,27 @@ def _platform_inventory(index: Mapping[str, Any]) -> tuple[list[dict[str, str]],
     return platforms, additional
 
 
+def _build_contract(profile: str) -> dict[str, Any]:
+    """Describe the actual Dockerfile and validation for a known stage profile."""
+    if profile == "documentation":
+        return {
+            "dockerfile": "yaml/nginx-docs/k8s-doc-to-nginx/nginx/Dockerfile.stage",
+            "source_validation": "make sage-stage-guardrails",
+            "documentation_validation": "make docs-mkdocs-publication-test",
+            "external_registry_credentials_used": False,
+            "production_rebuild_permitted": False,
+        }
+    if profile == "signing-controller":
+        return {
+            "dockerfile": "scripts/sage/sage-remote-signing/Dockerfile",
+            "source_validation": "make sage-stage-guardrails",
+            "signing_validation": "PR61 verifier and signing-controller regression tests",
+            "external_registry_credentials_used": False,
+            "production_rebuild_permitted": False,
+        }
+    raise WorkflowError(f"unsupported OCI stage build profile: {profile}")
+
+
 def build_receipt(
     *,
     source_sha: str,
@@ -140,6 +161,7 @@ def build_receipt(
     storage_artifact_digest: str,
     workflow_run_id: str,
     workflow_run_attempt: str,
+    build_profile: str = "documentation",
     generated_at: str | None = None,
 ) -> dict[str, Any]:
     source = _string(source_sha, "source SHA")
@@ -190,13 +212,7 @@ def build_receipt(
                 "artifact_digest": stored_digest,
             },
         },
-        "build_contract": {
-            "dockerfile": "yaml/nginx-docs/k8s-doc-to-nginx/nginx/Dockerfile.stage",
-            "source_validation": "make sage-stage-guardrails",
-            "documentation_validation": "make docs-mkdocs-publication-test",
-            "external_registry_credentials_used": False,
-            "production_rebuild_permitted": False,
-        },
+        "build_contract": _build_contract(build_profile),
         "invocation": {
             "provider": "github-actions",
             "workflow_run_id": _string(workflow_run_id, "workflow run ID"),
@@ -265,6 +281,10 @@ def self_test() -> int:
             raise RuntimeError("required multi-architecture platform inventory failed")
         if value["build_contract"]["external_registry_credentials_used"] is not False:
             raise RuntimeError("stage receipt did not preserve credential-free stage contract")
+        if value["build_contract"]["dockerfile"] != "yaml/nginx-docs/k8s-doc-to-nginx/nginx/Dockerfile.stage":
+            raise RuntimeError("documentation stage profile changed unexpectedly")
+        if _build_contract("signing-controller")["dockerfile"] != "scripts/sage/sage-remote-signing/Dockerfile":
+            raise RuntimeError("signer stage profile does not identify its Dockerfile")
         try:
             build_receipt(
                 source_sha="d" * 40,
@@ -325,6 +345,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--storage-artifact-digest")
     parser.add_argument("--workflow-run-id")
     parser.add_argument("--workflow-run-attempt")
+    parser.add_argument("--build-profile", choices=("documentation", "signing-controller"), default="documentation")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--self-test", action="store_true")
     return parser.parse_args()
@@ -354,6 +375,7 @@ def main() -> int:
         image_repository=args.image_repository,
         stage_tag=args.stage_tag,
         index_digest=args.index_digest,
+        build_profile=args.build_profile,
         oci_archive=args.oci_archive,
         storage_artifact_name=args.storage_artifact_name,
         storage_artifact_id=args.storage_artifact_id,

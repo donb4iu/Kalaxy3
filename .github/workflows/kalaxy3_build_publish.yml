@@ -441,6 +441,7 @@ jobs:
             --storage-artifact-digest "${{ steps.signer_stage_artifact.outputs.artifact-digest }}" \
             --workflow-run-id "$GITHUB_RUN_ID" \
             --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --build-profile signing-controller \
             --output "$RUNNER_TEMP/sage-signer-stage-receipt.json"
       - name: Persist signing-controller OCI stage receipt
         if: steps.source.outputs.present == 'true'
