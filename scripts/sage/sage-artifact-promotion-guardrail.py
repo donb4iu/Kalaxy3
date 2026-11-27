@@ -198,6 +198,55 @@ def main() -> int:
         require(item.get("disposition") == "implemented" and item.get("implementation"), f"{capability_id} is not mapped to the implemented candidate")
     require("sage-artifact-promotion-self-test" in makefile and "sage-artifact-promotion-guardrail" in makefile, "root Make integration missing artifact-promotion validation")
 
+    signer_environment = json.loads((ROOT / "infrastructure/k3s-homelab/cloudflare/sage-signer-promotion-environment.json").read_text(encoding="utf-8"))
+    require(
+        signer_environment.get("artifact_target", {}).get("repository") == "docker.io/donb4iu/sage-audit-signing",
+        "signer publication destination is not the approved Docker Hub repository",
+    )
+    serialized = json.dumps(signer_environment)
+    require(not any(x in serialized for x in (
+        "mynginx_docs", "sage-experience", "sage_experience")),
+        "signer promotion environment inherits documentation identity")
+    doc_id = environment.get("environment_id")
+    require(isinstance(doc_id, str) and any(
+        term in doc_id for term in ("sage-experience", "sage_experience")
+    ), "source environment identity is not the known SAGE experience")
+    expected_id = (doc_id.replace("sage-experience", "sage-signing-controller")
+                   .replace("sage_experience", "sage_signing_controller"))
+    require(signer_environment.get("environment_id") == expected_id,
+            "signer environment_id is not independently bound")
+    require(
+        signer_environment.get("deployment_binding") != environment.get("deployment_binding"),
+        "signer inherited documentation deployment binding",
+    )
+    require(signer_environment.get("authority") == environment.get("authority"),
+            "signer environment changed registry credential authority")
+    require(signer_environment.get("executor_contract") == environment.get("executor_contract"),
+            "signer environment changed qualified executor semantics")
+    for marker in (
+        "promotion_target:",
+        "default: documentation",
+        "- signing-controller",
+        "PROMOTION_TARGET: ${{ inputs.promotion_target }}",
+        "sage-signer-promotion-environment.json",
+        "sage-signer-stage-oci-",
+        "sage-signer-stage-receipt-",
+        "unsupported promotion target",
+        "receipt image repository mismatches chosen target",
+        "receipt Dockerfile mismatches chosen target",
+        "Normalize selected signing-controller stage paths without changing bytes",
+    ):
+        require(marker in ci_workflow, f"target-bound promotion workflow missing {marker}")
+    credential_boundary = ci_workflow.split("  promote-proven-stage:", 1)[1].split("  sage-signer-portable-stage:", 1)[0]
+    require(
+        credential_boundary.count("docker/login-action@v3") == 1,
+        "signer promotion added another registry credential boundary",
+    )
+    require(
+        "make sage-artifact-promotion-prepare" in credential_boundary
+        and "make sage-artifact-promotion-execute" in credential_boundary,
+        "signer target bypasses qualified promotion adapter",
+    )
     print("PASS exact OCI artifact promotion is build-free and digest-preserving")
     print("PASS target registry and deployment binding are explicit non-secret environment authority")
     print("PASS predecessor GitHub publication authority is reused through existing managed Docker Hub secrets")

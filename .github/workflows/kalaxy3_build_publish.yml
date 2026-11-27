@@ -24,6 +24,14 @@ on:
         description: Exact successful workflow run ID that produced the approved portable-stage artifact
         required: false
         type: string
+      promotion_target:
+        description: Select the existing documentation or SAGE signing-controller stage
+        required: true
+        default: documentation
+        type: choice
+        options:
+          - documentation
+          - signing-controller
 
 permissions:
   contents: write
@@ -209,7 +217,8 @@ jobs:
     env:
       PROMOTION_SOURCE_SHA: ${{ inputs.promotion_source_sha }}
       PROMOTION_STAGE_RUN_ID: ${{ inputs.promotion_stage_run_id }}
-      SAGE_PROMOTION_ENVIRONMENT: ${{ github.workspace }}/infrastructure/k3s-homelab/cloudflare/sage-experience-promotion-environment.json
+      PROMOTION_TARGET: ${{ inputs.promotion_target }}
+      SAGE_PROMOTION_ENVIRONMENT: ${{ github.workspace }}/infrastructure/k3s-homelab/cloudflare/${{ inputs.promotion_target == 'signing-controller' && 'sage-signer-promotion-environment.json' || 'sage-experience-promotion-environment.json' }}
 
     steps:
     - name: Check out exact approved source SHA
@@ -243,7 +252,7 @@ jobs:
     - name: Download exact portable-stage OCI artifact
       uses: actions/download-artifact@v4
       with:
-        name: sage-stage-oci-${{ inputs.promotion_source_sha }}
+        name: ${{ inputs.promotion_target == 'signing-controller' && 'sage-signer-stage-oci-' || 'sage-stage-oci-' }}${{ inputs.promotion_source_sha }}
         path: ${{ runner.temp }}/sage-stage-oci
         github-token: ${{ github.token }}
         repository: ${{ github.repository }}
@@ -252,11 +261,21 @@ jobs:
     - name: Download exact portable-stage receipt
       uses: actions/download-artifact@v4
       with:
-        name: sage-stage-receipt-${{ inputs.promotion_source_sha }}
+        name: ${{ inputs.promotion_target == 'signing-controller' && 'sage-signer-stage-receipt-' || 'sage-stage-receipt-' }}${{ inputs.promotion_source_sha }}
         path: ${{ runner.temp }}/sage-stage-receipt
         github-token: ${{ github.token }}
         repository: ${{ github.repository }}
         run-id: ${{ inputs.promotion_stage_run_id }}
+
+    - name: Normalize selected signing-controller stage paths without changing bytes
+      if: inputs.promotion_target == 'signing-controller'
+      shell: bash
+      run: |
+        set -euo pipefail
+        mv "$RUNNER_TEMP/sage-stage-oci/sage-signer-stage.oci.tar" \
+           "$RUNNER_TEMP/sage-stage-oci/sage-stage.oci.tar"
+        mv "$RUNNER_TEMP/sage-stage-receipt/sage-signer-stage-receipt.json" \
+           "$RUNNER_TEMP/sage-stage-receipt/sage-stage-receipt.json"
 
     - name: Verify downloaded receipt source/run lineage before credentials exist
       env:
@@ -272,7 +291,29 @@ jobs:
         invocation = receipt.get("invocation", {})
         artifact = receipt.get("artifact", {})
         storage = artifact.get("storage", {}) if isinstance(artifact, dict) else {}
-        expected_name = "sage-stage-oci-" + os.environ["PROMOTION_SOURCE_SHA"]
+        target = os.environ["PROMOTION_TARGET"]
+        expected = {
+            "documentation": (
+                "sage-stage-oci-", "donb4iu/mynginx_docs",
+                "yaml/nginx-docs/k8s-doc-to-nginx/nginx/Dockerfile.stage",
+            ),
+            "signing-controller": (
+                "sage-signer-stage-oci-", "donb4iu/sage-audit-signing",
+                "scripts/sage/sage-remote-signing/Dockerfile",
+            ),
+        }
+        if target not in expected:
+            raise SystemExit("unsupported promotion target")
+        prefix, repository, dockerfile = expected[target]
+        expected_name = prefix + os.environ["PROMOTION_SOURCE_SHA"]
+        if artifact.get("logical_image_repository") != repository:
+            raise SystemExit("receipt image repository mismatches chosen target")
+        if receipt.get("build_contract", {}).get("dockerfile") != dockerfile:
+            raise SystemExit("receipt Dockerfile mismatches chosen target")
+        if receipt.get("build_contract", {}).get("external_registry_credentials_used") is not False:
+            raise SystemExit("untrusted stage used external registry credentials")
+        if receipt.get("build_contract", {}).get("production_rebuild_permitted") is not False:
+            raise SystemExit("untrusted stage permits rebuild during promotion")
         if source.get("git_sha") != os.environ["PROMOTION_SOURCE_SHA"]:
             raise SystemExit("downloaded stage receipt source SHA differs from approved source")
         if str(invocation.get("workflow_run_id")) != os.environ["PROMOTION_STAGE_RUN_ID"]:
