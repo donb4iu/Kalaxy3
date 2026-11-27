@@ -14,6 +14,88 @@ def require(condition: bool, message: str) -> None:
         raise RuntimeError(message)
 
 
+def check_stage_build(region: str, name: str) -> None:
+    """Require an authorized, non-publishing, multi-arch OCI stage.
+
+    Args:
+        region: YAML text bounded to a single CI job.
+        name: Stage name for diagnostics.
+    """
+    for marker in (
+        "uses: docker/build-push-action@v6",
+        "platforms: linux/amd64,linux/arm64",
+        "push: false",
+        "outputs: type=oci,dest=",
+        "provenance: false",
+        "actions/upload-artifact@v4",
+        "--index-digest",
+    ):
+        require(marker in region, f"{name} stage missing marker: {marker}")
+    require(
+        region.count("uses: docker/build-push-action@v6") == 1,
+        f"{name} contains an unexpected additional image build",
+    )
+    for forbidden in (
+        "docker/login-action@",
+        "DOCKERHUB_",
+        "secrets.",
+        "push: true",
+    ):
+        require(forbidden not in region, f"{name} stage leaks publication authority: {forbidden}")
+
+
+def validate_ci_build_boundaries(ci_workflow: str) -> str:
+    """Enforce authorized stage jobs and isolated credentialed promotion.
+
+    Args:
+        ci_workflow: Full GitHub Actions workflow source.
+
+    Returns:
+        Credentialed promotion job region for downstream checks.
+    """
+    names = (
+        "  portable-stage:",
+        "  doc:",
+        "  promote-proven-stage:",
+        "  sage-signer-portable-stage:",
+    )
+    for name in names:
+        require(ci_workflow.count(name) == 1, f"missing or duplicated CI job: {name}")
+    portable, doc, promotion, signer = (ci_workflow.index(name) for name in names)
+    require(
+        portable < doc < promotion < signer,
+        "workflow job order changed across stage, doc, promotion, or signer",
+    )
+    portable_region = ci_workflow[portable:doc]
+    doc_region = ci_workflow[doc:promotion]
+    promotion_region = ci_workflow[promotion:signer]
+    signer_region = ci_workflow[signer:]
+    check_stage_build(portable_region, "documentation")
+    check_stage_build(signer_region, "SAGE signer")
+    require(
+        ci_workflow.count("docker/build-push-action@") == 2,
+        "unauthorized image-build action outside the two stage jobs",
+    )
+    require(
+        "docker/build-push-action@" not in doc_region
+        and "docker/build-push-action@" not in promotion_region,
+        "production documentation or promotion gained a build step",
+    )
+    require("DOCKERHUB_" not in doc_region, "documentation job gained registry credentials")
+    require(
+        ci_workflow.count("docker/login-action@v3") == 1
+        and promotion_region.count("docker/login-action@v3") == 1,
+        "Docker Hub login must occur only inside the promotion job",
+    )
+    require("push: true" not in ci_workflow, "workflow regained a direct production-push path")
+    require(
+        "if: github.event_name == 'push' && github.ref != 'refs/heads/main'" in signer_region
+        and "needs: [sage-governance, mkdocs-validation]" in signer_region,
+        "signer stage lost branch isolation or source governance dependency",
+    )
+    return promotion_region
+
+
 def main() -> int:
     workflow = (ROOT / "scripts/sage/workflows/artifact_promotion.py").read_text(encoding="utf-8")
     cli = (ROOT / "scripts/sage/sage-artifact-promote.py").read_text(encoding="utf-8")
@@ -66,27 +148,7 @@ def main() -> int:
         and "local workstation promotion execution is not permitted" in process,
         "Architect-selected GitHub-only publication constraint is not preserved",
     )
-    require(ci_workflow.count("docker/build-push-action@v6") == 1, "legacy production build-push path remains alongside portable stage")
-    require(ci_workflow.count("docker/login-action@v3") == 1, "Docker Hub credential exposure exists outside the single promotion boundary")
-    require("push: true" not in ci_workflow, "GitHub workflow still contains a production rebuild/push path")
-    portable_index = ci_workflow.index("  portable-stage:")
-    doc_index = ci_workflow.index("  doc:")
-    promotion_index = ci_workflow.index("  promote-proven-stage:")
-    require(
-        portable_index < doc_index < promotion_index,
-        "workflow job order no longer preserves portable-stage/doc/promotion trust-region separation",
-    )
-    portable_region = ci_workflow[portable_index:doc_index]
-    doc_region = ci_workflow[doc_index:promotion_index]
-    promotion_region = ci_workflow[promotion_index:]
-    require(
-        "DOCKERHUB_" not in portable_region and "docker/login-action" not in portable_region,
-        "portable stage gained production registry credentials",
-    )
-    require(
-        "DOCKERHUB_" not in doc_region and "docker/login-action" not in doc_region,
-        "historical documentation job still carries Docker Hub credentials",
-    )
+    promotion_region = validate_ci_build_boundaries(ci_workflow)
     require(
         "secrets.DOCKERHUB_USERNAME" in promotion_region
         and "secrets.DOCKERHUB_TOKEN" in promotion_region
@@ -136,6 +198,55 @@ def main() -> int:
         require(item.get("disposition") == "implemented" and item.get("implementation"), f"{capability_id} is not mapped to the implemented candidate")
     require("sage-artifact-promotion-self-test" in makefile and "sage-artifact-promotion-guardrail" in makefile, "root Make integration missing artifact-promotion validation")
 
+    signer_environment = json.loads((ROOT / "infrastructure/k3s-homelab/cloudflare/sage-signer-promotion-environment.json").read_text(encoding="utf-8"))
+    require(
+        signer_environment.get("artifact_target", {}).get("repository") == "docker.io/donb4iu/sage-audit-signing",
+        "signer publication destination is not the approved Docker Hub repository",
+    )
+    serialized = json.dumps(signer_environment)
+    require(not any(x in serialized for x in (
+        "mynginx_docs", "sage-experience", "sage_experience")),
+        "signer promotion environment inherits documentation identity")
+    doc_id = environment.get("environment_id")
+    require(isinstance(doc_id, str) and any(
+        term in doc_id for term in ("sage-experience", "sage_experience")
+    ), "source environment identity is not the known SAGE experience")
+    expected_id = (doc_id.replace("sage-experience", "sage-signing-controller")
+                   .replace("sage_experience", "sage_signing_controller"))
+    require(signer_environment.get("environment_id") == expected_id,
+            "signer environment_id is not independently bound")
+    require(
+        signer_environment.get("deployment_binding") != environment.get("deployment_binding"),
+        "signer inherited documentation deployment binding",
+    )
+    require(signer_environment.get("authority") == environment.get("authority"),
+            "signer environment changed registry credential authority")
+    require(signer_environment.get("executor_contract") == environment.get("executor_contract"),
+            "signer environment changed qualified executor semantics")
+    for marker in (
+        "promotion_target:",
+        "default: documentation",
+        "- signing-controller",
+        "PROMOTION_TARGET: ${{ inputs.promotion_target }}",
+        "sage-signer-promotion-environment.json",
+        "sage-signer-stage-oci-",
+        "sage-signer-stage-receipt-",
+        "unsupported promotion target",
+        "receipt image repository mismatches chosen target",
+        "receipt Dockerfile mismatches chosen target",
+        "Normalize selected signing-controller stage paths without changing bytes",
+    ):
+        require(marker in ci_workflow, f"target-bound promotion workflow missing {marker}")
+    credential_boundary = ci_workflow.split("  promote-proven-stage:", 1)[1].split("  sage-signer-portable-stage:", 1)[0]
+    require(
+        credential_boundary.count("docker/login-action@v3") == 1,
+        "signer promotion added another registry credential boundary",
+    )
+    require(
+        "make sage-artifact-promotion-prepare" in credential_boundary
+        and "make sage-artifact-promotion-execute" in credential_boundary,
+        "signer target bypasses qualified promotion adapter",
+    )
     print("PASS exact OCI artifact promotion is build-free and digest-preserving")
     print("PASS target registry and deployment binding are explicit non-secret environment authority")
     print("PASS predecessor GitHub publication authority is reused through existing managed Docker Hub secrets")

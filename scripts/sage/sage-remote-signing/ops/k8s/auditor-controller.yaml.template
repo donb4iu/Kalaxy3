@@ -1,0 +1,115 @@
+# TEMPLATE ONLY; must reconcile namespace, storage, TLS, CA, and Access.
+# Deploy separately under independent controller and signer custody.
+# Never apply this file with placeholders.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sage-auditor-signing-intents
+  namespace: __APPROVED_NAMESPACE__
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: __VERIFIED_STORAGE_CLASS__
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sage-auditor-signer
+  namespace: __APPROVED_NAMESPACE__
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sage-auditor-signer
+  namespace: __APPROVED_NAMESPACE__
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: sage-auditor-signer
+  template:
+    metadata:
+      labels:
+        app: sage-auditor-signer
+    spec:
+      serviceAccountName: sage-auditor-signer
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+      containers:
+        - name: signer
+          image: __PINNED_DIGEST_IMAGE__
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: CF_TEAM_DOMAIN
+              value: __CLOUDFLARE_TEAM_HTTPS_ORIGIN__
+            - name: CF_ACCESS_AUD
+              value: __CLOUDFLARE_SIGNING_APP_AUDIENCE__
+            - name: SAGE_SIGNER_EMAIL
+              value: __APPROVED_SIGNER_EMAIL__
+            - name: SAGE_SIGNER_ROLE
+              value: auditor
+            - name: BAO_ADDR
+              value: __PRIVATE_OPENBAO_HTTPS_ORIGIN__
+            - name: BAO_K8S_ROLE
+              value: sage-auditor-signer
+            - name: BAO_SIGN_KEY
+              value: sage-auditor
+            - name: BAO_CA_BUNDLE
+              value: /etc/openbao-ca/ca.pem
+            - name: BAO_SA_TOKEN_FILE
+              value: /var/run/secrets/kubernetes.io/serviceaccount/token
+            - name: SAGE_SIGN_DB
+              value: /data/intents.sqlite3
+            - name: SAGE_RSA_PADDING
+              value: pkcs1v15
+          volumeMounts:
+            - name: state
+              mountPath: /data
+            - name: openbao-ca
+              mountPath: /etc/openbao-ca
+              readOnly: true
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+      volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: sage-auditor-signing-intents
+        - name: openbao-ca
+          configMap:
+            name: __OPENBAO_CA_CONFIGMAP__
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sage-auditor-signer
+  namespace: __APPROVED_NAMESPACE__
+spec:
+  type: ClusterIP
+  selector:
+    app: sage-auditor-signer
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
